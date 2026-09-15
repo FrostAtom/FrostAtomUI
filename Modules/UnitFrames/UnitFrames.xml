@@ -1,0 +1,14 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="UnitFrames.lua"/>
+	
+	<Script file="Modules\Auras.lua"/>
+	<Script file="Modules\Cast.lua"/>
+	<Script file="Modules\Combat.lua"/>
+	<Script file="Modules\Health.lua"/>
+	<Script file="Modules\Leader.lua"/>
+	<Script file="Modules\LoseControl.lua"/>
+	<Script file="Modules\Name.lua"/>
+	<Script file="Modules\Power.lua"/>
+
+	<Script file="Blizzard.lua"/>
+</Ui>

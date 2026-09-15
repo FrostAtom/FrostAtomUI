@@ -1,0 +1,14 @@
+# Normalize line endings
+* text=auto
+
+*.lua text
+*.xml text
+*.toc text
+
+# Binary media
+*.tga binary
+*.blp binary
+*.BLP binary
+*.ttf binary
+*.mp3 binary
+*.ogg binary

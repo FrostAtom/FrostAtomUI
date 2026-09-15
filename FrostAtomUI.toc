@@ -1,0 +1,6 @@
+## Interface: 30300
+## Title: FrostAtom UI
+## Author: frostatom
+## SavedVariables: FrostAtomUIDB
+
+FrostAtomUI.xml

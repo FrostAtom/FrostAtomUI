@@ -1,0 +1,17 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="CooldownTimer.lua"/>
+	
+	<Include file="ActionBar\ActionBar.xml"/>
+	<Include file="UnitFrames\UnitFrames.xml"/>
+	<Include file="NamePlates\NamePlates.xml"/>
+
+	<Script file="AuraTracker.lua"/>
+	<Script file="Chat.lua"/>
+	<Script file="CombatLogFix.lua"/>
+	<Script file="Minimap.lua"/>
+	<Script file="Misc.lua"/>
+	<Script file="SoundAlerter.lua"/>
+	<!--Script file="Totems.lua"/-->
+	<Script file="TemporaryEnchant.lua"/>
+	<Script file="Runes.lua"/>
+</Ui>

@@ -1,0 +1,11 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="ActionBar.lua"/>
+	<Script file="Flash.lua"/>
+	<Script file="ActionButton.lua"/>
+	<Script file="PetBar.lua"/>
+	<Script file="ShapeshiftBar.lua"/>
+	<Script file="Binder.lua"/>
+	<Script file="Backpack.lua"/>
+	<Script file="MicroMenu.lua"/>
+	<Script file="Blizzard.lua"/>
+</Ui>
