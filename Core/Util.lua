@@ -23,6 +23,26 @@ function ns.tDeleteItem(tbl, item)
 end
 
 --------------------------------------------------
+-- Units
+
+local UnitAura = UnitAura
+local MAX_AURAS = 40
+
+-- Like UnitAura, but looks the aura up by spell id instead of name.
+-- Returns the same values as UnitAura, or nothing when the aura is absent.
+function ns.FindAura(unit, wantedSpellId, filter)
+	for i = 1, MAX_AURAS do
+		local name, _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
+		if not name then
+			return
+		end
+		if spellId == wantedSpellId then
+			return UnitAura(unit, i, filter)
+		end
+	end
+end
+
+--------------------------------------------------
 -- Frames
 
 function ns.noop() end
@@ -58,6 +78,30 @@ local PRINT_PREFIX = "|cff177cbf[" .. ADDON_NAME .. "]|r: "
 
 function ns.Print(format, ...)
 	print(PRINT_PREFIX .. format:format(...))
+end
+
+-- Cuts a UTF-8 string to at most `maxChars` characters without splitting a
+-- multi-byte character.
+function ns.TruncateUTF8(text, maxChars)
+	local chars, i, length = 0, 1, #text
+	while i <= length do
+		chars = chars + 1
+		if chars > maxChars then
+			return text:sub(1, i - 1)
+		end
+
+		local byte = text:byte(i)
+		if byte >= 0xF0 then
+			i = i + 4
+		elseif byte >= 0xE0 then
+			i = i + 3
+		elseif byte >= 0xC0 then
+			i = i + 2
+		else
+			i = i + 1
+		end
+	end
+	return text
 end
 
 -- 1234 -> "1.2k", 1234567 -> "1.2m"

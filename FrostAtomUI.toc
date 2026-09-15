@@ -1,15 +1,18 @@
 ## Interface: 30300
 ## Title: FrostAtom UI
+## Notes: Personal UI replacement: action bars, unit frames, nameplates, chat, minimap and PvP helpers.
 ## Author: frostatom
+## Version: 1.1.0
 ## SavedVariables: FrostAtomUIDB
 
-# Core: namespace, utilities, event dispatcher, saved variables
+# Core: namespace, utilities, event dispatcher, saved variables, settings
 Core\Init.lua
 Core\Util.lua
 Core\Events.lua
 Core\Media.lua
 Core\DB.lua
 Core\CVars.lua
+Core\Config.lua
 
 # Shared widgets
 Modules\CooldownTimer.lua
@@ -31,6 +34,10 @@ Modules\UnitFrames\Elements\Power.lua
 Modules\UnitFrames\Elements\Name.lua
 Modules\UnitFrames\Elements\Combat.lua
 Modules\UnitFrames\Elements\Leader.lua
+Modules\UnitFrames\Elements\RaidIcon.lua
+Modules\UnitFrames\Elements\ComboPoints.lua
+Modules\UnitFrames\Elements\Range.lua
+Modules\UnitFrames\Elements\Trinket.lua
 Modules\UnitFrames\Elements\Auras.lua
 Modules\UnitFrames\Elements\Cast.lua
 Modules\UnitFrames\Elements\LoseControl.lua
@@ -40,10 +47,12 @@ Modules\UnitFrames\Blizzard.lua
 # Nameplates
 Modules\NamePlates\NamePlates.lua
 Modules\NamePlates\Totems.lua
+Modules\NamePlates\Auras.lua
 
 Modules\AuraTracker.lua
 Modules\Runes.lua
 Modules\TemporaryEnchant.lua
+Modules\ExperienceBar.lua
 Modules\Minimap.lua
 Modules\CombatLogFix.lua
 

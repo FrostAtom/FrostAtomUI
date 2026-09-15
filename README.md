@@ -14,15 +14,19 @@ Core/
   Media.lua            texture/font paths, ns.CreateBackdrop
   DB.lua               saved variables (ns.db, ns.DB_LOADED event)
   CVars.lua            pins cvars to a value
+  Config.lua           nickname and screen positions (edit this to move things)
   Bootstrap.lua        calls every module's Initialize()
 Modules/
   ActionBar/           bars 1-5, pet & shapeshift bars, /bind, click flash
   UnitFrames/          engine + Menu.lua (right-click menu) + Elements/ + Layout.lua
-  Chat/                chat restyle, /pm whisper block
+  Chat/                chat restyle, URL copy, /pm whisper block
   Misc/                tooltips, popups, arena timers, mouse wheel paging, ...
-  NamePlates/          nameplates (ported from AtomNameplates, no dll) + totem icons
-  *.lua                one-file modules (minimap, runes, ...)
+  NamePlates/          nameplates (ported from AtomNameplates, no dll), totem icons, target debuffs
+  *.lua                one-file modules (minimap, runes, experience bar, ...)
 ```
+
+Unit frames: player, pet, target (+ combo points), focus, targets of target and
+focus, party (+ pets), arena (+ pets and trinket), boss1-4.
 
 Every file starts with `local _, ns = ...`; `ns` is the shared addon table.
 A module is `ns:NewModule("Name")` and subscribes to events with
@@ -52,3 +56,6 @@ npm run format         # format everything
 npm run format:check   # CI-style check
 luacheck .             # needs luacheck on PATH
 ```
+
+Both checks run on GitHub Actions for every push and pull request
+(`.github/workflows/lint.yml`).

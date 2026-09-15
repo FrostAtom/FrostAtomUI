@@ -1,13 +1,17 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Where every unit frame goes and which elements it gets.
+-- Where every unit frame goes and which elements it gets. Screen positions
+-- come from ns.Config.unitFrames.
+
+local MAX_ARENA_OPPONENTS = 3
+local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
 local PLAYER_AURA = { size = 34, gap = 2, anchor = "TOPRIGHT" }
 
-local function createPlayer(self)
+local function createPlayer(self, config)
 	local player = self:CreateRectangle("player", 200, 45)
-	player:SetPoint("TOPLEFT", 150, -40)
+	player:SetPoint(unpack(config.player))
 
 	local leader = self:AddElement(player, "leader")
 	leader:SetPoint("TOPLEFT", player.health, 24, 8)
@@ -21,12 +25,15 @@ local function createPlayer(self)
 
 	local castbar = self:AddElement(player, "castbar")
 	castbar:SetSize(240, 22)
-	castbar:SetPoint("CENTER", UIParent, 0, -270)
+	castbar:SetPoint(unpack(config.playerCastbar))
 	castbar.icon:SetSize(24, 24)
 
 	local loseControl = self:AddElement(player, "losecontrol")
 	loseControl:SetSize(32, 32)
 	loseControl:SetPoint("CENTER", UIParent)
+
+	local raidIcon = self:AddElement(player, "raidicon")
+	raidIcon:SetPoint("BOTTOM", player, "TOP", 0, -4)
 
 	local pet = self:CreatePet("pet", 45)
 	pet:SetPoint("RIGHT", player, "LEFT", -2, 0)
@@ -34,15 +41,40 @@ local function createPlayer(self)
 	return player
 end
 
-local function createParty(self)
+local function createTargets(self, player)
+	local target, targetOfTarget = self:CreateTarget("target", 200, 45)
+	target:SetPoint("LEFT", player, "RIGHT", 2, 0)
+	target:RegisterEvent("PLAYER_TARGET_CHANGED", "UpdateAll")
+	targetOfTarget:RegisterEvent("PLAYER_TARGET_CHANGED", "UpdateAll")
+
+	local combo = self:AddElement(target, "combopoints", { size = 8, gap = 2 })
+	combo:SetPoint("BOTTOMLEFT", target, "TOPLEFT", 2, 2)
+
+	local focus, focusTarget = self:CreateTarget("focus", 200, 45)
+	focus:SetPoint("LEFT", targetOfTarget, "RIGHT", 2, 0)
+	focus:RegisterEvent("PLAYER_FOCUS_CHANGED", "UpdateAll")
+	focusTarget:RegisterEvent("PLAYER_FOCUS_CHANGED", "UpdateAll")
+
+	for _, frame in ipairs({ target, focus }) do
+		local raidIcon = self:AddElement(frame, "raidicon")
+		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
+	end
+end
+
+local function createParty(self, config)
+	local point, x, y = unpack(config.party)
+
 	for i = 1, MAX_PARTY_MEMBERS do
 		local unit = "party" .. i
 		local frame = self:CreateRectangle(unit, 180, 40)
-		frame:SetPoint("TOPLEFT", 50, -150 - (i - 1) * (40 + 72))
+		frame:SetPoint(point, x, y - (i - 1) * config.partySpacing)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "UpdateAll")
 
 		local leader = self:AddElement(frame, "leader")
 		leader:SetPoint("TOPLEFT", frame.health, 24, 8)
+
+		local raidIcon = self:AddElement(frame, "raidicon")
+		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
 
 		local buffs = self:AddElement(frame, "buffs", { size = 180 / 8, max = 16 })
 		buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT")
@@ -59,16 +91,21 @@ local function createParty(self)
 		loseControl:SetSize(30, 30)
 		loseControl:SetPoint("CENTER")
 
+		self:AddElement(frame, "range")
+
 		local pet = self:CreatePet("partypet" .. i, 40)
 		pet:SetPoint("RIGHT", frame, "LEFT", -2, 0)
 		pet:RegisterEvent("PARTY_MEMBERS_CHANGED", "UpdateAll")
 	end
 end
 
-local function createArena(self)
-	for i = 1, 3 do
+local function createArena(self, config)
+	local point, x, y = unpack(config.arena)
+	local trinketSize = ns.Config.arenaTrinket.size
+
+	for i = 1, MAX_ARENA_OPPONENTS do
 		local frame = self:CreateRectangle("arena" .. i, 200, 50)
-		frame:SetPoint("RIGHT", -150, (3 - i) * (50 + 54))
+		frame:SetPoint(point, x, y + (MAX_ARENA_OPPONENTS - i) * config.arenaSpacing)
 
 		local debuffs = self:AddElement(frame, "debuffs", { size = 200 / 8, max = 16 })
 		debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT")
@@ -82,24 +119,45 @@ local function createArena(self)
 		loseControl:SetSize(32, 32)
 		loseControl:SetPoint("CENTER")
 
+		local raidIcon = self:AddElement(frame, "raidicon")
+		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
+
+		self:AddElement(frame, "range")
+
 		local pet = self:CreatePet("arenapet" .. i, 50)
 		pet:SetPoint("LEFT", frame, "RIGHT", 2, 0)
+
+		local trinket = self:AddElement(frame, "trinket", { size = trinketSize })
+		trinket:SetPoint("LEFT", pet, "RIGHT", 2, 0)
+	end
+end
+
+-- Encounter bosses (boss1-4): compact rectangles with a castbar.
+local function createBosses(self, config)
+	local point, x, y = unpack(config.boss)
+
+	for i = 1, MAX_BOSS_FRAMES do
+		local unit = "boss" .. i
+		local frame = self:CreateRectangle(unit, 180, 40)
+		frame:SetPoint(point, x, y - (i - 1) * config.bossSpacing)
+		frame:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", "UpdateAll")
+
+		local raidIcon = self:AddElement(frame, "raidicon")
+		raidIcon:SetPoint("RIGHT", frame, "LEFT", -4, 0)
+
+		local castbar = self:AddElement(frame, "castbar")
+		castbar:SetSize(176, 16)
+		castbar:SetPoint("TOP", frame, "BOTTOM", 0, -2)
+		castbar.icon:SetSize(18, 18)
 	end
 end
 
 function UF:Initialize()
-	local player = createPlayer(self)
+	local config = ns.Config.unitFrames
 
-	local target, targetOfTarget = self:CreateTarget("target", 200, 45)
-	target:SetPoint("LEFT", player, "RIGHT", 2, 0)
-	target:RegisterEvent("PLAYER_TARGET_CHANGED", "UpdateAll")
-	targetOfTarget:RegisterEvent("PLAYER_TARGET_CHANGED", "UpdateAll")
-
-	local focus, focusTarget = self:CreateTarget("focus", 200, 45)
-	focus:SetPoint("LEFT", targetOfTarget, "RIGHT", 2, 0)
-	focus:RegisterEvent("PLAYER_FOCUS_CHANGED", "UpdateAll")
-	focusTarget:RegisterEvent("PLAYER_FOCUS_CHANGED", "UpdateAll")
-
-	createParty(self)
-	createArena(self)
+	local player = createPlayer(self, config)
+	createTargets(self, player)
+	createParty(self, config)
+	createArena(self, config)
+	createBosses(self, config)
 end

@@ -17,6 +17,7 @@ local Chat = ns:GetModule("Chat")
 local REPLY_EN = "private messages closed"
 local REPLY_RU = "личные сообщения закрыты"
 local REPLY_COOLDOWN = 0.25
+local MAX_STORED_MESSAGES = 200
 
 local blocked = false
 local blockedMessages -- saved: { { sender = , time = , text = }, ... }
@@ -55,9 +56,22 @@ local function onWhisper(_, _, message, sender)
 	if lastMessageText ~= message then
 		lastMessageText = message
 		blockedMessages[#blockedMessages + 1] = { sender = sender, time = date("%m/%d/%y %H:%M:%S"), text = message }
+
+		-- Saved variables should not grow forever: drop the oldest.
+		while #blockedMessages > MAX_STORED_MESSAGES do
+			table.remove(blockedMessages, 1)
+		end
 	end
 
 	return true
+end
+
+-- Prints and forgets every stored message, oldest first.
+local function flushMessages()
+	for _, entry in ipairs(blockedMessages) do
+		printMessage(entry)
+	end
+	wipe(blockedMessages)
 end
 
 local function onWhisperSent(_, _, message, target)
@@ -65,10 +79,15 @@ local function onWhisperSent(_, _, message, target)
 		return true
 	end
 
-	for i = #blockedMessages, 1, -1 do
-		local entry = blockedMessages[i]
+	-- Print in the order they arrived, then drop them.
+	for _, entry in ipairs(blockedMessages) do
 		if entry.sender == target then
-			printMessage(table.remove(blockedMessages, i))
+			printMessage(entry)
+		end
+	end
+	for i = #blockedMessages, 1, -1 do
+		if blockedMessages[i].sender == target then
+			table.remove(blockedMessages, i)
 		end
 	end
 	whitelist[target] = true
@@ -107,9 +126,7 @@ SlashCmdList.FROSTATOMUI_PM = function()
 	setBlocked(not blocked)
 	ns:SaveVariable("pm_blocked", blocked)
 
-	while #blockedMessages > 0 do
-		printMessage(table.remove(blockedMessages))
-	end
+	flushMessages()
 	wipe(whitelist)
 end
 SLASH_FROSTATOMUI_PM1 = "/pm"

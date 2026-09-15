@@ -21,7 +21,6 @@ local CHAT_BUBBLE_TEXTURE = "Interface\\Tooltips\\ChatBubble-Background"
 local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-BarFill"
 
 local BAR_WIDTH, BAR_HEIGHT = 77, 3
-local BORDER_SIZE = ns.PixelPerfect(1)
 local CASTBAR_HEIGHT = 6
 local CASTBAR_ICON_SIZE = 10
 local TOTEM_ICON_SIZE = 24
@@ -30,6 +29,12 @@ local ICON_TEXCOORD = { 0.07, 0.93, 0.07, 0.93 }
 local CHAT_BUBBLE_MAX_WIDTH = 310
 
 ns:GetModule("CVars"):Pin("showVKeyCastbar", "1", "SHOW_TARGET_CASTBAR_IN_V_KEY")
+-- The client colors enemy players' plates by class with this on.
+ns:GetModule("CVars"):Pin("ShowClassColorInNameplate", "1")
+
+-- Every plate that has been set up; other files (auras) look the target's
+-- plate up here.
+NamePlates.plates = {}
 
 -- Blizzard regions we do not want drawn are re-parented here.
 local trash = CreateFrame("Frame")
@@ -40,9 +45,22 @@ trash:Hide()
 
 local PlateMixin = {}
 
+-- Blizzard's class colors -> the addon's brighter palette, keyed by the
+-- rounded rgb the client paints the bar with.
+local classColorKeys = {}
+local function colorKey(r, g, b)
+	return ("%d,%d,%d"):format(r * 100 + 0.5, g * 100 + 0.5, b * 100 + 0.5)
+end
+for class, color in pairs(RAID_CLASS_COLORS) do
+	classColorKeys[colorKey(color.r, color.g, color.b)] = ns:GetModule("UnitFrames").classColors[class]
+end
+
 -- Blizzard colors plates with pure red/green/blue/yellow; use our palette.
 function PlateMixin:UpdateColors(r, g, b)
-	if g + b == 0 then -- hostile
+	local classColor = classColorKeys[colorKey(r, g, b)]
+	if classColor then -- enemy player
+		r, g, b = classColor[1], classColor[2], classColor[3]
+	elseif g + b == 0 then -- hostile
 		r, g, b = 0.69, 0.31, 0.31
 	elseif r + b == 0 then -- friendly
 		r, g, b = 0.33, 0.59, 0.33
@@ -149,11 +167,13 @@ local function setupHealthbar(plate, healthbar, blizzardBackground)
 	healthbar:SetFrameLevel(plate:GetFrameLevel())
 	healthbar:SetStatusBarTexture(BAR_TEXTURE)
 
-	-- A solid texture one pixel larger than the bar on every side.
+	-- A solid texture one pixel larger than the bar on every side. The size
+	-- is computed here, not at load, so the final UI scale is used.
+	local borderSize = ns.PixelPerfect(1)
 	local border = healthbar:CreateTexture(nil, "BACKGROUND")
 	border:SetTexture(0, 0, 0)
-	border:SetPoint("TOPRIGHT", BORDER_SIZE, BORDER_SIZE)
-	border:SetPoint("BOTTOMLEFT", -BORDER_SIZE, -BORDER_SIZE)
+	border:SetPoint("TOPRIGHT", borderSize, borderSize)
+	border:SetPoint("BOTTOMLEFT", -borderSize, -borderSize)
 	border:SetAlpha(0.4)
 	healthbar.border = border
 
@@ -245,6 +265,20 @@ local function setupNamePlate(plate)
 	plate:OnShow()
 	if castbar:IsShown() then
 		castbar:OnShow()
+	end
+
+	NamePlates.plates[#NamePlates.plates + 1] = plate
+end
+
+-- The plate of the current target, if it is on screen.
+function NamePlates:GetTargetPlate()
+	if not UnitExists("target") then
+		return
+	end
+	for _, plate in ipairs(self.plates) do
+		if plate:IsShown() and plate:IsTarget() then
+			return plate
+		end
 	end
 end
 

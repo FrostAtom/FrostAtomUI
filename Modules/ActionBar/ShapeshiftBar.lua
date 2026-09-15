@@ -10,6 +10,7 @@ local GetShapeshiftFormInfo = GetShapeshiftFormInfo
 local GetShapeshiftFormCooldown = GetShapeshiftFormCooldown
 local GetSpellInfo = GetSpellInfo
 local InCombatLockdown = InCombatLockdown
+local GameTooltip = GameTooltip
 local NUM_SHAPESHIFT_SLOTS = NUM_SHAPESHIFT_SLOTS
 
 local ActionBar = ns:GetModule("ActionBar")
@@ -20,9 +21,12 @@ local PLACEHOLDER_TEXTURE = "Interface\\Icons\\Spell_Nature_WispSplode"
 
 local buttons = {}
 
-local function setButtonColors(button, iconShade, borderR, borderG, borderB)
-	button.icon:SetVertexColor(iconShade, iconShade, iconShade)
-	button:GetNormalTexture():SetVertexColor(borderR, borderG, borderB)
+local function setTooltip(button)
+	if button:GetID() <= GetNumShapeshiftForms() then
+		GameTooltip:SetShapeshift(button:GetID())
+	else
+		GameTooltip:Hide()
+	end
 end
 
 function ActionBar:UpdateShapeshiftBar()
@@ -47,12 +51,12 @@ function ActionBar:UpdateShapeshiftBar()
 
 		if isCastable and (isActive or currentForm == 0) then
 			if currentForm == i then
-				setButtonColors(button, 1, 1, 0.8, 0)
+				self:SetButtonColors(button, 1, 1, 0.8, 0)
 			else
-				setButtonColors(button, 1, 1, 1, 1)
+				self:SetButtonColors(button, 1, 1, 1, 1)
 			end
 		else
-			setButtonColors(button, 0.4, 0.4, 0.4, 0.4)
+			self:SetButtonColors(button, 0.4, 0.4, 0.4, 0.4)
 		end
 	end
 end
@@ -94,12 +98,11 @@ function ActionBar:SetupShapeshiftButton(button)
 	self:StyleButton(button, self.SMALL_BUTTON_SIZE)
 	button:SetCheckedTexture(nil)
 	button:SetPushedTexture(nil)
-	button:SetScript("OnEnter", nil)
-	button:SetScript("OnLeave", nil)
 
 	button.icon = _G[name .. "Icon"]
 	button.cooldown = _G[name .. "Cooldown"]
 	CooldownTimer:Attach(button.cooldown)
+	self:AttachTooltip(button, setTooltip)
 
 	_G[name .. "HotKey"]:Hide()
 	_G[name .. "Count"]:Hide()

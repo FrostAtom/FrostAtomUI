@@ -63,10 +63,18 @@ local function playerTeamIndex()
 	end
 end
 
+-- The status event keeps firing after the match ends; report once per match.
+local ratingReported = false
+
+Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+	ratingReported = false
+end)
+
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
-	if not (IsActiveBattlefieldArena() and GetBattlefieldWinner()) then
+	if ratingReported or not (IsActiveBattlefieldArena() and GetBattlefieldWinner()) then
 		return
 	end
+	ratingReported = true
 
 	for teamIndex = 0, 1 do
 		local name, lost, gained, rating = GetBattlefieldTeamInfo(teamIndex)

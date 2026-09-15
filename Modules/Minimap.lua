@@ -6,6 +6,7 @@ local _, ns = ...
 local MinimapZoomIn = MinimapZoomIn
 local MinimapZoomOut = MinimapZoomOut
 local ToggleCalendar = ToggleCalendar
+local ToggleDropDownMenu = ToggleDropDownMenu
 local Minimap_OnClick = Minimap_OnClick
 local GetFramerate = GetFramerate
 local GetNetStats = GetNetStats
@@ -31,9 +32,12 @@ Minimap:SetScript("OnMouseWheel", function(_, delta)
 	end
 end)
 
+-- Right click opens the tracking menu (the tracking button itself is hidden).
 Minimap:SetScript("OnMouseUp", function(self, button)
 	if button == "MiddleButton" then
 		ToggleCalendar()
+	elseif button == "RightButton" then
+		ToggleDropDownMenu(1, nil, MiniMapTrackingDropDown, "cursor")
 	else
 		Minimap_OnClick(self, button)
 	end

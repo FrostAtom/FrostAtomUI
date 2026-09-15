@@ -32,12 +32,19 @@ end
 
 function RuneMixin:OnUpdate()
 	local start, duration, ready = GetRuneCooldown(self:GetID())
-	if ready then
+	if ready or duration == 0 then
 		self:SetValue(1)
 		self:SetScript("OnUpdate", nil)
 	else
 		self:SetValue((GetTime() - start) / duration)
 	end
+end
+
+-- Full refresh (login, /reload mid-cooldown): type and current cooldown.
+function RuneMixin:UpdateAll()
+	self:UpdateType()
+	self:SetScript("OnUpdate", self.OnUpdate)
+	self:OnUpdate()
 end
 
 function RuneMixin:RUNE_TYPE_UPDATE(rune)
@@ -72,9 +79,10 @@ local function createRune(id)
 	rune.bg = rune:CreateTexture(nil, "BACKGROUND")
 	rune.bg:SetAllPoints()
 
-	rune:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateType")
+	rune:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateAll")
 	rune:RegisterEvent("RUNE_TYPE_UPDATE")
 	rune:RegisterEvent("RUNE_POWER_UPDATE")
+	rune:UpdateAll()
 
 	return rune
 end
@@ -84,8 +92,9 @@ function Runes:Initialize()
 		return
 	end
 
+	local point, x, y = unpack(ns.Config.runes)
 	local slot = RUNE_WIDTH + RUNE_GAP
 	for i = 1, NUM_RUNES do
-		createRune(i):SetPoint("CENTER", -1 + (3.5 - i) * slot, -294)
+		createRune(i):SetPoint(point, x - 1 + (3.5 - i) * slot, y)
 	end
 end

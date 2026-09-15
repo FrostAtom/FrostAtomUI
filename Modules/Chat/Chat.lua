@@ -8,6 +8,8 @@ local ChatEdit_UpdateHeader = ChatEdit_UpdateHeader
 local UnitName = UnitName
 local UnitIsPlayer = UnitIsPlayer
 local SendSystemMessage = SendSystemMessage
+local IsControlKeyDown = IsControlKeyDown
+local StaticPopup_Show = StaticPopup_Show
 
 local Chat = ns:NewModule("Chat")
 
@@ -113,14 +115,116 @@ local function shortenChannelName(text)
 	return (text:gsub("%[(%d+)%. [^%]]+%]", "[%1]", 1))
 end
 
+--------------------------------------------------
+-- Clickable URLs: click opens a box the address can be copied from.
+
+local URL_LINK = "|cff3399ff|Hurl:%1|h[%1]|h|r"
+local URL_PATTERNS = {
+	"(%a+://[%w%.%-_/#?=&%%:+~@;,!]+)", -- with protocol
+	"(www%.[%w%.%-_/#?=&%%:+~@;,!]+)", -- www.
+	"(%d+%.%d+%.%d+%.%d+:?%d*)", -- ip[:port]
+	"([%w%.%-_]+%.[%a][%a][%a]?[%a]?/[%w%.%-_/#?=&%%:+~@;,!]*)", -- domain with path
+}
+
+local function linkUrlsInPlainText(text)
+	for _, pattern in ipairs(URL_PATTERNS) do
+		local linked, count = text:gsub(pattern, URL_LINK)
+		if count > 0 then
+			return linked
+		end
+	end
+	return text
+end
+
+-- Existing hyperlinks (player names, items) must not be touched, so only
+-- the text between them is scanned.
+local function linkUrls(text)
+	if not text:find("|H", 1, true) then
+		return linkUrlsInPlainText(text)
+	end
+
+	local parts = {}
+	local position = 1
+	while true do
+		local linkStart, linkEnd = text:find("|H.-|h.-|h", position)
+		if not linkStart then
+			break
+		end
+		parts[#parts + 1] = linkUrlsInPlainText(text:sub(position, linkStart - 1))
+		parts[#parts + 1] = text:sub(linkStart, linkEnd)
+		position = linkEnd + 1
+	end
+	parts[#parts + 1] = linkUrlsInPlainText(text:sub(position))
+	return table.concat(parts)
+end
+
+StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
+	text = "Ctrl+C to copy",
+	button1 = CLOSE,
+	hasEditBox = true,
+	editBoxWidth = 350,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = true,
+	OnShow = function(self)
+		local editBox = _G[self:GetName() .. "EditBox"]
+		editBox:SetText(self.url or "")
+		editBox:SetFocus()
+		editBox:HighlightText()
+	end,
+	EditBoxOnEnterPressed = function(self)
+		self:GetParent():Hide()
+	end,
+	EditBoxOnEscapePressed = function(self)
+		self:GetParent():Hide()
+	end,
+}
+
+hooksecurefunc("SetItemRef", function(link)
+	local url = link:match("^url:(.+)$")
+	if url then
+		-- OnShow runs before the popup is returned, so fill the box here too.
+		local popup = StaticPopup_Show("FROSTATOMUI_COPY_URL")
+		if popup then
+			popup.url = url
+			local editBox = _G[popup:GetName() .. "EditBox"]
+			editBox:SetText(url)
+			editBox:SetFocus()
+			editBox:HighlightText()
+		end
+	end
+end)
+
 local function hookAddMessage(chatFrame)
 	local addMessage = chatFrame.AddMessage
 	chatFrame.AddMessage = function(self, text, ...)
 		if type(text) == "string" then
-			text = date(TIMESTAMP_FORMAT) .. shortenChannelName(text)
+			text = date(TIMESTAMP_FORMAT) .. linkUrls(shortenChannelName(text))
 		end
 		return addMessage(self, text, ...)
 	end
+end
+
+--------------------------------------------------
+-- Ctrl + mouse wheel jumps to the top/bottom of the chat.
+
+local function onMouseWheel(chatFrame, delta)
+	if IsControlKeyDown() then
+		if delta > 0 then
+			chatFrame:ScrollToTop()
+		else
+			chatFrame:ScrollToBottom()
+		end
+	elseif delta > 0 then
+		chatFrame:ScrollUp()
+	else
+		chatFrame:ScrollDown()
+	end
+end
+
+local function hookMouseWheel(chatFrame)
+	chatFrame:EnableMouseWheel(true)
+	chatFrame:SetScript("OnMouseWheel", onMouseWheel)
 end
 
 --------------------------------------------------
@@ -213,6 +317,7 @@ local function setupChatFrame(name)
 	)
 	addBackdrop(chatFrame, 6)
 	hookAddMessage(chatFrame)
+	hookMouseWheel(chatFrame)
 end
 
 for i = 1, NUM_CHAT_WINDOWS do

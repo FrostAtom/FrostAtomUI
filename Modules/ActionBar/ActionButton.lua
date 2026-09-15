@@ -19,6 +19,7 @@ local IsAltKeyDown = IsAltKeyDown
 local InCombatLockdown = InCombatLockdown
 local PickupAction = PickupAction
 local PlaceAction = PlaceAction
+local GameTooltip = GameTooltip
 
 local ActionBar = ns:GetModule("ActionBar")
 local CooldownTimer = ns:GetModule("CooldownTimer")
@@ -32,13 +33,18 @@ local ACTION_EVENTS = {
 	UPDATE_BINDINGS = "UpdateBindings",
 	UPDATE_SHAPESHIFT_FORM = "Update",
 	PLAYER_ENTERING_WORLD = "Update",
+	UPDATE_MACROS = "Update",
 	ACTIONBAR_UPDATE_USABLE = "UpdateUsable",
 	ACTIONBAR_UPDATE_COOLDOWN = "UpdateCooldown",
+	ACTIONBAR_UPDATE_STATE = "UpdateState",
+	PLAYER_EQUIPMENT_CHANGED = "UpdateEquipped",
 	UNIT_ENTERED_VEHICLE = "UpdateStateForUnit",
 	UNIT_EXITED_VEHICLE = "UpdateStateForUnit",
 	TRADE_SKILL_SHOW = "UpdateState",
 	TRADE_SKILL_CLOSE = "UpdateState",
 	COMPANION_UPDATE = "UpdateStateForCompanion",
+	BAG_UPDATE = "UpdateName",
+	SPELL_UPDATE_USABLE = "UpdateUsable",
 }
 
 local KEY_ABBREVIATIONS = {
@@ -57,6 +63,7 @@ local function abbreviateKey(key)
 	end
 	return key
 end
+ActionBar.AbbreviateKey = abbreviateKey
 
 local ActionButtonMixin = {}
 
@@ -226,6 +233,14 @@ function ActionButtonMixin:ACTIONBAR_SLOT_CHANGED(slot)
 	end
 end
 
+function ActionButtonMixin:SetTooltip()
+	if HasAction(self.action) then
+		GameTooltip:SetAction(self.action)
+	else
+		GameTooltip:Hide()
+	end
+end
+
 --------------------------------------------------
 
 function ActionBar:CreateActionButton(action, parent)
@@ -262,6 +277,7 @@ function ActionBar:CreateActionButton(action, parent)
 	button:SetScript("OnReceiveDrag", button.OnReceiveDrag)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)
 	button:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+	self:AttachTooltip(button, button.SetTooltip)
 
 	button.usable = true
 	button:Update()

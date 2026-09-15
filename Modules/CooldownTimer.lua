@@ -26,27 +26,37 @@ local function setTimerText(timer, remain)
 	end
 end
 
+-- The text is refreshed at this interval (every frame in the last seconds,
+-- where tenths are shown).
+local UPDATE_INTERVAL = 0.1
+
 local function onUpdate(cooldown, elapsed)
-	if not cooldown.remain then
+	if not cooldown.endTime then
 		return
 	end
 
-	local remain = cooldown.remain - elapsed
+	cooldown.untilTick = cooldown.untilTick - elapsed
+	if cooldown.untilTick > 0 then
+		return
+	end
+
+	local remain = cooldown.endTime - GetTime()
 	if remain > 0 then
 		setTimerText(cooldown.timer, remain)
-		cooldown.remain = remain
+		cooldown.untilTick = remain <= 3 and 0 or UPDATE_INTERVAL
 	else
-		cooldown.remain = nil
+		cooldown.endTime = nil
 		cooldown.timer:Hide()
 	end
 end
 
 local function onSetCooldown(cooldown, startTime, duration)
 	if duration > MIN_DURATION then
-		cooldown.remain = startTime + duration - GetTime()
+		cooldown.endTime = startTime + duration
+		cooldown.untilTick = 0
 		cooldown.timer:Show()
 	else
-		cooldown.remain = nil
+		cooldown.endTime = nil
 		cooldown.timer:Hide()
 	end
 end

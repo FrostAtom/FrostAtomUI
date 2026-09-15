@@ -33,6 +33,52 @@ function ActionBar:StyleButton(button, size)
 	button:HookScript("OnClick", self.PlayClickAnimation)
 end
 
+-- Icon shade and border color; `button.icon` must exist.
+function ActionBar:SetButtonColors(button, iconShade, borderR, borderG, borderB)
+	button.icon:SetVertexColor(iconShade, iconShade, iconShade)
+	button:GetNormalTexture():SetVertexColor(borderR, borderG, borderB)
+end
+
+--------------------------------------------------
+-- Tooltips
+--
+-- `setTooltip(button)` fills GameTooltip for the button; it is re-run while
+-- hovering so cooldowns and ranks stay current.
+
+local TOOLTIP_REFRESH_INTERVAL = 0.2
+
+-- One refresher for whichever button is hovered, so buttons keep their own
+-- OnUpdate scripts.
+local tooltipRefresher = CreateFrame("Frame")
+tooltipRefresher:Hide()
+tooltipRefresher:SetScript("OnUpdate", function(self, elapsed)
+	self.timer = self.timer - elapsed
+	if self.timer <= 0 then
+		self.timer = TOOLTIP_REFRESH_INTERVAL
+		self.button.setTooltip(self.button)
+	end
+end)
+
+local function onTooltipEnter(button)
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+	button.setTooltip(button)
+	tooltipRefresher.button = button
+	tooltipRefresher.timer = TOOLTIP_REFRESH_INTERVAL
+	tooltipRefresher:Show()
+end
+
+local function onTooltipLeave()
+	tooltipRefresher:Hide()
+	tooltipRefresher.button = nil
+	GameTooltip:Hide()
+end
+
+function ActionBar:AttachTooltip(button, setTooltip)
+	button.setTooltip = setTooltip
+	button:SetScript("OnEnter", onTooltipEnter)
+	button:SetScript("OnLeave", onTooltipLeave)
+end
+
 -- Position of the i-th button in a single 12-wide row, centered on the bar.
 local function rowPoint(i)
 	return "BOTTOM", SLOT / 2 + (i - 7) * SLOT, 0
@@ -60,11 +106,24 @@ function ActionBar:CreateBar(page, pointFunc, onButtonCreated)
 	return bar
 end
 
--- Bar 1 swaps its page with the vehicle UI and warrior stances.
+-- Bar 1 swaps its page like Blizzard's main bar: vehicle/possess bars,
+-- manual paging (shift+wheel, /changeactionbar), then class forms.
+--
+-- Pages 7-10 are the "bonus" bars: warrior stances, druid forms (cat 7,
+-- prowl 8, bear 9, moonkin/tree 10), rogue stealth 7, priest shadowform 7.
+local CLASS_PAGE_CONDITIONS = {
+	WARRIOR = "[stance:1] 7; [stance:2] 8; [stance:3] 9;",
+	DRUID = "[bonusbar:1,stealth] 8; [bonusbar:1] 7; [bonusbar:3] 9; [bonusbar:4] 10;",
+	ROGUE = "[bonusbar:1] 7;",
+	PRIEST = "[bonusbar:1] 7;",
+}
+
 local function pageDriverCondition()
-	local condition = "[vehicleui] 11; "
-	if ns.PLAYER_CLASS == "WARRIOR" then
-		condition = condition .. "[stance:1] 7; [stance:2] 8; [stance:3] 9; "
+	local condition = "[vehicleui] 11; [possessbar] 11; [bonusbar:5] 11; "
+		.. "[bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
+	local classCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
+	if classCondition then
+		condition = condition .. classCondition .. " "
 	end
 	return condition .. "1"
 end

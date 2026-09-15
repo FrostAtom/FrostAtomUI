@@ -3,6 +3,7 @@ local _, ns = ...
 -- Hides Blizzard's unit frames and related bits.
 
 local DestroyFrame = ns.DestroyFrame
+local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
 -- Focus is set by clicking our frames; drop the menu entries.
 for _, key in ipairs({ "SET_FOCUS", "CLEAR_FOCUS", "LOCK_FOCUS_FRAME", "UNLOCK_FOCUS_FRAME" }) do
@@ -24,6 +25,10 @@ DestroyFrame(CastingBarFrame)
 DestroyFrame(ConsolidatedBuffs, true)
 DestroyFrame(TemporaryEnchantFrame, true)
 DestroyFrame(PartyMemberBackground)
+
+for i = 1, MAX_BOSS_FRAMES do
+	DestroyFrame(_G["Boss" .. i .. "TargetFrame"], true)
+end
 
 for i = 1, MAX_PARTY_MEMBERS do
 	local frame = _G["PartyMemberFrame" .. i]

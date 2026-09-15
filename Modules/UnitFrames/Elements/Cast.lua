@@ -8,6 +8,7 @@ local GetTime = GetTime
 
 local FADE_SPEED = 1.4 -- alpha per second after a cast ends
 local INTERRUPTED_TEXT = "|cff8B0000INTERRUPTED|r"
+local FAILED_TEXT = "|cff808080FAILED|r"
 
 --------------------------------------------------
 -- Bar state
@@ -100,9 +101,18 @@ local function update(frame)
 	castbar:Show()
 end
 
+-- Both events carry the cast id; ignore stale ones from an earlier cast.
 local function onCastFailed(frame, _, _, castId)
 	local castbar = frame.castbar
 	if castbar.casting and castId == castbar.castId then
+		castbar.name:SetText(FAILED_TEXT)
+		stopCast(castbar)
+	end
+end
+
+local function onCastInterrupted(frame, _, _, castId)
+	local castbar = frame.castbar
+	if castbar.casting and (castbar.isChannel or castId == castbar.castId) then
 		castbar.name:SetText(INTERRUPTED_TEXT)
 		stopCast(castbar)
 	end
@@ -187,8 +197,8 @@ local function create(frame)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", update)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", onCastFailed)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_STOP", onCastStop)
-	frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", onCastStop)
-	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", onCastStop)
+	frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", onCastInterrupted)
+	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_INTERRUPTED", onCastInterrupted)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", onCastStop)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_DELAYED", onCastDelayed)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", onChannelUpdate)

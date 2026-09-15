@@ -6,6 +6,8 @@ local GetPetActionCooldown = GetPetActionCooldown
 local GetPetActionInfo = GetPetActionInfo
 local GetPetActionSlotUsable = GetPetActionSlotUsable
 local RegisterStateDriver = RegisterStateDriver
+local GetBindingKey = GetBindingKey
+local GameTooltip = GameTooltip
 local NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS
 
 local ActionBar = ns:GetModule("ActionBar")
@@ -23,9 +25,29 @@ local tokenTextures = setmetatable({}, {
 	end,
 })
 
-local function setButtonColors(button, iconShade, borderR, borderG, borderB)
-	button.icon:SetVertexColor(iconShade, iconShade, iconShade)
-	button:GetNormalTexture():SetVertexColor(borderR, borderG, borderB)
+local function setTooltip(button)
+	if GetPetActionInfo(button:GetID()) then
+		GameTooltip:SetPetAction(button:GetID())
+	else
+		GameTooltip:Hide()
+	end
+end
+
+-- Pet buttons use Blizzard's BONUSACTIONBUTTON bindings (ctrl+1..0 by default).
+local function updateHotkey(button)
+	local key = GetBindingKey("BONUSACTIONBUTTON" .. button:GetID())
+	if key then
+		button.hotkey:SetText(ActionBar.AbbreviateKey(key))
+		button.hotkey:Show()
+	else
+		button.hotkey:Hide()
+	end
+end
+
+function ActionBar:UpdatePetHotkeys()
+	for i = 1, NUM_PET_ACTION_SLOTS do
+		updateHotkey(buttons[i])
+	end
 end
 
 function ActionBar:UpdatePetBar()
@@ -47,10 +69,12 @@ function ActionBar:UpdatePetBar()
 			-- Stances (follow/stay/aggressive/...) are highlighted when active.
 			if isToken then
 				if isActive then
-					setButtonColors(button, 1, 1, 0.8, 0)
+					self:SetButtonColors(button, 1, 1, 0.8, 0)
 				else
-					setButtonColors(button, 0.4, 0.4, 0.4, 0.4)
+					self:SetButtonColors(button, 0.4, 0.4, 0.4, 0.4)
 				end
+			else
+				self:SetButtonColors(button, 1, 1, 1, 1)
 			end
 		else
 			button.icon:SetTexture(ns.Media.emptySlot)
@@ -83,7 +107,13 @@ function ActionBar:CreatePetButton(index, parent)
 	button.icon = button:CreateTexture(nil, "BORDER")
 	button.icon:SetAllPoints()
 
+	button.hotkey = button:CreateFontString(nil, "ARTWORK")
+	button.hotkey:SetFont(ns.Media.font, 9, "OUTLINE")
+	button.hotkey:SetPoint("TOPRIGHT")
+
 	button:RegisterForClicks("LeftButtonDown")
+	self:AttachTooltip(button, setTooltip)
+	updateHotkey(button)
 
 	buttons[index] = button
 	return button
@@ -123,4 +153,5 @@ function ActionBar:InitializePetBar(parent)
 	self:RegisterEvent("PLAYER_CONTROL_LOST", "UpdatePetBar")
 	self:RegisterEvent("PLAYER_CONTROL_GAINED", "UpdatePetBar")
 	self:RegisterEvent("PLAYER_FARSIGHT_FOCUS_CHANGED", "UpdatePetBar")
+	self:RegisterEvent("UPDATE_BINDINGS", "UpdatePetHotkeys")
 end

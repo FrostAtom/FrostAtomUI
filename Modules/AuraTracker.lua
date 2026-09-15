@@ -41,26 +41,11 @@ local TRACKED_AURAS = {
 }
 
 local CreateFrame = CreateFrame
-local UnitExists, UnitAura = UnitExists, UnitAura
+local UnitExists = UnitExists
+local FindAura = ns.FindAura
 
 local AuraTracker = ns:NewModule("AuraTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
-
-local MAX_AURAS = 40
-
--- Like UnitAura, but looks the aura up by spell id instead of name.
--- Returns the same values as UnitAura.
-local function unitAuraBySpellId(unit, wantedSpellId, filter)
-	for i = 1, MAX_AURAS do
-		local name, _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
-		if not name then
-			return
-		end
-		if spellId == wantedSpellId then
-			return UnitAura(unit, i, filter)
-		end
-	end
-end
 
 local AuraFrameMixin = {}
 
@@ -70,7 +55,7 @@ function AuraFrameMixin:Update()
 		return
 	end
 
-	local name, _, texture, count, _, duration, endTime = unitAuraBySpellId(self.unit, self.spell, self.filter)
+	local name, _, texture, count, _, duration, endTime = FindAura(self.unit, self.spell, self.filter)
 
 	if not name then
 		self:Hide()

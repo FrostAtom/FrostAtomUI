@@ -8,27 +8,19 @@ local UnitName = UnitName
 local unpack = unpack
 
 local classColors = UF.classColors
-
--- Shown on the player's own frame instead of the character name.
-local PLAYER_NICKNAME = "Cute Boy"
-
--- Cyrillic letters take two bytes in UTF-8, so allow twice the length for them.
-local function truncate(text, maxLength)
-	local byteLength = text:find("[\208\209]") and maxLength * 2 or maxLength
-	return text:sub(1, byteLength)
-end
+local TruncateUTF8 = ns.TruncateUTF8
 
 local function update(frame)
 	local unit = frame.unit
 	local name = frame.name
 
 	local text
-	if UnitIsUnit(unit, "player") then
-		text = PLAYER_NICKNAME
+	if ns.Config.nickname and UnitIsUnit(unit, "player") then
+		text = ns.Config.nickname
 	else
 		text = UnitName(unit) or "UNKNOWN"
 	end
-	name:SetText(name.maxLength and truncate(text, name.maxLength) or text)
+	name:SetText(name.maxLength and TruncateUTF8(text, name.maxLength) or text)
 
 	local _, class = UnitClass(unit)
 	if UnitIsPlayer(unit) and class then
