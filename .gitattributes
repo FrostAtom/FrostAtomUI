@@ -1,9 +1,13 @@
 # Normalize line endings
 * text=auto
 
-*.lua text
-*.xml text
-*.toc text
+# Sources are always LF (matches stylua.toml) so the formatter never fights git
+*.lua text eol=lf
+*.xml text eol=lf
+*.toc text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+.luacheckrc text eol=lf
 
 # Binary media
 *.tga binary

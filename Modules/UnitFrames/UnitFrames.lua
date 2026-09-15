@@ -1,395 +1,228 @@
-local namespace = select(2,...)
+local ADDON_NAME, ns = ...
 
-local FRAME_NAME = namespace.AddOnName.."%sUnitFrame"
+-- Unit frame engine.
+--
+-- A unit frame is a secure button with `frame.unit` set. Visual pieces
+-- (health, power, castbar, ...) are *elements*, registered with
+-- `UF:RegisterElement(name, create, update)` in the Elements/ folder and added
+-- to a frame with `UF:AddElement(frame, name, ...)`. Every element's update
+-- function receives only the frame; `frame[name]` is the element's widget.
 
-local math,string = math,string
-local select = select
-local pairs = pairs
-local UIParent = UIParent
 local CreateFrame = CreateFrame
-local setmetatable = setmetatable
 local RegisterUnitWatch = RegisterUnitWatch
+local UnitFrame_OnEnter = UnitFrame_OnEnter
+local UnitFrame_OnLeave = UnitFrame_OnLeave
 
+local UF = ns:NewModule("UnitFrames")
 
-local UnitFrames = namespace:New("UnitFrames")
-local pixelPerfect = namespace.pixelPerfect
-local moduleCreateFuncs,moduleUpdateFuncs = {},{}
+local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
+local BORDER_INSET = 2
 
--- classColors
-do
-	local math = math
-	local classColors = {}
-	for class,colors in pairs(RAID_CLASS_COLORS) do
-		classColors[class] = {math.min(colors.r*1.25,1),math.min(colors.g*1.25,1),math.min(colors.b*1.25,1)}
-	end
-	UnitFrames.classColors = classColors
+--------------------------------------------------
+-- Colors
+
+UF.classColors = {}
+for class, color in pairs(RAID_CLASS_COLORS) do
+	UF.classColors[class] = { math.min(color.r * 1.25, 1), math.min(color.g * 1.25, 1), math.min(color.b * 1.25, 1) }
 end
 
-
--- powerColors
-do
-	local PowerBarColor = PowerBarColor
-	local powerColors = {}
-	local colors
-	for i = 0,#PowerBarColor do
-		colors = PowerBarColor[i]
-
-		powerColors[i] = {colors.r*0.66,colors.g*0.66,colors.b*0.66}
-	end
-	UnitFrames.powerColors = powerColors
+UF.powerColors = {}
+for powerType = 0, #PowerBarColor do
+	local color = PowerBarColor[powerType]
+	UF.powerColors[powerType] = { color.r * 0.66, color.g * 0.66, color.b * 0.66 }
 end
 
+UF.textColor = { 1, 0.9, 0.8 }
 
-local menuFunc
-do
-	local dropDownMenus = setmetatable({},{
-		__index = function(tbl,unit)
-			local menu
-			local partyId = unit:match("^party(%d)$")
-			if partyId then
-				menu = _G[("PartyMemberFrame%dDropDown"):format(partyId)]
-			else
-				menu = _G[unit:gsub("^%l",string.upper).."FrameDropDown"]
-			end
-			--[[
-			if not menu then
-				counstructMenu(unit)
-			end
-			]]
-			tbl[unit] = menu or false
-			return menu
-		end
-	})
+--------------------------------------------------
+-- Elements
 
-	menuFunc = function(self,unit,button,down)
-		local dropdown = dropDownMenus[unit]
-		if dropdown then
-			ToggleDropDownMenu(1,nil,dropdown,self,0,0)
-		end
-	end
+local elements = {} -- name -> { create = function(frame, ...), update = function(frame) }
+
+function UF:RegisterElement(name, create, update)
+	elements[name] = { create = create, update = update }
 end
 
-do
-	local huge = math.huge
-	function UnitFrames.ColorGradient(perc, ...)
-		if(perc ~= perc or perc == inf) then perc = 0 end
+function UF:AddElement(frame, name, ...)
+	local element = assert(elements[name], ("unknown unit frame element [%s]"):format(tostring(name)))
+	assert(not frame[name], ("element [%s] already added to %s"):format(name, frame.unit))
 
-		if perc >= 1 then
-			local r, g, b = select(select('#', ...) - 2, ...)
-			return r, g, b
-		elseif perc <= 0 then
-			local r, g, b = ...
-			return r, g, b
-		end
-		
-		local num = select('#', ...) / 3
-
-		local segment, relperc = math.modf(perc*(num-1))
-		local r1, g1, b1, r2, g2, b2 = select((segment*3)+1, ...)
-
-		return r1 + (r2-r1)*relperc, g1 + (g2-g1)*relperc, b1 + (b2-b1)*relperc
-	end
+	local widget = element.create(frame, ...)
+	frame[name] = widget
+	return widget
 end
 
+--------------------------------------------------
+-- Frame mixin
 
-function UnitFrames:AddModule(name,createFunc,updateFunc)
-	moduleUpdateFuncs[name] = updateFunc
-	moduleCreateFuncs[name] = createFunc
-end
+local UnitFrameMixin = {}
+UF.FrameMixin = UnitFrameMixin -- Menu.lua adds the right-click menu handler
 
-function UnitFrames:CreateModule(object,name,...)
-	assert(moduleCreateFuncs[name],"createFunc for module ["..name.."] isn't exists")
-	assert(not object[name],"module ["..name.."] alredy exists")
-
-	local module = moduleCreateFuncs[name](object,...)
-	if module then
-		object[name] = module
-		return module
-	end
-end
-
-
-
-local framePrototype = setmetatable(CopyTable(namespace:GetObjectPrototype()),getmetatable(PlayerFrame))
-local frameMT = {__index = framePrototype}
-
-function framePrototype:UpdateAllModules()
+function UnitFrameMixin:UpdateAll()
 	if not self:IsShown() then
 		return
 	end
 
-	for name,updateFoo in pairs(moduleUpdateFuncs) do
+	for name, element in pairs(elements) do
 		if self[name] then
-			updateFoo(self)
+			element.update(self)
 		end
 	end
 end
 
-function UnitFrames:CreateBase(unit)
-	local frame = setmetatable(CreateFrame("Button",FRAME_NAME:format(unit:gsub("^%l",string.upper)),UIParent,"SecureUnitButtonTemplate"),frameMT)
-	frame:RegisterForClicks("AnyDown")
-	frame:SetBackdrop({
-		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-		edgeSize = 8,
-		
-		bgFile = "Interface\\Buttons\\WHITE8x8",
-		insets = {
-			top = pixelPerfect(1),
-			bottom = pixelPerfect(1),
-			left = pixelPerfect(1),
-			right = pixelPerfect(1),
-		}
-	})
-	frame:SetBackdropColor(0.137,0.137,0.137)
-	frame:SetBackdropBorderColor(0.2,0.2,0.2)
+-- Wraps a handler so it only fires for events about this frame's unit.
+-- The unit argument is dropped; handlers use `self.unit`.
+local unitEventWrappers = setmetatable({}, {
+	__index = function(self, handler)
+		local wrapper = function(frame, unit, ...)
+			if unit == frame.unit then
+				handler(frame, ...)
+			end
+		end
+		self[handler] = wrapper
+		return wrapper
+	end,
+})
 
+function UnitFrameMixin:RegisterUnitEvent(event, handler)
+	self:RegisterEvent(event, unitEventWrappers[handler])
+end
+
+--------------------------------------------------
+-- Frame constructors
+
+local function capitalize(text)
+	return (text:gsub("^%l", string.upper))
+end
+
+function UF:CreateBase(unit)
+	local frame = CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), UIParent, "SecureUnitButtonTemplate")
+	ns.Mixin(frame, ns.EventMixin, UnitFrameMixin)
 	frame.unit = unit
-	frame:SetAttribute("unit",unit)
-	frame:SetAttribute("*type1","target")
-	if unit:find("^arena.-%d$") then
-		frame:SetAttribute("*type2","focus")
-	elseif unit == "focus" then
-		frame:SetAttribute("*type3","macro")
-		frame:SetAttribute("macrotext","/clearfocus")
+
+	frame:RegisterForClicks("AnyDown")
+	frame:SetBackdrop(ns.CreateBackdrop(8))
+	frame:SetBackdropColor(0.137, 0.137, 0.137)
+	frame:SetBackdropBorderColor(0.2, 0.2, 0.2)
+
+	-- Left click targets, middle click focuses, right click opens the unit
+	-- menu (on arena frames right click focuses instead).
+	frame:SetAttribute("unit", unit)
+	frame:SetAttribute("*type1", "target")
+	if unit:find("^arena%d$") then
+		frame:SetAttribute("*type2", "focus")
 	else
-		frame:SetAttribute("*type3","focus")
+		frame:SetAttribute("*type2", "menu") -- calls frame:menu(unit, button)
+		if unit == "focus" then
+			frame:SetAttribute("*type3", "macro")
+			frame:SetAttribute("macrotext", "/clearfocus")
+		else
+			frame:SetAttribute("*type3", "focus")
+		end
 	end
 
-	frame:SetScript("OnEnter",UnitFrame_OnEnter)
-	frame:SetScript("OnLeave",UnitFrame_OnLeave)
-	frame:SetScript("OnShow",frame.UpdateAllModules)
-	frame:RegisterEvent("PLAYER_ENTERING_WORLD",frame.UpdateAllModules)
+	frame:SetScript("OnEnter", UnitFrame_OnEnter)
+	frame:SetScript("OnLeave", UnitFrame_OnLeave)
+	frame:SetScript("OnShow", frame.UpdateAll)
+	frame:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateAll")
 	RegisterUnitWatch(frame)
 
-
 	return frame
 end
 
-function UnitFrames:CreateFrame_Rectangle(unit,width,height)
+-- Health on top (2/3), power below, name and combat icon over the health bar.
+function UF:CreateRectangle(unit, width, height)
 	local frame = self:CreateBase(unit)
-	frame:SetSize(width,height)
+	frame:SetSize(width, height)
 
-	local health = self:CreateModule(frame,"health",true)
-	health:SetPoint("TOPRIGHT",-2,-2)
-	health:SetPoint("BOTTOMLEFT",2,2+(height-(2+2))/3*1)
+	local innerHeight = height - BORDER_INSET * 2
+	local health = self:AddElement(frame, "health")
+	health:SetPoint("TOPRIGHT", -BORDER_INSET, -BORDER_INSET)
+	health:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET + innerHeight / 3)
 	health.text:SetPoint("BOTTOMRIGHT")
 
-	local power = self:CreateModule(frame,"power")
-	power:SetPoint("TOPRIGHT",health,"BOTTOMRIGHT")
-	power:SetPoint("BOTTOMLEFT",2,2)
+	local power = self:AddElement(frame, "power")
+	power:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT")
+	power:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET)
 	power.text:SetPoint("BOTTOMRIGHT")
 
-	local name = self:CreateModule(frame,"name")
+	local name = self:AddElement(frame, "name")
 	name:SetJustifyH("RIGHT")
-	name:SetPoint("BOTTOMLEFT",health)
+	name:SetPoint("BOTTOMLEFT", health)
 
-	local combat = self:CreateModule(frame,"combat")
-	combat:SetPoint("TOPLEFT",health,6,6)
-
+	local combat = self:AddElement(frame, "combat")
+	combat:SetPoint("TOPLEFT", health, 6, 6)
 
 	return frame
 end
 
-function UnitFrames:CreateFrame_Square(unit,width)
+-- Health bar only.
+function UF:CreateSquare(unit, size)
 	local frame = self:CreateBase(unit)
-	frame:SetSize(width,width)
+	frame:SetSize(size, size)
 
-	local health = self:CreateModule(frame,"health")
-	health:SetPoint("TOPRIGHT",-2,-2)
-	health:SetPoint("BOTTOMLEFT",2,2)
+	local health = self:AddElement(frame, "health")
+	health:SetPoint("TOPRIGHT", -BORDER_INSET, -BORDER_INSET)
+	health:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET)
 	health.text:SetPoint("CENTER")
 
+	return frame
+end
+
+-- UNIT_PET reports the owner: "player" for "pet", "party1" for "partypet1".
+local function onOwnerPetChanged(self, owner)
+	if self.ownerUnit == owner then
+		self:UpdateAll()
+	end
+end
+
+function UF:CreatePet(unit, size)
+	local frame = self:CreateSquare(unit, size)
+	frame.ownerUnit = unit == "pet" and "player" or unit:gsub("pet(%d)$", "%1")
+	frame:RegisterEvent("UNIT_PET", onOwnerPetChanged)
+	return frame
+end
+
+-- UNIT_TARGET reports the unit whose target changed: "target" for "targettarget".
+local function onOwnerTargetChanged(self, owner)
+	if self.ownerUnit == owner then
+		self:UpdateAll()
+	end
+end
+
+function UF:CreateTargetOfTarget(unit, size)
+	local frame = self:CreateSquare(unit, size)
+	frame.ownerUnit = unit:match("^(.+)target$")
+	frame:RegisterEvent("UNIT_TARGET", onOwnerTargetChanged)
+
+	local name = self:AddElement(frame, "name", 3)
+	name:SetPoint("TOP", 0, -2)
 
 	return frame
 end
 
-do
-	local unitPetHander = function(self,unit)
-		if unit == "player" then
-			if self.unit == "pet" then
-				self:UpdateAllModules()
-			end
-		else
-			if unit:gsub("([ap][ra][er][nt][ay])pet(%d)","%1%2") == self.unit then
-				self:UpdateAllModules()
-			end
-		end
-	end
+-- Rectangle with buffs, debuffs and a castbar stacked below and a
+-- target-of-target square to the right.
+function UF:CreateTarget(unit, width, height)
+	local frame = self:CreateRectangle(unit, width, height)
 
-	function UnitFrames:CreateFrame_Pet(unit,width)
-		local frame = self:CreateFrame_Square(unit,width)
-		frame:RegisterEvent("UNIT_PET",unitPetHander)
+	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
+	targetOfTarget:SetPoint("LEFT", frame, "RIGHT", 20)
 
+	local buffs = self:AddElement(frame, "buffs", { size = width / 8 })
+	buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT")
 
-		return frame
-	end
-end
+	local debuffs = self:AddElement(frame, "debuffs", { size = width / 8 })
+	debuffs:SetPoint("TOPLEFT", buffs, "BOTTOMLEFT")
 
-do
-	local unitTargetHandler = function(self,unit)
-		if self.unit:match("^(.+)target$") == unit then
-			self:UpdateAllModules()
-		end
-	end
+	local castbar = self:AddElement(frame, "castbar")
+	castbar:SetSize(width, width * 0.1)
+	castbar:SetPoint("TOPLEFT", debuffs, "BOTTOMLEFT")
+	castbar.icon:SetSize(width * 0.1 + 2, width * 0.1 + 2)
 
-	function UnitFrames:CreateFrame_TargetTarget(unit,width)
-		local frame = self:CreateFrame_Square(unit,width)
-		frame:RegisterEvent("UNIT_TARGET",unitTargetHandler)
+	local loseControl = self:AddElement(frame, "losecontrol")
+	loseControl:SetSize(30, 30)
+	loseControl:SetPoint("CENTER")
 
-		local name = self:CreateModule(frame,"name",3)
-		name:SetPoint("TOP",0,-2)
-
-
-		return frame
-	end
-end
-
-function UnitFrames:CreateFrame_Target(unit,width,height)
-	local frame = self:CreateFrame_Rectangle(unit,width,height)
-
-	local targetframe = self:CreateFrame_TargetTarget(unit.."target",height)
-	targetframe:SetPoint("LEFT",frame,"RIGHT",20)
-
-	local buffs = self:CreateModule(frame,"buffs")
-	buffs:SetPoint("TOPLEFT",frame,"BOTTOMLEFT")
-	buffs.size = width/8
-	local debuffs = self:CreateModule(frame,"debuffs")
-	debuffs:SetPoint("TOPLEFT",frame.buffs,"BOTTOMLEFT")
-	debuffs.size = width/8
-
-	local castbar = self:CreateModule(frame,"castbar")
-	castbar:SetSize(width,width*0.1)
-	castbar:SetPoint("TOPLEFT",debuffs,"BOTTOMLEFT")
-	castbar.icon:SetSize(width*0.1+2,width*0.1+2)
-
-	local losecontrol = self:CreateModule(frame,"losecontrol")
-	losecontrol:SetSize(30,30)
-	losecontrol:SetPoint("CENTER")
-
-
-	return frame,targetframe
-end
-
-
-function UnitFrames:Initialize()
-	-- player
-	local player
-	do
-		local floor = floor
-		local calculatePoint = function(i,inRow,size)
-			i = i - 1
-			return "TOPRIGHT",
-					-(i%inRow*(size+2)),
-					-floor(i/inRow)*(size+2)
-		end
-
-		player = self:CreateFrame_Rectangle("player",200,45)
-		player:SetPoint("TOPLEFT",150,-40)
-
-		local leader = self:CreateModule(player,"leader")
-		leader:SetPoint("TOPLEFT",player.health,24,8)
-
-		local buffs = self:CreateModule(player,"buffs")
-		buffs:SetPoint("TOPRIGHT",Minimap,"TOPLEFT",-15,0)
-		buffs.size = 34
-		buffs.realSize = 36
-		buffs.calculatePoint = calculatePoint
-		local debuffs = self:CreateModule(player,"debuffs")
-		debuffs:SetPoint("TOPRIGHT",buffs,"BOTTOMRIGHT")
-		debuffs.size = 34
-		debuffs.realSize = 36
-		debuffs.calculatePoint = calculatePoint
-
-		local castbar = self:CreateModule(player,"castbar")
-		castbar:SetSize(240,22)
-		castbar:SetPoint("CENTER",UIParent,0,-270)
-		castbar.icon:SetSize(22+2,22+2)
-
-		local pet = self:CreateFrame_Pet("pet",45)
-		pet:SetPoint("RIGHT",player,"LEFT",-2,0)
-
-		local losecontrol = self:CreateModule(player,"losecontrol")
-		losecontrol:SetSize(32,32)
-		losecontrol:SetPoint("CENTER",UIParent)
-	end
-
-	local target,targettarget = self:CreateFrame_Target("target",200,45)
-	target:SetPoint("LEFT",player,"RIGHT",2,0)
-	target:RegisterEvent("PLAYER_TARGET_CHANGED",target.UpdateAllModules)
-	targettarget:RegisterEvent("PLAYER_TARGET_CHANGED",targettarget.UpdateAllModules)
-
-	local focus,focustarget = self:CreateFrame_Target("focus",200,45)
-	focus:SetPoint("LEFT",targettarget,"RIGHT",2,0)
-	focus:RegisterEvent("PLAYER_FOCUS_CHANGED",focus.UpdateAllModules)
-	focustarget:RegisterEvent("PLAYER_FOCUS_CHANGED",focustarget.UpdateAllModules)
-
-
-	-- party
-	do
-		local frame,petframe,leader,buffs,debuffs,castbar,losecontrol
-		for i = 1,4 do
-			frame = self:CreateFrame_Rectangle("party"..i,180,40)
-			frame:SetPoint("TOPLEFT",50,-150-(i-1)*(40+72))
-			frame:RegisterEvent("PARTY_MEMBERS_CHANGED",frame.UpdateAllModules)
-
-			leader = self:CreateModule(frame,"leader")
-			leader:SetPoint("TOPLEFT",frame.health,24,8)
-
-			buffs = self:CreateModule(frame,"buffs")
-			buffs:SetPoint("TOPLEFT",frame,"BOTTOMLEFT")
-			buffs.size = 180/8
-			buffs.max = 16
-
-			debuffs = self:CreateModule(frame,"debuffs")
-			debuffs:SetPoint("LEFT",frame,"RIGHT")
-			debuffs.size = 180/8
-			debuffs.max = 16
-
-			castbar = self:CreateModule(frame,"castbar")
-			castbar:SetPoint("BOTTOM",frame,"TOP")
-			castbar:SetSize(176,20)
-			castbar.icon:SetSize(22,22)
-
-			losecontrol = self:CreateModule(frame,"losecontrol")
-			losecontrol:SetSize(30,30)
-			losecontrol:SetPoint("CENTER")
-
-			petframe = self:CreateFrame_Pet("partypet"..i,40)
-			petframe:SetPoint("RIGHT",frame,"LEFT",-2,0)
-			petframe:RegisterEvent("PARTY_MEMBERS_CHANGED",petframe.UpdateAllModules)
-		end
-	end
-
-	-- arena
-	do
-		local frame,petframe,castbar,debuffs,losecontrol
-		for i = 1,3 do
-			frame = self:CreateFrame_Rectangle("arena"..i,200,50)
-			frame:SetPoint("RIGHT",-150,(i-3)*(-(50+54)))
-
-			debuffs = self:CreateModule(frame,"debuffs")
-			debuffs:SetPoint("TOPLEFT",frame,"BOTTOMLEFT")
-			debuffs.size = 200/8
-			debuffs.max = 16
-
-			castbar = self:CreateModule(frame,"castbar")
-			castbar:SetPoint("TOPRIGHT",frame,"TOPLEFT",0,-2)
-			castbar:SetSize(160,35)
-			castbar.icon:SetSize(37,37)
-
-			losecontrol = self:CreateModule(frame,"losecontrol")
-			losecontrol:SetSize(32,32)
-			losecontrol:SetPoint("CENTER")
-
-			petframe = self:CreateFrame_Pet("arenapet"..i,50)
-			petframe:SetPoint("LEFT",frame,"RIGHT",2,0)
-		end
-	end
-
-
-	self.CreateFrame_Base = nil
-	self.CreateFrame_Rectangle = nil
-	self.CreateFrame_Square = nil
-	self.CreateFrame_Pet = nil
-	self.CreateFrame_TargetTarget = nil
+	return frame, targetOfTarget
 end

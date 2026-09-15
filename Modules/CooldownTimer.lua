@@ -1,56 +1,63 @@
-local namespace = select(2,...)
-local CooldownTimer = namespace:New("CooldownTimer")
+local _, ns = ...
 
-local ceil = ceil
+-- Adds a remaining-time text to any Cooldown frame.
+
+local ceil = math.ceil
 local GetTime = GetTime
-local hooksecurefunc = hooksecurefunc
 
+local CooldownTimer = ns:NewModule("CooldownTimer")
 
-function CooldownTimer.OnUpdate(self,elapsed)
-	if not self.remain then return end
+-- Cooldowns shorter than this (global cooldown) do not get a timer.
+local MIN_DURATION = 1.5
 
-	local remain = self.remain - elapsed
-    if remain > 0 then
-        if remain <= 3 then
-            self.timer:SetTextColor(1,0,0)
-            self.timer:SetFormattedText("%.1f",remain)
-        elseif remain <= 60 then
-            self.timer:SetTextColor(1,1,0)
-            self.timer:SetText(ceil(remain))
-        elseif remain <= 3600 then
-            self.timer:SetText(ceil(remain/60).."m")
-            self.timer:SetTextColor(1,1,1)
-        else
-            self.timer:SetText(ceil(remain/3600).."h")
-            self.timer:SetTextColor(0.6,0.6,0.6)
-        end
-		self.remain = remain
-    else
-        self.remain = nil
-    	self.timer:Hide()
-    end
+local function setTimerText(timer, remain)
+	if remain <= 3 then
+		timer:SetTextColor(1, 0, 0)
+		timer:SetFormattedText("%.1f", remain)
+	elseif remain <= 60 then
+		timer:SetTextColor(1, 1, 0)
+		timer:SetText(ceil(remain))
+	elseif remain <= 3600 then
+		timer:SetTextColor(1, 1, 1)
+		timer:SetText(ceil(remain / 60) .. "m")
+	else
+		timer:SetTextColor(0.6, 0.6, 0.6)
+		timer:SetText(ceil(remain / 3600) .. "h")
+	end
 end
 
-function CooldownTimer.SetCooldown(self,startTime,duration)
-    if duration > 1.5 then
-        self.remain = startTime + duration - GetTime()
-        self.timer:Show()
-    else
-        self.remain = nil
-        self.timer:Hide()
-    end
+local function onUpdate(cooldown, elapsed)
+	if not cooldown.remain then
+		return
+	end
+
+	local remain = cooldown.remain - elapsed
+	if remain > 0 then
+		setTimerText(cooldown.timer, remain)
+		cooldown.remain = remain
+	else
+		cooldown.remain = nil
+		cooldown.timer:Hide()
+	end
 end
 
-function CooldownTimer:Create(cooldownFrame,fontSize)
-    local timer = cooldownFrame:CreateFontString(nil,"ARTWORK")
-    timer:SetPoint("CENTER")
-    timer:SetFont("Fonts\\ARIALN.ttf",fontSize or 12,"OUTLINE")
-    timer:SetShadowOffset(1,-1)
-    cooldownFrame.timer = timer
-    self:Setup(cooldownFrame)
+local function onSetCooldown(cooldown, startTime, duration)
+	if duration > MIN_DURATION then
+		cooldown.remain = startTime + duration - GetTime()
+		cooldown.timer:Show()
+	else
+		cooldown.remain = nil
+		cooldown.timer:Hide()
+	end
 end
 
-function CooldownTimer:Setup(cooldownFrame)
-    cooldownFrame:SetScript("OnUpdate",self.OnUpdate)
-    hooksecurefunc(cooldownFrame,"SetCooldown",self.SetCooldown)
+function CooldownTimer:Attach(cooldown, fontSize)
+	local timer = cooldown:CreateFontString(nil, "ARTWORK")
+	timer:SetPoint("CENTER")
+	timer:SetFont(ns.Media.font, fontSize or 12, "OUTLINE")
+	timer:SetShadowOffset(1, -1)
+	cooldown.timer = timer
+
+	cooldown:SetScript("OnUpdate", onUpdate)
+	hooksecurefunc(cooldown, "SetCooldown", onSetCooldown)
 end

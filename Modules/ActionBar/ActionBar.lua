@@ -1,98 +1,111 @@
-local namespace = select(2,...)
+local _, ns = ...
+
+-- Action bars layout:
+--
+--   [shapeshift] [pet]
+--   [   bar 3   ]
+--   [   bar 2   ]        [ bar 5 ]
+--   [ bar 4 ]   [   bar 1   ]
+--
+-- Bars 4/5 are 4x3 squares to the sides of bar 1.
 
 local CreateFrame = CreateFrame
 local RegisterStateDriver = RegisterStateDriver
+local floor = math.floor
 
+local ActionBar = ns:NewModule("ActionBar")
 
-local ActionBar = namespace:New("ActionBar")
+local BUTTONS_PER_BAR = 12
+local BUTTON_SIZE = 36
+local BUTTON_GAP = 2
+local SLOT = BUTTON_SIZE + BUTTON_GAP
 
-local OFFSET = 2
-local SIZE = 36
-local TOTALSIZE = SIZE+OFFSET
+ActionBar.BUTTON_SIZE = BUTTON_SIZE
+ActionBar.SMALL_BUTTON_SIZE = 30
+ActionBar.BUTTON_GAP = BUTTON_GAP
 
+-- Common look for every action-like button (action, pet, shapeshift).
+function ActionBar:StyleButton(button, size)
+	button:SetSize(size, size)
+	button:SetNormalTexture(ns.Media.buttonNormal)
+	button:GetNormalTexture():SetAllPoints()
+	button:SetHighlightTexture(ns.Media.buttonHighlight)
+	button:HookScript("OnClick", self.PlayClickAnimation)
+end
 
-function ActionBar:CreateBar(page,calculatePointFunc,postCreateFunc)
-	local frame = CreateFrame("Frame",nil,UIParent,"SecureHandlerStateTemplate")
-	local FIRSTACTION = (page-1)*12
+-- Position of the i-th button in a single 12-wide row, centered on the bar.
+local function rowPoint(i)
+	return "BOTTOM", SLOT / 2 + (i - 7) * SLOT, 0
+end
 
-	local action,button
-	for i = 1,12 do
-		action = FIRSTACTION+i
-		button = self:CreateButton(action,frame)
-		button:SetSize(SIZE,SIZE)
-		if calculatePointFunc then
-			button:SetPoint("BOTTOM",calculatePointFunc(i))
-		end
-		if postCreateFunc then
-			postCreateFunc(button,i)
+-- Position of the i-th button in a 4x3 block, centered on the bar.
+local function squarePoint(i)
+	local row = floor((i - 1) / 4)
+	return "BOTTOM", SLOT / 2 + (i % 4 - 2) * SLOT, row * SLOT
+end
+
+-- Creates a secure bar holding the 12 action slots of the given page.
+function ActionBar:CreateBar(page, pointFunc, onButtonCreated)
+	local bar = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
+	local firstAction = (page - 1) * BUTTONS_PER_BAR
+
+	for i = 1, BUTTONS_PER_BAR do
+		local button = self:CreateActionButton(firstAction + i, bar)
+		button:SetPoint(pointFunc(i))
+		if onButtonCreated then
+			onButtonCreated(button, i)
 		end
 	end
 
-	return frame
+	return bar
+end
+
+-- Bar 1 swaps its page with the vehicle UI and warrior stances.
+local function pageDriverCondition()
+	local condition = "[vehicleui] 11; "
+	if ns.PLAYER_CLASS == "WARRIOR" then
+		condition = condition .. "[stance:1] 7; [stance:2] 8; [stance:3] 9; "
+	end
+	return condition .. "1"
+end
+
+-- Secure snippet run on every bar 1 button when the page changes.
+local PAGE_CHANGED_SNIPPET = [[
+	self:SetAttribute("action", (message - 1) * 12 + self:GetAttribute("id"))
+]]
+
+local function setupPagedButton(button, index)
+	button:SetAttribute("id", index)
+	button:SetAttribute("_childupdate-page", PAGE_CHANGED_SNIPPET)
 end
 
 function ActionBar:Initialize()
-	local function initMainBarButton(self,id)
-		self:SetAttribute("id",id)
-		self:SetAttribute("_childupdate-page",[[
-			self:SetAttribute("action",(message-1)*12+self:GetAttribute("id"))
-		]])
-	end
+	local bar1 = self:CreateBar(1, rowPoint, setupPagedButton)
+	bar1:SetPoint("BOTTOM", 0, 2)
+	bar1:SetAttribute("_onstate-page", [[ control:ChildUpdate("page", newstate) ]])
+	RegisterStateDriver(bar1, "page", pageDriverCondition())
 
-	local function row(i)
-		return TOTALSIZE/2+(-7+i)*TOTALSIZE,0
-	end
+	local bar2 = self:CreateBar(2, rowPoint)
+	bar2:SetPoint("BOTTOM", bar1, 0, SLOT)
 
-	local function square(i)
-		local row = floor((i-1)/4)
-		return TOTALSIZE/2+(-2+i%4)*TOTALSIZE,row*TOTALSIZE
-	end
+	local bar3 = self:CreateBar(3, rowPoint)
+	bar3:SetPoint("BOTTOM", bar2, 0, SLOT)
 
-	local bar1 = self:CreateBar(1,row,initMainBarButton)
-	bar1:SetPoint("BOTTOM",0,2)
-	bar1:SetAttribute("_onstate-page",[[ control:ChildUpdate("page", newstate) ]])
+	local bar4 = self:CreateBar(4, squarePoint)
+	bar4:SetPoint("BOTTOM", bar1, -SLOT * 8 - 12, 0)
 
-	local playerClass = select(2,UnitClass("player"))
-	local classRule 
-	if playerClass == "WARRIOR" then
-		classRule = "[stance:1] 7; [stance:2] 8; [stance:3] 9;"
-	end
-	RegisterStateDriver(bar1,"page",("[vehicleui] 11; %s 1"):format(classRule or ""))
-	self.bar1 = bar1
+	local bar5 = self:CreateBar(5, squarePoint)
+	bar5:SetPoint("BOTTOM", bar1, SLOT * 8 + 12, 0)
 
-	local bar2 = self:CreateBar(2,row)
-	bar2:SetPoint("BOTTOM",bar1,0,TOTALSIZE)
-	self.bar2 = bar2
+	local shapeshiftBar = CreateFrame("Frame", nil, UIParent)
+	shapeshiftBar:SetSize(2, 2)
+	shapeshiftBar:SetPoint("BOTTOM", bar3, -SLOT * 5, SLOT)
+	self:InitializeShapeshiftBar(shapeshiftBar)
 
-	local bar3 = self:CreateBar(3,row)
-	bar3:SetPoint("BOTTOM",bar2,0,TOTALSIZE)
-	self.bar3 = bar3
+	local petBar = CreateFrame("Frame", nil, UIParent)
+	petBar:SetSize(2, 2)
+	petBar:SetPoint("BOTTOM", bar3, -SLOT * 2, SLOT)
+	self:InitializePetBar(petBar)
 
-	local barLeft = self:CreateBar(4,square)
-	barLeft:SetPoint("BOTTOM",bar1,-TOTALSIZE*8-12,0)
-	self.bar4 = barLeft
-
-	local barRight = self:CreateBar(5,square)
-	barRight:SetPoint("BOTTOM",bar1,TOTALSIZE*8+12,0)
-	self.bar5 = barRight
-
-	local barShapeshift = CreateFrame("frame",nil,UIParent)
-	barShapeshift:SetSize(2,2)
-	barShapeshift:SetPoint("BOTTOM",bar3,-TOTALSIZE*5,TOTALSIZE)
-	self:InitializeShapeshiftBar(barShapeshift)
-	self.barShapeshift = barShapeshift
-
-	local barPet = CreateFrame("frame",nil,UIParent)
-	barPet:SetSize(2,2)
-	barPet:SetPoint("BOTTOM",bar3,-TOTALSIZE*2,TOTALSIZE)
-	self:InitializePetBar(barPet)
-	self.barPet = barPet
+	self.bars = { bar1, bar2, bar3, bar4, bar5 }
 end
-
-
---[[local f = UIParent:CreateTexture(nil,"OVERLAY")
-f:SetTexture("Interface\\Buttons\\WHITE8x8")
-f:SetWidth(2)
-f:SetVertexColor(0,0,0)
-f:SetPoint("TOP")
-f:SetPoint("BOTTOM")]]

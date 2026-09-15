@@ -1,84 +1,124 @@
-local namespace = select(2,...)
+local _, ns = ...
 
-local _G = _G
+-- Hides Blizzard's own action bars and re-homes the pieces we still use
+-- (bags, micro menu).
 
-local destroyObject = namespace.destroyObject
+local DestroyFrame = ns.DestroyFrame
+local noop = ns.noop
 
+--------------------------------------------------
+-- Options that no longer make sense
 
 InterfaceOptionsActionBarsPanelAlwaysShowActionBars:EnableMouse(false)
 InterfaceOptionsActionBarsPanelAlwaysShowActionBars:SetAlpha(0)
-
 InterfaceOptionsActionBarsPanelLockActionBars:EnableMouse(false)
 InterfaceOptionsActionBarsPanelLockActionBars:SetAlpha(0)
-
 InterfaceOptionsStatusTextPanelXP:SetAlpha(0)
 InterfaceOptionsStatusTextPanelXP:SetScale(0.0001)
 
-MultiCastActionBarFrame.ignoreFramePositionManager = true
-MultiBarBottomLeft.Show = namespace.null
-MultiBarBottomLeft.Hide = namespace.null
-MultiBarBottomRight.Hide = namespace.null
-MultiBarBottomRight.Show = namespace.null
-MultiBarLeft.Show = namespace.null
-MultiBarLeft.Hide = namespace.null
-MultiBarRight.Show = namespace.null
-MultiBarRight.Hide = namespace.null
-MainMenuBarVehicleLeaveButton_Update = namespace.null
+--------------------------------------------------
+-- Bars
 
-destroyObject(MainMenuBar)
-destroyObject(MainMenuExpBar)
-destroyObject(ReputationWatchBar)
-destroyObject(BonusActionBarFrame)
-destroyObject(PossessBarFrame)
-destroyObject(PetActionBarFrame)
-destroyObject(VehicleMenuBar)
-destroyObject(PossessBarFrame)
-destroyObject(MainMenuBarArtFrame)
+MultiCastActionBarFrame.ignoreFramePositionManager = true
+MainMenuBarVehicleLeaveButton_Update = noop
+
+for _, bar in ipairs({ MultiBarBottomLeft, MultiBarBottomRight, MultiBarLeft, MultiBarRight }) do
+	bar.Show = noop
+	bar.Hide = noop
+end
+
+DestroyFrame(MainMenuBar)
+DestroyFrame(MainMenuExpBar)
+DestroyFrame(ReputationWatchBar)
+DestroyFrame(BonusActionBarFrame)
+DestroyFrame(PossessBarFrame)
+DestroyFrame(PetActionBarFrame)
+DestroyFrame(VehicleMenuBar)
+DestroyFrame(MainMenuBarArtFrame)
+-- The art frame still owns the currency (honor/arena points) updates.
 MainMenuBarArtFrame:RegisterEvent("KNOWN_CURRENCY_TYPES_UPDATE")
 MainMenuBarArtFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 
+local BUTTON_PREFIXES = {
+	"ActionButton",
+	"MultiBarBottomLeftButton",
+	"MultiBarBottomRightButton",
+	"MultiBarRightButton",
+	"MultiBarLeftButton",
+	"BonusActionButton",
+}
 
-for i = 1, 12 do
-	destroyObject(_G["ActionButton"..i])
-	destroyObject(_G["MultiBarBottomLeftButton"..i])
-	destroyObject(_G["MultiBarBottomRightButton"..i])
-	destroyObject(_G["MultiBarRightButton"..i])
-	destroyObject(_G["MultiBarLeftButton"..i])
-	destroyObject(_G["BonusActionButton"..i])
-
-	if i <= VEHICLE_MAX_ACTIONBUTTONS then
-		destroyObject(_G["VehicleMenuBarActionButton"..i])
+for i = 1, NUM_ACTIONBAR_BUTTONS do
+	for _, prefix in ipairs(BUTTON_PREFIXES) do
+		DestroyFrame(_G[prefix .. i])
 	end
 end
 
-if PlayerTalentFrame then
+for i = 1, VEHICLE_MAX_ACTIONBUTTONS do
+	DestroyFrame(_G["VehicleMenuBarActionButton" .. i])
+end
+
+if ns.PLAYER_CLASS ~= "SHAMAN" then
+	DestroyFrame(MultiCastActionBarFrame)
+	for i = 1, NUM_ACTIONBAR_BUTTONS do
+		DestroyFrame(_G["MultiCastActionButton" .. i])
+	end
+end
+
+-- Dual spec swaps would otherwise re-show the bars.
+local function detachTalentFrame()
 	PlayerTalentFrame:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+end
+if PlayerTalentFrame then
+	detachTalentFrame()
 else
-	hooksecurefunc("TalentFrame_LoadUI", function() PlayerTalentFrame:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED") end)
+	hooksecurefunc("TalentFrame_LoadUI", detachTalentFrame)
 end
 
-
-if select(2,UnitClass("player")) ~= "SHAMAN" then
-	destroyObject(MultiCastActionBarFrame)
-	for i = 1,12 do
-		destroyObject(_G["MultiCastActionButton"..i])
-	end
+for _, key in ipairs({
+	"MultiBarBottomLeft",
+	"MultiBarRight",
+	"ShapeshiftBarFrame",
+	"PossessBarFrame",
+	"MultiCastActionBarFrame",
+	"PETACTIONBAR_YPOS",
+	"MULTICASTACTIONBAR_YPOS",
+}) do
+	UIPARENT_MANAGED_FRAME_POSITIONS[key] = nil
 end
 
+--------------------------------------------------
+-- Bags: bottom right corner
 
-do
-	local tbl = {
-		"MultiBarBottomLeft",
-		"MultiBarRight",
-		"ShapeshiftBarFrame",
-		"PossessBarFrame",
-		"MultiCastActionBarFrame",
-		"PETACTIONBAR_YPOS",
-		"MULTICASTACTIONBAR_YPOS"
-	}
+KeyRingButton:SetParent(UIParent)
+MainMenuBarBackpackButton:SetParent(UIParent)
+MainMenuBarBackpackButton:SetPoint("BOTTOMRIGHT", -2, 40)
 
-	local UIPARENT_MANAGED_FRAME_POSITIONS = UIPARENT_MANAGED_FRAME_POSITIONS
-	for i = 1,#tbl do
-		UIPARENT_MANAGED_FRAME_POSITIONS[tbl[i]] = nil
-	end
+local previous = MainMenuBarBackpackButton
+for i = 0, NUM_BAG_SLOTS - 1 do
+	local bag = _G["CharacterBag" .. i .. "Slot"]
+	bag:SetParent(UIParent)
+	bag:ClearAllPoints()
+	bag:SetPoint("BOTTOMRIGHT", previous, "BOTTOMLEFT", -3, 0)
+	previous = bag
 end
+
+--------------------------------------------------
+-- Micro menu: bottom right corner, above the bags
+
+for _, button in ipairs({
+	CharacterMicroButton,
+	SpellbookMicroButton,
+	TalentMicroButton,
+	AchievementMicroButton,
+	QuestLogMicroButton,
+	SocialsMicroButton,
+	PVPMicroButton,
+	LFDMicroButton,
+	MainMenuMicroButton,
+	HelpMicroButton,
+}) do
+	button:SetParent(UIParent)
+end
+
+CharacterMicroButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMRIGHT", -254, 2)

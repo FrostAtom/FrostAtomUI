@@ -1,101 +1,95 @@
-local namespace = select(2,...)
-local TE = namespace:New("TemporaryEnchant")
+local _, ns = ...
 
+-- Weapon enchant (poisons, sharpening stones, ...) icons under the minimap.
+-- Right click removes the enchant.
+
+local CreateFrame = CreateFrame
 local GetWeaponEnchantInfo = GetWeaponEnchantInfo
 local GetInventoryItemTexture = GetInventoryItemTexture
 local CancelItemTempEnchantment = CancelItemTempEnchantment
 local GameTooltip = GameTooltip
-local select = select
-local math = math
 
+local TemporaryEnchant = ns:NewModule("TemporaryEnchant")
 
-local frames = setmetatable({},{
-	__index = function(self,i)
-		local frame = TE:CreateFrame()
-		frame:SetPoint("TOPLEFT",Minimap,"BOTTOMLEFT",(i-1)*32,-4)
-		frame:SetID(i)
-		self[i] = frame
-		return frame
-	end
+local ICON_SIZE = 30
+local ICON_GAP = 2
+local TOP_OFFSET = 30 -- leaves room for the fps/latency line under the minimap
+local MAIN_HAND_SLOT = 16 -- weapon slot ids are 16 (main hand), 17 (off hand), 18 (ranged)
+
+local function onClick(icon)
+	CancelItemTempEnchantment(icon.weaponIndex)
+end
+
+local function onUpdate(icon)
+	GameTooltip:SetInventoryItem("player", MAIN_HAND_SLOT - 1 + icon.weaponIndex)
+end
+
+local function onEnter(icon)
+	GameTooltip:SetOwner(icon, "ANCHOR_BOTTOMLEFT")
+	onUpdate(icon)
+	icon:SetScript("OnUpdate", onUpdate)
+end
+
+local function onLeave(icon)
+	GameTooltip:Hide()
+	icon:SetScript("OnUpdate", nil)
+end
+
+local function createIcon(index)
+	local icon = CreateFrame("Button", nil, UIParent)
+	icon:SetSize(ICON_SIZE, ICON_SIZE)
+	icon:SetPoint("TOPLEFT", Minimap, "BOTTOMLEFT", (index - 1) * (ICON_SIZE + ICON_GAP), -TOP_OFFSET)
+	icon:RegisterForClicks("RightButtonDown")
+	icon:SetScript("OnClick", onClick)
+	icon:SetScript("OnEnter", onEnter)
+	icon:SetScript("OnLeave", onLeave)
+
+	icon.texture = icon:CreateTexture(nil, "BORDER")
+	icon.texture:SetAllPoints()
+
+	return icon
+end
+
+-- Icons are created on demand, in display order.
+local icons = setmetatable({}, {
+	__index = function(self, index)
+		local icon = createIcon(index)
+		self[index] = icon
+		return icon
+	end,
 })
 
-local function OnClick(self)
-	CancelItemTempEnchantment(self.id)
-end
+-- GetWeaponEnchantInfo returns (hasEnchant, expiration, charges) per weapon.
+local function showEnchants(...)
+	local shown = 0
+	for i = 1, select("#", ...), 3 do
+		local hasEnchant = select(i, ...)
+		if hasEnchant then
+			shown = shown + 1
 
-local function OnUpdate(self)
-	GameTooltip:SetInventoryItem("player",15+self.id)
-end
-
-local function OnEnter(self)
-	GameTooltip:SetOwner(self,"ANCHOR_BOTTOMLEFT")
-
-	OnUpdate(self)
-	self:SetScript("OnUpdate",OnUpdate)
-end
-
-local function OnLeave(self)
-	GameTooltip:Hide()
-	self:SetScript("OnUpdate",nil)
-end
-
-function TE:CreateFrame()
-	local frame = CreateFrame("Button",nil,UIParent)
-	frame:RegisterForClicks("RightButtonDown")
-	frame:SetScript("OnClick",OnClick)
-	frame:SetScript("OnEnter",OnEnter)
-	frame:SetScript("OnLeave",OnLeave)
-	frame:SetSize(30,30)
-
-	local texture = frame:CreateTexture(nil,"BORDER")
-	texture:SetAllPoints()
-
-	--[[local cd = CreateFrame("Cooldown",nil,frame)
-	cd:SetReverse(true)
-	cd:SetDrawEdge(true)
-	cd:SetAllPoints()]]
-
-	frame.texture = texture
-	--frame.cd = cd
-
-	return frame
-end
-
-local function inner(...)
-	local visible,frame = 0
-	local has,remain,_
-	for i = 1,select("#",...),3 do
-		has,remain,_ = select(i,...)
-
-		if has then
-			visible = visible + 1
-
-			frame = frames[visible]
-			frame.id = math.ceil(i/3)
-			frame.texture:SetTexture(GetInventoryItemTexture("player",15+frame.id))
-			--frame.cd:SetCooldown(GetTime()-(3600-remain/1e3),3600)
-			frame:Show()
+			local icon = icons[shown]
+			icon.weaponIndex = math.ceil(i / 3)
+			icon.texture:SetTexture(GetInventoryItemTexture("player", MAIN_HAND_SLOT - 1 + icon.weaponIndex))
+			icon:Show()
 		end
 	end
 
-	for i = visible+1,#frames do
-		frames[i]:Hide()
+	for i = shown + 1, #icons do
+		icons[i]:Hide()
 	end
 end
 
-function TE:Update()
-	inner(GetWeaponEnchantInfo())
+function TemporaryEnchant:Update()
+	showEnchants(GetWeaponEnchantInfo())
 end
 
-function TE:UNIT_INVENTORY_CHANGED(unit)
-	if unit ~= "player" then
-		return
+function TemporaryEnchant:UNIT_INVENTORY_CHANGED(unit)
+	if unit == "player" then
+		self:Update()
 	end
-
-	self:Update()
 end
 
-function TE:Initialize()
+function TemporaryEnchant:Initialize()
 	self:RegisterEvent("UNIT_INVENTORY_CHANGED")
-	self:RegisterEvent("PLAYER_ENTERING_WORLD","Update")
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 end

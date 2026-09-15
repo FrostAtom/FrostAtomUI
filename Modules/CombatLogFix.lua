@@ -1,41 +1,39 @@
-if not GetCVar("realmlist"):lower():find("circle") then return end -- needed only on wowcircle
+-- WoWCircle-specific: inside instances the combat log sometimes stops
+-- delivering events. If a cast is sent and no combat log event follows within
+-- a short time, the log is cleared, which un-sticks it.
+if not GetCVar("realmlist"):lower():find("circle") then
+	return
+end
 
-local namespace = select(2,...)
+local _, ns = ...
 
-local printf = namespace.printf
 local CombatLogClearEntries = CombatLogClearEntries
 local IsInInstance = IsInInstance
-local select = select
 
-local CombatLogFix = namespace:New("CombatLogFix")
-local frame = CreateFrame("frame")
-frame:Hide()
+local CombatLogFix = ns:NewModule("CombatLogFix")
 
+local SILENCE_TIMEOUT = 0.8
 
-local function onUpdate(self,elapsed)
-	self.remain  = self.remain - elapsed
+local watchdog = CreateFrame("Frame")
+watchdog:Hide()
+watchdog:SetScript("OnShow", function(self)
+	self.remain = SILENCE_TIMEOUT
+end)
+watchdog:SetScript("OnUpdate", function(self, elapsed)
+	self.remain = self.remain - elapsed
 	if self.remain < 0 then
 		CombatLogClearEntries()
-		printf("CombatLog Debuged")
-
+		ns.Print("combat log reset")
 		self:Hide()
 	end
-end
-
-local function onShow(self)
-	self.remain = 0.8
-end
-
-frame:SetScript("OnUpdate",onUpdate)
-frame:SetScript("OnShow",onShow)
-
+end)
 
 function CombatLogFix:UNIT_SPELLCAST_SENT()
-	frame:Show()
+	watchdog:Show()
 end
 
 function CombatLogFix:COMBAT_LOG_EVENT_UNFILTERED()
-	frame:Hide()
+	watchdog:Hide()
 end
 
 function CombatLogFix:PLAYER_ENTERING_WORLD()

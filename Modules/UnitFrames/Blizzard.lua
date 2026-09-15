@@ -1,45 +1,36 @@
-local namespace = select(2,...)
+local _, ns = ...
 
-local destroyObject = namespace.destroyObject
-local tDeleteItem = namespace.tDeleteItem
-local UnitPopupButtons = UnitPopupButtons
+-- Hides Blizzard's unit frames and related bits.
 
+local DestroyFrame = ns.DestroyFrame
 
-local mustRemove = {"SET_FOCUS","CLEAR_FOCUS","LOCK_FOCUS_FRAME","UNLOCK_FOCUS_FRAME"}
-
-local value
-for i = 1,#mustRemove do
-	value = mustRemove[i]
-
-	UnitPopupButtons[value] = nil
-
-	for _,tbl in pairs(UnitPopupMenus) do
-		tDeleteItem(tbl,value)
+-- Focus is set by clicking our frames; drop the menu entries.
+for _, key in ipairs({ "SET_FOCUS", "CLEAR_FOCUS", "LOCK_FOCUS_FRAME", "UNLOCK_FOCUS_FRAME" }) do
+	UnitPopupButtons[key] = nil
+	for _, menu in pairs(UnitPopupMenus) do
+		ns.tDeleteItem(menu, key)
 	end
 end
 
+Arena_LoadUI = ns.noop
 
-Arena_LoadUI = namespace.null
-destroyObject(PlayerFrame,true)
-destroyObject(TargetFrame,true)
-destroyObject(FocusFrame,true)
-destroyObject(RuneFrame,true)
-destroyObject(BuffFrame,true)
-destroyObject(ComboFrame,true)
-destroyObject(CastingBarFrame)
-destroyObject(ConsolidatedBuffs,true)
-destroyObject(TemporaryEnchantFrame,true)
+DestroyFrame(PlayerFrame, true)
+DestroyFrame(TargetFrame, true)
+DestroyFrame(FocusFrame, true)
+DestroyFrame(RuneFrame, true)
+DestroyFrame(BuffFrame, true)
+DestroyFrame(ComboFrame, true)
+DestroyFrame(CastingBarFrame)
+DestroyFrame(ConsolidatedBuffs, true)
+DestroyFrame(TemporaryEnchantFrame, true)
+DestroyFrame(PartyMemberBackground)
 
-local button
-for i = 1,4 do
-	button = _G["PartyMemberFrame"..i]
-	destroyObject(button,true)
-	hooksecurefunc(button,"Show",button.Hide)
-	destroyObject(_G[("PartyMemberFrame%dPetFrame"):format(i)],true)
+for i = 1, MAX_PARTY_MEMBERS do
+	local frame = _G["PartyMemberFrame" .. i]
+	DestroyFrame(frame, true)
+	hooksecurefunc(frame, "Show", frame.Hide)
+	DestroyFrame(_G["PartyMemberFrame" .. i .. "PetFrame"], true)
 end
-destroyObject(PartyMemberBackground)
 
-
-
-namespace:Get("CVars"):SetCVar("hidePartyInRaid","1")
-UIPARENT_MANAGED_FRAME_POSITIONS["CastingBarFrame"] = nil
+ns:GetModule("CVars"):Pin("hidePartyInRaid", "1")
+UIPARENT_MANAGED_FRAME_POSITIONS.CastingBarFrame = nil

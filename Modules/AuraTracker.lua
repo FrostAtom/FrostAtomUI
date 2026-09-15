@@ -1,187 +1,151 @@
-local engine = select(2,...)
+local _, ns = ...
 
-local DATA = {
-	["WARRIOR"] = {
-		{spell = 60503, unit = "player", type = "buff", points = {"CENTER",18,-72}, size = 36}, -- holy shock proc
-		{spell = 52437, unit = "player", type = "buff", points = {"CENTER",-18,-72}, size = 36}, -- judgement buff
-	},
-	["PALADIN"] = {
-		{spell = 54149, unit = "player", type = "buff", points = {"CENTER",0,-72}, size = 36}, -- holy shock proc
-		{spell = 54153, unit = "player", type = "buff", points = {"CENTER",72,36}, size = 36}, -- judgement buff
-		{spell = 53563, isMine = true, unit = "player", type = "buff", points = {"CENTER",-108,36}, size = 36}, -- beacon
-		{spell = 53601, isMine = true, unit = "player", type = "buff", points = {"CENTER",-72,36}, size = 36}, -- shield
-		{spell = 58597, unit = "player", type = "buff", points = {"CENTER",0,-36}, size = 40}, -- shield proc
-	},
-	["PRIEST"] = {
-		{spell = 48168, unit = "player", type = "buff", points = {"CENTER",72,36}, size = 36}, -- inner fire
-	},
-	["DEATHKNIGHT"] = {
-		{spell = 55379, unit = "player", type = "buff", points = {"CENTER",0,-72}, size = 36}, -- haste meta
-		{spell = 55078, unit = "target", type = "debuff", isMine = true, points = {"CENTER",-48,-42}, size = 30},
-		{spell = 55095, unit = "target", type = "debuff", isMine = true, points = {"CENTER",-16,-42}, size = 30},
-		{spell = 51735, unit = "target", type = "debuff", isMine = true, points = {"CENTER",16,-42}, size = 30},
-		{spell = 50536, unit = "target", type = "debuff", isMine = true, points = {"CENTER",48,-42}, size = 30},
-	},
-	["SHAMAN"] = {
-		{spell = 57960, unit = "player", type = "buff", points = {"CENTER",72,36}, size = 36}, -- shield
-		{spell = 70806, unit = "player", type = "buff", points = {"CENTER",0,-72}, size = 36}, -- 2t10 restor proc
-		{spell = 8178, isMine = true, unit = "player", type = "buff", points = {"CENTER",-108,36}, size = 36}, -- ground
+-- Big icons for a few important auras, per class.
+--
+-- Entry fields:
+--   spell   spell id
+--   unit    "player" / "target" / "focus"
+--   type    "buff" (default) or "debuff"
+--   isMine  only auras applied by the player
+--   point   SetPoint arguments, relative to UIParent
+--   size    icon size (default 32)
 
-	}
+local TRACKED_AURAS = {
+	WARRIOR = {
+		{ spell = 60503, unit = "player", point = { "CENTER", 18, -72 }, size = 36 }, -- Taste for Blood
+		{ spell = 52437, unit = "player", point = { "CENTER", -18, -72 }, size = 36 }, -- Sudden Death
+	},
+	PALADIN = {
+		{ spell = 54149, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- Infusion of Light
+		{ spell = 54153, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Judgements of the Pure
+		{ spell = 53563, unit = "player", isMine = true, point = { "CENTER", -108, 36 }, size = 36 }, -- Beacon of Light
+		{ spell = 53601, unit = "player", isMine = true, point = { "CENTER", -72, 36 }, size = 36 }, -- Sacred Shield
+		{ spell = 58597, unit = "player", point = { "CENTER", 0, -36 }, size = 40 }, -- Sacred Shield proc
+	},
+	PRIEST = {
+		{ spell = 48168, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Inner Fire
+	},
+	DEATHKNIGHT = {
+		{ spell = 55379, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- haste proc (meta gem)
+		-- own diseases on the target: Blood Plague, Frost Fever, Ebon Plague, Unholy Blight
+		{ spell = 55078, unit = "target", type = "debuff", isMine = true, point = { "CENTER", -48, -42 }, size = 30 },
+		{ spell = 55095, unit = "target", type = "debuff", isMine = true, point = { "CENTER", -16, -42 }, size = 30 },
+		{ spell = 51735, unit = "target", type = "debuff", isMine = true, point = { "CENTER", 16, -42 }, size = 30 },
+		{ spell = 50536, unit = "target", type = "debuff", isMine = true, point = { "CENTER", 48, -42 }, size = 30 },
+	},
+	SHAMAN = {
+		{ spell = 57960, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Water Shield
+		{ spell = 70806, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- 2p T10 resto proc
+		{ spell = 8178, unit = "player", isMine = true, point = { "CENTER", -108, 36 }, size = 36 }, -- Grounding Totem
+	},
 }
 
+local CreateFrame = CreateFrame
+local UnitExists, UnitAura = UnitExists, UnitAura
 
-local type,pairs = type,pairs
-local setmetatable,CreateFrame = setmetatable,CreateFrame
-local UnitExists,UnitAura = UnitExists,UnitAura
+local AuraTracker = ns:NewModule("AuraTracker")
+local CooldownTimer = ns:GetModule("CooldownTimer")
 
+local MAX_AURAS = 40
 
-local AT = engine:New("AuraTracker")
-local CT = engine:Get("CooldownTimer")
-
-
-local function UnitAuraBySpellID(unit,a_spellId,filter)
-	local ret1,ret2,ret3,ret4,ret5,ret6,ret7,ret8,ret9,ret10,spellId
-	for i = 1,40 do
-		ret1,ret2,ret3,ret4,ret5,ret6,ret7,ret8,ret9,ret10,spellId = UnitAura(unit,i,filter)
-
-		if not ret1 then
-			break
+-- Like UnitAura, but looks the aura up by spell id instead of name.
+-- Returns the same values as UnitAura.
+local function unitAuraBySpellId(unit, wantedSpellId, filter)
+	for i = 1, MAX_AURAS do
+		local name, _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
+		if not name then
+			return
 		end
-
-		if spellId == a_spellId then
-			return ret1,ret2,ret3,ret4,ret5,ret6,ret7,ret8,ret9,ret10,spellId
+		if spellId == wantedSpellId then
+			return UnitAura(unit, i, filter)
 		end
 	end
 end
 
+local AuraFrameMixin = {}
 
-local prototype = setmetatable(CopyTable(engine:GetObjectPrototype()),getmetatable(FriendsListFrame))
-local frameMT = {__index = prototype}
-
-
-function prototype:UpdateAuras()
-	local unit = self.unit
-	local spell = self.spell
-	local filter = self.filter
-
-
-	local name,texture,count,duration,endTime,_
-	if type(spell) == "number" then
-		name,_,texture,count,_,duration,endTime = UnitAuraBySpellID(unit,spell,filter)
-	else
-		name,_,texture,count,_,duration,endTime = UnitAura(unit,spell,nil,filter)
-	end
-
-	if texture then
-		if duration == 0 then
-			self.cd:Hide()
-		else
-			self.cd:SetCooldown(endTime-duration,duration)
-		end
-
-		if count > 1 then
-			self.count:Show()
-			self.count:SetText(count)
-		else
-			self.count:Hide()
-		end
-
-		self.texture:SetTexture(texture)
-
-		self:Show()
-	else
+function AuraFrameMixin:Update()
+	if not UnitExists(self.unit) then
 		self:Hide()
-	end
-end
-
-function prototype:Update()
-	if UnitExists(self.unit) then
-		self:UpdateAuras()
-	else
-		self:Hide()
-	end
-end
-
-
-function prototype:OnUnitAura(unit)
-	if unit ~= self.unit then
 		return
 	end
 
-	self:Update()
+	local name, _, texture, count, _, duration, endTime = unitAuraBySpellId(self.unit, self.spell, self.filter)
+
+	if not name then
+		self:Hide()
+		return
+	end
+
+	if duration == 0 then
+		self.cooldown:Hide()
+	else
+		self.cooldown:SetCooldown(endTime - duration, duration)
+	end
+
+	if count > 1 then
+		self.count:SetText(count)
+		self.count:Show()
+	else
+		self.count:Hide()
+	end
+
+	self.texture:SetTexture(texture)
+	self:Show()
 end
 
-function AT:CreateFrame()
-	local frame = setmetatable(CreateFrame("frame",nil,UIParent),frameMT)
+function AuraFrameMixin:UNIT_AURA(unit)
+	if unit == self.unit then
+		self:Update()
+	end
+end
+
+local function createAuraFrame(data)
+	local frame = CreateFrame("Frame", nil, UIParent)
+	ns.Mixin(frame, ns.EventMixin, AuraFrameMixin)
 	frame:Hide()
 	frame:SetFrameStrata("HIGH")
 
-	local texture = frame:CreateTexture(nil,"BORDER")
-	texture:SetAllPoints()
+	local size = data.size or 32
+	frame:SetSize(size, size)
+	frame:SetPoint(unpack(data.point or { "CENTER" }))
 
-	local cd = CreateFrame("Cooldown",nil,frame)
-	cd:SetReverse(true)
-	cd:SetDrawEdge(true)
-	cd:SetAllPoints()
+	frame.unit = data.unit
+	frame.spell = data.spell
+	frame.filter = (data.type == "debuff" and "HARMFUL" or "HELPFUL") .. (data.isMine and "|PLAYER" or "")
 
-	local count = frame:CreateFontString(nil,"ARTWORK","NumberFontNormal")
-	count:SetPoint("BOTTOMRIGHT")
+	frame.texture = frame:CreateTexture(nil, "BORDER")
+	frame.texture:SetAllPoints()
 
-	frame:RegisterEvent("UNIT_AURA",frame.OnUnitAura)
-	frame:RegisterEvent("PLAYER_ENTERING_WORLD",frame.Update)
+	frame.cooldown = CreateFrame("Cooldown", nil, frame)
+	frame.cooldown:SetReverse(true)
+	frame.cooldown:SetDrawEdge(true)
+	frame.cooldown:SetAllPoints()
+	CooldownTimer:Attach(frame.cooldown, size * 0.3)
 
-	frame.texture = texture
-	frame.cd = cd
-	frame.count = count
+	frame.count = frame:CreateFontString(nil, "ARTWORK", "NumberFontNormal")
+	frame.count:SetPoint("BOTTOMRIGHT")
+
+	frame:RegisterEvent("UNIT_AURA")
+	frame:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
+	if data.unit == "target" then
+		frame:RegisterEvent("PLAYER_TARGET_CHANGED", "Update")
+	elseif data.unit == "focus" then
+		frame:RegisterEvent("PLAYER_FOCUS_CHANGED", "Update")
+	end
 
 	return frame
 end
 
-function AT:SetupFrame(frame,data)
-	assert(data.spell,"spell field missed")
-	local unit = data.unit
-	frame.unit = unit
-	frame.spell = data.spell
-
-	if not data.type or data.type == "buff" then
-		frame.filter = "HELPFUL"
-	else
-		frame.filter = "HARMFUL"
+function AuraTracker:Initialize()
+	local auras = TRACKED_AURAS[ns.PLAYER_CLASS]
+	if not auras then
+		return
 	end
 
-	if unit == "target" then
-		frame:RegisterEvent("PLAYER_TARGET_CHANGED",frame.Update)
-	elseif unit == "focus" then
-		frame:RegisterEvent("PLAYER_FOCUS_CHANGED",frame.Update)
+	self.frames = {}
+	for _, data in ipairs(auras) do
+		assert(type(data.spell) == "number", "tracked aura needs a spell id")
+		self.frames[#self.frames + 1] = createAuraFrame(data)
 	end
-
-	if data.isMine then
-		frame.filter = frame.filter.."|PLAYER"
-	end
-
-	if data.points then
-		frame:SetPoint(unpack(data.points))
-	else
-		frame:SetPoint("CENTER")
-	end
-
-	local size = data.size or 32
-	frame:SetSize(size,size)
-	CT:Create(frame.cd,size*0.3)
-end
-
-function AT:Initialize()
-	for i = 1,#DATA do
-		self:SetupFrame(self:CreateFrame(),DATA[i])
-	end
-
-	local classDATA = DATA[select(2,UnitClass("player"))]
-	if classDATA then
-		for i = 1,#classDATA do
-			self:SetupFrame(self:CreateFrame(),classDATA[i])
-		end
-	end
-
-	self.CreateFrame,self.SetupFrame = nil
 end

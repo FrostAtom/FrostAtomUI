@@ -1,33 +1,31 @@
-local AddOnName,namespace = ...
+local ADDON_NAME, ns = ...
 
-local assert = assert
-local _G = _G
+-- Saved variables. Once loaded they live in `ns.db`; modules that need to
+-- react to loading subscribe to the `ns.DB_LOADED` event and receive the table.
 
-local main,DB = namespace:New("DB")
-local DBName = AddOnName.."DB"
+local DB_NAME = ADDON_NAME .. "DB"
 
+ns.DB_LOADED = "FrostAtomUI_DB_LOADED"
 
-function main:VARIABLES_LOADED()
-	DB = _G[DBName]
-	if DB then
-		_G[DBName] = nil
-	else
-		DB = {}
+local DB = ns:NewModule("DB")
+
+function DB:ADDON_LOADED(addonName)
+	if addonName ~= ADDON_NAME then
+		return
 	end
+	self:UnregisterEvent("ADDON_LOADED")
 
-	namespace:SetEvent("VariablesLoaded",DB)
+	ns.db = _G[DB_NAME] or {}
+	_G[DB_NAME] = ns.db
+
+	ns:Fire(ns.DB_LOADED, ns.db)
 end
 
-function main:PLAYER_LOGOUT()
-	_G[DBName] = DB
+function ns:SaveVariable(key, value)
+	assert(ns.db, "saved variables are not loaded yet")
+	ns.db[key] = value
 end
 
-function namespace:SaveVariable(name,value)
-	assert(DB and name)
-	DB[name] = value
-end
-
-function main:Initialize()
-	self:RegisterEvent("VARIABLES_LOADED")
-	self:RegisterEvent("PLAYER_LOGOUT")
+function DB:Initialize()
+	self:RegisterEvent("ADDON_LOADED")
 end

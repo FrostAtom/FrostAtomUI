@@ -1,0 +1,12 @@
+{
+  "name": "frostatomui",
+  "private": true,
+  "description": "Dev tooling for the FrostAtomUI WoW 3.3.5a addon (formatter only)",
+  "scripts": {
+    "format": "stylua .",
+    "format:check": "stylua --check ."
+  },
+  "devDependencies": {
+    "@johnnymorganz/stylua-bin": "^2.5.2"
+  }
+}

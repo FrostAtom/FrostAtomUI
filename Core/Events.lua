@@ -1,137 +1,106 @@
-local namespace = select(2,...)
+local _, ns = ...
 
-local assert = assert
-local type = type
-local error = error
-local setmetatable = setmetatable
-local tremove = table.remove
-local tinsert = tinsert
-local tContains = namespace.tContains
-local tWipe = namespace.tWipe
-local tNew = namespace.tNew
-local tDel = namespace.tDel
-local tPush = namespace.tPush
+-- Central event dispatcher.
+--
+-- One hidden frame receives every game event the addon is interested in and
+-- forwards it to the subscribed owners. Owners are modules or frames that got
+-- `ns.EventMixin` mixed in; their handlers are called as `handler(owner, ...)`.
+--
+-- Custom (non-Blizzard) events can be raised with `ns:Fire(event, ...)`.
 
+local tContains, tDeleteItem = ns.tContains, ns.tDeleteItem
 
-local prototype = namespace:GetObjectPrototype()
-local frame = CreateFrame("frame")
+local eventFrame = CreateFrame("Frame")
+
+-- callbacks[event][owner] = { handler1, handler2, ... }
 local callbacks = {}
 
-local callMT = {
-	__call = function(tbl,...)
-		for i = 1,#tbl do
-			tbl[i](...)
-		end
+local function resolveHandler(owner, event, handler)
+	handler = handler or event
+	if type(handler) ~= "function" then
+		local method = owner[handler]
+		assert(type(method) == "function", ("no method [%s] for event %s"):format(tostring(handler), event))
+		handler = method
 	end
-}
+	return handler
+end
 
-local GetFreeEventTable = setmetatable({},{
-	__call = function(tbl,...)
-		return tPush(tremove(tbl) or setmetatable(tNew(),callMT),...)
-	end,
-})
+local EventMixin = {}
+ns.EventMixin = EventMixin
 
+-- handler: function, method name, or nil (a method named after the event).
+function EventMixin:RegisterEvent(event, handler)
+	assert(type(event) == "string", "event name must be a string")
+	handler = resolveHandler(self, event, handler)
 
-function prototype:RegisterEvent(event,func)
-	assert(event and type(event)=="string")
-	func = func or event
-
-	local func_type = type(func)
-	if func_type~="function" then
-		assert((func_type=="number" or func_type=="string") and type(self[func])=="function")
-		func = self[func]
+	local owners = callbacks[event]
+	if not owners then
+		owners = {}
+		callbacks[event] = owners
+		eventFrame:RegisterEvent(event)
 	end
 
-	if callbacks[event] then
-		if callbacks[event][self] then
-			local callbacks_event_self = callbacks[event][self]
-			if type(callbacks_event_self)=="table" then
-				if not tContains(callbacks_event_self,func) then
-					tinsert(callbacks_event_self,func)
-				end
-			else
-				if callbacks_event_self~=func then
-					callbacks[event][self] = GetFreeEventTable(callbacks_event_self,func)
-				end
-			end
-		else
-			callbacks[event][self] = func
-		end
-	else
-		local tbl = tNew()
-		tbl[self] = func
-		callbacks[event] = tbl
-
-		frame:RegisterEvent(event)
+	local handlers = owners[self]
+	if not handlers then
+		owners[self] = { handler }
+	elseif not tContains(handlers, handler) then
+		handlers[#handlers + 1] = handler
 	end
 end
 
-function prototype:UnregisterEvent(event,func)
-	assert(event and type(event)=="string")
+-- Without a handler every handler of this owner is removed.
+function EventMixin:UnregisterEvent(event, handler)
+	local owners = callbacks[event]
+	local handlers = owners and owners[self]
+	if not handlers then
+		return
+	end
 
-	if callbacks[event] and callbacks[event][self] then
-		local callbacks_event_self = callbacks[event][self]
-		if func then
-			local func_type = type(func)
-			if func_type~="function" then
-				assert((func_type=="number" or func_type=="string") and type(self[func])=="function")
-				func = self[func]
-			end
+	if handler then
+		tDeleteItem(handlers, resolveHandler(self, event, handler))
+	end
 
-			if type(callbacks_event_self)=="table" then
-				if tDeleteItem(callbacks_event_self,func) then
-					if #callbacks_event_self == 1 then
-						callbacks[event][self] = tremove(callbacks_event_self)
-						GetFreeEventTable[#GetFreeEventTable+1] = callbacks_event_self
-					end
-				end
-			else
-				if func == callbacks_event_self then
-					callbacks[event][self] = nil
-					if not next(callbacks[event]) then
-						callbacks[event] = tDel(callbacks[event])
-						frame:UnregisterEvent(event)
-					end
-				end
-			end
-		else
-			if type(callbacks_event_self)=="table" then
-				callbacks[event][self] = tDel(callbacks_event_self)
-			else
-				callbacks[event][self] = nil
-			end
+	if not handler or #handlers == 0 then
+		owners[self] = nil
+		if not next(owners) then
+			callbacks[event] = nil
+			eventFrame:UnregisterEvent(event)
+		end
+	end
+end
 
-			if not next(callbacks[event]) then
-				callbacks[event] = tDel(callbacks[event])
-				frame:UnregisterEvent(event)
+function EventMixin:UnregisterAllEvents()
+	for event, owners in pairs(callbacks) do
+		if owners[self] then
+			self:UnregisterEvent(event)
+		end
+	end
+end
+
+function EventMixin:IsEventRegistered(event)
+	local owners = callbacks[event]
+	return owners ~= nil and owners[self] ~= nil
+end
+
+function ns:Fire(event, ...)
+	local owners = callbacks[event]
+	if not owners then
+		return
+	end
+
+	for owner, handlers in pairs(owners) do
+		for i = 1, #handlers do
+			-- A handler may unregister itself while we iterate.
+			local handler = handlers[i]
+			if handler then
+				handler(owner, ...)
 			end
 		end
 	end
 end
 
-function prototype:UnregisterAllEvents()
-	for event,tbl in pairs(callbacks) do
-		if tbl[self] then
-			if type(tbl[self])=="table" then
-				GetFreeEventTable[#GetFreeEventTable+1] = tWipe(tbl[self])
-			end
-			tbl[self] = nil
-		end
-	end
-end
+eventFrame:SetScript("OnEvent", function(_, event, ...)
+	ns:Fire(event, ...)
+end)
 
-function prototype:IsEventRegistered(event)
-	if callbacks[event] and callbacks[event][self] then
-		return 1
-	end
-end
-
-function namespace:SetEvent(event,...)
-	if callbacks[event] then
-		for obj,func in pairs(callbacks[event]) do
-			func(obj,...)
-		end
-	end
-end
-
-frame:SetScript("OnEvent",namespace.SetEvent)
+ns.Mixin(ns.ModulePrototype, EventMixin)

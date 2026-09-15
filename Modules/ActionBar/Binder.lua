@@ -1,125 +1,151 @@
-local namespace = select(2,...)
-local binderFrame
+-- Keybinding mode (/bind): hover a button and press a key to bind it.
+-- Escape clears the hovered button's binding.
 
-local function CreateBinder()
-	local SetBindingClick = SetBindingClick
-	local IsAltKeyDown = IsAltKeyDown
-	local IsControlKeyDown = IsControlKeyDown
-	local IsShiftKeyDown = IsShiftKeyDown
-	local SaveBindings = SaveBindings
-	local GetCurrentBindingSet = GetCurrentBindingSet
-	local GetMouseFocus = GetMouseFocus
-    local tNew,tDel = namespace.tNew,namespace.tDel
+local CreateFrame = CreateFrame
+local GetMouseFocus = GetMouseFocus
+local GetBindingKey = GetBindingKey
+local SetBinding = SetBinding
+local SetBindingClick = SetBindingClick
+local SaveBindings = SaveBindings
+local LoadBindings = LoadBindings
+local GetCurrentBindingSet = GetCurrentBindingSet
+local IsAltKeyDown = IsAltKeyDown
+local IsControlKeyDown = IsControlKeyDown
+local IsShiftKeyDown = IsShiftKeyDown
+local StaticPopup_Show = StaticPopup_Show
+local StaticPopup_Hide = StaticPopup_Hide
 
+local POPUP = "FROSTATOMUI_KEYBIND_MODE"
 
-    local ignoredButtons = {
-    	["LSHIFT"] = true,
-    	["RSHIFT"] = true,
-    	["LCTRL"] = true,
-    	["RCTRL"] = true,
-    	["LALT"] = true,
-    	["RALT"] = true,
-    	["UNKNOWN"] = true,
-    	["LeftButton"] = true,
-    	["RightButton"] = true
-    }
+local IGNORED_KEYS = {
+	LSHIFT = true,
+	RSHIFT = true,
+	LCTRL = true,
+	RCTRL = true,
+	LALT = true,
+	RALT = true,
+	UNKNOWN = true,
+	LeftButton = true,
+	RightButton = true,
+}
 
-    local function OnUpdate(self)
-        local focus = GetMouseFocus()
-        if focus ~= self and focus ~= self.focus then
-            if focus and focus:IsObjectType("Button") and focus:GetAttribute("type") and focus:GetName() then
-                self:SetAllPoints(focus)
-                self:SetAlpha(1)
-                self.focus = focus
-            else
-                self:SetAlpha(0)
-                self.focus = nil
-            end
-        end
-    end
+local binder
 
-    local function OnClick(self,button)
-    	if not self.focus or ignoredButtons[button] then return end
-
-        if button == "ESCAPE" then
-            local bind = GetBindingKey(("CLICK %s:LeftButton"):format(self.focus:GetName()))
-            if bind then
-                SetBinding(bind,nil)
-            end
-            return
-        end
-
-    	if button == "MiddleButton" then
-    		button = "BUTTON3"
-    	elseif button:find("^Button%d+$") then
-    		button = button:upper()
-    	end
-
-        local tbl = tNew()
-        if IsAltKeyDown() then
-            tbl[#tbl+1] = "ALT"
-        end
-
-        if IsControlKeyDown() then
-            tbl[#tbl+1] = "CTRL"
-        end
-
-        if IsShiftKeyDown() then
-            tbl[#tbl+1] = "SHIFT"
-        end
-
-        tbl[#tbl+1] = button
-
-        button = table.concat(tbl,"-")
-        tbl = tDel(tbl)
-        
-    	SetBindingClick(button,self.focus:GetName())
-    end
-
-	binderFrame = CreateFrame("frame")
-    binderFrame:SetFrameStrata("DIALOG")
-    binderFrame:EnableMouse(true)
-    binderFrame:EnableMouseWheel(true)
-    binderFrame:EnableKeyboard(true)
-    binderFrame:SetScript("OnUpdate",OnUpdate)
-    binderFrame:SetScript("OnKeyUp",OnClick)
-    binderFrame:SetScript("OnMouseUp",OnClick)
-    binderFrame:SetScript("OnMouseWheel",function(self,delta)
-    	if delta > 0 then
-    		OnClick(self,"MOUSEWHEELUP")
-    	else
-    		OnClick(self,"MOUSEWHEELDOWN")
-    	end
-	end)
-
-    binderFrame.texture = binderFrame:CreateTexture()
-    binderFrame.texture:SetAllPoints()
-    binderFrame.texture:SetTexture(0,1,0,0.4)
-
-    StaticPopupDialogs["KEYBIND_MODE"] = {
-        text = "Hover your mouse over any actionbutton to bind it. Press the escape key or right click to clear the current actionbutton's keybinding.",
-        button1 = "Save bindings",
-        button2 = "Discard bindings",
-        OnAccept = function() SaveBindings(GetCurrentBindingSet()) binderFrame:Hide() binderFrame:ClearAllPoints() end,
-        OnCancel = function() LoadBindings(GetCurrentBindingSet()) binderFrame:Hide() binderFrame:ClearAllPoints() end,
-        timeout = 0,
-        whileDead = 1,
-        hideOnEscape = false
-    }
+local function isBindable(frame)
+	return frame and frame:IsObjectType("Button") and frame:GetAttribute("type") and frame:GetName()
 end
 
-SlashCmdList["BIND"] = function()
-	if not binderFrame then
-		CreateBinder()
-        StaticPopup_Show("KEYBIND_MODE")
-	elseif binderFrame:IsShown() then
-    	binderFrame:Hide()
-        StaticPopup_Hide("KEYBIND_MODE")
-    else
-    	binderFrame:Show()
-        StaticPopup_Show("KEYBIND_MODE")
+-- Follows the mouse: highlights whichever bindable button is hovered.
+local function onUpdate(self)
+	local focus = GetMouseFocus()
+	if focus == self or focus == self.target then
+		return
+	end
+
+	if isBindable(focus) then
+		self:SetAllPoints(focus)
+		self:SetAlpha(1)
+		self.target = focus
+	else
+		self:SetAlpha(0)
+		self.target = nil
 	end
 end
 
-SLASH_BIND1 = "/b"
-SLASH_BIND2 = "/bind"
+local function normalizeKey(key)
+	if key == "MiddleButton" then
+		return "BUTTON3"
+	elseif key:find("^Button%d+$") then
+		return key:upper()
+	end
+	return key
+end
+
+local function onKey(self, key)
+	local target = self.target
+	if not target or IGNORED_KEYS[key] then
+		return
+	end
+
+	local targetName = target:GetName()
+	if key == "ESCAPE" then
+		local bound = GetBindingKey(("CLICK %s:LeftButton"):format(targetName))
+		if bound then
+			SetBinding(bound, nil)
+		end
+		return
+	end
+
+	local combo = normalizeKey(key)
+	if IsShiftKeyDown() then
+		combo = "SHIFT-" .. combo
+	end
+	if IsControlKeyDown() then
+		combo = "CTRL-" .. combo
+	end
+	if IsAltKeyDown() then
+		combo = "ALT-" .. combo
+	end
+
+	SetBindingClick(combo, targetName)
+end
+
+local function onMouseWheel(self, delta)
+	onKey(self, delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN")
+end
+
+local function closeBinder()
+	binder:Hide()
+	binder:ClearAllPoints()
+end
+
+local function createBinder()
+	binder = CreateFrame("Frame")
+	binder:Hide()
+	binder:SetFrameStrata("DIALOG")
+	binder:EnableMouse(true)
+	binder:EnableMouseWheel(true)
+	binder:EnableKeyboard(true)
+	binder:SetScript("OnUpdate", onUpdate)
+	binder:SetScript("OnKeyUp", onKey)
+	binder:SetScript("OnMouseUp", onKey)
+	binder:SetScript("OnMouseWheel", onMouseWheel)
+
+	local highlight = binder:CreateTexture()
+	highlight:SetAllPoints()
+	highlight:SetTexture(0, 1, 0, 0.4)
+
+	StaticPopupDialogs[POPUP] = {
+		text = "Hover your mouse over any action button and press a key to bind it. "
+			.. "Press Escape to clear the hovered button's binding.",
+		button1 = "Save bindings",
+		button2 = "Discard bindings",
+		OnAccept = function()
+			SaveBindings(GetCurrentBindingSet())
+			closeBinder()
+		end,
+		OnCancel = function()
+			LoadBindings(GetCurrentBindingSet())
+			closeBinder()
+		end,
+		timeout = 0,
+		whileDead = 1,
+		hideOnEscape = false,
+	}
+end
+
+SlashCmdList.FROSTATOMUI_BIND = function()
+	if not binder then
+		createBinder()
+	end
+
+	if binder:IsShown() then
+		binder:Hide()
+		StaticPopup_Hide(POPUP)
+	else
+		binder:Show()
+		StaticPopup_Show(POPUP)
+	end
+end
+SLASH_FROSTATOMUI_BIND1 = "/b"
+SLASH_FROSTATOMUI_BIND2 = "/bind"

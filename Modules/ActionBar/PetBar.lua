@@ -1,123 +1,126 @@
-local AddOnName,namespace = ...
+local ADDON_NAME, ns = ...
 
 local CreateFrame = CreateFrame
-local GetPetActionCooldown = GetPetActionCooldown
 local CooldownFrame_SetTimer = CooldownFrame_SetTimer
-local SetDesaturation = SetDesaturation
-local GetPetActionSlotUsable = GetPetActionSlotUsable
+local GetPetActionCooldown = GetPetActionCooldown
 local GetPetActionInfo = GetPetActionInfo
+local GetPetActionSlotUsable = GetPetActionSlotUsable
+local RegisterStateDriver = RegisterStateDriver
+local NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS
 
-local ActionBar = namespace:Get("ActionBar")
-local CooldownTimer = namespace:Get("CooldownTimer")
+local ActionBar = ns:GetModule("ActionBar")
+local CooldownTimer = ns:GetModule("CooldownTimer")
+
+local BUTTON_NAME = ADDON_NAME .. "PetButton%d"
 local buttons = {}
 
-local TEXTURE = namespace:GetMedia("textureNormal")
-local NAME = AddOnName.."PetButton"
-local NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS
-local OFFSET = 2
-local SIZE = 30
-local TOTALSIZE = SIZE+OFFSET
-local TOKENS = setmetatable({},{
-	__index = function(self,key)
-		local value = _G[key]
-		self[key] = value or false
-		return value
-	end
+-- Pet abilities report their texture as the name of a global holding the path.
+local tokenTextures = setmetatable({}, {
+	__index = function(self, token)
+		local path = _G[token]
+		self[token] = path or false
+		return path
+	end,
 })
 
+local function setButtonColors(button, iconShade, borderR, borderG, borderB)
+	button.icon:SetVertexColor(iconShade, iconShade, iconShade)
+	button:GetNormalTexture():SetVertexColor(borderR, borderG, borderB)
+end
 
-function ActionBar:UpdatePet()
-	if not self.barPet:IsShown() then return end
+function ActionBar:UpdatePetBar()
+	if not self.petBar:IsShown() then
+		return
+	end
 
-	local texture,isToken,isActive,autoCastAllowed,autoCastEnabled,_
-	local button
-	for i = 1,NUM_PET_ACTION_SLOTS do
-		button = buttons[i]
+	for i = 1, NUM_PET_ACTION_SLOTS do
+		local button = buttons[i]
+		local _, _, texture, isToken, isActive = GetPetActionInfo(i)
 
-		_,_,texture,isToken,isActive,autoCastAllowed,autoCastEnabled = GetPetActionInfo(i)
 		if texture then
 			if isToken then
-				texture = TOKENS[texture]
+				texture = tokenTextures[texture]
 			end
-
 			button.icon:SetTexture(texture)
 			button.icon:SetDesaturated(not GetPetActionSlotUsable(i))
 
+			-- Stances (follow/stay/aggressive/...) are highlighted when active.
 			if isToken then
 				if isActive then
-					button.icon:SetVertexColor(1,1,1)
-					button:GetNormalTexture():SetVertexColor(1,0.8,0)
+					setButtonColors(button, 1, 1, 0.8, 0)
 				else
-					button.icon:SetVertexColor(0.4,0.4,0.4)
-					button:GetNormalTexture():SetVertexColor(0.4,0.4,0.4)
+					setButtonColors(button, 0.4, 0.4, 0.4, 0.4)
 				end
-			--[[else
-				if autoCastAllowed and autoCastEnabled then
-					button.icon:SetVertexColor(1,1,1)
-					button:GetNormalTexture():SetVertexColor(1,0.8,0)
-				else
-					button.icon:SetVertexColor(0.4,0.4,0.4)
-					button:GetNormalTexture():SetVertexColor(0.4,0.4,0.4)
-				end]]
 			end
 		else
-			button.icon:SetTexture("Interface\\PaperDoll\\UI-Backpack-EmptySlot")
+			button.icon:SetTexture(ns.Media.emptySlot)
 			button.icon:SetDesaturated(nil)
 		end
 	end
 
-	self:UpdatePetCooldown()
+	self:UpdatePetCooldowns()
 end
 
-function ActionBar:UpdatePetCooldown()
-	for i = 1,NUM_PET_ACTION_SLOTS do
-		CooldownFrame_SetTimer(buttons[i].cooldown,GetPetActionCooldown(i))
+function ActionBar:UpdatePetCooldowns()
+	for i = 1, NUM_PET_ACTION_SLOTS do
+		CooldownFrame_SetTimer(buttons[i].cooldown, GetPetActionCooldown(i))
 	end
 end
 
-function ActionBar:CreatePetButton(action,parent)
-	local button = CreateFrame("Button",NAME..action,parent,"SecureActionButtonTemplate")
-	button:SetSize(SIZE,SIZE)
-	button:SetAttribute("checkselfcast",true)
-	button:SetAttribute("type","pet")
-	button:SetAttribute("action",action)
+function ActionBar:CreatePetButton(index, parent)
+	local button = CreateFrame("Button", BUTTON_NAME:format(index), parent, "SecureActionButtonTemplate")
+	button:SetAttribute("checkselfcast", true)
+	button:SetAttribute("type", "pet")
+	button:SetAttribute("action", index)
 
-	button:SetNormalTexture(TEXTURE)
-	button:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square")
+	self:StyleButton(button, self.SMALL_BUTTON_SIZE)
 
-	button.cooldown = CreateFrame("Cooldown",nil,button)
-	button.cooldown:SetPoint("TOPRIGHT",-2,-2)
-	button.cooldown:SetPoint("BOTTOMLEFT",2,2)
-	CooldownTimer:Create(button.cooldown)
+	button.cooldown = CreateFrame("Cooldown", nil, button)
+	button.cooldown:SetPoint("TOPRIGHT", -2, -2)
+	button.cooldown:SetPoint("BOTTOMLEFT", 2, 2)
+	CooldownTimer:Attach(button.cooldown)
 
-	button.icon = button:CreateTexture(nil,"BORDER")
+	button.icon = button:CreateTexture(nil, "BORDER")
 	button.icon:SetAllPoints()
 
 	button:RegisterForClicks("LeftButtonDown")
-	button:HookScript("OnClick",self.PlayAnimation)
 
-	buttons[action] = button
+	buttons[index] = button
 	return button
 end
 
-function ActionBar:InitializePetBar(parent)
-	RegisterStateDriver(parent,"visibility","[vehicleui] hide; [@pet,exists] show; hide")
-	parent:SetScript("OnShow",function() self:UpdatePet() end)
+local function onPetUnitEvent(self, unit)
+	if unit == "pet" then
+		self:UpdatePetBar()
+	end
+end
 
-	for i = 1,NUM_PET_ACTION_SLOTS do
-		self:CreatePetButton(i,parent):SetPoint("BOTTOM",(i-1)*TOTALSIZE,0)
+local function onPlayerUnitEvent(self, unit)
+	if unit == "player" then
+		self:UpdatePetBar()
+	end
+end
+
+function ActionBar:InitializePetBar(parent)
+	self.petBar = parent
+
+	local slot = self.SMALL_BUTTON_SIZE + self.BUTTON_GAP
+	for i = 1, NUM_PET_ACTION_SLOTS do
+		self:CreatePetButton(i, parent):SetPoint("BOTTOM", (i - 1) * slot, 0)
 	end
 
-	local unitIsPetCheck = function(self,unit) if unit == "pet" then self:UpdatePet() end end
-	self:RegisterEvent("UNIT_FLAGS",unitIsPetCheck)
-	self:RegisterEvent("UNIT_AURA",unitIsPetCheck)
-	self:RegisterEvent("UNIT_PET",function(self,unit) if unit == "player" then self:UpdatePet() end end)
-	self:RegisterEvent("PET_BAR_UPDATE","UpdatePet")
-	self:RegisterEvent("PLAYER_CONTROL_LOST","UpdatePet")
-	self:RegisterEvent("PLAYER_CONTROL_GAINED","UpdatePet")
-	self:RegisterEvent("PLAYER_FARSIGHT_FOCUS_CHANGED","UpdatePet")
-	self:RegisterEvent("PET_BAR_UPDATE_USABLE","UpdatePet")
-	self:RegisterEvent("PLAYER_CONTROL_LOST","UpdatePet")
-	self:RegisterEvent("PET_BAR_UPDATE_COOLDOWN","UpdatePetCooldown")
+	RegisterStateDriver(parent, "visibility", "[vehicleui] hide; [@pet,exists] show; hide")
+	parent:SetScript("OnShow", function()
+		self:UpdatePetBar()
+	end)
 
+	self:RegisterEvent("UNIT_FLAGS", onPetUnitEvent)
+	self:RegisterEvent("UNIT_AURA", onPetUnitEvent)
+	self:RegisterEvent("UNIT_PET", onPlayerUnitEvent)
+	self:RegisterEvent("PET_BAR_UPDATE", "UpdatePetBar")
+	self:RegisterEvent("PET_BAR_UPDATE_USABLE", "UpdatePetBar")
+	self:RegisterEvent("PET_BAR_UPDATE_COOLDOWN", "UpdatePetCooldowns")
+	self:RegisterEvent("PLAYER_CONTROL_LOST", "UpdatePetBar")
+	self:RegisterEvent("PLAYER_CONTROL_GAINED", "UpdatePetBar")
+	self:RegisterEvent("PLAYER_FARSIGHT_FOCUS_CHANGED", "UpdatePetBar")
 end

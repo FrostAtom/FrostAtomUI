@@ -1,6 +1,0 @@
-<Ui xmlns="http://www.blizzard.com/wow/ui/">
-	<Include file="Core\Core.xml"/>
-	<Include file="Modules\Modules.xml"/>
-
-	<Include file="Core\PostLoad.lua"/>
-</Ui>

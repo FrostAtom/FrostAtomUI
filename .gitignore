@@ -13,3 +13,4 @@ Desktop.ini
 # Local tooling
 .luarc.json
 .claude/
+node_modules/

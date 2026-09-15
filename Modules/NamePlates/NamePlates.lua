@@ -1,204 +1,339 @@
-local namespace = select(2,...)
-if true then return end
+local _, ns = ...
 
-namespace:Get("CVars"):SetCVar("showVKeyCastbar","0","SHOW_TARGET_CASTBAR_IN_V_KEY")
+-- Nameplates (ported from AtomNameplates) and chat bubbles. Neither has a
+-- name or an event, so new WorldFrame children are inspected as they appear
+-- and identified by their textures.
+--
+-- Nameplate: thin bar with the name above it, a castbar with icon below it,
+-- raid icon to the left. Totems show their spell icon instead of the bar.
+-- The border turns white on the current target and on threat.
 
-local pixelPerfect = namespace.pixelPerfect
+local CreateFrame = CreateFrame
+local WorldFrame = WorldFrame
+local UnitExists = UnitExists
+local select = select
+local math = math
 
+local NamePlates = ns:NewModule("NamePlates")
 
-local fireEvent
-do
-	local pcall = pcall
-	local SetEvent = namespace.SetEvent
-	fireEvent = function(...)
-		local retOK,err = pcall(SetEvent,nil,...)
-		if not retOK then
-			geterrorhandler()(err)
-		end
+local NAMEPLATE_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-Flash"
+local CHAT_BUBBLE_TEXTURE = "Interface\\Tooltips\\ChatBubble-Background"
+local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-BarFill"
+
+local BAR_WIDTH, BAR_HEIGHT = 77, 3
+local BORDER_SIZE = ns.PixelPerfect(1)
+local CASTBAR_HEIGHT = 6
+local CASTBAR_ICON_SIZE = 10
+local TOTEM_ICON_SIZE = 24
+local RAID_ICON_SIZE = 22
+local ICON_TEXCOORD = { 0.07, 0.93, 0.07, 0.93 }
+local CHAT_BUBBLE_MAX_WIDTH = 310
+
+ns:GetModule("CVars"):Pin("showVKeyCastbar", "1", "SHOW_TARGET_CASTBAR_IN_V_KEY")
+
+-- Blizzard regions we do not want drawn are re-parented here.
+local trash = CreateFrame("Frame")
+trash:Hide()
+
+--------------------------------------------------
+-- Nameplate
+
+local PlateMixin = {}
+
+-- Blizzard colors plates with pure red/green/blue/yellow; use our palette.
+function PlateMixin:UpdateColors(r, g, b)
+	if g + b == 0 then -- hostile
+		r, g, b = 0.69, 0.31, 0.31
+	elseif r + b == 0 then -- friendly
+		r, g, b = 0.33, 0.59, 0.33
+	elseif r + g == 0 then -- friendly player
+		r, g, b = 0.31, 0.45, 0.63
+	elseif r + g > 1.99 and b == 0 then -- neutral
+		r, g, b = 0.65, 0.63, 0.35
 	end
-end
 
-local function HealthBar_UpdateColors(self,r,g,b)
-	if g + b == 0 then -- red
-		r,g,b = 0.69,0.31,0.31
-	elseif r + b == 0 then -- green
-		r,g,b = 0.33,0.59,0.33
-	elseif r + g == 0 then -- blue
-		r,g,b = 0.31,0.45,0.63
-	elseif r + g > 1.99 and b == 0 then -- yellow
-		r,g,b = 0.65,0.63,0.35
-	end
-
-	self:SetStatusBarColor(r,g,b)
-	self.bg:SetTexture(r*0.3,g*0.3,b*0.3)
-
-	self.r,self.g,self.b = r,g,b
-end
-
-local function HealthBar_OnUpdate(self)
-	local r,g,b = self:GetStatusBarColor()
-	if r ~= self.r or g ~= self.g or b ~= self.b then
-		HealthBar_UpdateColors(self,r,g,b)
-	end
-
-	--[[local plate = self:GetParent()
-	if plate:GetAlpha() < 1 then
-		plate:SetAlpha(66/100)
-	end]]
-end
-
-local function NamePlate_OnShow(self)
 	local healthbar = self.healthbar
-	healthbar:ClearAllPoints()
-	healthbar:SetSize(120,6)
-	healthbar:SetPoint("TOP",0,-4)
-	HealthBar_UpdateColors(healthbar,healthbar:GetStatusBarColor())
+	healthbar:SetStatusBarColor(r, g, b)
+	healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
+	self.totem.bg:SetTexture(r, g, b)
+	healthbar.r, healthbar.g, healthbar.b = r, g, b
+end
 
-	local name = self.origName:GetText()
-	self.newName:SetText(name)
+-- The client keeps the target's plate at full alpha and dims the others.
+function PlateMixin:IsTarget()
+	return UnitExists("target") and self:GetAlpha() == 1
+end
 
-	self.highlight:SetAllPoints(healthbar)
+function PlateMixin:OnUpdate()
+	local healthbar = self.healthbar
+
+	-- Blizzard resets the color on every reaction change.
+	local r, g, b = healthbar:GetStatusBarColor()
+	if r ~= healthbar.r or g ~= healthbar.g or b ~= healthbar.b then
+		self:UpdateColors(r, g, b)
+	end
+
+	if self.totem:IsShown() then
+		return
+	end
+
+	local border = healthbar.border
+	if self:IsTarget() then
+		border:SetTexture(1, 1, 1)
+		border:SetAlpha(0.67)
+	elseif self.threat:IsShown() then
+		self.name:SetTextColor(self.threat:GetVertexColor())
+		border:SetTexture(1, 1, 1)
+		border:SetAlpha(0.4)
+	else
+		self.name:SetTextColor(1, 1, 1)
+		border:SetTexture(0, 0, 0)
+		border:SetAlpha(0.4)
+	end
+end
+
+function PlateMixin:OnShow()
+	local name = self.blizzardName:GetText()
+	local totemIcon = NamePlates.totemIcons[name]
+
+	if totemIcon then
+		self.totem:SetTexture(totemIcon)
+		self.totem:Show()
+		self.totem.bg:Show()
+		self.name:Hide()
+		self.healthbar:Hide()
+		self.raidicon:SetAlpha(0)
+	else
+		local healthbar = self.healthbar
+		healthbar:ClearAllPoints()
+		healthbar:SetSize(BAR_WIDTH, BAR_HEIGHT)
+		healthbar:SetPoint("TOP", 0, -4)
+		healthbar:Show()
+		self:UpdateColors(healthbar:GetStatusBarColor())
+
+		self.totem:Hide()
+		self.totem.bg:Hide()
+		self.name:SetText(name)
+		self.name:Show()
+		self.raidicon:SetAlpha(1)
+	end
+
 	self.level:Hide()
-
-	fireEvent("NamePlate_OnShow",self,name)
 end
 
-local function NamePlate_OnHide(self)
-	self.highlight:Hide()
-	fireEvent("NamePlate_OnHide",self,self.newName:GetText())
+local CastbarMixin = {}
+
+-- The client re-anchors the castbar, so keep pulling it under the bar.
+function CastbarMixin:OnUpdate()
+	self:ClearAllPoints()
+	self:SetPoint("TOP", self:GetParent().healthbar, "BOTTOM", 0, -2)
+	self:SetSize(BAR_WIDTH, CASTBAR_HEIGHT)
 end
 
-local BACKDROP = namespace:GetMedia("BACKDROP")
+function CastbarMixin:OnShow()
+	if self:GetParent().totem:IsShown() then
+		self:Hide()
+		self.icon:SetAlpha(0)
+		return
+	end
 
-local function InitNamePlate(self)
-	local healthbar = self:GetChildren()
-	local threat,hpborder,cbshield,cbborder,cbicon,highlight,name,level,bossicon,raidicon,elite = self:GetRegions()
-	healthbar:SetFrameLevel(self:GetFrameLevel())
+	local icon = self.icon
+	icon:SetAlpha(1)
+	icon:ClearAllPoints()
+	icon:SetPoint("RIGHT", self, "LEFT", 0, 0)
+	icon:SetSize(CASTBAR_ICON_SIZE, CASTBAR_ICON_SIZE)
+	icon:SetTexCoord(unpack(ICON_TEXCOORD))
+end
 
-	healthbar:SetStatusBarTexture("Interface\\Buttons\\WHITE8x8")
+local function setupHealthbar(plate, healthbar, blizzardBackground)
+	healthbar:SetFrameLevel(plate:GetFrameLevel())
+	healthbar:SetStatusBarTexture(BAR_TEXTURE)
 
-	local bg = CreateFrame("frame",nil,healthbar)
-	bg:SetFrameLevel(healthbar:GetFrameLevel()-1)
-	bg:SetPoint("TOPRIGHT",2,2)
-	bg:SetPoint("BOTTOMLEFT",-2,-2)
-	bg:SetBackdrop({
-		edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-		edgeSize = 8,
-		
-		bgFile = "Interface\\Buttons\\WHITE8x8",
-		insets = {
-			top = pixelPerfect(1),
-			bottom = pixelPerfect(1),
-			left = pixelPerfect(1),
-			right = pixelPerfect(1),
-		}
-	})
-	bg:SetBackdropColor(0.137,0.137,0.137)
-	bg:SetBackdropBorderColor(0.2,0.2,0.2)
+	-- A solid texture one pixel larger than the bar on every side.
+	local border = healthbar:CreateTexture(nil, "BACKGROUND")
+	border:SetTexture(0, 0, 0)
+	border:SetPoint("TOPRIGHT", BORDER_SIZE, BORDER_SIZE)
+	border:SetPoint("BOTTOMLEFT", -BORDER_SIZE, -BORDER_SIZE)
+	border:SetAlpha(0.4)
+	healthbar.border = border
 
-	self.healthbar = healthbar
+	blizzardBackground:SetParent(healthbar)
+	blizzardBackground:SetDrawLayer("BORDER")
+	blizzardBackground:SetAllPoints(healthbar)
+	blizzardBackground:SetAlpha(0.9)
+	healthbar.bg = blizzardBackground
+end
 
-	hpborder:SetTexture(0.3,0.3,0.3)
-	hpborder:SetDrawLayer("BACKGROUND")
-	hpborder:SetAllPoints(healthbar)
-	healthbar.bg = hpborder
+local function setupCastbar(plate, castbar, icon)
+	ns.Mixin(castbar, CastbarMixin)
+	castbar:SetFrameLevel(plate:GetFrameLevel())
+	castbar:SetStatusBarTexture(BAR_TEXTURE)
 
-	healthbar:SetScript("OnUpdate",HealthBar_OnUpdate)
+	local bg = castbar:CreateTexture(nil, "BACKGROUND")
+	bg:SetTexture(0.2, 0.2, 0.2)
+	bg:SetAllPoints()
+	bg:SetAlpha(0.9)
 
+	icon:SetDrawLayer("ARTWORK")
+	local iconBg = castbar:CreateTexture(nil, "BORDER")
+	iconBg:SetTexture(0.2, 0.2, 0.2)
+	iconBg:SetAllPoints(icon)
+	castbar.icon = icon
 
-	threat:SetTexture(nil)
-	bossicon:SetTexture(nil)
-	elite:SetTexture(nil)
+	castbar:SetScript("OnShow", castbar.OnShow)
+	castbar:SetScript("OnUpdate", castbar.OnUpdate)
+end
+
+local function setupTotemIcon(plate)
+	local totem = plate:CreateTexture(nil, "ARTWORK")
+	totem:SetSize(TOTEM_ICON_SIZE, TOTEM_ICON_SIZE)
+	totem:SetPoint("TOP")
+	totem:SetTexCoord(unpack(ICON_TEXCOORD))
+	totem:Hide()
+
+	local bg = plate:CreateTexture(nil, "BORDER")
+	bg:SetTexture(ns.Media.blank)
+	bg:SetAllPoints(totem)
+	totem.bg = bg
+
+	plate.totem = totem
+end
+
+local function setupNamePlate(plate)
+	local healthbar, castbar = plate:GetChildren()
+	-- luacheck: ignore 631 (Blizzard's region order, all eleven are needed)
+	local threat, background, castShield, castBorder, castIcon, highlight, name, level, bossIcon, raidIcon, elite =
+		plate:GetRegions()
+
+	ns.Mixin(plate, PlateMixin)
+
+	setupHealthbar(plate, healthbar, background)
+	setupCastbar(plate, castbar, castIcon)
+	setupTotemIcon(plate)
+
+	local newName = plate:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+	newName:SetPoint("BOTTOM", healthbar, "TOP", 0, 5)
+	newName:SetTextColor(1, 1, 1)
 	name:Hide()
 
+	raidIcon:SetSize(RAID_ICON_SIZE, RAID_ICON_SIZE)
+	raidIcon:ClearAllPoints()
+	raidIcon:SetPoint("RIGHT", healthbar, "LEFT", -15, 0)
 
-	local newName = self:CreateFontString(nil,"ARTWORK","GameFontHighlightSmall")
-	newName:SetPoint("BOTTOM",healthbar,"TOP")
-	newName:SetTextColor(1,0.9,0.8)
-	self.origName,self.newName = name,newName
+	elite:ClearAllPoints()
+	elite:SetPoint("CENTER", healthbar, "LEFT", -8, 0)
+	elite:SetSize(15, 15)
+	elite:SetDesaturated(false)
 
-	highlight:SetTexture(1,1,1,0.4)
-	self.highlight = highlight
-
-	self.level = level
-	self.raidicon = raidicon
-
-
-	self:SetScript("OnShow",NamePlate_OnShow)
-	self:SetScript("OnHide",NamePlate_OnHide)
-
-	fireEvent("NamePlate_OnInit",self)
-
-	NamePlate_OnShow(self)
-end
-
-local InitChatBubble
-do
-	local function ChatBubble_OnShow(self)
-		self.bg:SetSize(math.min(self.text:GetStringWidth(),310)+8,self.text:GetStringHeight()+8)
+	-- Not drawn, but `threat` is still read for its shown state and color.
+	highlight:SetTexture(nil)
+	for _, region in ipairs({ bossIcon, castBorder, castShield, threat }) do
+		region:SetParent(trash)
 	end
 
-	local function inner(first,obj,next,...)
-		if not next then
-			return first,obj
-		end 
-		obj:SetTexture(nil)
-		obj:Hide()
-		return inner(first,next,...)
-	end
+	plate.healthbar = healthbar
+	plate.castbar = castbar
+	plate.blizzardName = name
+	plate.name = newName
+	plate.level = level
+	plate.raidicon = raidIcon
+	plate.threat = threat
 
-	InitChatBubble = function(self)
-		local bg,text = inner(self:GetRegions())
-		bg:SetTexture(0,0,0,0.5)
-		bg:ClearAllPoints()
-		bg:SetPoint("CENTER")
-		self.bg = bg
+	plate:SetScript("OnShow", plate.OnShow)
+	plate:SetScript("OnUpdate", plate.OnUpdate)
 
-		local r,g,b = text:GetTextColor()
-		text:SetFontObject("NumberFontNormal")
-		text:SetTextColor(r,g,b)
-		self.text = text
-
-		ChatBubble_OnShow(self)
-		self:SetScript("OnShow",ChatBubble_OnShow)
+	plate:OnShow()
+	if castbar:IsShown() then
+		castbar:OnShow()
 	end
 end
 
+--------------------------------------------------
+-- Chat bubbles
 
-local function IdentifyFrame(self)
-    if self:GetName() then return end
-    if self.GetRegions then
-        local region = self:GetRegions()
-        if region.GetTexture then
-        	local texturePath = region:GetTexture()
-        	if texturePath == "Interface\\TargetingFrame\\UI-TargetingFrame-Flash" then
-        		return "NamePlate"
-        	elseif texturePath == "Interface\\Tooltips\\ChatBubble-Background" then
-        		return "ChatBubble"
-        	end
-        end
-    end
+local function onChatBubbleShow(bubble)
+	local text = bubble.text
+	bubble.bg:SetSize(math.min(text:GetStringWidth(), CHAT_BUBBLE_MAX_WIDTH) + 8, text:GetStringHeight() + 8)
 end
 
-local function iterateChildrens(object,...)
-	if not object then return end
+-- Regions are: background, border pieces..., text (last). Everything between
+-- the first and the last is hidden.
+local function collapseRegions(first, region, nextRegion, ...)
+	if not nextRegion then
+		return first, region
+	end
+	region:SetTexture(nil)
+	region:Hide()
+	return collapseRegions(first, nextRegion, ...)
+end
 
-	local type = IdentifyFrame(object)
-	if type == "NamePlate" then
-		InitNamePlate(object)
-	elseif type == "ChatBubble" then
-		InitChatBubble(object)
+local function setupChatBubble(bubble)
+	local bg, text = collapseRegions(bubble:GetRegions())
+
+	bg:SetTexture(0, 0, 0, 0.5)
+	bg:ClearAllPoints()
+	bg:SetPoint("CENTER")
+
+	local r, g, b = text:GetTextColor()
+	text:SetFontObject("NumberFontNormal")
+	text:SetTextColor(r, g, b)
+
+	bubble.bg = bg
+	bubble.text = text
+
+	onChatBubbleShow(bubble)
+	bubble:SetScript("OnShow", onChatBubbleShow)
+end
+
+--------------------------------------------------
+-- Discovery
+
+local function identifyFrame(frame)
+	if frame:GetName() or not frame.GetRegions then
+		return
 	end
 
-	return iterateChildrens(...)
+	local region = frame:GetRegions()
+	if not (region and region.GetTexture) then
+		return
+	end
+
+	local texture = region:GetTexture()
+	if texture == NAMEPLATE_TEXTURE then
+		return "NamePlate"
+	elseif texture == CHAT_BUBBLE_TEXTURE then
+		return "ChatBubble"
+	end
 end
 
+-- Errors in one plate's setup should not stop the others.
+local function safeSetup(setup, frame)
+	local ok, err = pcall(setup, frame)
+	if not ok then
+		geterrorhandler()(err)
+	end
+end
 
-local select,WorldFrame = select,WorldFrame
-local lastChildrensCount = 0
-CreateFrame("frame"):SetScript("OnUpdate",function()
-	if WorldFrame:GetNumChildren() ~= lastChildrensCount then
-		iterateChildrens(select(lastChildrensCount+1,WorldFrame:GetChildren()))
-		lastChildrensCount = WorldFrame:GetNumChildren()
+local function setupNewChildren(frame, ...)
+	if not frame then
+		return
+	end
+
+	local kind = identifyFrame(frame)
+	if kind == "NamePlate" then
+		safeSetup(setupNamePlate, frame)
+	elseif kind == "ChatBubble" then
+		safeSetup(setupChatBubble, frame)
+	end
+
+	return setupNewChildren(...)
+end
+
+local knownChildren = 0
+CreateFrame("Frame"):SetScript("OnUpdate", function()
+	local numChildren = WorldFrame:GetNumChildren()
+	if numChildren ~= knownChildren then
+		setupNewChildren(select(knownChildren + 1, WorldFrame:GetChildren()))
+		knownChildren = numChildren
 	end
 end)

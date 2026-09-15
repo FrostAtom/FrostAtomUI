@@ -1,31 +1,34 @@
-local namespace = select(2,...)
+local _, ns = ...
+
+-- Keeps selected CVars pinned to a value: if anything (the options panel,
+-- another addon) changes them, the value is immediately restored.
 
 local SetCVar = SetCVar
-local tNew,tDel = namespace.tNew,namespace.tDel
 
+local CVars = ns:NewModule("CVars")
 
-local CVars = namespace:New("CVars")
+local pinnedValues = {} -- cvar name -> value
+local eventToCVar = {} -- CVAR_UPDATE argument -> cvar name (they differ for some cvars)
 
-local cvar2value,subEvent2cvar = {},{}
+-- `updateEvent` is the name CVAR_UPDATE reports for this cvar, when it is not
+-- the cvar name itself (e.g. "SHOW_ITEM_LEVEL" for "showItemLevel").
+function CVars:Pin(name, value, updateEvent)
+	SetCVar(name, value)
 
-function CVars:CVAR_UPDATE(name,newValue)
-	name = subEvent2cvar[name] or name
-
-	local value = cvar2value[name]
-	if value and value ~= newValue then
-		SetCVar(name,value)
+	pinnedValues[name] = value
+	if updateEvent then
+		eventToCVar[updateEvent] = name
 	end
 end
 
-function CVars:SetCVar(name,value,event)
-	SetCVar(name,value)
-	
-	cvar2value[name] = value
-	if event then
-		subEvent2cvar[event] = name
+function CVars:CVAR_UPDATE(name, newValue)
+	name = eventToCVar[name] or name
+
+	local pinned = pinnedValues[name]
+	if pinned and pinned ~= newValue then
+		SetCVar(name, pinned)
 	end
 end
-
 
 function CVars:Initialize()
 	self:RegisterEvent("CVAR_UPDATE")
