@@ -10,11 +10,15 @@ local Misc = ns:NewModule("Misc")
 local CVars = ns:GetModule("CVars")
 CVars:Pin("showItemLevel", "0", "SHOW_ITEM_LEVEL")
 CVars:Pin("groundEffectDist", "0")
+-- Lua errors open Blizzard's ScriptErrorsFrame instead of being swallowed.
+CVars:Pin("scriptErrors", "1")
 
 --------------------------------------------------
 -- Blizzard frames
 
-ns.DestroyFrame(UIErrorsFrame)
+-- The red "Not enough mana" / "Target out of range" spam is dropped; the
+-- frame itself stays for info messages (quest progress, zone-ins, ...).
+UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
 
 WorldStateAlwaysUpFrame:ClearAllPoints()
 WorldStateAlwaysUpFrame:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 40, 100)

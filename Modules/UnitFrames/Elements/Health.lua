@@ -5,6 +5,7 @@ local CreateFrame = CreateFrame
 local UnitIsConnected = UnitIsConnected
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
+local UnitGUID = UnitGUID
 local unpack = unpack
 
 local FormatValue = ns.FormatValue
@@ -13,26 +14,60 @@ local ColorGradient = ns.ColorGradient
 -- red -> yellow -> green
 local GRADIENT = { 0.8, 0.2, 0.2, 0.65, 0.63, 0.35, 0.33, 0.59, 0.33 }
 
+-- Lost health lingers as a pale strip that fades out (a "cutaway").
+local CUTAWAY_FADE_SPEED = 2.5 -- alpha per second
+
+local function showCutaway(health, from, to, max)
+	local width = health:GetWidth()
+	if max <= 0 or width <= 0 then
+		return
+	end
+
+	local cutaway = health.cutaway
+	cutaway:ClearAllPoints()
+	cutaway:SetPoint("TOPLEFT", health, "TOPLEFT", width * to / max, 0)
+	cutaway:SetPoint("BOTTOMRIGHT", health, "BOTTOMLEFT", width * from / max, 0)
+	cutaway:SetAlpha(1)
+	cutaway:Show()
+end
+
 local function update(frame)
 	local unit = frame.unit
 	local health = frame.health
 
+	-- A different unit in the frame: no gliding from the previous one's values.
+	local guid = UnitGUID(unit)
+	local setValue = health.SetValue
+	if guid ~= health.guid then
+		health.guid = guid
+		health.lastCurrent = nil
+		setValue = health.SnapValue
+		health.cutaway:Hide()
+	end
+
 	if not UnitIsConnected(unit) then
 		health:SetMinMaxValues(0, 1)
-		health:SetValue(0)
+		setValue(health, 0)
 		health.bg:SetVertexColor(frame:GetBackdropColor())
 		health.text:SetText("offline")
+		health.lastCurrent = nil
 	elseif UnitIsDeadOrGhost(unit) then
 		health:SetMinMaxValues(0, 1)
-		health:SetValue(0)
+		setValue(health, 0)
 
 		local r, g, b = ColorGradient(0, unpack(GRADIENT))
 		health.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
 		health.text:SetText("RIP")
+		health.lastCurrent = nil
 	else
 		local current, max = UnitHealth(unit), UnitHealthMax(unit)
 		health:SetMinMaxValues(0, max)
-		health:SetValue(current)
+		setValue(health, current)
+
+		if health.lastCurrent and current < health.lastCurrent then
+			showCutaway(health, health.lastCurrent, current, max)
+		end
+		health.lastCurrent = current
 
 		local r, g, b = ColorGradient(current / max, unpack(GRADIENT))
 		health:SetStatusBarColor(r, g, b)
@@ -42,11 +77,21 @@ local function update(frame)
 end
 
 -- Polled every frame: UNIT_HEALTH is throttled server-side and lags behind.
-local function onUpdate(health)
+local function onUpdate(health, elapsed)
 	local current = UnitHealth(health.unit)
 	if current ~= health.lastValue then
 		health.lastValue = current
 		update(health:GetParent())
+	end
+
+	local cutaway = health.cutaway
+	if cutaway:IsShown() then
+		local alpha = cutaway:GetAlpha() - elapsed * CUTAWAY_FADE_SPEED
+		if alpha > 0 then
+			cutaway:SetAlpha(alpha)
+		else
+			cutaway:Hide()
+		end
 	end
 end
 
@@ -55,10 +100,17 @@ local function create(frame)
 	health:SetFrameLevel(frame:GetFrameLevel())
 	health:SetStatusBarTexture(ns.Media.blank)
 	health.unit = frame.unit
+	ns.SmoothBar(health)
 
 	health.bg = health:CreateTexture(nil, "BORDER")
 	health.bg:SetAllPoints()
 	health.bg:SetTexture(ns.Media.blank)
+
+	-- Above the (gliding) bar texture, below the text.
+	health.cutaway = health:CreateTexture(nil, "ARTWORK", nil, 1)
+	health.cutaway:SetTexture(ns.Media.blank)
+	health.cutaway:SetVertexColor(1, 0.9, 0.8, 0.6)
+	health.cutaway:Hide()
 
 	health.text = health:CreateFontString(nil, "OVERLAY", "SystemFont_Outline_Small")
 	health.text:SetTextColor(unpack(UF.textColor))

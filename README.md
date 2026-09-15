@@ -26,7 +26,14 @@ Modules/
 ```
 
 Unit frames: player, pet, target (+ combo points), focus, targets of target and
-focus, party (+ pets), arena (+ pets and trinket), boss1-4.
+focus, party (+ pets), arena (+ pets and trinket), boss1-4. Bars glide, lost
+health leaves a fading strip, dispellable debuffs tint the health bar.
+
+Automatic: greys are sold and gear repaired at merchants (hold Shift to skip),
+invites from friends/guild mates are accepted, own interrupts are announced,
+BG messages show as raid warnings, enemy BG healers get an icon on their
+nameplate. Character and inspect windows show item levels on every slot and
+the average under the model; the model is rotated/moved/zoomed with the mouse.
 
 Every file starts with `local _, ns = ...`; `ns` is the shared addon table.
 A module is `ns:NewModule("Name")` and subscribes to events with
@@ -39,6 +46,7 @@ A module is `ns:NewModule("Name")` and subscribes to events with
 |---|---|
 | `/bind`, `/b` | keybinding mode for action buttons |
 | `/pm` | block whispers from strangers |
+| `/ia` | toggle interrupt announcements to the group |
 | `/noduel` | auto-decline duels |
 | `/vr` | disable the click animation (video recording) |
 | `/guid` | print target's GUID |

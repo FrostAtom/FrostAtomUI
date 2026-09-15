@@ -35,6 +35,14 @@ local function createPlayer(self, config)
 	local raidIcon = self:AddElement(player, "raidicon")
 	raidIcon:SetPoint("BOTTOM", player, "TOP", 0, -4)
 
+	local resting = self:AddElement(player, "resting")
+	resting:SetPoint("CENTER", player, "TOPRIGHT", -8, 0)
+
+	local pvp = self:AddElement(player, "pvp")
+	pvp:SetPoint("CENTER", player, "BOTTOMRIGHT", -8, 0)
+
+	self:AddElement(player, "dispel")
+
 	local pet = self:CreatePet("pet", 45)
 	pet:SetPoint("RIGHT", player, "LEFT", -2, 0)
 
@@ -58,6 +66,11 @@ local function createTargets(self, player)
 	for _, frame in ipairs({ target, focus }) do
 		local raidIcon = self:AddElement(frame, "raidicon")
 		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
+
+		local pvp = self:AddElement(frame, "pvp")
+		pvp:SetPoint("CENTER", frame, "BOTTOMRIGHT", -8, 0)
+
+		self:AddElement(frame, "dispel")
 	end
 end
 
@@ -92,6 +105,7 @@ local function createParty(self, config)
 		loseControl:SetPoint("CENTER")
 
 		self:AddElement(frame, "range")
+		self:AddElement(frame, "dispel")
 
 		local pet = self:CreatePet("partypet" .. i, 40)
 		pet:SetPoint("RIGHT", frame, "LEFT", -2, 0)

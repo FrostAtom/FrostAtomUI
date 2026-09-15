@@ -32,6 +32,45 @@ hooksecurefunc("StaticPopup_Show", function(which)
 	end
 end)
 
+--------------------------------------------------
+-- Invites from friends and guild members are accepted automatically.
+
+local GetNumFriends, GetFriendInfo = GetNumFriends, GetFriendInfo
+local GetNumGuildMembers, GetGuildRosterInfo = GetNumGuildMembers, GetGuildRosterInfo
+local GetNumPartyMembers, GetNumRaidMembers = GetNumPartyMembers, GetNumRaidMembers
+
+local function isFriendOrGuildMate(name)
+	for i = 1, GetNumFriends() do
+		if GetFriendInfo(i) == name then
+			return true
+		end
+	end
+	for i = 1, GetNumGuildMembers() do
+		if GetGuildRosterInfo(i) == name then
+			return true
+		end
+	end
+	return false
+end
+
+-- The roster is empty until requested once.
+Misc:RegisterEvent("PLAYER_LOGIN", function()
+	if IsInGuild() then
+		GuildRoster()
+	end
+end)
+
+Misc:RegisterEvent("PARTY_INVITE_REQUEST", function(_, leader)
+	if GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0 then
+		return
+	end
+	if isFriendOrGuildMate(leader) then
+		AcceptGroup()
+		StaticPopup_Hide("PARTY_INVITE")
+		ns.Print("accepted %s's invite", leader)
+	end
+end)
+
 Misc:RegisterEvent("CHAT_MSG_WHISPER", FlashWindow)
 Misc:RegisterEvent("PLAYER_LOGOUT", FlashWindow)
 

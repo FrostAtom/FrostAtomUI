@@ -6,10 +6,21 @@ local _, ns = ...
 local GetSpellInfo = GetSpellInfo
 local GetItemInfo = GetItemInfo
 local GetItemIcon = GetItemIcon
+local GetItemCount = GetItemCount
 local UnitAura = UnitAura
 local UnitName = UnitName
 local UnitIsPlayer = UnitIsPlayer
 local UnitClass = UnitClass
+local UnitExists = UnitExists
+local UnitIsUnit = UnitIsUnit
+local UnitGUID = UnitGUID
+local UnitReaction = UnitReaction
+local GetGuildInfo = GetGuildInfo
+local GetMouseFocus = GetMouseFocus
+local GetNumRaidMembers = GetNumRaidMembers
+local GetNumPartyMembers = GetNumPartyMembers
+local InCombatLockdown = InCombatLockdown
+local IsShiftKeyDown = IsShiftKeyDown
 local unpack = unpack
 
 local TOOLTIPS = { ItemRefTooltip, GameTooltip, ShoppingTooltip1, ShoppingTooltip2, ShoppingTooltip3 }
@@ -64,6 +75,14 @@ local function onTooltipSetItem(tooltip)
 	local _, _, _, itemLevel = GetItemInfo(link)
 	local itemId = link:match("|Hitem:(%d+):")
 	tooltip:AddDoubleLine(itemId and labeled("ID", itemId), itemLevel and labeled("ilvl", itemLevel))
+
+	-- How many are carried, and how many more sit in the bank.
+	local inBags = GetItemCount(link)
+	local inBank = GetItemCount(link, true) - inBags
+	if inBags > 0 or inBank > 0 then
+		tooltip:AddDoubleLine(labeled("Bags", inBags), inBank > 0 and labeled("Bank", inBank))
+	end
+
 	tooltip:Show()
 end
 
@@ -73,9 +92,116 @@ for _, tooltip in ipairs(TOOLTIPS) do
 end
 
 --------------------------------------------------
--- Auras: spell id and caster (class colored)
+-- Units: class-colored name, guild rank, target, who targets it, NPC id.
+-- In combat unit tooltips are hidden unless Shift is held.
 
-local classColors = ns:GetModule("UnitFrames").classColors
+local UF = ns:GetModule("UnitFrames")
+local classColors = UF.classColors
+
+local function colorize(unit, text)
+	local r, g, b
+	if UnitIsPlayer(unit) then
+		local _, class = UnitClass(unit)
+		r, g, b = unpack(classColors[class] or UF.textColor)
+	else
+		local color = FACTION_BAR_COLORS[UnitReaction(unit, "player") or 4]
+		r, g, b = color.r, color.g, color.b
+	end
+	return ("|cff%02x%02x%02x%s|r"):format(r * 255, g * 255, b * 255, text)
+end
+
+local function groupUnits()
+	local numRaid = GetNumRaidMembers()
+	if numRaid > 0 then
+		return "raid", numRaid
+	end
+	return "party", GetNumPartyMembers()
+end
+
+local targetedBy = {}
+
+local function onTooltipSetUnit(tooltip)
+	local _, unit = tooltip:GetUnit()
+	if not unit then
+		local focus = GetMouseFocus()
+		unit = focus and focus.GetAttribute and focus:GetAttribute("unit")
+	end
+	if not (unit and UnitExists(unit)) then
+		return
+	end
+
+	-- Tooltips from unit frames (owner is a frame, not UIParent) get in the
+	-- way in combat; world mouseovers are left alone.
+	if tooltip:GetOwner() ~= UIParent and InCombatLockdown() and not IsShiftKeyDown() then
+		tooltip:Hide()
+		return
+	end
+
+	-- Name line: class color, and the guild rank on the line below.
+	local title = titleLine(tooltip)
+	if title then
+		title:SetText(colorize(unit, title:GetText() or UnitName(unit)))
+	end
+	if UnitIsPlayer(unit) then
+		local guild, rank = GetGuildInfo(unit)
+		local second = titleLine(tooltip, 2)
+		if guild and second and second:GetText() and second:GetText():find(guild, 1, true) then
+			second:SetFormattedText("<|cff00ff10%s|r> |cffaaaaaa%s|r", guild, rank or "")
+		end
+	end
+
+	-- Who the unit is targeting.
+	local target = unit .. "target"
+	if unit ~= "player" and UnitExists(target) then
+		local name = UnitIsUnit(target, "player") and "|cffff0000<YOU>|r" or colorize(target, UnitName(target))
+		tooltip:AddDoubleLine("Target", name)
+	end
+
+	-- Which group members are targeting the unit.
+	local prefix, count = groupUnits()
+	wipe(targetedBy)
+	for i = 1, count do
+		local member = prefix .. i
+		if not UnitIsUnit(member, "player") and UnitIsUnit(member .. "target", unit) then
+			targetedBy[#targetedBy + 1] = colorize(member, UnitName(member))
+		end
+	end
+	if #targetedBy > 0 then
+		tooltip:AddLine(("Targeted by (%d): %s"):format(#targetedBy, table.concat(targetedBy, ", ")), 1, 1, 1, true)
+	end
+
+	-- NPC id from the GUID (players get theirs via /guid).
+	if not UnitIsPlayer(unit) then
+		local guid = UnitGUID(unit)
+		local npcId = guid and tonumber(guid:sub(7, 12), 16)
+		if npcId and npcId > 0 then
+			tooltip:AddLine(labeled("NPC ID", npcId))
+		end
+	end
+
+	tooltip:Show()
+end
+
+GameTooltip:HookScript("OnTooltipSetUnit", onTooltipSetUnit)
+
+-- Health text on the tooltip's status bar.
+local healthText = GameTooltipStatusBar:CreateFontString(nil, "OVERLAY", "SystemFont_Outline_Small")
+healthText:SetPoint("CENTER")
+
+GameTooltipStatusBar:HookScript("OnValueChanged", function(bar, value)
+	local _, max = bar:GetMinMaxValues()
+	if not value or max == 0 then
+		healthText:SetText("")
+	elseif max == 1 then
+		-- Unknown units only report a percentage.
+		healthText:SetFormattedText("%d%%", value * 100)
+	else
+		healthText:SetFormattedText("%s / %s", ns.FormatValue(value), ns.FormatValue(max))
+	end
+end)
+
+--------------------------------------------------
+-- Auras: spell id and caster (class colored)
 
 local function onSetUnitAura(tooltip, unit, index, filter)
 	local _, _, _, _, _, _, _, caster, _, _, spellId = UnitAura(unit, index, filter)

@@ -22,7 +22,15 @@ ns.Config = {
 		outOfRangeAlpha = 0.45,
 	},
 
-	runes = { "CENTER", 0, -294 },
+	runes = { "CENTER", 0, -294 }, -- death knight
+	totems = { "CENTER", 0, -294 }, -- shaman
+
+	-- Party/raid members whose dispellable debuff is highlighted: alpha of the
+	-- overlay on the health bar.
+	dispelHighlightAlpha = 0.5,
+
+	-- Print a warning when any equipped item drops below this durability.
+	durabilityWarning = 0.2,
 
 	-- Experience/reputation bar at the top edge; only shown below the level cap
 	-- (reputation is shown at the cap when a faction is being watched).

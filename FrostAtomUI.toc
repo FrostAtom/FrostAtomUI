@@ -2,7 +2,7 @@
 ## Title: FrostAtom UI
 ## Notes: Personal UI replacement: action bars, unit frames, nameplates, chat, minimap and PvP helpers.
 ## Author: frostatom
-## Version: 1.1.0
+## Version: 1.2.0
 ## SavedVariables: FrostAtomUIDB
 
 # Core: namespace, utilities, event dispatcher, saved variables, settings
@@ -38,6 +38,8 @@ Modules\UnitFrames\Elements\RaidIcon.lua
 Modules\UnitFrames\Elements\ComboPoints.lua
 Modules\UnitFrames\Elements\Range.lua
 Modules\UnitFrames\Elements\Trinket.lua
+Modules\UnitFrames\Elements\Dispel.lua
+Modules\UnitFrames\Elements\Status.lua
 Modules\UnitFrames\Elements\Auras.lua
 Modules\UnitFrames\Elements\Cast.lua
 Modules\UnitFrames\Elements\LoseControl.lua
@@ -48,9 +50,11 @@ Modules\UnitFrames\Blizzard.lua
 Modules\NamePlates\NamePlates.lua
 Modules\NamePlates\Totems.lua
 Modules\NamePlates\Auras.lua
+Modules\NamePlates\Healers.lua
 
 Modules\AuraTracker.lua
 Modules\Runes.lua
+Modules\Totems.lua
 Modules\TemporaryEnchant.lua
 Modules\ExperienceBar.lua
 Modules\Minimap.lua
@@ -69,6 +73,11 @@ Modules\Misc\CursorTrail.lua
 Modules\Misc\LowHealthFlash.lua
 Modules\Misc\Arena.lua
 Modules\Misc\Announcers.lua
+Modules\Misc\InterruptAnnounce.lua
+Modules\Misc\Battleground.lua
+Modules\Misc\Merchant.lua
+Modules\Misc\Equipment.lua
+Modules\Misc\ModelControls.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua

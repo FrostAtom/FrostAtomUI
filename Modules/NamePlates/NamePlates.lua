@@ -36,6 +36,9 @@ ns:GetModule("CVars"):Pin("ShowClassColorInNameplate", "1")
 -- plate up here.
 NamePlates.plates = {}
 
+-- Called as callback(plate, name) whenever a plate is (re)shown.
+NamePlates.onPlateShow = {}
+
 -- Blizzard regions we do not want drawn are re-parented here.
 local trash = CreateFrame("Frame")
 trash:Hide()
@@ -137,6 +140,10 @@ function PlateMixin:OnShow()
 	end
 
 	self.level:Hide()
+
+	for _, callback in ipairs(NamePlates.onPlateShow) do
+		callback(self, name)
+	end
 end
 
 local CastbarMixin = {}

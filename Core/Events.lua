@@ -9,6 +9,7 @@ local _, ns = ...
 -- Custom (non-Blizzard) events can be raised with `ns:Fire(event, ...)`.
 
 local tContains, tDeleteItem = ns.tContains, ns.tDeleteItem
+local IsAddOnLoaded = IsAddOnLoaded
 
 local eventFrame = CreateFrame("Frame")
 
@@ -102,5 +103,39 @@ end
 eventFrame:SetScript("OnEvent", function(_, event, ...)
 	ns:Fire(event, ...)
 end)
+
+-- Runs `callback` once the given (load-on-demand) addon is loaded; right
+-- away if it already is.
+local addonWaiters = {} -- addon name -> { callback, ... }
+local addonWatcher = ns.Mixin({}, EventMixin)
+
+local function onAddonLoaded(_, addon)
+	local waiters = addonWaiters[addon]
+	if not waiters then
+		return
+	end
+	addonWaiters[addon] = nil
+	for _, callback in ipairs(waiters) do
+		callback()
+	end
+	if not next(addonWaiters) then
+		addonWatcher:UnregisterEvent("ADDON_LOADED")
+	end
+end
+
+function ns:OnAddonLoaded(addon, callback)
+	if IsAddOnLoaded(addon) then
+		callback()
+		return
+	end
+
+	local waiters = addonWaiters[addon]
+	if not waiters then
+		waiters = {}
+		addonWaiters[addon] = waiters
+		addonWatcher:RegisterEvent("ADDON_LOADED", onAddonLoaded)
+	end
+	waiters[#waiters + 1] = callback
+end
 
 ns.Mixin(ns.ModulePrototype, EventMixin)

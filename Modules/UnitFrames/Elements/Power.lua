@@ -5,6 +5,7 @@ local CreateFrame = CreateFrame
 local UnitIsConnected = UnitIsConnected
 local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
 local UnitPowerType = UnitPowerType
+local UnitGUID = UnitGUID
 local unpack = unpack
 
 local FormatValue = ns.FormatValue
@@ -14,15 +15,22 @@ local function update(frame)
 	local unit = frame.unit
 	local power = frame.power
 
+	local guid = UnitGUID(unit)
+	local setValue = power.SetValue
+	if guid ~= power.guid then
+		power.guid = guid
+		setValue = power.SnapValue
+	end
+
 	if not UnitIsConnected(unit) then
 		power:SetMinMaxValues(0, 1)
-		power:SetValue(0)
+		setValue(power, 0)
 		power.bg:SetVertexColor(frame:GetBackdropColor())
 		power.text:SetText(nil)
 	else
 		local current, max = UnitPower(unit), UnitPowerMax(unit)
 		power:SetMinMaxValues(0, max)
-		power:SetValue(current)
+		setValue(power, current)
 
 		local r, g, b = unpack(powerColors[UnitPowerType(unit)])
 		power:SetStatusBarColor(r, g, b)
@@ -45,6 +53,7 @@ local function create(frame)
 	power:SetFrameLevel(frame:GetFrameLevel())
 	power:SetStatusBarTexture(ns.Media.blank)
 	power.unit = frame.unit
+	ns.SmoothBar(power)
 
 	power.bg = power:CreateTexture(nil, "BORDER")
 	power.bg:SetAllPoints()

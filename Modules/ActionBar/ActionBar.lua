@@ -119,8 +119,8 @@ local CLASS_PAGE_CONDITIONS = {
 }
 
 local function pageDriverCondition()
-	local condition = "[vehicleui] 11; [possessbar] 11; [bonusbar:5] 11; "
-		.. "[bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
+	-- 3.3.5 has no [possessbar]; possession sets bonusbar 5 like vehicles do.
+	local condition = "[vehicleui] 11; [bonusbar:5] 11; " .. "[bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
 	local classCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
 	if classCondition then
 		condition = condition .. classCondition .. " "

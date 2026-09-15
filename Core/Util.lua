@@ -66,6 +66,51 @@ function ns.DestroyFrame(frame, deep)
 	end
 end
 
+--------------------------------------------------
+-- Smooth status bars
+--
+-- ns.SmoothBar(bar) makes bar:SetValue glide to the new value instead of
+-- jumping; bar:SnapValue sets it instantly (unit changed, first show).
+
+local SMOOTH_SPEED = 12 -- fraction of the remaining distance covered per second
+local smoothing = {} -- bar -> target value
+
+local smoother = CreateFrame("Frame")
+smoother:Hide()
+smoother:SetScript("OnUpdate", function(_, elapsed)
+	local step = math.min(elapsed * SMOOTH_SPEED, 1)
+	for bar, target in pairs(smoothing) do
+		local current = bar:GetValue()
+		local min, max = bar:GetMinMaxValues()
+		local new = current + (target - current) * step
+		if math.abs(target - new) < (max - min) * 0.002 or not bar:IsVisible() then
+			new = target
+			smoothing[bar] = nil
+		end
+		bar:SetValueRaw(new)
+	end
+	if not next(smoothing) then
+		smoother:Hide()
+	end
+end)
+
+local function smoothSetValue(bar, value)
+	smoothing[bar] = value
+	smoother:Show()
+end
+
+local function snapValue(bar, value)
+	smoothing[bar] = nil
+	bar:SetValueRaw(value)
+end
+
+function ns.SmoothBar(bar)
+	bar.SetValueRaw = bar.SetValue
+	bar.SetValue = smoothSetValue
+	bar.SnapValue = snapValue
+	return bar
+end
+
 -- Scales a size so that it maps to whole screen pixels at the current UI scale.
 function ns.PixelPerfect(size)
 	return size * (2 - UIParent:GetEffectiveScale())
