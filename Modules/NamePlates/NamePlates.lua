@@ -4,9 +4,10 @@ local _, ns = ...
 -- name or an event, so new WorldFrame children are inspected as they appear
 -- and identified by their textures.
 --
--- Nameplate: thin bar with the name above it, a castbar with icon below it,
--- raid icon to the left. Totems show their spell icon instead of the bar.
--- The border turns white on the current target and on threat.
+-- Nameplate: thin bar with the name above it, a castbar with icon below it
+-- (gray when the cast cannot be interrupted), raid icon to the left. Totems
+-- show their spell icon instead of the bar. The border turns white on the
+-- current target and on threat. Level and elite/boss icons are not shown.
 
 local CreateFrame = CreateFrame
 local WorldFrame = WorldFrame
@@ -20,9 +21,16 @@ local NAMEPLATE_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-Flash"
 local CHAT_BUBBLE_TEXTURE = "Interface\\Tooltips\\ChatBubble-Background"
 local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-BarFill"
 
-local BAR_WIDTH, BAR_HEIGHT = 77, 3
-local CASTBAR_HEIGHT = 6
-local CASTBAR_ICON_SIZE = 10
+local BAR_WIDTH, BAR_HEIGHT = 77, 6
+local CASTBAR_HEIGHT = 8
+local CASTBAR_ICON_SIZE = 14
+local NAME_FONT_SIZE = 9
+local NAME_OFFSET = 1 -- gap between the name and the bar
+local PERCENT_FONT_SIZE = 9
+local WHITE = { 1, 1, 1 }
+-- Castbar colors: interruptible / shielded (same as the unit frames).
+local CAST_COLOR = { 0.75, 0.4, 0 }
+local CAST_SHIELDED_COLOR = { 0.4, 0.4, 0.4 }
 local TOTEM_ICON_SIZE = 24
 local RAID_ICON_SIZE = 22
 local ICON_TEXCOORD = { 0.07, 0.93, 0.07, 0.93 }
@@ -78,6 +86,11 @@ function PlateMixin:UpdateColors(r, g, b)
 	healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
 	self.totem.bg:SetTexture(r, g, b)
 	healthbar.r, healthbar.g, healthbar.b = r, g, b
+
+	-- Enemy players' names take their class color.
+	local nameColor = classColor or WHITE
+	self.nameColor = nameColor
+	self.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
 end
 
 -- The client keeps the target's plate at full alpha and dims the others.
@@ -99,17 +112,33 @@ function PlateMixin:OnUpdate()
 	end
 
 	local border = healthbar.border
-	if self:IsTarget() then
+	local isTarget = self:IsTarget()
+	if isTarget then
 		border:SetTexture(1, 1, 1)
 		border:SetAlpha(0.67)
 	elseif self.threat:IsShown() then
-		self.name:SetTextColor(self.threat:GetVertexColor())
 		border:SetTexture(1, 1, 1)
 		border:SetAlpha(0.4)
 	else
-		self.name:SetTextColor(1, 1, 1)
 		border:SetTexture(0, 0, 0)
-		border:SetAlpha(0.4)
+		border:SetAlpha(1)
+	end
+
+	if self.threat:IsShown() then
+		self.name:SetTextColor(self.threat:GetVertexColor())
+	else
+		local nameColor = self.nameColor
+		self.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
+	end
+
+	-- Health percent, only on the target's plate.
+	local percent = healthbar.percent
+	if isTarget then
+		local _, max = healthbar:GetMinMaxValues()
+		percent:SetFormattedText("%d%%", max > 0 and healthbar:GetValue() / max * 100 or 0)
+		percent:Show()
+	else
+		percent:Hide()
 	end
 end
 
@@ -148,11 +177,21 @@ end
 
 local CastbarMixin = {}
 
--- The client re-anchors the castbar, so keep pulling it under the bar.
+-- The client re-anchors and recolors the castbar, so keep pulling it under
+-- the bar. The (hidden) shield region tells whether the cast can be
+-- interrupted.
 function CastbarMixin:OnUpdate()
 	self:ClearAllPoints()
-	self:SetPoint("TOP", self:GetParent().healthbar, "BOTTOM", 0, -2)
+	self:SetPoint("TOP", self:GetParent().healthbar, "BOTTOM", 0, -3)
 	self:SetSize(BAR_WIDTH, CASTBAR_HEIGHT)
+
+	if self.shield:IsShown() then
+		self:SetStatusBarColor(unpack(CAST_SHIELDED_COLOR))
+		self.icon:SetDesaturated(1)
+	else
+		self:SetStatusBarColor(unpack(CAST_COLOR))
+		self.icon:SetDesaturated(nil)
+	end
 end
 
 function CastbarMixin:OnShow()
@@ -165,7 +204,7 @@ function CastbarMixin:OnShow()
 	local icon = self.icon
 	icon:SetAlpha(1)
 	icon:ClearAllPoints()
-	icon:SetPoint("RIGHT", self, "LEFT", 0, 0)
+	icon:SetPoint("RIGHT", self, "LEFT", -3, 0)
 	icon:SetSize(CASTBAR_ICON_SIZE, CASTBAR_ICON_SIZE)
 	icon:SetTexCoord(unpack(ICON_TEXCOORD))
 end
@@ -181,7 +220,6 @@ local function setupHealthbar(plate, healthbar, blizzardBackground)
 	border:SetTexture(0, 0, 0)
 	border:SetPoint("TOPRIGHT", borderSize, borderSize)
 	border:SetPoint("BOTTOMLEFT", -borderSize, -borderSize)
-	border:SetAlpha(0.4)
 	healthbar.border = border
 
 	blizzardBackground:SetParent(healthbar)
@@ -189,12 +227,30 @@ local function setupHealthbar(plate, healthbar, blizzardBackground)
 	blizzardBackground:SetAllPoints(healthbar)
 	blizzardBackground:SetAlpha(0.9)
 	healthbar.bg = blizzardBackground
+
+	local percent = healthbar:CreateFontString(nil, "OVERLAY")
+	percent:SetFont(ns.Media.font, PERCENT_FONT_SIZE, "OUTLINE")
+	percent:SetPoint("LEFT", healthbar, "RIGHT", 3, 0)
+	percent:SetTextColor(1, 1, 1)
+	percent:Hide()
+	healthbar.percent = percent
 end
 
-local function setupCastbar(plate, castbar, icon)
+local function setupCastbar(plate, castbar, icon, shield)
 	ns.Mixin(castbar, CastbarMixin)
 	castbar:SetFrameLevel(plate:GetFrameLevel())
 	castbar:SetStatusBarTexture(BAR_TEXTURE)
+
+	-- Not drawn, but its shown state is read for the bar color.
+	shield:SetTexture(nil)
+	castbar.shield = shield
+
+	-- Same 1px black frame as the health bar, around the bar and the icon.
+	local borderSize = ns.PixelPerfect(1)
+	local border = castbar:CreateTexture(nil, "BACKGROUND", nil, -1)
+	border:SetTexture(0, 0, 0)
+	border:SetPoint("TOPRIGHT", borderSize, borderSize)
+	border:SetPoint("BOTTOMLEFT", -borderSize, -borderSize)
 
 	local bg = castbar:CreateTexture(nil, "BACKGROUND")
 	bg:SetTexture(0.2, 0.2, 0.2)
@@ -202,9 +258,10 @@ local function setupCastbar(plate, castbar, icon)
 	bg:SetAlpha(0.9)
 
 	icon:SetDrawLayer("ARTWORK")
-	local iconBg = castbar:CreateTexture(nil, "BORDER")
-	iconBg:SetTexture(0.2, 0.2, 0.2)
-	iconBg:SetAllPoints(icon)
+	local iconBorder = castbar:CreateTexture(nil, "BORDER")
+	iconBorder:SetTexture(0, 0, 0)
+	iconBorder:SetPoint("TOPRIGHT", icon, borderSize, borderSize)
+	iconBorder:SetPoint("BOTTOMLEFT", icon, -borderSize, -borderSize)
 	castbar.icon = icon
 
 	castbar:SetScript("OnShow", castbar.OnShow)
@@ -235,11 +292,12 @@ local function setupNamePlate(plate)
 	ns.Mixin(plate, PlateMixin)
 
 	setupHealthbar(plate, healthbar, background)
-	setupCastbar(plate, castbar, castIcon)
+	setupCastbar(plate, castbar, castIcon, castShield)
 	setupTotemIcon(plate)
 
-	local newName = plate:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	newName:SetPoint("BOTTOM", healthbar, "TOP", 0, 5)
+	local newName = plate:CreateFontString(nil, "ARTWORK")
+	newName:SetFont(ns.Media.font, NAME_FONT_SIZE, "OUTLINE")
+	newName:SetPoint("BOTTOM", healthbar, "TOP", 0, NAME_OFFSET)
 	newName:SetTextColor(1, 1, 1)
 	name:Hide()
 
@@ -247,14 +305,9 @@ local function setupNamePlate(plate)
 	raidIcon:ClearAllPoints()
 	raidIcon:SetPoint("RIGHT", healthbar, "LEFT", -15, 0)
 
-	elite:ClearAllPoints()
-	elite:SetPoint("CENTER", healthbar, "LEFT", -8, 0)
-	elite:SetSize(15, 15)
-	elite:SetDesaturated(false)
-
 	-- Not drawn, but `threat` is still read for its shown state and color.
 	highlight:SetTexture(nil)
-	for _, region in ipairs({ bossIcon, castBorder, castShield, threat }) do
+	for _, region in ipairs({ bossIcon, elite, castBorder, threat }) do
 		region:SetParent(trash)
 	end
 

@@ -10,6 +10,7 @@ local UnitIsPlayer = UnitIsPlayer
 local SendSystemMessage = SendSystemMessage
 local IsControlKeyDown = IsControlKeyDown
 local StaticPopup_Show = StaticPopup_Show
+local GameTooltip = GameTooltip
 
 local Chat = ns:NewModule("Chat")
 
@@ -180,29 +181,86 @@ StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
 	end,
 }
 
-hooksecurefunc("SetItemRef", function(link)
+-- Blizzard's SetItemRef errors on unknown link types, so "url" links are
+-- taken before it runs.
+local blizzardSetItemRef = SetItemRef
+function SetItemRef(link, ...)
 	local url = link:match("^url:(.+)$")
-	if url then
-		-- OnShow runs before the popup is returned, so fill the box here too.
-		local popup = StaticPopup_Show("FROSTATOMUI_COPY_URL")
-		if popup then
-			popup.url = url
-			local editBox = _G[popup:GetName() .. "EditBox"]
-			editBox:SetText(url)
-			editBox:SetFocus()
-			editBox:HighlightText()
-		end
+	if not url then
+		return blizzardSetItemRef(link, ...)
 	end
-end)
+
+	-- OnShow runs before the popup is returned, so fill the box here too.
+	local popup = StaticPopup_Show("FROSTATOMUI_COPY_URL")
+	if popup then
+		popup.url = url
+		local editBox = _G[popup:GetName() .. "EditBox"]
+		editBox:SetText(url)
+		editBox:SetFocus()
+		editBox:HighlightText()
+	end
+end
+
+--------------------------------------------------
+-- Every line that reaches a chat frame is kept, with its color, so it can
+-- be copied and restored after a reload (History.lua).
+
+local MAX_LINES = 300
+
+Chat.lines = {} -- chatFrame -> { { text, r, g, b }, ... }, oldest first
+local rawAddMessage = {} -- chatFrame -> the unhooked AddMessage
+
+local function storeLine(chatFrame, text, r, g, b)
+	local lines = Chat.lines[chatFrame]
+	lines[#lines + 1] = { text, r, g, b }
+	if #lines > MAX_LINES then
+		table.remove(lines, 1)
+	end
+end
+
+-- Adds a line that is already formatted (no timestamp is added).
+function Chat.AddStoredLine(chatFrame, text, r, g, b)
+	rawAddMessage[chatFrame](chatFrame, text, r, g, b)
+	storeLine(chatFrame, text, r, g, b)
+end
 
 local function hookAddMessage(chatFrame)
 	local addMessage = chatFrame.AddMessage
-	chatFrame.AddMessage = function(self, text, ...)
+	rawAddMessage[chatFrame] = addMessage
+	Chat.lines[chatFrame] = {}
+
+	chatFrame.AddMessage = function(self, text, r, g, b, ...)
 		if type(text) == "string" then
 			text = date(TIMESTAMP_FORMAT) .. linkUrls(shortenChannelName(text))
+			storeLine(self, text, r, g, b)
 		end
-		return addMessage(self, text, ...)
+		return addMessage(self, text, r, g, b, ...)
 	end
+end
+
+--------------------------------------------------
+-- Hovering a link shows its tooltip, no click needed.
+
+local TOOLTIP_LINK_TYPES = {
+	item = true,
+	spell = true,
+	enchant = true,
+	quest = true,
+	achievement = true,
+	talent = true,
+	glyph = true,
+}
+
+local function onHyperlinkEnter(chatFrame, link)
+	if TOOLTIP_LINK_TYPES[link:match("^(%a+):")] then
+		GameTooltip:SetOwner(chatFrame, "ANCHOR_CURSOR")
+		GameTooltip:SetHyperlink(link)
+		GameTooltip:Show()
+	end
+end
+
+local function onHyperlinkLeave()
+	GameTooltip:Hide()
 end
 
 --------------------------------------------------
@@ -318,6 +376,8 @@ local function setupChatFrame(name)
 	addBackdrop(chatFrame, 6)
 	hookAddMessage(chatFrame)
 	hookMouseWheel(chatFrame)
+	chatFrame:SetScript("OnHyperlinkEnter", onHyperlinkEnter)
+	chatFrame:SetScript("OnHyperlinkLeave", onHyperlinkLeave)
 end
 
 for i = 1, NUM_CHAT_WINDOWS do

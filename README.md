@@ -19,7 +19,7 @@ Core/
 Modules/
   ActionBar/           bars 1-5, pet & shapeshift bars, /bind, click flash
   UnitFrames/          engine + Menu.lua (right-click menu) + Elements/ + Layout.lua
-  Chat/                chat restyle, URL copy, /pm whisper block
+  Chat/                chat restyle, URL copy, /pm whisper block, history + /copy
   Misc/                tooltips, popups, arena timers, mouse wheel paging, ...
   NamePlates/          nameplates (ported from AtomNameplates, no dll), totem icons, target debuffs
   *.lua                one-file modules (minimap, runes, experience bar, ...)
@@ -27,13 +27,17 @@ Modules/
 
 Unit frames: player, pet, target (+ combo points), focus, targets of target and
 focus, party (+ pets), arena (+ pets and trinket), boss1-4. Bars glide, lost
-health leaves a fading strip, dispellable debuffs tint the health bar.
+health leaves a fading strip, dispellable debuffs tint the health bar, buffs
+the player can purge are framed.
 
 Automatic: greys are sold and gear repaired at merchants (hold Shift to skip),
 invites from friends/guild mates are accepted, own interrupts are announced,
 BG messages show as raid warnings, enemy BG healers get an icon on their
-nameplate. Character and inspect windows show item levels on every slot and
-the average under the model; the model is rotated/moved/zoomed with the mouse.
+nameplate, the "DELETE" confirmation is typed for you, "+ combat"/"- combat"
+flashes on screen. Character and inspect windows show item levels on every
+slot and the average under the model; the model is rotated/moved/zoomed with
+the mouse. Chat links show a tooltip on hover and the last 100 lines come
+back after a reload.
 
 Every file starts with `local _, ns = ...`; `ns` is the shared addon table.
 A module is `ns:NewModule("Name")` and subscribes to events with
@@ -46,6 +50,7 @@ A module is `ns:NewModule("Name")` and subscribes to events with
 |---|---|
 | `/bind`, `/b` | keybinding mode for action buttons |
 | `/pm` | block whispers from strangers |
+| `/copy` | window to copy the current chat frame's text from |
 | `/ia` | toggle interrupt announcements to the group |
 | `/noduel` | auto-decline duels |
 | `/vr` | disable the click animation (video recording) |

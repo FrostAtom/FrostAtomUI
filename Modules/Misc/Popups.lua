@@ -12,6 +12,17 @@ local Misc = ns:GetModule("Misc")
 
 local declineDuels = false
 
+-- The "type DELETE to confirm" box is filled in, so Enter deletes the item.
+local function fillDeleteConfirmation(which)
+	for i = 1, STATICPOPUP_NUMDIALOGS do
+		local dialog = _G["StaticPopup" .. i]
+		if dialog:IsShown() and dialog.which == which then
+			dialog.editBox:SetText(DELETE_ITEM_CONFIRM_STRING)
+			return
+		end
+	end
+end
+
 hooksecurefunc("StaticPopup_Show", function(which)
 	if which == "DUEL_REQUESTED" then
 		if declineDuels then
@@ -29,6 +40,8 @@ hooksecurefunc("StaticPopup_Show", function(which)
 		end
 	elseif which == "PARTY_INVITE" or which == "CONFIRM_BATTLEFIELD_ENTRY" then
 		FlashWindow()
+	elseif which == "DELETE_GOOD_ITEM" or which == "DELETE_GOOD_QUEST_ITEM" then
+		fillDeleteConfirmation(which)
 	end
 end)
 

@@ -23,9 +23,11 @@ local function createPlayer(self, config)
 	local debuffs = self:AddElement(player, "debuffs", PLAYER_AURA)
 	debuffs:SetPoint("TOPRIGHT", buffs, "BOTTOMRIGHT")
 
+	-- The castbar is a child of the player frame; anchor it to the screen.
 	local castbar = self:AddElement(player, "castbar")
 	castbar:SetSize(240, 22)
-	castbar:SetPoint(unpack(config.playerCastbar))
+	local point, x, y = unpack(config.playerCastbar)
+	castbar:SetPoint(point, UIParent, point, x, y)
 	castbar.icon:SetSize(24, 24)
 
 	local loseControl = self:AddElement(player, "losecontrol")

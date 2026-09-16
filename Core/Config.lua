@@ -38,4 +38,7 @@ ns.Config = {
 
 	-- Arena trinket icon next to each arena frame.
 	arenaTrinket = { size = 30 },
+
+	-- "+ combat" / "- combat" text shown when combat starts or ends.
+	combatAlert = { "CENTER", 0, 150 },
 }

@@ -10,6 +10,7 @@ local Misc = ns:NewModule("Misc")
 local CVars = ns:GetModule("CVars")
 CVars:Pin("showItemLevel", "0", "SHOW_ITEM_LEVEL")
 CVars:Pin("groundEffectDist", "0")
+CVars:Pin("showTutorials", "0")
 -- Lua errors open Blizzard's ScriptErrorsFrame instead of being swallowed.
 CVars:Pin("scriptErrors", "1")
 

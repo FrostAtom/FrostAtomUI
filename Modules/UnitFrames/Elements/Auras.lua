@@ -24,6 +24,13 @@ for debuffType, color in pairs(DebuffTypeColor) do
 	debuffColors[debuffType] = { color.r, color.g, color.b }
 end
 
+-- Classes that can remove magic buffs from enemies (purge, spellsteal,
+-- tranquilizing shot, the felhunter's devour magic): their buffs the player
+-- can take away are framed in the magic color.
+local PURGE_CLASSES = { PRIEST = true, SHAMAN = true, MAGE = true, HUNTER = true, WARLOCK = true }
+local canPurge = PURGE_CLASSES[ns.PLAYER_CLASS]
+local STEALABLE_COLOR = debuffColors.Magic
+
 --------------------------------------------------
 -- Icon
 
@@ -77,21 +84,32 @@ local function createIcon(container, index)
 		icon:RegisterForClicks()
 	end
 
-	if container.isDebuff then
+	-- Debuffs are always framed in their type's color, buffs only when the
+	-- player can purge them.
+	if container.isDebuff or canPurge then
 		icon.overlay = icon:CreateTexture(nil, "OVERLAY")
 		icon.overlay:SetTexture("Interface\\Buttons\\UI-Debuff-Overlays")
 		icon.overlay:SetAllPoints()
 		icon.overlay:SetTexCoord(0.296875, 0.5703125, 0, 0.515625)
+		icon.isDebuff = container.isDebuff
 	end
 
 	return icon
 end
 
-local function setIcon(icon, texture, count, debuffType, duration, endTime)
+local function setIcon(icon, texture, count, debuffType, duration, endTime, stealable)
 	icon.texture:SetTexture(texture)
 
-	if icon.overlay then
-		icon.overlay:SetVertexColor(unpack(debuffColors[debuffType or ""]))
+	local overlay = icon.overlay
+	if overlay then
+		if icon.isDebuff then
+			overlay:SetVertexColor(unpack(debuffColors[debuffType or ""]))
+		elseif stealable then
+			overlay:SetVertexColor(unpack(STEALABLE_COLOR))
+			overlay:Show()
+		else
+			overlay:Hide()
+		end
 	end
 
 	if duration and duration > 0 then
@@ -120,7 +138,7 @@ local function updateContainer(container)
 
 	local shown = 0
 	for i = 1, limit do
-		local name, _, texture, count, debuffType, duration, endTime = UnitAura(unit, i, filter)
+		local name, _, texture, count, debuffType, duration, endTime, _, stealable = UnitAura(unit, i, filter)
 		if not name then
 			break
 		end
@@ -130,7 +148,7 @@ local function updateContainer(container)
 			icon = createIcon(container, i)
 			container[i] = icon
 		end
-		setIcon(icon, texture, count, debuffType, duration, endTime)
+		setIcon(icon, texture, count, debuffType, duration, endTime, stealable)
 		shown = i
 	end
 

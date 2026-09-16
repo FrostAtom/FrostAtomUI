@@ -63,6 +63,7 @@ Modules\CombatLogFix.lua
 # Chat
 Modules\Chat\Chat.lua
 Modules\Chat\WhisperBlock.lua
+Modules\Chat\History.lua
 
 # Everything else
 Modules\Misc\Tweaks.lua
@@ -78,6 +79,7 @@ Modules\Misc\Battleground.lua
 Modules\Misc\Merchant.lua
 Modules\Misc\Equipment.lua
 Modules\Misc\ModelControls.lua
+Modules\Misc\CombatAlert.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua
