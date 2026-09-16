@@ -1,15 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- "buffs" and "debuffs" elements: a grid of aura icons growing from an anchor.
---
--- Options (table passed to AddElement):
---   size    icon size (default 22)
---   gap     space between icons (default 0)
---   perRow  icons per row (default 8)
---   anchor  corner the grid grows from (default "TOPLEFT")
---   max     maximum number of auras shown (default: all)
-
 local CreateFrame = CreateFrame
 local UnitAura = UnitAura
 local CancelUnitBuff = CancelUnitBuff
@@ -24,15 +15,9 @@ for debuffType, color in pairs(DebuffTypeColor) do
 	debuffColors[debuffType] = { color.r, color.g, color.b }
 end
 
--- Classes that can remove magic buffs from enemies (purge, spellsteal,
--- tranquilizing shot, the felhunter's devour magic): their buffs the player
--- can take away are framed in the magic color.
 local PURGE_CLASSES = { PRIEST = true, SHAMAN = true, MAGE = true, HUNTER = true, WARLOCK = true }
 local canPurge = PURGE_CLASSES[ns.PLAYER_CLASS]
 local STEALABLE_COLOR = debuffColors.Magic
-
---------------------------------------------------
--- Icon
 
 local function onIconUpdate(icon)
 	GameTooltip:SetUnitAura(icon:GetParent():GetParent().unit, icon:GetID(), icon.filter)
@@ -76,7 +61,6 @@ local function createIcon(container, index)
 	icon.count = icon:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 	icon.count:SetPoint("BOTTOMRIGHT", icon, -1, 0)
 
-	-- Right click cancels own buffs.
 	if frame.unit == "player" then
 		icon:RegisterForClicks("RightButtonDown")
 		icon:SetScript("OnClick", onIconClick)
@@ -84,8 +68,6 @@ local function createIcon(container, index)
 		icon:RegisterForClicks()
 	end
 
-	-- Debuffs are always framed in their type's color, buffs only when the
-	-- player can purge them.
 	if container.isDebuff or canPurge then
 		icon.overlay = icon:CreateTexture(nil, "OVERLAY")
 		icon.overlay:SetTexture("Interface\\Buttons\\UI-Debuff-Overlays")
@@ -128,9 +110,6 @@ local function setIcon(icon, texture, count, debuffType, duration, endTime, stea
 	icon:Show()
 end
 
---------------------------------------------------
--- Container
-
 local function updateContainer(container)
 	local unit = container:GetParent().unit
 	local filter = container.filter
@@ -156,7 +135,6 @@ local function updateContainer(container)
 		container[i]:Hide()
 	end
 
-	-- Keep the container's height in sync so other elements can anchor below it.
 	local rows = ceil(shown / container.perRow)
 	container:SetHeight(math.max(rows * (container.size + container.gap), 2))
 end
@@ -177,8 +155,6 @@ local function createContainer(frame, options, filter, isDebuff)
 
 	return container
 end
-
---------------------------------------------------
 
 local function updateBuffs(frame)
 	updateContainer(frame.buffs)

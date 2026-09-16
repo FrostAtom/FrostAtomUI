@@ -1,13 +1,13 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Where every unit frame goes and which elements it gets. Screen positions
--- come from ns.Config.unitFrames.
-
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
 local PLAYER_AURA = { size = 34, gap = 2, anchor = "TOPRIGHT" }
+
+-- PvP Trinket, Every Man for Himself, Will of the Forsaken
+local ARENA_COOLDOWN_SKIP = { [42292] = true, [59752] = true, [7744] = true }
 
 local function createPlayer(self, config)
 	local player = self:CreateRectangle("player", 200, 45)
@@ -16,14 +16,12 @@ local function createPlayer(self, config)
 	local leader = self:AddElement(player, "leader")
 	leader:SetPoint("TOPLEFT", player.health, 24, 8)
 
-	-- Auras sit next to the minimap, growing left.
 	local buffs = self:AddElement(player, "buffs", PLAYER_AURA)
 	buffs:SetPoint("TOPRIGHT", Minimap, "TOPLEFT", -15, 0)
 
 	local debuffs = self:AddElement(player, "debuffs", PLAYER_AURA)
 	debuffs:SetPoint("TOPRIGHT", buffs, "BOTTOMRIGHT")
 
-	-- The castbar is a child of the player frame; anchor it to the screen.
 	local castbar = self:AddElement(player, "castbar")
 	castbar:SetSize(240, 22)
 	local point, x, y = unpack(config.playerCastbar)
@@ -106,6 +104,9 @@ local function createParty(self, config)
 		loseControl:SetSize(30, 30)
 		loseControl:SetPoint("CENTER")
 
+		local cooldowns = self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
+		cooldowns:SetPoint("TOPLEFT", frame, "BOTTOMRIGHT")
+
 		self:AddElement(frame, "range")
 		self:AddElement(frame, "dispel")
 
@@ -145,10 +146,16 @@ local function createArena(self, config)
 
 		local trinket = self:AddElement(frame, "trinket", { size = trinketSize })
 		trinket:SetPoint("LEFT", pet, "RIGHT", 2, 0)
+
+		local cooldowns = self:AddElement(
+			frame,
+			"cooldowns",
+			{ size = config.arenaCooldownSize, skip = ARENA_COOLDOWN_SKIP, anchor = "TOPRIGHT" }
+		)
+		cooldowns:SetPoint("TOPRIGHT", frame, "BOTTOMLEFT")
 	end
 end
 
--- Encounter bosses (boss1-4): compact rectangles with a castbar.
 local function createBosses(self, config)
 	local point, x, y = unpack(config.boss)
 

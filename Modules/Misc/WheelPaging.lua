@@ -1,19 +1,14 @@
 local _, ns = ...
 
--- Mouse wheel flips pages in Blizzard frames that have prev/next buttons:
--- wheel down = next page, wheel up = previous page.
-
 local WheelPaging = ns:NewModule("WheelPaging")
 
--- frame -> its page buttons. Frames from load-on-demand addons are picked up
--- once they exist.
 local PAGED_FRAMES = {
 	MerchantFrame = { prev = "MerchantPrevPageButton", next = "MerchantNextPageButton" },
 	SpellBookFrame = { prev = "SpellBookPrevPageButton", next = "SpellBookNextPageButton" },
 	InboxFrame = { prev = "InboxPrevPageButton", next = "InboxNextPageButton" },
 	PetPaperDollFrameCompanionFrame = { prev = "CompanionPrevPageButton", next = "CompanionNextPageButton" },
-	AuctionFrameBrowse = { prev = "BrowsePrevPageButton", next = "BrowseNextPageButton" }, -- Blizzard_AuctionUI
-	CalendarFrame = { prev = "CalendarPrevMonthButton", next = "CalendarNextMonthButton" }, -- Blizzard_Calendar
+	AuctionFrameBrowse = { prev = "BrowsePrevPageButton", next = "BrowseNextPageButton" },
+	CalendarFrame = { prev = "CalendarPrevMonthButton", next = "CalendarNextMonthButton" },
 }
 
 local function onMouseWheel(frame, delta)

@@ -27,8 +27,6 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 local BUTTON_NAME = ADDON_NAME .. "ActionButton%d"
 local RANGE_CHECK_INTERVAL = 0.1
 
--- Events that only matter while the slot holds an action, mapped to the method
--- that handles them.
 local ACTION_EVENTS = {
 	UPDATE_BINDINGS = "UpdateBindings",
 	UPDATE_SHAPESHIFT_FORM = "Update",
@@ -65,9 +63,6 @@ end
 ActionBar.AbbreviateKey = abbreviateKey
 
 local ActionButtonMixin = {}
-
---------------------------------------------------
--- Visual state
 
 local function applyColors(button, r, g, b)
 	button.icon:SetVertexColor(r, g, b)
@@ -155,8 +150,6 @@ function ActionButtonMixin:UpdateCooldown()
 	CooldownFrame_SetTimer(self.cooldown, GetActionCooldown(self.action))
 end
 
--- Full refresh; also (un)subscribes the per-action events depending on
--- whether the slot is empty.
 function ActionButtonMixin:Update()
 	local action = self.action
 
@@ -189,9 +182,6 @@ function ActionButtonMixin:Update()
 	self:UpdateCooldown()
 	self:UpdateName()
 end
-
---------------------------------------------------
--- Scripts & events
 
 function ActionButtonMixin:OnUpdate(elapsed)
 	self.rangeTimer = self.rangeTimer - elapsed
@@ -240,8 +230,6 @@ function ActionButtonMixin:SetTooltip()
 	end
 end
 
---------------------------------------------------
-
 function ActionBar:CreateActionButton(action, parent)
 	local button = CreateFrame("Button", BUTTON_NAME:format(action), parent, "SecureActionButtonTemplate")
 	ns.Mixin(button, ns.EventMixin, ActionButtonMixin)
@@ -276,8 +264,6 @@ function ActionBar:CreateActionButton(action, parent)
 	button:SetScript("OnReceiveDrag", button.OnReceiveDrag)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)
 	button:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
-	-- Always, not only while the slot holds an action: at login the slots are
-	-- empty until the world is entered, so nothing else would refresh them.
 	button:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 	self:AttachTooltip(button, button.SetTooltip)
 

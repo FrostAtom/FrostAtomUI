@@ -1,14 +1,5 @@
 local _, ns = ...
 
--- Action bars layout:
---
---   [shapeshift] [pet]
---   [   bar 3   ]
---   [   bar 2   ]        [ bar 5 ]
---   [ bar 4 ]   [   bar 1   ]
---
--- Bars 4/5 are 4x3 squares to the sides of bar 1.
-
 local CreateFrame = CreateFrame
 local RegisterStateDriver = RegisterStateDriver
 local floor = math.floor
@@ -24,7 +15,6 @@ ActionBar.BUTTON_SIZE = BUTTON_SIZE
 ActionBar.SMALL_BUTTON_SIZE = 30
 ActionBar.BUTTON_GAP = BUTTON_GAP
 
--- Common look for every action-like button (action, pet, shapeshift).
 function ActionBar:StyleButton(button, size)
 	button:SetSize(size, size)
 	button:SetNormalTexture(ns.Media.buttonNormal)
@@ -33,22 +23,13 @@ function ActionBar:StyleButton(button, size)
 	button:HookScript("OnClick", self.PlayClickAnimation)
 end
 
--- Icon shade and border color; `button.icon` must exist.
 function ActionBar:SetButtonColors(button, iconShade, borderR, borderG, borderB)
 	button.icon:SetVertexColor(iconShade, iconShade, iconShade)
 	button:GetNormalTexture():SetVertexColor(borderR, borderG, borderB)
 end
 
---------------------------------------------------
--- Tooltips
---
--- `setTooltip(button)` fills GameTooltip for the button; it is re-run while
--- hovering so cooldowns and ranks stay current.
-
 local TOOLTIP_REFRESH_INTERVAL = 0.2
 
--- One refresher for whichever button is hovered, so buttons keep their own
--- OnUpdate scripts.
 local tooltipRefresher = CreateFrame("Frame")
 tooltipRefresher:Hide()
 tooltipRefresher:SetScript("OnUpdate", function(self, elapsed)
@@ -79,18 +60,15 @@ function ActionBar:AttachTooltip(button, setTooltip)
 	button:SetScript("OnLeave", onTooltipLeave)
 end
 
--- Position of the i-th button in a single 12-wide row, centered on the bar.
 local function rowPoint(i)
 	return "BOTTOM", SLOT / 2 + (i - 7) * SLOT, 0
 end
 
--- Position of the i-th button in a 4x3 block, centered on the bar.
 local function squarePoint(i)
 	local row = floor((i - 1) / 4)
 	return "BOTTOM", SLOT / 2 + (i % 4 - 2) * SLOT, row * SLOT
 end
 
--- Creates a secure bar holding the 12 action slots of the given page.
 function ActionBar:CreateBar(page, pointFunc, onButtonCreated)
 	local bar = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
 	local firstAction = (page - 1) * BUTTONS_PER_BAR
@@ -106,12 +84,6 @@ function ActionBar:CreateBar(page, pointFunc, onButtonCreated)
 	return bar
 end
 
--- Bar 1 swaps its page like Blizzard's main bar: vehicle/possess bars, then
--- class forms. No manual paging ([bar:N]): pages 2-5 are the other bars,
--- always on screen, and the client remembers a flipped page across reloads.
---
--- Pages 7-10 are the "bonus" bars: warrior stances, druid forms (cat 7,
--- prowl 8, bear 9, moonkin/tree 10), rogue stealth 7, priest shadowform 7.
 local CLASS_PAGE_CONDITIONS = {
 	WARRIOR = "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9;",
 	DRUID = "[bonusbar:1,stealth] 8; [bonusbar:1] 7; [bonusbar:3] 9; [bonusbar:4] 10;",
@@ -120,7 +92,6 @@ local CLASS_PAGE_CONDITIONS = {
 }
 
 local function pageDriverCondition()
-	-- 3.3.5 has no [possessbar]; possession sets bonusbar 5 like vehicles do.
 	local condition = "[vehicleui] 11; [bonusbar:5] 11; "
 	local classCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
 	if classCondition then
@@ -129,7 +100,6 @@ local function pageDriverCondition()
 	return condition .. "1"
 end
 
--- Secure snippet run on every bar 1 button when the page changes.
 local PAGE_CHANGED_SNIPPET = [[
 	self:SetAttribute("action", (message - 1) * 12 + self:GetAttribute("id"))
 ]]

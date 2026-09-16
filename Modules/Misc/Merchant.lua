@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- At a merchant: sell grey items and repair everything. Hold Shift while
--- opening the merchant to skip both.
-
 local CanMerchantRepair = CanMerchantRepair
 local GetRepairAllCost = GetRepairAllCost
 local RepairAllItems = RepairAllItems

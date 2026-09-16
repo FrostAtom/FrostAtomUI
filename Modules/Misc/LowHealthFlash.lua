@@ -1,14 +1,12 @@
 local _, ns = ...
 
--- Pulsing red screen edges while the player is below a third of their health.
-
 local CreateFrame = CreateFrame
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 
 local Misc = ns:GetModule("Misc")
 
 local LOW_HEALTH_PERCENT = 0.33
-local PULSE_SPEED = 1.2 -- alpha per second
+local PULSE_SPEED = 1.2
 
 local flash = CreateFrame("Frame")
 flash:Hide()

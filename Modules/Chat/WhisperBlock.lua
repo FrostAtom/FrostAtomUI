@@ -1,10 +1,5 @@
 local _, ns = ...
 
--- /pm toggles "do not disturb": whispers from strangers are hidden and
--- auto-replied to. They are stored and printed once you whisper the sender
--- back (which also whitelists them) or when the block is turned off.
--- Friends are never blocked.
-
 local GetNumFriends = GetNumFriends
 local GetFriendInfo = GetFriendInfo
 local GetTime = GetTime
@@ -20,7 +15,7 @@ local REPLY_COOLDOWN = 0.25
 local MAX_STORED_MESSAGES = 200
 
 local blocked = false
-local blockedMessages -- saved: { { sender = , time = , text = }, ... }
+local blockedMessages
 local whitelist = {}
 local lastReplyTime, lastMessageText = 0
 
@@ -52,12 +47,10 @@ local function onWhisper(_, _, message, sender)
 		SendChatMessage(hasCyrillic(message) and REPLY_RU or REPLY_EN, "WHISPER", nil, sender)
 	end
 
-	-- Spammers repeat themselves; store each text once.
 	if lastMessageText ~= message then
 		lastMessageText = message
 		blockedMessages[#blockedMessages + 1] = { sender = sender, time = date("%m/%d/%y %H:%M:%S"), text = message }
 
-		-- Saved variables should not grow forever: drop the oldest.
 		while #blockedMessages > MAX_STORED_MESSAGES do
 			table.remove(blockedMessages, 1)
 		end
@@ -66,7 +59,6 @@ local function onWhisper(_, _, message, sender)
 	return true
 end
 
--- Prints and forgets every stored message, oldest first.
 local function flushMessages()
 	for _, entry in ipairs(blockedMessages) do
 		printMessage(entry)
@@ -79,7 +71,6 @@ local function onWhisperSent(_, _, message, target)
 		return true
 	end
 
-	-- Print in the order they arrived, then drop them.
 	for _, entry in ipairs(blockedMessages) do
 		if entry.sender == target then
 			printMessage(entry)
@@ -110,7 +101,6 @@ Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
 	blockedMessages = db.pm_messages or {}
 	db.pm_messages = blockedMessages
 
-	-- Older versions stored plain strings.
 	for i = #blockedMessages, 1, -1 do
 		if type(blockedMessages[i]) ~= "table" then
 			table.remove(blockedMessages, i)

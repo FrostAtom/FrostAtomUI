@@ -25,7 +25,8 @@ read_globals = {
 	"UnitIsConnected", "UnitIsDeadOrGhost", "UnitAffectingCombat", "UnitInRaid",
 	"UnitHealth", "UnitHealthMax", "UnitPower", "UnitPowerMax", "UnitPowerType",
 	"UnitAura", "UnitBuff", "UnitCastingInfo", "UnitChannelInfo", "CancelUnitBuff",
-	"GetSpellInfo", "GetItemInfo", "GetItemIcon",
+	"GetSpellInfo", "GetSpellTexture", "GetItemInfo", "GetItemIcon",
+	"COMBATLOG_OBJECT_TYPE_PLAYER", "COMBATLOG_OBJECT_TYPE_PET",
 	"GetActionTexture", "GetActionCooldown", "GetActionCount", "GetActionText",
 	"HasAction", "IsActionInRange", "IsUsableAction", "IsEquippedAction", "IsCurrentAction",
 	"IsAutoRepeatAction", "IsConsumableAction", "IsStackableAction", "PickupAction", "PlaceAction",
@@ -67,6 +68,8 @@ read_globals = {
 	"VEHICLE_MAX_ACTIONBUTTONS", "MAX_PARTY_MEMBERS", "NUM_CHAT_WINDOWS", "MAX_COMBO_POINTS",
 	"MAX_BOSS_FRAMES", "MAX_PLAYER_LEVEL", "FACTION_BAR_COLORS", "CLOSE", "MAX_TOTEMS",
 	"STATICPOPUP_NUMDIALOGS", "DELETE_ITEM_CONFIRM_STRING", "SELECTED_DOCK_FRAME",
+	"WORLDMAP_SETTINGS", "WORLDMAP_WINDOWED_SIZE", "WorldMap_ToggleSizeUp", "ToggleMapFramerate",
+	"WorldMapBlobFrame_CalculateHitTranslations", "UIPanelWindows",
 }
 
 -- Frames and globals the addon deliberately writes to.

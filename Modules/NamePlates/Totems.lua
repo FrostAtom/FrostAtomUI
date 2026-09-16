@@ -1,13 +1,10 @@
 local _, ns = ...
 local NamePlates = ns:GetModule("NamePlates")
 
--- Totem name -> icon. Nameplates of these show the icon instead of a bar.
-
 local GetSpellInfo = GetSpellInfo
 
 local RANK_SUFFIXES = { "", " II", " III", " IV", " V", " VI", " VII", " VIII", " IX", " X" }
 
--- stylua: ignore
 local TOTEM_SPELL_IDS = {
 	-- Air
 	8177, -- Grounding Totem
@@ -37,7 +34,6 @@ local TOTEM_SPELL_IDS = {
 	16190, -- Mana Tide Totem
 }
 
--- The summoned totem is named "<spell> <roman rank>" (rank omitted for I).
 local function totemName(spellName, rank)
 	local digits = rank and rank:match("%d+")
 	local suffix = digits and RANK_SUFFIXES[tonumber(digits)] or ""
@@ -53,7 +49,6 @@ for _, spellId in ipairs(TOTEM_SPELL_IDS) do
 	end
 end
 
--- Resistance totems are named differently from their spells on ruRU.
 if GetLocale() == "ruRU" then
 	local RU_NAMES = {
 		[58745] = "Тотем сопротивления льду",

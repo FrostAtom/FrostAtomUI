@@ -1,6 +1,3 @@
--- WoWCircle-specific: inside instances the combat log sometimes stops
--- delivering events. If a cast is sent and no combat log event follows within
--- a short time, the log is cleared, which un-sticks it.
 if not GetCVar("realmlist"):lower():find("circle") then
 	return
 end

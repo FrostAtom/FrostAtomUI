@@ -1,10 +1,6 @@
 local ADDON_NAME, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Right-click unit menu. Blizzard's dropdowns are tied to their own frames,
--- so one shared dropdown picks the menu type for whatever unit was clicked,
--- the same way TargetFrameDropDown_Initialize does.
-
 local CreateFrame = CreateFrame
 local UIDropDownMenu_Initialize = UIDropDownMenu_Initialize
 local ToggleDropDownMenu = ToggleDropDownMenu
@@ -23,12 +19,10 @@ local function raidIndex(unit)
 	end
 end
 
--- Returns the UnitPopupMenus key plus the name/userData it expects.
 local function menuFor(unit)
 	if UnitIsUnit(unit, "player") then
 		return "SELF"
 	elseif UnitIsUnit(unit, "vehicle") then
-		-- A vehicle also counts as a pet, so check it first.
 		return "VEHICLE"
 	elseif UnitIsUnit(unit, "pet") then
 		return "PET"
@@ -48,7 +42,6 @@ end
 
 local dropdown = CreateFrame("Frame", ADDON_NAME .. "UnitFrameDropDown", UIParent, "UIDropDownMenuTemplate")
 
--- Also runs once at registration, before any frame was clicked.
 UIDropDownMenu_Initialize(dropdown, function(self)
 	local unit = self.sourceUnit
 	if not unit then
@@ -59,7 +52,6 @@ UIDropDownMenu_Initialize(dropdown, function(self)
 	UnitPopup_ShowMenu(self, menu, unit, name, userData)
 end, "MENU")
 
--- Secure "menu" action: called as frame:menu(unit, button).
 function UF.FrameMixin:menu()
 	dropdown.sourceUnit = self.unit
 	ToggleDropDownMenu(1, nil, dropdown, "cursor")

@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Battleground/arena system messages ("The flag has been taken!", ...) are
--- also shown as a raid warning in the middle of the screen.
-
 local IsInInstance = IsInInstance
 local RaidNotice_AddMessage = RaidNotice_AddMessage
 

@@ -4,9 +4,6 @@ local tremove = table.remove
 local floor = math.floor
 local modf = math.modf
 
---------------------------------------------------
--- Tables
-
 function ns.tContains(tbl, item)
 	for i = 1, #tbl do
 		if tbl[i] == item then
@@ -22,14 +19,9 @@ function ns.tDeleteItem(tbl, item)
 	end
 end
 
---------------------------------------------------
--- Units
-
 local UnitAura = UnitAura
 local MAX_AURAS = 40
 
--- Like UnitAura, but looks the aura up by spell id instead of name.
--- Returns the same values as UnitAura, or nothing when the aura is absent.
 function ns.FindAura(unit, wantedSpellId, filter)
 	for i = 1, MAX_AURAS do
 		local name, _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
@@ -42,14 +34,8 @@ function ns.FindAura(unit, wantedSpellId, filter)
 	end
 end
 
---------------------------------------------------
--- Frames
-
 function ns.noop() end
 
--- Permanently hides a Blizzard frame: it stops receiving events and re-hides
--- itself whenever something tries to show it. With `deep` the same is done to
--- every child frame.
 function ns.DestroyFrame(frame, deep)
 	if not frame then
 		return
@@ -66,14 +52,8 @@ function ns.DestroyFrame(frame, deep)
 	end
 end
 
---------------------------------------------------
--- Smooth status bars
---
--- ns.SmoothBar(bar) makes bar:SetValue glide to the new value instead of
--- jumping; bar:SnapValue sets it instantly (unit changed, first show).
-
-local SMOOTH_SPEED = 12 -- fraction of the remaining distance covered per second
-local smoothing = {} -- bar -> target value
+local SMOOTH_SPEED = 12
+local smoothing = {}
 
 local smoother = CreateFrame("Frame")
 smoother:Hide()
@@ -111,13 +91,9 @@ function ns.SmoothBar(bar)
 	return bar
 end
 
--- Scales a size so that it maps to whole screen pixels at the current UI scale.
 function ns.PixelPerfect(size)
 	return size * (2 - UIParent:GetEffectiveScale())
 end
-
---------------------------------------------------
--- Formatting
 
 local PRINT_PREFIX = "|cff177cbf[" .. ADDON_NAME .. "]|r: "
 
@@ -125,8 +101,6 @@ function ns.Print(format, ...)
 	print(PRINT_PREFIX .. format:format(...))
 end
 
--- Cuts a UTF-8 string to at most `maxChars` characters without splitting a
--- multi-byte character.
 function ns.TruncateUTF8(text, maxChars)
 	local chars, i, length = 0, 1, #text
 	while i <= length do
@@ -149,7 +123,6 @@ function ns.TruncateUTF8(text, maxChars)
 	return text
 end
 
--- 1234 -> "1.2k", 1234567 -> "1.2m"
 function ns.FormatValue(value)
 	if value < 1e3 then
 		return value
@@ -160,10 +133,8 @@ function ns.FormatValue(value)
 	end
 end
 
--- Interpolates between an arbitrary number of r,g,b triplets.
--- ns.ColorGradient(0.5, 1,0,0, 0,1,0) -> 0.5, 0.5, 0
 function ns.ColorGradient(percent, ...)
-	if percent ~= percent then -- NaN
+	if percent ~= percent then
 		percent = 0
 	end
 
@@ -180,8 +151,6 @@ function ns.ColorGradient(percent, ...)
 	return r1 + (r2 - r1) * relativePercent, g1 + (g2 - g1) * relativePercent, b1 + (b2 - b1) * relativePercent
 end
 
--- Places the i-th (1-based) item of a grid, `perRow` items per row, `size` units apart.
--- Returns arguments for SetPoint: point, xOffset, yOffset.
 function ns.GridPoint(point, i, perRow, size)
 	i = i - 1
 	local column, row = i % perRow, floor(i / perRow)

@@ -1,17 +1,11 @@
 local _, ns = ...
 
--- Arena helpers: a countdown before the gates open and a timer for the
--- Ring of Valor pillars.
-
 local CreateFrame = CreateFrame
 local GetTime = GetTime
 local GetGameTime = GetGameTime
 local GetZoneText = GetZoneText
 local ceil = math.ceil
-local FlashWindow = FlashWindow or ns.noop -- server-specific API
-
---------------------------------------------------
--- Countdown
+local FlashWindow = FlashWindow or ns.noop
 
 local COUNTDOWN_MESSAGE = "Fifteen seconds until the Arena battle begins!"
 local COUNTDOWN_SECONDS = 15
@@ -50,9 +44,6 @@ countdown:SetScript("OnEvent", function(self, event, message)
 end)
 countdown:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
 countdown:RegisterEvent("PLAYER_ENTERING_WORLD")
-
---------------------------------------------------
--- Ring of Valor pillars: rise 45s after the start, then toggle every 25s.
 
 local RING_OF_VALOR = "The Ring of Valor"
 local BATTLE_BEGUN_MESSAGE = "The Arena battle has begun!"

@@ -1,8 +1,5 @@
 local ADDON_NAME, ns = ...
 
--- Saved variables. Once loaded they live in `ns.db`; modules that need to
--- react to loading subscribe to the `ns.DB_LOADED` event and receive the table.
-
 local DB_NAME = ADDON_NAME .. "DB"
 
 ns.DB_LOADED = "FrostAtomUI_DB_LOADED"

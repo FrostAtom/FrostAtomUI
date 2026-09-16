@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Re-uses Blizzard's ShapeshiftButton1..N (they cast forms securely) and only
--- restyles/repositions them. Their original bar frame is destroyed.
-
 local CooldownFrame_SetTimer = CooldownFrame_SetTimer
 local GetNumShapeshiftForms = GetNumShapeshiftForms
 local GetShapeshiftForm = GetShapeshiftForm
@@ -16,7 +13,6 @@ local NUM_SHAPESHIFT_SLOTS = NUM_SHAPESHIFT_SLOTS
 local ActionBar = ns:GetModule("ActionBar")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
--- Some forms report this placeholder icon; the spell's own icon is used instead.
 local PLACEHOLDER_TEXTURE = "Interface\\Icons\\Spell_Nature_WispSplode"
 
 local buttons = {}
@@ -67,13 +63,12 @@ function ActionBar:UpdateShapeshiftCooldowns()
 	end
 end
 
--- Shows a button per known form. Deferred until after combat if needed.
 function ActionBar:UpdateShapeshiftVisibility()
 	local numForms = GetNumShapeshiftForms()
 	for i = 1, NUM_SHAPESHIFT_SLOTS do
 		local button = buttons[i]
 		local shouldShow = i <= numForms
-		local isShown = button:IsShown() and true or false -- 3.3.5 returns 1/nil
+		local isShown = button:IsShown() and true or false
 
 		if shouldShow ~= isShown then
 			if InCombatLockdown() then

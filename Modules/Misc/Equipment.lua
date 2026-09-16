@@ -1,10 +1,5 @@
 local _, ns = ...
 
--- Item levels in the character and inspect windows: on every slot, colored
--- relative to the average (green at or above, red far below), plus the
--- average in the corner of the model. Also a chat warning when an equipped
--- item is about to break.
-
 local CreateFrame = CreateFrame
 local GetInventoryItemLink = GetInventoryItemLink
 local GetInventoryItemTexture = GetInventoryItemTexture
@@ -14,7 +9,6 @@ local ColorGradient = ns.ColorGradient
 
 local Misc = ns:GetModule("Misc")
 
--- Slot id -> Blizzard button suffix. Shirt (4) and tabard (19) are skipped.
 local SLOT_NAMES = {
 	[1] = "HeadSlot",
 	[2] = "NeckSlot",
@@ -36,12 +30,8 @@ local SLOT_NAMES = {
 }
 local DURABILITY_SLOTS = { 1, 3, 5, 6, 7, 8, 9, 10, 16, 17, 18 }
 
-local RETRY_DELAY = 0.3 -- item info may not be cached yet (inspect)
+local RETRY_DELAY = 0.3
 local MAX_RETRIES = 10
-
---------------------------------------------------
--- Colors (ElvUI's palette): green when at/above the average, fading
--- through yellow to red the further below it the item is.
 
 local function itemLevelColor(difference)
 	if difference >= 0 then
@@ -50,15 +40,11 @@ local function itemLevelColor(difference)
 	return ColorGradient(math.pi / -difference, 1, 0.1, 0.1, 1, 1, 0.1, 0.1, 1, 0.1)
 end
 
---------------------------------------------------
--- Pages: "Character" (player) and "Inspect" (InspectFrame.unit)
-
 local pages = {}
 
 local function slotItemLevel(unit, slot)
 	local link = GetInventoryItemLink(unit, slot)
 	if not link then
-		-- A texture without a link: the item is not in the cache yet.
 		return nil, GetInventoryItemTexture(unit, slot) ~= nil
 	end
 	local _, _, _, itemLevel = GetItemInfo(link)
@@ -101,7 +87,6 @@ local function updatePage(page)
 	end
 end
 
--- `anchor` is { relativeTo, relativePoint, x, y } for the text's bottom right.
 local function createPage(name, getUnit, modelFrame, slotPrefix, anchor)
 	local page = { getUnit = getUnit, slotTexts = {}, retries = 0 }
 
@@ -115,9 +100,6 @@ local function createPage(name, getUnit, modelFrame, slotPrefix, anchor)
 		end
 	end
 
-	-- A Model draws over its own regions, so the text lives on a child frame.
-	-- A Model draws over its own regions, so the text lives on a small child
-	-- frame whose bottom right corner is placed by `anchor`.
 	local overlay = CreateFrame("Frame", nil, modelFrame)
 	overlay:SetSize(60, 16)
 	overlay:SetPoint("BOTTOMRIGHT", unpack(anchor))
@@ -129,7 +111,6 @@ local function createPage(name, getUnit, modelFrame, slotPrefix, anchor)
 	averageText:SetTextColor(1, 0.9, 0.8)
 	page.averageText = averageText
 
-	-- Re-runs the update a moment later while item data is still loading.
 	local retry = CreateFrame("Frame")
 	retry:Hide()
 	retry:SetScript("OnShow", function(self)
@@ -148,11 +129,6 @@ local function createPage(name, getUnit, modelFrame, slotPrefix, anchor)
 	return page
 end
 
---------------------------------------------------
--- Character
-
--- The stat dropdowns cover the bottom of the model, so the text sits right
--- above the right one (the dropdown template has empty padding on top).
 local character = createPage("Character", function()
 	return "player"
 end, CharacterModelFrame, "Character", { PlayerStatFrameRightDropDown, "TOPRIGHT", -18, -2 })
@@ -167,16 +143,11 @@ Misc:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", function()
 	end
 end)
 
---------------------------------------------------
--- Inspect (Blizzard_InspectUI is load-on-demand)
-
 ns:OnAddonLoaded("Blizzard_InspectUI", function()
-	-- Nothing overlaps the inspect model: plain bottom right corner.
 	local inspect = createPage("Inspect", function()
 		return InspectFrame.unit
 	end, InspectModelFrame, "Inspect", { InspectModelFrame, "BOTTOMRIGHT", -4, 4 })
 
-	-- Blizzard refreshes every slot through this when the data arrives.
 	hooksecurefunc("InspectPaperDollItemSlotButton_Update", function()
 		if InspectFrame:IsShown() then
 			inspect.retry:Show()
@@ -186,9 +157,6 @@ ns:OnAddonLoaded("Blizzard_InspectUI", function()
 		updatePage(inspect)
 	end)
 end)
-
---------------------------------------------------
--- Durability
 
 local warned = false
 

@@ -1,8 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Shows the icon and remaining duration of the longest crowd-control debuff.
-
 local CreateFrame = CreateFrame
 local UnitAura = UnitAura
 local GetSpellInfo = GetSpellInfo
@@ -11,8 +9,6 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local MAX_AURAS = 40
 
--- Stuns, fears, silences, roots, disarms and a few raid boss debuffs.
--- stylua: ignore
 local CC_SPELL_IDS = {
 	47481, 51209, 47476, 5211, 33786, 2637, 22570, 9005,
 	339, 19675, 60210, 3355, 24394, 1513, 19503, 19386,
@@ -28,8 +24,6 @@ local CC_SPELL_IDS = {
 	63024, 63018, 62589, 63276, 66770, 48792,
 }
 
--- Auras are matched by name: ranks and duplicates share one entry. Also used
--- by the nameplate auras.
 local CC_SPELL_NAMES = {}
 for _, spellId in ipairs(CC_SPELL_IDS) do
 	local name = GetSpellInfo(spellId)

@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Square minimap in the top right corner with a clock and fps/latency below;
--- scroll to zoom, middle click opens the calendar.
-
 local MinimapZoomIn = MinimapZoomIn
 local MinimapZoomOut = MinimapZoomOut
 local ToggleCalendar = ToggleCalendar
@@ -14,9 +11,6 @@ local GetNetStats = GetNetStats
 local STATS_UPDATE_INTERVAL = 1
 
 TimeManager_LoadUI = ns.noop
-
---------------------------------------------------
--- Minimap
 
 Minimap:SetParent(UIParent)
 Minimap:ClearAllPoints()
@@ -32,7 +26,6 @@ Minimap:SetScript("OnMouseWheel", function(_, delta)
 	end
 end)
 
--- Right click opens the tracking menu (the tracking button itself is hidden).
 Minimap:SetScript("OnMouseUp", function(self, button)
 	if button == "MiddleButton" then
 		ToggleCalendar()
@@ -49,14 +42,10 @@ MinimapBackdrop:ClearAllPoints()
 MinimapBackdrop:SetPoint("TOPLEFT", -3, 3)
 MinimapBackdrop:SetPoint("BOTTOMRIGHT", 3, -3)
 
---------------------------------------------------
--- Clock and FPS/latency
-
 local clock = Minimap:CreateFontString(nil, "OVERLAY")
 clock:SetFont(ns.Media.fontBold, 12, "OUTLINE")
 clock:SetPoint("BOTTOM", 0, 4)
 
--- Centered under the minimap; weapon enchant icons sit below it.
 local stats = Minimap:CreateFontString(nil, "OVERLAY")
 stats:SetFont(ns.Media.font, 18, "OUTLINE")
 stats:SetPoint("TOP", Minimap, "BOTTOM", 0, -4)
@@ -87,9 +76,6 @@ Minimap:SetScript("OnUpdate", function(_, elapsed)
 	stats:SetFormattedText("%d fps  %s%d ms|r", GetFramerate(), latencyColor(latency), latency)
 end)
 
---------------------------------------------------
--- Blizzard bits
-
 GameTimeCalendarInvitesTexture:ClearAllPoints()
 GameTimeCalendarInvitesTexture:SetParent(Minimap)
 GameTimeCalendarInvitesTexture:SetPoint("TOPRIGHT")
@@ -101,7 +87,6 @@ MiniMapInstanceDifficulty:SetPoint("TOPRIGHT", 3, 2)
 MiniMapBattlefieldFrame:ClearAllPoints()
 MiniMapBattlefieldFrame:SetPoint("BOTTOMLEFT")
 
--- The compass is redrawn when the rotation setting changes.
 hooksecurefunc("Minimap_UpdateRotationSetting", function()
 	MinimapNorthTag:Hide()
 	MinimapCompassTexture:Hide()

@@ -1,13 +1,10 @@
 local _, ns = ...
 
--- Adds a remaining-time text to any Cooldown frame.
-
 local ceil = math.ceil
 local GetTime = GetTime
 
 local CooldownTimer = ns:NewModule("CooldownTimer")
 
--- Cooldowns shorter than this (global cooldown) do not get a timer.
 local MIN_DURATION = 1.5
 
 local function setTimerText(timer, remain)
@@ -26,11 +23,8 @@ local function setTimerText(timer, remain)
 	end
 end
 
--- For timers that are not driven by a Cooldown frame (nameplate auras).
 CooldownTimer.SetTimerText = setTimerText
 
--- The text is refreshed at this interval (every frame in the last seconds,
--- where tenths are shown).
 local UPDATE_INTERVAL = 0.1
 
 local function onUpdate(cooldown, elapsed)

@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- A short star burst played over a button when it is clicked.
--- `/vr` ("video record mode") turns the effect off.
-
 local CreateFrame = CreateFrame
 local tremove = table.remove
 
@@ -13,7 +10,6 @@ local pool = {}
 local disabled = false
 
 local function onFinished(animGroup)
-	-- animGroup -> texture -> frame
 	pool[#pool + 1] = animGroup:GetParent():GetParent()
 end
 
@@ -54,7 +50,6 @@ local function createAnimationFrame()
 	return frame
 end
 
--- Used as an OnClick hook: `self` is the clicked button.
 function ActionBar.PlayClickAnimation(button)
 	if disabled then
 		return

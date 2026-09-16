@@ -1,12 +1,9 @@
 local _, ns = ...
 
--- Character and inspect models are controlled with the mouse: left drag
--- rotates, right drag moves, wheel zooms. The rotate buttons are removed.
-
 local GetCursorPosition = GetCursorPosition
 
-local ROTATE_SPEED = 0.01 -- radians per pixel
-local PAN_SPEED = 0.01 -- model units per pixel
+local ROTATE_SPEED = 0.01
+local PAN_SPEED = 0.01
 local ZOOM_STEP = 0.4
 
 local function onMouseDown(model, button)
@@ -32,7 +29,6 @@ local function onUpdate(model)
 	if button == "LeftButton" then
 		model:SetFacing(model:GetFacing() + dx * ROTATE_SPEED)
 	elseif button == "RightButton" then
-		-- x is depth (zoom), y is sideways, z is up.
 		model.panY = model.panY + dx * PAN_SPEED
 		model.panZ = model.panZ + dy * PAN_SPEED
 		model:SetPosition(model.zoom, model.panY, model.panZ)
@@ -44,7 +40,6 @@ local function onMouseWheel(model, delta)
 	model:SetPosition(model.zoom, model.panY, model.panZ)
 end
 
--- The client resets the model when it is (re)shown, so start from scratch.
 local function onShow(model)
 	model.zoom, model.panY, model.panZ = 0, 0, 0
 	model.dragButton = nil

@@ -1,12 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Fades the whole frame while the unit is out of range. Polled, like
--- Blizzard's party frames do.
---
--- Options: alpha (default ns.Config.unitFrames.outOfRangeAlpha), interval
--- (seconds between checks, default 0.25).
-
 local CreateFrame = CreateFrame
 local UnitInRange = UnitInRange
 local UnitIsUnit = UnitIsUnit
@@ -14,8 +8,6 @@ local UnitInParty = UnitInParty
 local UnitInRaid = UnitInRaid
 local CheckInteractDistance = CheckInteractDistance
 
--- Group members have a proper range API; for everyone else the 28 yard
--- "follow" interaction distance is the best available guess.
 local function isInRange(unit)
 	if UnitIsUnit(unit, "player") then
 		return true

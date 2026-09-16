@@ -1,10 +1,5 @@
 local _, ns = ...
 
--- The player's own "nameplate" just below the screen center: a class-colored
--- health bar with the percent next to it and a power bar with the value
--- under it, in the nameplate style. Shown in combat and while health is not
--- full, fades out otherwise so the character stays visible in peace.
-
 local CreateFrame = CreateFrame
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
@@ -17,17 +12,16 @@ local UF = ns:GetModule("UnitFrames")
 
 local BAR_WIDTH = 150
 local HEALTH_HEIGHT, POWER_HEIGHT = 11, 6
-local BAR_GAP = 3 -- between the health and the power bar (borders included)
+local BAR_GAP = 3
 local FONT_SIZE = 12
-local TEXT_OFFSET = 4 -- gap between a bar and its text
-local FADE_SPEED = 2 -- alpha per second when hiding
+local TEXT_OFFSET = 4
+local FADE_SPEED = 2
 
 local plate = CreateFrame("Frame", "FrostAtomUIPlayerPlate", UIParent)
 plate:SetSize(BAR_WIDTH, HEALTH_HEIGHT + BAR_GAP + POWER_HEIGHT)
 plate:SetPoint(unpack(ns.Config.playerPlate))
 plate:Hide()
 
--- A status bar with a 1px black frame and a text to its right.
 local function createBar(height)
 	local bar = CreateFrame("StatusBar", nil, plate)
 	bar:SetSize(BAR_WIDTH, height)
@@ -90,7 +84,6 @@ local function isWanted()
 	return UnitAffectingCombat("player") or UnitHealth("player") < UnitHealthMax("player")
 end
 
--- Polled while shown: UNIT_HEALTH/UNIT_MANA are throttled and lag behind.
 plate:SetScript("OnUpdate", function(self, elapsed)
 	local currentHealth, currentPower = UnitHealth("player"), UnitPower("player")
 	if currentHealth ~= self.lastHealth then
@@ -126,7 +119,6 @@ local function show()
 	plate:Show()
 end
 
--- The plate is hidden by its own OnUpdate; these bring it back.
 local function onPlayerEvent(_, unit)
 	if unit == "player" and isWanted() then
 		show()

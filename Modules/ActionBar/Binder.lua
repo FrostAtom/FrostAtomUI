@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Keybinding mode (/bind): hover a button and press a key to bind it.
--- Escape clears the hovered button's binding.
-
 local CreateFrame = CreateFrame
 local InCombatLockdown = InCombatLockdown
 local GetMouseFocus = GetMouseFocus
@@ -38,7 +35,6 @@ local function isBindable(frame)
 	return frame and frame:IsObjectType("Button") and frame:GetAttribute("type") and frame:GetName()
 end
 
--- Follows the mouse: highlights whichever bindable button is hovered.
 local function onUpdate(self)
 	local focus = GetMouseFocus()
 	if focus == self or focus == self.target then
@@ -146,7 +142,6 @@ SlashCmdList.FROSTATOMUI_BIND = function()
 		binder:Hide()
 		StaticPopup_Hide(POPUP)
 	elseif InCombatLockdown() then
-		-- Bindings cannot be changed in combat; SetBinding would fail silently.
 		ns.Print("cannot change bindings in combat")
 	else
 		binder:Show()
@@ -154,7 +149,6 @@ SlashCmdList.FROSTATOMUI_BIND = function()
 	end
 end
 
--- Combat that starts while binding: close without saving the partial changes.
 local combatWatcher = CreateFrame("Frame")
 combatWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
 combatWatcher:SetScript("OnEvent", function()

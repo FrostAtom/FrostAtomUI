@@ -1,7 +1,5 @@
 local _, ns = ...
 
--- Six rune bars for death knights, under the player castbar.
-
 local CreateFrame = CreateFrame
 local GetRuneType = GetRuneType
 local GetRuneCooldown = GetRuneCooldown
@@ -13,12 +11,11 @@ local Runes = ns:NewModule("Runes")
 local NUM_RUNES = 6
 local RUNE_WIDTH, RUNE_HEIGHT, RUNE_GAP = 48, 16, 2
 
--- GetRuneType() values
 local RUNE_COLORS = {
-	[1] = { 1, 0, 0 }, -- blood
-	[2] = { 0, 0.5, 0 }, -- unholy
-	[3] = { 0, 1, 1 }, -- frost
-	[4] = { 0.8, 0.1, 1 }, -- death
+	[1] = { 1, 0, 0 },
+	[2] = { 0, 0.5, 0 },
+	[3] = { 0, 1, 1 },
+	[4] = { 0.8, 0.1, 1 },
 }
 local EMPTY_COLOR = { 0.2, 0.2, 0.2 }
 
@@ -40,7 +37,6 @@ function RuneMixin:OnUpdate()
 	end
 end
 
--- Full refresh (login, /reload mid-cooldown): type and current cooldown.
 function RuneMixin:UpdateAll()
 	self:UpdateType()
 	self:SetScript("OnUpdate", self.OnUpdate)

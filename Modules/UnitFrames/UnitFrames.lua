@@ -1,13 +1,5 @@
 local ADDON_NAME, ns = ...
 
--- Unit frame engine.
---
--- A unit frame is a secure button with `frame.unit` set. Visual pieces
--- (health, power, castbar, ...) are *elements*, registered with
--- `UF:RegisterElement(name, create, update)` in the Elements/ folder and added
--- to a frame with `UF:AddElement(frame, name, ...)`. Every element's update
--- function receives only the frame; `frame[name]` is the element's widget.
-
 local CreateFrame = CreateFrame
 local RegisterUnitWatch = RegisterUnitWatch
 local UnitFrame_OnEnter = UnitFrame_OnEnter
@@ -17,9 +9,6 @@ local UF = ns:NewModule("UnitFrames")
 
 local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
 local BORDER_INSET = 2
-
---------------------------------------------------
--- Colors
 
 UF.classColors = {}
 for class, color in pairs(RAID_CLASS_COLORS) do
@@ -34,10 +23,7 @@ end
 
 UF.textColor = { 1, 0.9, 0.8 }
 
---------------------------------------------------
--- Elements
-
-local elements = {} -- name -> { create = function(frame, ...), update = function(frame) }
+local elements = {}
 
 function UF:RegisterElement(name, create, update)
 	elements[name] = { create = create, update = update }
@@ -52,11 +38,8 @@ function UF:AddElement(frame, name, ...)
 	return widget
 end
 
---------------------------------------------------
--- Frame mixin
-
 local UnitFrameMixin = {}
-UF.FrameMixin = UnitFrameMixin -- Menu.lua adds the right-click menu handler
+UF.FrameMixin = UnitFrameMixin
 
 function UnitFrameMixin:UpdateAll()
 	if not self:IsShown() then
@@ -70,8 +53,6 @@ function UnitFrameMixin:UpdateAll()
 	end
 end
 
--- Wraps a handler so it only fires for events about this frame's unit.
--- The unit argument is dropped; handlers use `self.unit`.
 local unitEventWrappers = setmetatable({}, {
 	__index = function(self, handler)
 		local wrapper = function(frame, unit, ...)
@@ -88,9 +69,6 @@ function UnitFrameMixin:RegisterUnitEvent(event, handler)
 	self:RegisterEvent(event, unitEventWrappers[handler])
 end
 
---------------------------------------------------
--- Frame constructors
-
 local function capitalize(text)
 	return (text:gsub("^%l", string.upper))
 end
@@ -105,14 +83,12 @@ function UF:CreateBase(unit)
 	frame:SetBackdropColor(0.137, 0.137, 0.137)
 	frame:SetBackdropBorderColor(0.2, 0.2, 0.2)
 
-	-- Left click targets, middle click focuses, right click opens the unit
-	-- menu (on arena frames right click focuses instead).
 	frame:SetAttribute("unit", unit)
 	frame:SetAttribute("*type1", "target")
 	if unit:find("^arena%d$") then
 		frame:SetAttribute("*type2", "focus")
 	else
-		frame:SetAttribute("*type2", "menu") -- calls frame:menu(unit, button)
+		frame:SetAttribute("*type2", "menu")
 		if unit == "focus" then
 			frame:SetAttribute("*type3", "macro")
 			frame:SetAttribute("macrotext", "/clearfocus")
@@ -130,7 +106,6 @@ function UF:CreateBase(unit)
 	return frame
 end
 
--- Health on top (2/3), power below, name and combat icon over the health bar.
 function UF:CreateRectangle(unit, width, height)
 	local frame = self:CreateBase(unit)
 	frame:SetSize(width, height)
@@ -156,7 +131,6 @@ function UF:CreateRectangle(unit, width, height)
 	return frame
 end
 
--- Health bar only.
 function UF:CreateSquare(unit, size)
 	local frame = self:CreateBase(unit)
 	frame:SetSize(size, size)
@@ -169,7 +143,6 @@ function UF:CreateSquare(unit, size)
 	return frame
 end
 
--- UNIT_PET reports the owner: "player" for "pet", "party1" for "partypet1".
 local function onOwnerPetChanged(self, owner)
 	if self.ownerUnit == owner then
 		self:UpdateAll()
@@ -183,7 +156,6 @@ function UF:CreatePet(unit, size)
 	return frame
 end
 
--- UNIT_TARGET reports the unit whose target changed: "target" for "targettarget".
 local function onOwnerTargetChanged(self, owner)
 	if self.ownerUnit == owner then
 		self:UpdateAll()
@@ -201,8 +173,6 @@ function UF:CreateTargetOfTarget(unit, size)
 	return frame
 end
 
--- Rectangle with buffs, debuffs and a castbar stacked below and a
--- target-of-target square to the right.
 function UF:CreateTarget(unit, width, height)
 	local frame = self:CreateRectangle(unit, width, height)
 

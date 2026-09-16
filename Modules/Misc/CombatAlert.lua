@@ -1,13 +1,11 @@
 local _, ns = ...
 
--- "+ combat" / "- combat" flashes on screen when entering or leaving combat.
-
 local CreateFrame = CreateFrame
 
 local Misc = ns:GetModule("Misc")
 
-local HOLD_TIME = 1 -- seconds at full alpha
-local FADE_SPEED = 2 -- alpha per second afterwards
+local HOLD_TIME = 1
+local FADE_SPEED = 2
 
 local alert = CreateFrame("Frame", nil, UIParent)
 alert:SetSize(200, 30)

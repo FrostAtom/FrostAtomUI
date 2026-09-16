@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Shaman totem tracker: one icon per element with the remaining time.
--- Right click destroys the totem.
-
 local CreateFrame = CreateFrame
 local GetTotemInfo = GetTotemInfo
 
@@ -13,7 +10,6 @@ local MAX_TOTEMS = MAX_TOTEMS or 4
 local ICON_SIZE = 30
 local ICON_GAP = 2
 
--- Blizzard's slot order: fire, earth, water, air.
 local SLOT_ORDER = { 1, 2, 3, 4 }
 
 local buttons = {}
@@ -44,7 +40,6 @@ function Totems:UpdateAll()
 end
 
 local function createButton(slot, parent, index)
-	-- "destroytotem" is a secure action: it works in combat.
 	local button = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
 	button:SetID(slot)
 	button:SetSize(ICON_SIZE, ICON_SIZE)

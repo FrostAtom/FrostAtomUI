@@ -1,5 +1,3 @@
--- A lightning spell effect that follows the mouse cursor.
-
 local CreateFrame = CreateFrame
 local GetCursorPosition = GetCursorPosition
 
@@ -14,7 +12,6 @@ shine:SetAllPoints()
 shine:SetModel("spells\\manafunnel_impact_chest.mdx")
 shine:SetModelScale(0.014)
 
--- Model positions are in screen-diagonal units.
 local screenDiagonal = (GetScreenWidth() ^ 2 + GetScreenHeight() ^ 2) ^ 0.5
 local lastX, lastY
 

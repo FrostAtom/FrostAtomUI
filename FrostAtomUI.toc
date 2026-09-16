@@ -16,6 +16,7 @@ Core\Config.lua
 
 # Shared widgets
 Modules\CooldownTimer.lua
+Modules\CooldownTracker.lua
 
 # Action bars
 Modules\ActionBar\ActionBar.lua
@@ -38,6 +39,7 @@ Modules\UnitFrames\Elements\RaidIcon.lua
 Modules\UnitFrames\Elements\ComboPoints.lua
 Modules\UnitFrames\Elements\Range.lua
 Modules\UnitFrames\Elements\Trinket.lua
+Modules\UnitFrames\Elements\Cooldowns.lua
 Modules\UnitFrames\Elements\Dispel.lua
 Modules\UnitFrames\Elements\Status.lua
 Modules\UnitFrames\Elements\Auras.lua
@@ -82,6 +84,7 @@ Modules\Misc\Equipment.lua
 Modules\Misc\ModelControls.lua
 Modules\Misc\CombatAlert.lua
 Modules\Misc\ShieldIndicator.lua
+Modules\Misc\WorldMap.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua

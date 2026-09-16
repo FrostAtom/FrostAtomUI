@@ -1,18 +1,14 @@
 local _, ns = ...
 
--- Automatic answers to some popups, and flashing the window (taskbar) when
--- attention is needed.
-
 local StaticPopupDialogs = StaticPopupDialogs
 local InCombatLockdown = InCombatLockdown
 local IsInInstance = IsInInstance
-local FlashWindow = FlashWindow or ns.noop -- server-specific API
+local FlashWindow = FlashWindow or ns.noop
 
 local Misc = ns:GetModule("Misc")
 
 local declineDuels = false
 
--- The "type DELETE to confirm" box is filled in, so Enter deletes the item.
 local function fillDeleteConfirmation(which)
 	for i = 1, STATICPOPUP_NUMDIALOGS do
 		local dialog = _G["StaticPopup" .. i]
@@ -29,7 +25,6 @@ hooksecurefunc("StaticPopup_Show", function(which)
 			StaticPopupDialogs[which].OnCancel()
 		end
 	elseif which == "DEATH" then
-		-- Release instantly in battlegrounds.
 		local _, instanceType = IsInInstance()
 		if instanceType == "pvp" then
 			StaticPopupDialogs[which].OnAccept()
@@ -44,9 +39,6 @@ hooksecurefunc("StaticPopup_Show", function(which)
 		fillDeleteConfirmation(which)
 	end
 end)
-
---------------------------------------------------
--- Invites from friends and guild members are accepted automatically.
 
 local GetNumFriends, GetFriendInfo = GetNumFriends, GetFriendInfo
 local GetNumGuildMembers, GetGuildRosterInfo = GetNumGuildMembers, GetGuildRosterInfo
@@ -66,7 +58,6 @@ local function isFriendOrGuildMate(name)
 	return false
 end
 
--- The roster is empty until requested once.
 Misc:RegisterEvent("PLAYER_LOGIN", function()
 	if IsInGuild() then
 		GuildRoster()

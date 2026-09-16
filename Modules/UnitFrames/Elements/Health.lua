@@ -11,11 +11,9 @@ local unpack = unpack
 local FormatValue = ns.FormatValue
 local ColorGradient = ns.ColorGradient
 
--- red -> yellow -> green
 local GRADIENT = { 0.8, 0.2, 0.2, 0.65, 0.63, 0.35, 0.33, 0.59, 0.33 }
 
--- Lost health lingers as a pale strip that fades out (a "cutaway").
-local CUTAWAY_FADE_SPEED = 2.5 -- alpha per second
+local CUTAWAY_FADE_SPEED = 2.5
 
 local function showCutaway(health, from, to, max)
 	local width = health:GetWidth()
@@ -35,7 +33,6 @@ local function update(frame)
 	local unit = frame.unit
 	local health = frame.health
 
-	-- A different unit in the frame: no gliding from the previous one's values.
 	local guid = UnitGUID(unit)
 	local setValue = health.SetValue
 	if guid ~= health.guid then
@@ -76,7 +73,6 @@ local function update(frame)
 	end
 end
 
--- Polled every frame: UNIT_HEALTH is throttled server-side and lags behind.
 local function onUpdate(health, elapsed)
 	local current = UnitHealth(health.unit)
 	if current ~= health.lastValue then
@@ -106,7 +102,6 @@ local function create(frame)
 	health.bg:SetAllPoints()
 	health.bg:SetTexture(ns.Media.blank)
 
-	-- Above the (gliding) bar texture, below the text.
 	health.cutaway = health:CreateTexture(nil, "ARTWORK", nil, 1)
 	health.cutaway:SetTexture(ns.Media.blank)
 	health.cutaway:SetVertexColor(1, 0.9, 0.8, 0.6)

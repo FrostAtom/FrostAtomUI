@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Flat chat frames: no Blizzard textures, translucent backdrop, tabs that
--- only show on hover. Also a few chat conveniences.
-
 local CreateFrame = CreateFrame
 local ChatEdit_UpdateHeader = ChatEdit_UpdateHeader
 local UnitName = UnitName
@@ -16,9 +13,6 @@ local Chat = ns:NewModule("Chat")
 
 ns:GetModule("CVars"):Pin("chatStyle", "classic")
 
--- Class-colored player names in every chat type (the "Class Color" checkbox
--- of the chat settings, ticked for everything). Chat settings are restored
--- by the client on login, so re-apply after entering the world too.
 local function enableClassColors()
 	for chatType, info in pairs(ChatTypeInfo) do
 		if not info.colorNameByClass then
@@ -32,23 +26,16 @@ function Chat:Initialize()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", enableClassColors)
 end
 
--- The combat log tab is never used.
 CombatLog_LoadUI = ns.noop
 Blizzard_CombatLog_Update_QuickButtons = ns.noop
 ChatConfigFrame:SetScript("OnShow", nil)
 
---------------------------------------------------
--- Conveniences
-
--- The "you must wait before speaking again" error goes to chat instead of
--- the (hidden) error frame.
 Chat:RegisterEvent("UI_ERROR_MESSAGE", function(_, message)
 	if message:find("^You must wait .- before speaking again.$") then
 		SendSystemMessage(message)
 	end
 end)
 
--- "/tt " and "/wt " turn into a whisper to the current target.
 hooksecurefunc("ChatEdit_OnSpacePressed", function(editBox)
 	if not editBox:GetText():lower():find("^/[wt]t ") or not UnitIsPlayer("target") then
 		return
@@ -82,10 +69,6 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message)
 	end
 end)
 
---------------------------------------------------
--- Short channel names and timestamps
-
--- Blizzard channel prefixes, e.g. "[Guild]" -> "[G]".
 local CHANNEL_GETS = {
 	CHAT_GUILD_GET = "|Hchannel:GUILD|h[G]|h %s:\32",
 	CHAT_OFFICER_GET = "|Hchannel:OFFICER|h[O]|h %s:\32",
@@ -111,20 +94,16 @@ end
 
 local TIMESTAMP_FORMAT = "|cff7f7f7f%H:%M|r "
 
--- Numbered channels are formatted as "[1. General]" by the client itself.
 local function shortenChannelName(text)
 	return (text:gsub("%[(%d+)%. [^%]]+%]", "[%1]", 1))
 end
 
---------------------------------------------------
--- Clickable URLs: click opens a box the address can be copied from.
-
 local URL_LINK = "|cff3399ff|Hurl:%1|h[%1]|h|r"
 local URL_PATTERNS = {
-	"(%a+://[%w%.%-_/#?=&%%:+~@;,!]+)", -- with protocol
-	"(www%.[%w%.%-_/#?=&%%:+~@;,!]+)", -- www.
-	"(%d+%.%d+%.%d+%.%d+:?%d*)", -- ip[:port]
-	"([%w%.%-_]+%.[%a][%a][%a]?[%a]?/[%w%.%-_/#?=&%%:+~@;,!]*)", -- domain with path
+	"(%a+://[%w%.%-_/#?=&%%:+~@;,!]+)",
+	"(www%.[%w%.%-_/#?=&%%:+~@;,!]+)",
+	"(%d+%.%d+%.%d+%.%d+:?%d*)",
+	"([%w%.%-_]+%.[%a][%a][%a]?[%a]?/[%w%.%-_/#?=&%%:+~@;,!]*)",
 }
 
 local function linkUrlsInPlainText(text)
@@ -137,8 +116,6 @@ local function linkUrlsInPlainText(text)
 	return text
 end
 
--- Existing hyperlinks (player names, items) must not be touched, so only
--- the text between them is scanned.
 local function linkUrls(text)
 	if not text:find("|H", 1, true) then
 		return linkUrlsInPlainText(text)
@@ -181,8 +158,6 @@ StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
 	end,
 }
 
--- Blizzard's SetItemRef errors on unknown link types, so "url" links are
--- taken before it runs.
 local blizzardSetItemRef = SetItemRef
 function SetItemRef(link, ...)
 	local url = link:match("^url:(.+)$")
@@ -190,7 +165,6 @@ function SetItemRef(link, ...)
 		return blizzardSetItemRef(link, ...)
 	end
 
-	-- OnShow runs before the popup is returned, so fill the box here too.
 	local popup = StaticPopup_Show("FROSTATOMUI_COPY_URL")
 	if popup then
 		popup.url = url
@@ -201,14 +175,10 @@ function SetItemRef(link, ...)
 	end
 end
 
---------------------------------------------------
--- Every line that reaches a chat frame is kept, with its color, so it can
--- be copied and restored after a reload (History.lua).
-
 local MAX_LINES = 300
 
-Chat.lines = {} -- chatFrame -> { { text, r, g, b }, ... }, oldest first
-local rawAddMessage = {} -- chatFrame -> the unhooked AddMessage
+Chat.lines = {}
+local rawAddMessage = {}
 
 local function storeLine(chatFrame, text, r, g, b)
 	local lines = Chat.lines[chatFrame]
@@ -218,7 +188,6 @@ local function storeLine(chatFrame, text, r, g, b)
 	end
 end
 
--- Adds a line that is already formatted (no timestamp is added).
 function Chat.AddStoredLine(chatFrame, text, r, g, b)
 	rawAddMessage[chatFrame](chatFrame, text, r, g, b)
 	storeLine(chatFrame, text, r, g, b)
@@ -237,9 +206,6 @@ local function hookAddMessage(chatFrame)
 		return addMessage(self, text, r, g, b, ...)
 	end
 end
-
---------------------------------------------------
--- Hovering a link shows its tooltip, no click needed.
 
 local TOOLTIP_LINK_TYPES = {
 	item = true,
@@ -263,9 +229,6 @@ local function onHyperlinkLeave()
 	GameTooltip:Hide()
 end
 
---------------------------------------------------
--- Ctrl + mouse wheel jumps to the top/bottom of the chat.
-
 local function onMouseWheel(chatFrame, delta)
 	if IsControlKeyDown() then
 		if delta > 0 then
@@ -284,9 +247,6 @@ local function hookMouseWheel(chatFrame)
 	chatFrame:EnableMouseWheel(true)
 	chatFrame:SetScript("OnMouseWheel", onMouseWheel)
 end
-
---------------------------------------------------
--- Look
 
 CHAT_FRAME_FADE_OUT_TIME = 0.5
 CHAT_TAB_HIDE_DELAY = 0

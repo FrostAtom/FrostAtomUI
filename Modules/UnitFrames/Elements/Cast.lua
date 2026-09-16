@@ -6,15 +6,11 @@ local UnitCastingInfo = UnitCastingInfo
 local UnitChannelInfo = UnitChannelInfo
 local GetTime = GetTime
 
-local FADE_SPEED = 1.4 -- alpha per second after a cast ends
+local FADE_SPEED = 1.4
 local INTERRUPTED_TEXT = "|cff8B0000INTERRUPTED|r"
 local FAILED_TEXT = "|cff808080FAILED|r"
 
---------------------------------------------------
--- Bar state
-
 local function setInterruptible(castbar, interruptible)
-	-- Own casts are never interruptible by the player, so keep them colored.
 	if interruptible or castbar:GetParent().unit == "player" then
 		castbar.icon:SetDesaturated(nil)
 		castbar:SetStatusBarColor(0.75, 0.4, 0)
@@ -31,7 +27,6 @@ local function setTimes(castbar, startTime, endTime)
 	castbar:SetMinMaxValues(startTime, endTime)
 end
 
--- Casts fill up, channels drain.
 local function setProgress(castbar, remain)
 	if castbar.isChannel then
 		castbar:SetValue(castbar.startTime + remain)
@@ -59,7 +54,6 @@ local function onUpdate(castbar, elapsed)
 		return
 	end
 
-	-- Fade out once the cast is over.
 	local alpha = castbar:GetAlpha() - elapsed * FADE_SPEED
 	if alpha > 0 then
 		castbar:SetAlpha(alpha)
@@ -67,9 +61,6 @@ local function onUpdate(castbar, elapsed)
 		castbar:Hide()
 	end
 end
-
---------------------------------------------------
--- Events
 
 local function update(frame)
 	local unit = frame.unit
@@ -101,7 +92,6 @@ local function update(frame)
 	castbar:Show()
 end
 
--- Both events carry the cast id; ignore stale ones from an earlier cast.
 local function onCastFailed(frame, _, _, castId)
 	local castbar = frame.castbar
 	if castbar.casting and castId == castbar.castId then
@@ -162,8 +152,6 @@ end
 local function onNotInterruptible(frame)
 	setInterruptible(frame.castbar, false)
 end
-
---------------------------------------------------
 
 local function create(frame)
 	local castbar = CreateFrame("StatusBar", nil, frame)

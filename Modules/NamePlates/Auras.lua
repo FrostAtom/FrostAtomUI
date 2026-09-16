@@ -1,15 +1,6 @@
 local _, ns = ...
 local NamePlates = ns:GetModule("NamePlates")
 
--- Important debuffs on the target, as a row of icons above the target's
--- nameplate: crowd control from anyone (the losecontrol list) and a few of
--- the player's own. Plates have no unit, so only the target can be matched
--- reliably (its plate is the one the client keeps at full alpha).
---
--- No Cooldown frames here: they are models, and a model anchored to a frame
--- that moves every frame (a plate) is drawn a frame late at the wrong scale.
--- The remaining time is a text and a shrinking bar under the icon instead.
-
 local CreateFrame = CreateFrame
 local UnitAura = UnitAura
 local UnitExists = UnitExists
@@ -20,6 +11,7 @@ local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
 
 local ICON_SIZE = 20
+local ICON_HEIGHT = 13
 local ICON_GAP = 2
 local MAX_ICONS = 6
 local MAX_AURAS = 40
@@ -27,7 +19,6 @@ local TIMER_FONT_SIZE = 10
 local DURATION_BAR_HEIGHT = 2
 local DURATION_BAR_COLOR = { 1, 0.85, 0.2 }
 
--- Shown only when applied by the player (matched by name, any rank).
 -- Rend, Mortal Strike, Hamstring, Piercing Howl, Demoralizing Shout, Thunder Clap
 local OWN_SPELL_IDS = { 47465, 47486, 1715, 12323, 47437, 47502 }
 local ownSpellNames = {}
@@ -44,19 +35,21 @@ end
 
 local row = CreateFrame("Frame", nil, WorldFrame)
 row:Hide()
-row:SetSize(MAX_ICONS * (ICON_SIZE + ICON_GAP), ICON_SIZE)
-row:SetFrameStrata("LOW") -- plates live in BACKGROUND
+row:SetSize(MAX_ICONS * (ICON_SIZE + ICON_GAP), ICON_HEIGHT)
+row:SetFrameStrata("LOW")
 
 local icons = {}
 
+local CROP_Y = (0.86 - 0.86 * ICON_HEIGHT / ICON_SIZE) / 2
+local TEXCOORD_TOP, TEXCOORD_BOTTOM = 0.07 + CROP_Y, 0.93 - CROP_Y
+
 local function createIcon(index)
 	local icon = CreateFrame("Frame", nil, row)
-	icon:SetSize(ICON_SIZE, ICON_SIZE)
+	icon:SetSize(ICON_SIZE, ICON_HEIGHT)
 	icon:SetPoint("LEFT", (index - 1) * (ICON_SIZE + ICON_GAP), 0)
 
 	icon.texture = icon:CreateTexture(nil, "ARTWORK")
 	icon.texture:SetAllPoints()
-	icon.texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
 	icon.border = icon:CreateTexture(nil, "BACKGROUND")
 	icon.border:SetTexture(0, 0, 0)
@@ -67,7 +60,6 @@ local function createIcon(index)
 	icon.timer:SetFont(ns.Media.font, TIMER_FONT_SIZE, "OUTLINE")
 	icon.timer:SetPoint("CENTER")
 
-	-- Full width when applied, shrinks from the right as time runs out.
 	icon.bar = icon:CreateTexture(nil, "OVERLAY")
 	icon.bar:SetTexture(unpack(DURATION_BAR_COLOR))
 	icon.bar:SetHeight(DURATION_BAR_HEIGHT)
@@ -97,6 +89,7 @@ local function updateAuras()
 			shown = shown + 1
 			local icon = icons[shown] or createIcon(shown)
 			icon.texture:SetTexture(texture)
+			icon.texture:SetTexCoord(0.07, 0.93, TEXCOORD_TOP, TEXCOORD_BOTTOM)
 			if duration and duration > 0 then
 				icon.duration, icon.endTime = duration, endTime
 				icon.timer:Show()
@@ -134,7 +127,6 @@ local function updateTimers()
 				SetTimerText(icon.timer, remain)
 				icon.bar:SetWidth(math.max(ICON_SIZE * remain / icon.duration, 0.1))
 			else
-				-- Expired; UNIT_AURA will drop the icon shortly.
 				icon.endTime = nil
 				icon.timer:Hide()
 				icon.bar:Hide()
@@ -143,7 +135,6 @@ local function updateTimers()
 	end
 end
 
--- The target's plate can appear, vanish or change every frame.
 local function onUpdate()
 	local plate = row.hasAuras and NamePlates:GetTargetPlate()
 	if plate and not plate.totem:IsShown() then

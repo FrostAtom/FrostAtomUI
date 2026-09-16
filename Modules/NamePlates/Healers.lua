@@ -1,10 +1,6 @@
 local _, ns = ...
 local NamePlates = ns:GetModule("NamePlates")
 
--- Marks enemy healers in battlegrounds: the scoreboard is polled and anyone
--- of a healing class whose healing is well above their damage gets an icon
--- next to their nameplate.
-
 local IsInInstance = IsInInstance
 local RequestBattlefieldScoreData = RequestBattlefieldScoreData
 local GetNumBattlefieldScores = GetNumBattlefieldScores
@@ -16,8 +12,8 @@ local HEALER_ICON = "Interface\\Icons\\Spell_Holy_FlashHeal"
 local ICON_SIZE = 16
 local POLL_INTERVAL = 10
 
-local healers = {} -- name -> true
-local plateIcons = setmetatable({}, { __mode = "k" }) -- plate -> icon
+local healers = {}
+local plateIcons = setmetatable({}, { __mode = "k" })
 
 local function playerFaction()
 	local faction = UnitFactionGroup("player")
@@ -69,7 +65,6 @@ NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = function(plate, name)
 	end
 end
 
--- The scoreboard only updates on request.
 local poller = CreateFrame("Frame")
 poller:Hide()
 poller.timer = 0

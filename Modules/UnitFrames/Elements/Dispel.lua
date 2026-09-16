@@ -1,22 +1,18 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Tints the health bar with the debuff type color when a friendly unit has
--- a debuff the player's class can dispel.
-
 local UnitAura = UnitAura
 local UnitCanAssist = UnitCanAssist
 
 local MAX_AURAS = 40
 
--- Debuff types each class can remove (3.3.5, talents included).
 local DISPEL_TYPES = {
 	PRIEST = { Magic = true, Disease = true },
 	PALADIN = { Magic = true, Poison = true, Disease = true },
 	SHAMAN = { Poison = true, Disease = true, Curse = true },
 	DRUID = { Curse = true, Poison = true },
 	MAGE = { Curse = true },
-	WARLOCK = { Magic = true }, -- felhunter
+	WARLOCK = { Magic = true },
 }
 
 local canDispel = DISPEL_TYPES[ns.PLAYER_CLASS]
@@ -65,5 +61,4 @@ local function create(frame)
 	return overlay
 end
 
--- Classes without a dispel never show anything.
 UF:RegisterElement("dispel", create, canDispel and update or ns.noop)

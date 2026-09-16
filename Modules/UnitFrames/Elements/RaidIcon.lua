@@ -1,10 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Raid target icon (skull, cross, ...) of the unit.
---
--- Options: size (default 16).
-
 local GetRaidTargetIndex = GetRaidTargetIndex
 local SetRaidTargetIconTexture = SetRaidTargetIconTexture
 

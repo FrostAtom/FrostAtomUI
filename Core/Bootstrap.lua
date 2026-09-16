@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Loaded last (see the .toc): every module is defined by now.
--- An error in one module's Initialize must not stop the others.
-
 local geterrorhandler = geterrorhandler
 
 for name, module in ns:IterateModules() do

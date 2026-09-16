@@ -1,17 +1,10 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- "resting" (player only) and "pvp" indicators.
---
--- Options: size (default 16 for pvp, 18 for resting).
-
 local IsResting = IsResting
 local UnitIsPVP = UnitIsPVP
 local UnitIsPVPFreeForAll = UnitIsPVPFreeForAll
 local UnitFactionGroup = UnitFactionGroup
-
---------------------------------------------------
--- Resting
 
 local function updateResting(frame)
 	if IsResting() then
@@ -36,9 +29,6 @@ local function createResting(frame, options)
 end
 
 UF:RegisterElement("resting", createResting, updateResting)
-
---------------------------------------------------
--- PvP
 
 local PVP_TEXTURE = "Interface\\TargetingFrame\\UI-PVP-%s"
 
@@ -67,7 +57,6 @@ local function createPvp(frame, options)
 
 	local pvp = frame:CreateTexture(nil, "OVERLAY")
 	pvp:SetSize(size, size)
-	-- The icon sits in the top left of a 64x64 texture.
 	pvp:SetTexCoord(0, 0.6, 0, 0.6)
 	pvp:Hide()
 

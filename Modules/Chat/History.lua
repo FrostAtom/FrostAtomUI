@@ -1,9 +1,5 @@
 local _, ns = ...
 
--- The last lines of the main chat frame survive /reload and relogs (they are
--- put back above a divider), and /copy opens a window with the current chat
--- frame's text selected, ready for Ctrl+C.
-
 local CreateFrame = CreateFrame
 
 local Chat = ns:GetModule("Chat")
@@ -13,9 +9,6 @@ local DIVIDER = "|cff7f7f7f" .. ("-"):rep(60) .. "|r"
 
 local COPY_FRAME_NAME = "FrostAtomUICopyChat"
 local COPY_WIDTH, COPY_HEIGHT = 520, 380
-
---------------------------------------------------
--- History
 
 Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
 	local saved = db.chat_history
@@ -32,7 +25,6 @@ Chat:RegisterEvent("PLAYER_LOGOUT", function()
 	local lines = Chat.lines[ChatFrame1]
 	local saved = {}
 	for i = math.max(1, #lines - SAVED_LINES + 1), #lines do
-		-- The divider from the previous restore is not history.
 		if lines[i][1] ~= DIVIDER then
 			saved[#saved + 1] = lines[i]
 		end
@@ -40,10 +32,6 @@ Chat:RegisterEvent("PLAYER_LOGOUT", function()
 	ns:SaveVariable("chat_history", saved)
 end)
 
---------------------------------------------------
--- /copy
-
--- Textures and color codes go, hyperlinks keep their visible text.
 local function plainText(text)
 	text = text:gsub("|T.-|t", "")
 	text = text:gsub("|H.-|h(.-)|h", "%1")
@@ -62,12 +50,11 @@ local function createCopyFrame()
 	frame:SetBackdropColor(0, 0, 0, 0.85)
 	frame:EnableMouse(true)
 	frame:Hide()
-	tinsert(UISpecialFrames, COPY_FRAME_NAME) -- Escape closes it
+	tinsert(UISpecialFrames, COPY_FRAME_NAME)
 
 	local scroll = CreateFrame("ScrollFrame", COPY_FRAME_NAME .. "Scroll", frame, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", 10, -10)
 	scroll:SetPoint("BOTTOMRIGHT", -30, 10)
-	-- The newest lines are at the bottom: scroll there once the text is laid out.
 	scroll:SetScript("OnScrollRangeChanged", function(self, _, range)
 		if self.scrollToBottom then
 			self.scrollToBottom = false

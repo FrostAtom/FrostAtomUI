@@ -1,9 +1,5 @@
 local _, ns = ...
 
--- Thin experience bar at the top edge of the screen (Blizzard's is
--- destroyed with the main bar). At the level cap it shows the watched
--- reputation instead, or nothing. Hover for the numbers.
-
 local CreateFrame = CreateFrame
 local UnitLevel = UnitLevel
 local UnitXP, UnitXPMax = UnitXP, UnitXPMax
@@ -92,8 +88,6 @@ end
 function ExperienceBar:Initialize()
 	local config = ns.Config.experienceBar
 
-	-- Draw order (children draw above their parent, siblings by level):
-	-- holder background < rested overlay < bar.
 	holder = CreateFrame("Frame", nil, UIParent)
 	holder:Hide()
 	holder:SetSize(config.width, config.height)

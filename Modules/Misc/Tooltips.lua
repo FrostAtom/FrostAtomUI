@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Tooltip extras: icon in the title, spell/item ids, item level and the
--- caster of auras.
-
 local GetSpellInfo = GetSpellInfo
 local GetItemInfo = GetItemInfo
 local GetItemIcon = GetItemIcon
@@ -34,9 +31,6 @@ local function titleLine(tooltip, index)
 	return _G[tooltip:GetName() .. "TextLeft" .. (index or 1)]
 end
 
---------------------------------------------------
--- Spells
-
 local function onTooltipSetSpell(tooltip)
 	local _, _, spellId = tooltip:GetSpell()
 	if not (spellId and GetSpellInfo(spellId)) then
@@ -53,16 +47,12 @@ local function onTooltipSetSpell(tooltip)
 	tooltip:Show()
 end
 
---------------------------------------------------
--- Items
-
 local function onTooltipSetItem(tooltip)
 	local itemName, link = tooltip:GetItem()
 	if not (link and GetItemInfo(link)) then
 		return
 	end
 
-	-- The name is usually on the first line, but can be pushed to the second.
 	for i = 1, 2 do
 		local title = titleLine(tooltip, i)
 		local text = title and title:GetText()
@@ -76,7 +66,6 @@ local function onTooltipSetItem(tooltip)
 	local itemId = link:match("|Hitem:(%d+):")
 	tooltip:AddDoubleLine(itemId and labeled("ID", itemId), itemLevel and labeled("ilvl", itemLevel))
 
-	-- How many are carried, and how many more sit in the bank.
 	local inBags = GetItemCount(link)
 	local inBank = GetItemCount(link, true) - inBags
 	if inBags > 0 or inBank > 0 then
@@ -90,10 +79,6 @@ for _, tooltip in ipairs(TOOLTIPS) do
 	tooltip:HookScript("OnTooltipSetSpell", onTooltipSetSpell)
 	tooltip:HookScript("OnTooltipSetItem", onTooltipSetItem)
 end
-
---------------------------------------------------
--- Units: class-colored name, guild rank, target, who targets it, NPC id.
--- In combat unit tooltips are hidden unless Shift is held.
 
 local UF = ns:GetModule("UnitFrames")
 local classColors = UF.classColors
@@ -130,14 +115,11 @@ local function onTooltipSetUnit(tooltip)
 		return
 	end
 
-	-- Tooltips from unit frames (owner is a frame, not UIParent) get in the
-	-- way in combat; world mouseovers are left alone.
 	if tooltip:GetOwner() ~= UIParent and InCombatLockdown() and not IsShiftKeyDown() then
 		tooltip:Hide()
 		return
 	end
 
-	-- Name line: class color, and the guild rank on the line below.
 	local title = titleLine(tooltip)
 	if title then
 		title:SetText(colorize(unit, title:GetText() or UnitName(unit)))
@@ -150,14 +132,12 @@ local function onTooltipSetUnit(tooltip)
 		end
 	end
 
-	-- Who the unit is targeting.
 	local target = unit .. "target"
 	if unit ~= "player" and UnitExists(target) then
 		local name = UnitIsUnit(target, "player") and "|cffff0000<YOU>|r" or colorize(target, UnitName(target))
 		tooltip:AddDoubleLine("Target", name)
 	end
 
-	-- Which group members are targeting the unit.
 	local prefix, count = groupUnits()
 	wipe(targetedBy)
 	for i = 1, count do
@@ -170,7 +150,6 @@ local function onTooltipSetUnit(tooltip)
 		tooltip:AddLine(("Targeted by (%d): %s"):format(#targetedBy, table.concat(targetedBy, ", ")), 1, 1, 1, true)
 	end
 
-	-- NPC id from the GUID (players get theirs via /guid).
 	if not UnitIsPlayer(unit) then
 		local guid = UnitGUID(unit)
 		local npcId = guid and tonumber(guid:sub(7, 12), 16)
@@ -184,7 +163,6 @@ end
 
 GameTooltip:HookScript("OnTooltipSetUnit", onTooltipSetUnit)
 
--- Health text on the tooltip's status bar.
 local healthText = GameTooltipStatusBar:CreateFontString(nil, "OVERLAY", "SystemFont_Outline_Small")
 healthText:SetPoint("CENTER")
 
@@ -193,15 +171,11 @@ GameTooltipStatusBar:HookScript("OnValueChanged", function(bar, value)
 	if not value or max == 0 then
 		healthText:SetText("")
 	elseif max == 1 then
-		-- Unknown units only report a percentage.
 		healthText:SetFormattedText("%d%%", value * 100)
 	else
 		healthText:SetFormattedText("%s / %s", ns.FormatValue(value), ns.FormatValue(max))
 	end
 end)
-
---------------------------------------------------
--- Auras: spell id and caster (class colored)
 
 local function onSetUnitAura(tooltip, unit, index, filter)
 	local _, _, _, _, _, _, _, caster, _, _, spellId = UnitAura(unit, index, filter)

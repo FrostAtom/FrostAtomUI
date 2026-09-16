@@ -1,7 +1,5 @@
 local _, ns = ...
 
--- Announces the player's (and pet's) interrupts to the group. /ia toggles it.
-
 local UnitGUID = UnitGUID
 local SendChatMessage = SendChatMessage
 local GetNumRaidMembers = GetNumRaidMembers
@@ -26,8 +24,6 @@ local function groupChannel()
 	end
 end
 
--- (owner, timestamp, event, sourceGUID, sourceName, sourceFlags, destGUID,
---  destName, destFlags, spellId, spellName, school, extraSpellId, extraSpellName)
 local function onCombatLogEvent(_, _, event, sourceGUID, _, _, _, destName, _, _, _, _, _, extraSpellName)
 	if event ~= "SPELL_INTERRUPT" or not enabled then
 		return

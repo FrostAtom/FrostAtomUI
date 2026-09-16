@@ -3,7 +3,6 @@ local ADDON_NAME, ns = ...
 ns.ADDON_NAME = ADDON_NAME
 ns.PLAYER_CLASS = select(2, UnitClass("player"))
 
--- Copies every field of the given mixins into `target` (like Blizzard's Mixin).
 function ns.Mixin(target, ...)
 	for i = 1, select("#", ...) do
 		for key, value in pairs((select(i, ...))) do
@@ -13,15 +12,8 @@ function ns.Mixin(target, ...)
 	return target
 end
 
---------------------------------------------------
--- Module registry
---
--- A module is a plain table that can subscribe to game events (see Events.lua).
--- If it defines `Initialize`, Bootstrap.lua calls it once every file is loaded.
-
 local modules = {}
 
--- Base methods shared by every module; Events.lua adds the event API here.
 ns.ModulePrototype = {}
 
 function ns:NewModule(name)
@@ -41,5 +33,4 @@ function ns:IterateModules()
 	return pairs(modules)
 end
 
--- Expose the namespace for /run debugging.
 _G[ADDON_NAME] = ns

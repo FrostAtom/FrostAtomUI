@@ -1,9 +1,5 @@
 local _, ns = ...
 
--- Warrior: the equipped shield's icon near the screen center, so a stance
--- dance with a shield swap is visible without looking at the character
--- frame. Nothing is shown with a one-hander or an empty off-hand.
-
 local CreateFrame = CreateFrame
 local GetInventoryItemLink = GetInventoryItemLink
 local GetInventoryItemTexture = GetInventoryItemTexture

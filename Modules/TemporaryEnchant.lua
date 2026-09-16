@@ -1,8 +1,5 @@
 local _, ns = ...
 
--- Weapon enchant (poisons, sharpening stones, ...) icons under the minimap.
--- Right click removes the enchant.
-
 local CreateFrame = CreateFrame
 local GetWeaponEnchantInfo = GetWeaponEnchantInfo
 local GetInventoryItemTexture = GetInventoryItemTexture
@@ -13,8 +10,8 @@ local TemporaryEnchant = ns:NewModule("TemporaryEnchant")
 
 local ICON_SIZE = 30
 local ICON_GAP = 2
-local TOP_OFFSET = 30 -- leaves room for the fps/latency line under the minimap
-local MAIN_HAND_SLOT = 16 -- weapon slot ids are 16 (main hand), 17 (off hand), 18 (ranged)
+local TOP_OFFSET = 30
+local MAIN_HAND_SLOT = 16
 
 local function onClick(icon)
 	CancelItemTempEnchantment(icon.weaponIndex)
@@ -50,7 +47,6 @@ local function createIcon(index)
 	return icon
 end
 
--- Icons are created on demand, in display order.
 local icons = setmetatable({}, {
 	__index = function(self, index)
 		local icon = createIcon(index)
@@ -59,7 +55,6 @@ local icons = setmetatable({}, {
 	end,
 })
 
--- GetWeaponEnchantInfo returns (hasEnchant, expiration, charges) per weapon.
 local function showEnchants(...)
 	local shown = 0
 	for i = 1, select("#", ...), 3 do

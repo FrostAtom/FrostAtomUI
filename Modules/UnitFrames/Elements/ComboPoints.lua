@@ -1,11 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
--- Row of five combo point squares (rogues, cat druids, vehicles with combo
--- points). Meant for the target frame: points are read for the frame's unit.
---
--- Options: size (default 8), gap (default 2).
-
 local CreateFrame = CreateFrame
 local GetComboPoints = GetComboPoints
 local UnitHasVehicleUI = UnitHasVehicleUI
@@ -37,7 +32,6 @@ local function update(frame)
 	combo:Show()
 end
 
--- UNIT_COMBO_POINTS reports the player (or vehicle), not the target.
 local function onComboPointsChanged(frame)
 	update(frame)
 end

@@ -1,13 +1,7 @@
 local _, ns = ...
 
--- Hides Blizzard's own action bars and re-homes the pieces we still use
--- (bags, micro menu).
-
 local DestroyFrame = ns.DestroyFrame
 local noop = ns.noop
-
---------------------------------------------------
--- Options that no longer make sense
 
 InterfaceOptionsActionBarsPanelAlwaysShowActionBars:EnableMouse(false)
 InterfaceOptionsActionBarsPanelAlwaysShowActionBars:SetAlpha(0)
@@ -15,9 +9,6 @@ InterfaceOptionsActionBarsPanelLockActionBars:EnableMouse(false)
 InterfaceOptionsActionBarsPanelLockActionBars:SetAlpha(0)
 InterfaceOptionsStatusTextPanelXP:SetAlpha(0)
 InterfaceOptionsStatusTextPanelXP:SetScale(0.0001)
-
---------------------------------------------------
--- Bars
 
 MultiCastActionBarFrame.ignoreFramePositionManager = true
 MainMenuBarVehicleLeaveButton_Update = noop
@@ -35,7 +26,6 @@ DestroyFrame(PossessBarFrame)
 DestroyFrame(PetActionBarFrame)
 DestroyFrame(VehicleMenuBar)
 DestroyFrame(MainMenuBarArtFrame)
--- The art frame still owns the currency (honor/arena points) updates.
 MainMenuBarArtFrame:RegisterEvent("KNOWN_CURRENCY_TYPES_UPDATE")
 MainMenuBarArtFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 
@@ -65,7 +55,6 @@ if ns.PLAYER_CLASS ~= "SHAMAN" then
 	end
 end
 
--- Dual spec swaps would otherwise re-show the bars.
 local function detachTalentFrame()
 	PlayerTalentFrame:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
 end
@@ -87,9 +76,6 @@ for _, key in ipairs({
 	UIPARENT_MANAGED_FRAME_POSITIONS[key] = nil
 end
 
---------------------------------------------------
--- Bags: bottom right corner
-
 KeyRingButton:SetParent(UIParent)
 MainMenuBarBackpackButton:SetParent(UIParent)
 MainMenuBarBackpackButton:SetPoint("BOTTOMRIGHT", -2, 40)
@@ -102,9 +88,6 @@ for i = 0, NUM_BAG_SLOTS - 1 do
 	bag:SetPoint("BOTTOMRIGHT", previous, "BOTTOMLEFT", -3, 0)
 	previous = bag
 end
-
---------------------------------------------------
--- Micro menu: bottom right corner, above the bags
 
 for _, button in ipairs({
 	CharacterMicroButton,

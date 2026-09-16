@@ -1,15 +1,5 @@
 local _, ns = ...
 
--- Big icons for a few important auras, per class.
---
--- Entry fields:
---   spell   spell id
---   unit    "player" / "target" / "focus"
---   type    "buff" (default) or "debuff"
---   isMine  only auras applied by the player
---   point   SetPoint arguments, relative to UIParent
---   size    icon size (default 32)
-
 local TRACKED_AURAS = {
 	WARRIOR = {
 		{ spell = 60503, unit = "player", point = { "CENTER", 18, -72 }, size = 36 }, -- Taste for Blood

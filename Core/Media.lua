@@ -13,7 +13,6 @@ ns.Media = {
 	questionMark = "Interface\\Icons\\INV_Misc_QuestionMark",
 }
 
--- Backdrop with a thin tooltip border and a solid background.
 function ns.CreateBackdrop(edgeSize, inset)
 	inset = inset or ns.PixelPerfect(1)
 	return {

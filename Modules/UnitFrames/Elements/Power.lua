@@ -39,7 +39,6 @@ local function update(frame)
 	end
 end
 
--- Polled every frame, same reasoning as the health bar.
 local function onUpdate(power)
 	local current = UnitPower(power.unit)
 	if current ~= power.lastValue then

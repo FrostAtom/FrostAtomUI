@@ -1,19 +1,10 @@
 local _, ns = ...
 
--- Central event dispatcher.
---
--- One hidden frame receives every game event the addon is interested in and
--- forwards it to the subscribed owners. Owners are modules or frames that got
--- `ns.EventMixin` mixed in; their handlers are called as `handler(owner, ...)`.
---
--- Custom (non-Blizzard) events can be raised with `ns:Fire(event, ...)`.
-
 local tContains, tDeleteItem = ns.tContains, ns.tDeleteItem
 local IsAddOnLoaded = IsAddOnLoaded
 
 local eventFrame = CreateFrame("Frame")
 
--- callbacks[event][owner] = { handler1, handler2, ... }
 local callbacks = {}
 
 local function resolveHandler(owner, event, handler)
@@ -29,7 +20,6 @@ end
 local EventMixin = {}
 ns.EventMixin = EventMixin
 
--- handler: function, method name, or nil (a method named after the event).
 function EventMixin:RegisterEvent(event, handler)
 	assert(type(event) == "string", "event name must be a string")
 	handler = resolveHandler(self, event, handler)
@@ -49,7 +39,6 @@ function EventMixin:RegisterEvent(event, handler)
 	end
 end
 
--- Without a handler every handler of this owner is removed.
 function EventMixin:UnregisterEvent(event, handler)
 	local owners = callbacks[event]
 	local handlers = owners and owners[self]
@@ -91,7 +80,6 @@ function ns:Fire(event, ...)
 
 	for owner, handlers in pairs(owners) do
 		for i = 1, #handlers do
-			-- A handler may unregister itself while we iterate.
 			local handler = handlers[i]
 			if handler then
 				handler(owner, ...)
@@ -104,9 +92,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
 	ns:Fire(event, ...)
 end)
 
--- Runs `callback` once the given (load-on-demand) addon is loaded; right
--- away if it already is.
-local addonWaiters = {} -- addon name -> { callback, ... }
+local addonWaiters = {}
 local addonWatcher = ns.Mixin({}, EventMixin)
 
 local function onAddonLoaded(_, addon)

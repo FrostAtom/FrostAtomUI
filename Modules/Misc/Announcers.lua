@@ -5,9 +5,6 @@ local UnitName = UnitName
 
 local Misc = ns:GetModule("Misc")
 
---------------------------------------------------
--- Paladin: announce Aura Mastery (with Concentration Aura) to the group
-
 if ns.PLAYER_CLASS == "PALADIN" then
 	local UnitInRaid = UnitInRaid
 	local IsPartyLeader = IsPartyLeader
@@ -37,15 +34,11 @@ if ns.PLAYER_CLASS == "PALADIN" then
 
 		local channel = groupChannel()
 		if channel then
-			-- Twice, so it is not missed.
 			SendChatMessage(ANNOUNCEMENT, channel)
 			SendChatMessage(ANNOUNCEMENT, channel)
 		end
 	end)
 end
-
---------------------------------------------------
--- Rating changes after an arena match
 
 local GetNumBattlefieldScores = GetNumBattlefieldScores
 local GetBattlefieldScore = GetBattlefieldScore
@@ -63,7 +56,6 @@ local function playerTeamIndex()
 	end
 end
 
--- The status event keeps firing after the match ends; report once per match.
 local ratingReported = false
 
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
@@ -79,7 +71,6 @@ Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
 	for teamIndex = 0, 1 do
 		local name, lost, gained, rating = GetBattlefieldTeamInfo(teamIndex)
 
-		-- Solo queue teams have generated names.
 		if name:find("^Solo Team [1-2]$") then
 			name = playerTeamIndex() == teamIndex and "Our team" or "Enemy team"
 		end

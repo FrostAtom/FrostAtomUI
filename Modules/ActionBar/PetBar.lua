@@ -16,7 +16,6 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 local BUTTON_NAME = ADDON_NAME .. "PetButton%d"
 local buttons = {}
 
--- Pet abilities report their texture as the name of a global holding the path.
 local tokenTextures = setmetatable({}, {
 	__index = function(self, token)
 		local path = _G[token]
@@ -33,7 +32,6 @@ local function setTooltip(button)
 	end
 end
 
--- Pet buttons use Blizzard's BONUSACTIONBUTTON bindings (ctrl+1..0 by default).
 local function updateHotkey(button)
 	local key = GetBindingKey("BONUSACTIONBUTTON" .. button:GetID())
 	if key then
@@ -66,7 +64,6 @@ function ActionBar:UpdatePetBar()
 			button.icon:SetTexture(texture)
 			button.icon:SetDesaturated(not GetPetActionSlotUsable(i))
 
-			-- Stances (follow/stay/aggressive/...) are highlighted when active.
 			if isToken then
 				if isActive then
 					self:SetButtonColors(button, 1, 1, 0.8, 0)
