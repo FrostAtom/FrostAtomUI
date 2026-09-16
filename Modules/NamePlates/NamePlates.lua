@@ -19,7 +19,6 @@ local NamePlates = ns:NewModule("NamePlates")
 
 local NAMEPLATE_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-Flash"
 local CHAT_BUBBLE_TEXTURE = "Interface\\Tooltips\\ChatBubble-Background"
-local BAR_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-BarFill"
 
 local BAR_WIDTH, BAR_HEIGHT = 77, 6
 local CASTBAR_HEIGHT = 8
@@ -211,7 +210,7 @@ end
 
 local function setupHealthbar(plate, healthbar, blizzardBackground)
 	healthbar:SetFrameLevel(plate:GetFrameLevel())
-	healthbar:SetStatusBarTexture(BAR_TEXTURE)
+	healthbar:SetStatusBarTexture(ns.Media.blank)
 
 	-- A solid texture one pixel larger than the bar on every side. The size
 	-- is computed here, not at load, so the final UI scale is used.
@@ -239,7 +238,7 @@ end
 local function setupCastbar(plate, castbar, icon, shield)
 	ns.Mixin(castbar, CastbarMixin)
 	castbar:SetFrameLevel(plate:GetFrameLevel())
-	castbar:SetStatusBarTexture(BAR_TEXTURE)
+	castbar:SetStatusBarTexture(ns.Media.blank)
 
 	-- Not drawn, but its shown state is read for the bar color.
 	shield:SetTexture(nil)

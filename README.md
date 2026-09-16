@@ -7,6 +7,7 @@ frames, nameplates, chat, minimap and a handful of PvP conveniences.
 
 ```
 FrostAtomUI.toc        load order; Core/Bootstrap.lua must stay last
+Bindings.xml           "Focus mouseover" entry in the Key Bindings window (mouse button 5 by default)
 Core/
   Init.lua             namespace, module registry, ns.Mixin
   Util.lua             table/frame/format helpers
@@ -22,13 +23,15 @@ Modules/
   Chat/                chat restyle, URL copy, /pm whisper block, history + /copy
   Misc/                tooltips, popups, arena timers, mouse wheel paging, ...
   NamePlates/          nameplates (ported from AtomNameplates, no dll), totem icons, target debuffs
-  *.lua                one-file modules (minimap, runes, experience bar, ...)
+  *.lua                one-file modules (minimap, runes, experience bar, player plate, ...)
 ```
 
 Unit frames: player, pet, target (+ combo points), focus, targets of target and
 focus, party (+ pets), arena (+ pets and trinket), boss1-4. Bars glide, lost
 health leaves a fading strip, dispellable debuffs tint the health bar, buffs
-the player can purge are framed.
+the player can purge are framed. Own health and power also sit just below
+the screen center as a small plate while in combat or hurt; warriors see the
+equipped shield's icon next to it.
 
 Automatic: greys are sold and gear repaired at merchants (hold Shift to skip),
 invites from friends/guild mates are accepted, own interrupts are announced,

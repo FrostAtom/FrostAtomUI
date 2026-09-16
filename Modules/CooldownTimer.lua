@@ -26,6 +26,9 @@ local function setTimerText(timer, remain)
 	end
 end
 
+-- For timers that are not driven by a Cooldown frame (nameplate auras).
+CooldownTimer.SetTimerText = setTimerText
+
 -- The text is refreshed at this interval (every frame in the last seconds,
 -- where tenths are shown).
 local UPDATE_INTERVAL = 0.1

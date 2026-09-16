@@ -59,10 +59,15 @@ hooksecurefunc("UnitPopup_OnClick", function(self)
 end)
 
 --------------------------------------------------
--- Mouse button 5 sets focus on the mouseover unit
+-- "Focus mouseover" key binding (Bindings.xml), bound to mouse button 5 the
+-- first time; afterwards the key is whatever is set in the Key Bindings window.
 
 local FOCUS_BUTTON_NAME = "FrostAtomUIFocusButton"
-local FOCUS_KEY = "BUTTON5"
+local FOCUS_COMMAND = "CLICK " .. FOCUS_BUTTON_NAME .. ":LeftButton"
+local FOCUS_DEFAULT_KEY = "BUTTON5"
+
+BINDING_HEADER_FROSTATOMUI = "FrostAtomUI"
+_G["BINDING_NAME_" .. FOCUS_COMMAND] = "Focus mouseover"
 
 local focusButton = CreateFrame("Button", FOCUS_BUTTON_NAME, nil, "SecureActionButtonTemplate")
 focusButton:RegisterForClicks("AnyDown")
@@ -72,8 +77,12 @@ focusButton:SetAttribute("macrotext", "/focus mouseover")
 Misc:RegisterEvent("UPDATE_BINDINGS", function(self)
 	self:UnregisterEvent("UPDATE_BINDINGS")
 
-	if GetBindingByKey(FOCUS_KEY) ~= "CLICK " .. FOCUS_BUTTON_NAME .. ":LeftButton" then
-		SetBindingClick(FOCUS_KEY, FOCUS_BUTTON_NAME)
+	if ns.db.focusKeyDefaulted or GetBindingKey(FOCUS_COMMAND) then
+		return
+	end
+	ns:SaveVariable("focusKeyDefaulted", true)
+	if not GetBindingByKey(FOCUS_DEFAULT_KEY) then
+		SetBindingClick(FOCUS_DEFAULT_KEY, FOCUS_BUTTON_NAME)
 		SaveBindings(GetCurrentBindingSet())
 	end
 end)

@@ -106,13 +106,14 @@ function ActionBar:CreateBar(page, pointFunc, onButtonCreated)
 	return bar
 end
 
--- Bar 1 swaps its page like Blizzard's main bar: vehicle/possess bars,
--- manual paging (shift+wheel, /changeactionbar), then class forms.
+-- Bar 1 swaps its page like Blizzard's main bar: vehicle/possess bars, then
+-- class forms. No manual paging ([bar:N]): pages 2-5 are the other bars,
+-- always on screen, and the client remembers a flipped page across reloads.
 --
 -- Pages 7-10 are the "bonus" bars: warrior stances, druid forms (cat 7,
 -- prowl 8, bear 9, moonkin/tree 10), rogue stealth 7, priest shadowform 7.
 local CLASS_PAGE_CONDITIONS = {
-	WARRIOR = "[stance:1] 7; [stance:2] 8; [stance:3] 9;",
+	WARRIOR = "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9;",
 	DRUID = "[bonusbar:1,stealth] 8; [bonusbar:1] 7; [bonusbar:3] 9; [bonusbar:4] 10;",
 	ROGUE = "[bonusbar:1] 7;",
 	PRIEST = "[bonusbar:1] 7;",
@@ -120,7 +121,7 @@ local CLASS_PAGE_CONDITIONS = {
 
 local function pageDriverCondition()
 	-- 3.3.5 has no [possessbar]; possession sets bonusbar 5 like vehicles do.
-	local condition = "[vehicleui] 11; [bonusbar:5] 11; " .. "[bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
+	local condition = "[vehicleui] 11; [bonusbar:5] 11; "
 	local classCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
 	if classCondition then
 		condition = condition .. classCondition .. " "

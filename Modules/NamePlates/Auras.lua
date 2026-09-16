@@ -1,20 +1,46 @@
 local _, ns = ...
 local NamePlates = ns:GetModule("NamePlates")
 
--- The player's own debuffs on the target, as a row of icons above the
--- target's nameplate. Plates have no unit, so only the target can be matched
+-- Important debuffs on the target, as a row of icons above the target's
+-- nameplate: crowd control from anyone (the losecontrol list) and a few of
+-- the player's own. Plates have no unit, so only the target can be matched
 -- reliably (its plate is the one the client keeps at full alpha).
+--
+-- No Cooldown frames here: they are models, and a model anchored to a frame
+-- that moves every frame (a plate) is drawn a frame late at the wrong scale.
+-- The remaining time is a text and a shrinking bar under the icon instead.
 
 local CreateFrame = CreateFrame
 local UnitAura = UnitAura
 local UnitExists = UnitExists
+local GetTime = GetTime
+local GetSpellInfo = GetSpellInfo
 
-local CooldownTimer = ns:GetModule("CooldownTimer")
+local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
+local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
 
 local ICON_SIZE = 20
 local ICON_GAP = 2
 local MAX_ICONS = 6
-local FILTER = "HARMFUL|PLAYER"
+local MAX_AURAS = 40
+local TIMER_FONT_SIZE = 10
+local DURATION_BAR_HEIGHT = 2
+local DURATION_BAR_COLOR = { 1, 0.85, 0.2 }
+
+-- Shown only when applied by the player (matched by name, any rank).
+-- Rend, Mortal Strike, Hamstring, Piercing Howl, Demoralizing Shout, Thunder Clap
+local OWN_SPELL_IDS = { 47465, 47486, 1715, 12323, 47437, 47502 }
+local ownSpellNames = {}
+for _, spellId in ipairs(OWN_SPELL_IDS) do
+	local name = GetSpellInfo(spellId)
+	if name then
+		ownSpellNames[name] = true
+	end
+end
+
+local function isWanted(name, caster)
+	return ccSpellNames[name] or (ownSpellNames[name] and caster == "player")
+end
 
 local row = CreateFrame("Frame", nil, WorldFrame)
 row:Hide()
@@ -37,10 +63,15 @@ local function createIcon(index)
 	icon.border:SetPoint("TOPRIGHT", 1, 1)
 	icon.border:SetPoint("BOTTOMLEFT", -1, -1)
 
-	icon.cooldown = CreateFrame("Cooldown", nil, icon)
-	icon.cooldown:SetAllPoints()
-	icon.cooldown:SetReverse(true)
-	CooldownTimer:Attach(icon.cooldown, 10)
+	icon.timer = icon:CreateFontString(nil, "OVERLAY")
+	icon.timer:SetFont(ns.Media.font, TIMER_FONT_SIZE, "OUTLINE")
+	icon.timer:SetPoint("CENTER")
+
+	-- Full width when applied, shrinks from the right as time runs out.
+	icon.bar = icon:CreateTexture(nil, "OVERLAY")
+	icon.bar:SetTexture(unpack(DURATION_BAR_COLOR))
+	icon.bar:SetHeight(DURATION_BAR_HEIGHT)
+	icon.bar:SetPoint("BOTTOMLEFT")
 
 	icon.count = icon:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
 	icon.count:SetPoint("BOTTOMRIGHT", 1, 0)
@@ -56,26 +87,31 @@ local function updateAuras()
 	end
 
 	local shown = 0
-	for i = 1, 40 do
-		local name, _, texture, count, _, duration, endTime = UnitAura("target", i, FILTER)
+	for i = 1, MAX_AURAS do
+		local name, _, texture, count, _, duration, endTime, caster = UnitAura("target", i, "HARMFUL")
 		if not name then
 			break
 		end
 
-		shown = shown + 1
-		local icon = icons[shown] or createIcon(shown)
-		icon.texture:SetTexture(texture)
-		if duration and duration > 0 then
-			icon.cooldown:SetCooldown(endTime - duration, duration)
-			icon.cooldown:Show()
-		else
-			icon.cooldown:Hide()
-		end
-		icon.count:SetText(count > 1 and count or "")
-		icon:Show()
+		if isWanted(name, caster) then
+			shown = shown + 1
+			local icon = icons[shown] or createIcon(shown)
+			icon.texture:SetTexture(texture)
+			if duration and duration > 0 then
+				icon.duration, icon.endTime = duration, endTime
+				icon.timer:Show()
+				icon.bar:Show()
+			else
+				icon.endTime = nil
+				icon.timer:Hide()
+				icon.bar:Hide()
+			end
+			icon.count:SetText(count > 1 and count or "")
+			icon:Show()
 
-		if shown == MAX_ICONS then
-			break
+			if shown == MAX_ICONS then
+				break
+			end
 		end
 	end
 
@@ -88,6 +124,25 @@ local function updateAuras()
 	row:Show()
 end
 
+local function updateTimers()
+	local now = GetTime()
+	for i = 1, #icons do
+		local icon = icons[i]
+		if icon.endTime and icon:IsShown() then
+			local remain = icon.endTime - now
+			if remain > 0 then
+				SetTimerText(icon.timer, remain)
+				icon.bar:SetWidth(math.max(ICON_SIZE * remain / icon.duration, 0.1))
+			else
+				-- Expired; UNIT_AURA will drop the icon shortly.
+				icon.endTime = nil
+				icon.timer:Hide()
+				icon.bar:Hide()
+			end
+		end
+	end
+end
+
 -- The target's plate can appear, vanish or change every frame.
 local function onUpdate()
 	local plate = row.hasAuras and NamePlates:GetTargetPlate()
@@ -95,6 +150,7 @@ local function onUpdate()
 		row:ClearAllPoints()
 		row:SetPoint("BOTTOM", plate.name, "TOP", 0, 4)
 		row:SetAlpha(1)
+		updateTimers()
 	else
 		row:SetAlpha(0)
 	end

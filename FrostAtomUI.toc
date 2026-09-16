@@ -52,6 +52,7 @@ Modules\NamePlates\Totems.lua
 Modules\NamePlates\Auras.lua
 Modules\NamePlates\Healers.lua
 
+Modules\PlayerPlate.lua
 Modules\AuraTracker.lua
 Modules\Runes.lua
 Modules\Totems.lua
@@ -80,6 +81,7 @@ Modules\Misc\Merchant.lua
 Modules\Misc\Equipment.lua
 Modules\Misc\ModelControls.lua
 Modules\Misc\CombatAlert.lua
+Modules\Misc\ShieldIndicator.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua

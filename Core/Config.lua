@@ -22,6 +22,11 @@ ns.Config = {
 		outOfRangeAlpha = 0.45,
 	},
 
+	-- Own health/power bars below the screen center (in combat or when hurt).
+	playerPlate = { "CENTER", 0, -120 },
+	-- Warrior: icon of the equipped shield, to the left of the player plate.
+	shieldIndicator = { "CENTER", -160, -120 },
+
 	runes = { "CENTER", 0, -294 }, -- death knight
 	totems = { "CENTER", 0, -294 }, -- shaman
 

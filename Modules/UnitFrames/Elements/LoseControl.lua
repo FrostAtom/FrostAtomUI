@@ -28,7 +28,8 @@ local CC_SPELL_IDS = {
 	63024, 63018, 62589, 63276, 66770, 48792,
 }
 
--- Auras are matched by name: ranks and duplicates share one entry.
+-- Auras are matched by name: ranks and duplicates share one entry. Also used
+-- by the nameplate auras.
 local CC_SPELL_NAMES = {}
 for _, spellId in ipairs(CC_SPELL_IDS) do
 	local name = GetSpellInfo(spellId)
@@ -36,6 +37,7 @@ for _, spellId in ipairs(CC_SPELL_IDS) do
 		CC_SPELL_NAMES[name] = true
 	end
 end
+UF.ccSpellNames = CC_SPELL_NAMES
 
 local function update(frame)
 	local unit = frame.unit

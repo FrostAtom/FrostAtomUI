@@ -32,7 +32,6 @@ local RANGE_CHECK_INTERVAL = 0.1
 local ACTION_EVENTS = {
 	UPDATE_BINDINGS = "UpdateBindings",
 	UPDATE_SHAPESHIFT_FORM = "Update",
-	PLAYER_ENTERING_WORLD = "Update",
 	UPDATE_MACROS = "Update",
 	ACTIONBAR_UPDATE_USABLE = "UpdateUsable",
 	ACTIONBAR_UPDATE_COOLDOWN = "UpdateCooldown",
@@ -277,6 +276,9 @@ function ActionBar:CreateActionButton(action, parent)
 	button:SetScript("OnReceiveDrag", button.OnReceiveDrag)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)
 	button:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+	-- Always, not only while the slot holds an action: at login the slots are
+	-- empty until the world is entered, so nothing else would refresh them.
+	button:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 	self:AttachTooltip(button, button.SetTooltip)
 
 	button.usable = true
