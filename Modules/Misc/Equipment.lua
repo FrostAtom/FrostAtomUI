@@ -51,24 +51,30 @@ local function slotItemLevel(unit, slot)
 	return itemLevel and itemLevel > 0 and itemLevel or nil, itemLevel == nil
 end
 
-local function updatePage(page)
-	local unit = page.getUnit()
-	if not unit then
-		return
-	end
-
+local function averageItemLevel(unit, slotTexts)
 	local total, count, missing = 0, 0, false
-	for slot, text in pairs(page.slotTexts) do
+	for slot in pairs(SLOT_NAMES) do
 		local itemLevel, pending = slotItemLevel(unit, slot)
-		text.itemLevel = itemLevel
+		if slotTexts and slotTexts[slot] then
+			slotTexts[slot].itemLevel = itemLevel
+		end
 		if itemLevel then
 			total = total + itemLevel
 			count = count + 1
 		end
 		missing = missing or pending
 	end
+	return count > 0 and total / count or 0, count, missing
+end
+ns.UnitAverageItemLevel = averageItemLevel
 
-	local average = count > 0 and total / count or 0
+local function updatePage(page)
+	local unit = page.getUnit()
+	if not unit then
+		return
+	end
+
+	local average, count, missing = averageItemLevel(unit, page.slotTexts)
 	for _, text in pairs(page.slotTexts) do
 		if text.itemLevel then
 			text:SetText(text.itemLevel)

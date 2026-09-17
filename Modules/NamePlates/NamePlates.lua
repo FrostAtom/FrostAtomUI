@@ -158,10 +158,7 @@ function CastbarMixin:OnUpdate()
 	self:SetSize(BAR_WIDTH, CASTBAR_HEIGHT)
 
 	local icon = self.icon
-	icon:ClearAllPoints()
-	icon:SetPoint("RIGHT", self, "LEFT", -3, 0)
-	icon:SetSize(CASTBAR_ICON_SIZE, CASTBAR_ICON_SIZE)
-	icon:SetTexCoord(unpack(ICON_TEXCOORD))
+	icon:SetTexture(self.blizzardIcon:GetTexture())
 
 	if self.shield:IsShown() then
 		self:SetStatusBarColor(unpack(CAST_SHIELDED_COLOR))
@@ -175,11 +172,9 @@ end
 function CastbarMixin:OnShow()
 	if self:GetParent().totem:IsShown() then
 		self:Hide()
-		self.icon:SetAlpha(0)
 		return
 	end
 
-	self.icon:SetAlpha(1)
 	self:OnUpdate()
 end
 
@@ -208,7 +203,7 @@ local function setupHealthbar(plate, healthbar, blizzardBackground)
 	healthbar.percent = percent
 end
 
-local function setupCastbar(plate, castbar, icon, shield)
+local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	ns.Mixin(castbar, CastbarMixin)
 	castbar:SetFrameLevel(plate:GetFrameLevel())
 	castbar:SetStatusBarTexture(ns.Media.blank)
@@ -227,12 +222,17 @@ local function setupCastbar(plate, castbar, icon, shield)
 	bg:SetAllPoints()
 	bg:SetAlpha(0.9)
 
-	icon:SetDrawLayer("ARTWORK")
+	local icon = castbar:CreateTexture(nil, "ARTWORK")
+	icon:SetSize(CASTBAR_ICON_SIZE, CASTBAR_ICON_SIZE)
+	icon:SetPoint("RIGHT", castbar, "LEFT", -3, 0)
+	icon:SetTexCoord(unpack(ICON_TEXCOORD))
 	local iconBorder = castbar:CreateTexture(nil, "BORDER")
 	iconBorder:SetTexture(0, 0, 0)
 	iconBorder:SetPoint("TOPRIGHT", icon, borderSize, borderSize)
 	iconBorder:SetPoint("BOTTOMLEFT", icon, -borderSize, -borderSize)
 	castbar.icon = icon
+	castbar.blizzardIcon = blizzardIcon
+	blizzardIcon:SetParent(trash)
 
 	castbar:SetScript("OnShow", castbar.OnShow)
 	castbar:SetScript("OnUpdate", castbar.OnUpdate)

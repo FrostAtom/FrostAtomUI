@@ -18,7 +18,14 @@ local GetNumRaidMembers = GetNumRaidMembers
 local GetNumPartyMembers = GetNumPartyMembers
 local InCombatLockdown = InCombatLockdown
 local IsShiftKeyDown = IsShiftKeyDown
+local CanInspect = CanInspect
+local CheckInteractDistance = CheckInteractDistance
+local NotifyInspect = NotifyInspect
+local GetTime = GetTime
+local CreateFrame = CreateFrame
 local unpack = unpack
+
+local Misc = ns:GetModule("Misc")
 
 local TOOLTIPS = { ItemRefTooltip, GameTooltip, ShoppingTooltip1, ShoppingTooltip2, ShoppingTooltip3 }
 local TITLE_ICON = "|T%s:20:20:0:0:64:64:5:59:5:59:20|t %s"
@@ -105,6 +112,94 @@ end
 
 local targetedBy = {}
 
+local ILVL_CACHE_TIME = 120
+local ILVL_REQUEST_THROTTLE = 2
+local ILVL_RETRY_DELAY = 0.3
+local ILVL_MAX_RETRIES = 10
+
+local itemLevels = {}
+local inspectGuid, inspectUnit, inspectTime, inspectRetries
+
+local function addItemLevel(tooltip, average)
+	tooltip:AddLine(("|cff3366ffilvl|r: |cffffffff%.1f|r"):format(average))
+end
+
+local inspectRetry = CreateFrame("Frame")
+inspectRetry:Hide()
+
+local function finishInspect()
+	local guid = inspectGuid
+	if not (guid and inspectUnit and UnitExists(inspectUnit) and UnitGUID(inspectUnit) == guid) then
+		inspectGuid = nil
+		return
+	end
+
+	local average, count, missing = ns.UnitAverageItemLevel(inspectUnit)
+	if missing and inspectRetries < ILVL_MAX_RETRIES then
+		inspectRetries = inspectRetries + 1
+		inspectRetry.remain = ILVL_RETRY_DELAY
+		inspectRetry:Show()
+		return
+	end
+	inspectGuid = nil
+	if count == 0 then
+		return
+	end
+	itemLevels[guid] = { level = average, time = GetTime() }
+
+	if GameTooltip:IsShown() then
+		local _, unit = GameTooltip:GetUnit()
+		if unit and UnitGUID(unit) == guid then
+			addItemLevel(GameTooltip, average)
+			GameTooltip:Show()
+		end
+	end
+end
+
+inspectRetry:SetScript("OnUpdate", function(self, elapsed)
+	self.remain = self.remain - elapsed
+	if self.remain <= 0 then
+		self:Hide()
+		finishInspect()
+	end
+end)
+
+Misc:RegisterEvent("INSPECT_TALENT_READY", function()
+	if inspectGuid then
+		inspectRetries = 0
+		inspectRetry.remain = ILVL_RETRY_DELAY
+		inspectRetry:Show()
+	end
+end)
+
+local function unitItemLevel(tooltip, unit)
+	if UnitIsUnit(unit, "player") then
+		local average, count = ns.UnitAverageItemLevel("player")
+		if count > 0 then
+			addItemLevel(tooltip, average)
+		end
+		return
+	end
+
+	local guid = UnitGUID(unit)
+	local cached = itemLevels[guid]
+	if cached and GetTime() - cached.time < ILVL_CACHE_TIME then
+		addItemLevel(tooltip, cached.level)
+		return
+	end
+
+	if InspectFrame and InspectFrame:IsShown() then
+		return
+	end
+	if inspectGuid and GetTime() - inspectTime < ILVL_REQUEST_THROTTLE then
+		return
+	end
+	if CanInspect(unit) and CheckInteractDistance(unit, 1) then
+		inspectGuid, inspectUnit, inspectTime = guid, unit, GetTime()
+		NotifyInspect(unit)
+	end
+end
+
 local function onTooltipSetUnit(tooltip)
 	local _, unit = tooltip:GetUnit()
 	if not unit then
@@ -130,6 +225,7 @@ local function onTooltipSetUnit(tooltip)
 		if guild and second and second:GetText() and second:GetText():find(guild, 1, true) then
 			second:SetFormattedText("<|cff00ff10%s|r> |cffaaaaaa%s|r", guild, rank or "")
 		end
+		unitItemLevel(tooltip, unit)
 	end
 
 	local target = unit .. "target"
