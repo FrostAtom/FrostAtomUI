@@ -61,6 +61,8 @@ Modules\Totems.lua
 Modules\TemporaryEnchant.lua
 Modules\ExperienceBar.lua
 Modules\Minimap.lua
+Modules\Bags.lua
+Modules\BagSort.lua
 Modules\CombatLogFix.lua
 
 # Chat

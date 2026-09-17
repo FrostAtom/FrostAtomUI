@@ -77,16 +77,9 @@ for _, key in ipairs({
 end
 
 KeyRingButton:SetParent(UIParent)
-MainMenuBarBackpackButton:SetParent(UIParent)
-MainMenuBarBackpackButton:SetPoint("BOTTOMRIGHT", -2, 40)
 
-local previous = MainMenuBarBackpackButton
 for i = 0, NUM_BAG_SLOTS - 1 do
-	local bag = _G["CharacterBag" .. i .. "Slot"]
-	bag:SetParent(UIParent)
-	bag:ClearAllPoints()
-	bag:SetPoint("BOTTOMRIGHT", previous, "BOTTOMLEFT", -3, 0)
-	previous = bag
+	DestroyFrame(_G["CharacterBag" .. i .. "Slot"])
 end
 
 for _, button in ipairs({
@@ -105,3 +98,10 @@ for _, button in ipairs({
 end
 
 CharacterMicroButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMRIGHT", -254, 2)
+
+local BACKPACK_SIZE = 32
+MainMenuBarBackpackButton:SetParent(UIParent)
+MainMenuBarBackpackButton:SetSize(BACKPACK_SIZE, BACKPACK_SIZE)
+MainMenuBarBackpackButton:ClearAllPoints()
+MainMenuBarBackpackButton:SetPoint("BOTTOMRIGHT", CharacterMicroButton, "BOTTOMLEFT", -2, 3)
+MainMenuBarBackpackButtonNormalTexture:SetSize(BACKPACK_SIZE * 64 / 36, BACKPACK_SIZE * 64 / 36)

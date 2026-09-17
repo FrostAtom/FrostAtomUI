@@ -15,18 +15,7 @@ local NUM_BAG_SLOTS = NUM_BAG_SLOTS
 local Misc = ns:GetModule("Misc")
 
 local POOR_QUALITY = 0
-
-local function formatMoney(copper)
-	local gold = math.floor(copper / 1e4)
-	local silver = math.floor(copper % 1e4 / 100)
-	copper = copper % 100
-	if gold > 0 then
-		return ("%d|cffffd700g|r %d|cffc7c7cfs|r"):format(gold, silver)
-	elseif silver > 0 then
-		return ("%d|cffc7c7cfs|r %d|cffeda55fc|r"):format(silver, copper)
-	end
-	return ("%d|cffeda55fc|r"):format(copper)
-end
+local formatMoney = ns.FormatMoney
 
 local function sellGreys()
 	local total, count = 0, 0

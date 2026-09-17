@@ -51,12 +51,21 @@ read_globals = {
 	"GetContainerItemLink", "GetContainerItemInfo", "UseContainerItem", "GetNumGuildMembers",
 	"GetGuildRosterInfo", "GetNumPartyMembers", "AcceptGroup", "IsInGuild", "GuildRoster",
 	"GetInventoryItemLink", "GetInventoryItemDurability", "RaidNotice_AddMessage", "IsAddOnLoaded",
+	"GetContainerNumFreeSlots", "GetContainerItemID", "GetContainerItemCooldown", "GetContainerItemQuestInfo",
+	"GetItemQualityColor", "IsInventoryItemLocked", "ContainerIDToInventoryID", "BankButtonIDToInvSlotID",
+	"GetNumBankSlots", "GetBankSlotCost", "CursorHasItem", "PutItemInBag", "PutItemInBackpack",
+	"PickupBagFromSlot", "CloseBankFrame", "PlaySound", "SetItemButtonTexture", "SetItemButtonCount",
+	"SetItemButtonDesaturated", "BACKPACK_CONTAINER", "BANK_CONTAINER", "NUM_BANKBAGSLOTS",
+	"NUM_BANKGENERIC_SLOTS", "BANK", "BACKPACK_TOOLTIP", "BANK_BAG_PURCHASE", "EQUIP_CONTAINER",
+	"GetItemFamily", "GetAuctionItemClasses", "GetAuctionItemSubClasses", "GetCursorInfo",
+	"PickupContainerItem", "SplitContainerItem", "GetBackpackCurrencyInfo", "MAX_WATCHED_TOKENS",
+	"BackpackTokenFrame_Update", "GameTooltip_Hide",
 
 	-- Server-specific API (WoWCircle)
 	"FlashWindow",
 
 	-- FrameXML functions
-	"CooldownFrame_SetTimer", "UnitFrame_OnEnter", "UnitFrame_OnLeave", "Minimap_OnClick",
+	"CooldownFrame_SetTimer", "GameTooltip_SetDefaultAnchor", "UnitFrame_OnEnter", "UnitFrame_OnLeave", "Minimap_OnClick",
 	"ChatEdit_UpdateHeader", "ChatFrame_AddMessageEventFilter", "ChatFrame_RemoveMessageEventFilter",
 	"ChatTypeInfo", "SetChatColorNameByClass",
 	"StaticPopup_Show", "StaticPopup_Hide", "ToggleDropDownMenu", "UIDropDownMenu_Initialize",
@@ -83,6 +92,7 @@ globals = {
 	"TimeManager_LoadUI", "CombatLog_LoadUI", "Blizzard_CombatLog_Update_QuickButtons",
 	"Minimap_UpdateRotationSetting", "UnitPopup_OnClick", "ChatEdit_OnSpacePressed", "SetItemRef",
 	"InspectPaperDollItemSlotButton_Update",
+	"ToggleBag", "ToggleBackpack", "OpenBackpack", "CloseBackpack", "OpenAllBags", "CloseAllBags", "IsBagOpen",
 	-- chat constants
 	"CHAT_FRAME_FADE_OUT_TIME", "CHAT_TAB_HIDE_DELAY",
 	"CHAT_FRAME_TAB_SELECTED_MOUSEOVER_ALPHA", "CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA",

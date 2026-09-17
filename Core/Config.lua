@@ -32,4 +32,15 @@ ns.Config = {
 	arenaTrinket = { size = 30 },
 
 	combatAlert = { "CENTER", 0, 150 },
+
+	tooltip = { "BOTTOMRIGHT", -13, 64 },
+
+	bags = {
+		buttonSize = 34,
+		spacing = 4,
+		inventoryColumns = 10,
+		bankColumns = 16,
+		inventory = { "BOTTOMRIGHT", -40, 120 },
+		bank = { "LEFT", 60, 0 },
+	},
 }

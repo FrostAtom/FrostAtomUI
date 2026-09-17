@@ -87,6 +87,12 @@ for _, tooltip in ipairs(TOOLTIPS) do
 	tooltip:HookScript("OnTooltipSetItem", onTooltipSetItem)
 end
 
+hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
+	tooltip:SetOwner(parent, "ANCHOR_NONE")
+	tooltip:ClearAllPoints()
+	tooltip:SetPoint(unpack(ns.Config.tooltip))
+end)
+
 local UF = ns:GetModule("UnitFrames")
 local classColors = UF.classColors
 

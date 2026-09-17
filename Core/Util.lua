@@ -133,6 +133,38 @@ function ns.FormatValue(value)
 	end
 end
 
+function ns.FormatMoney(copper)
+	local gold = floor(copper / 1e4)
+	local silver = floor(copper % 1e4 / 100)
+	copper = copper % 100
+	if gold > 0 then
+		return ("%d|cffffd700g|r %d|cffc7c7cfs|r"):format(gold, silver)
+	elseif silver > 0 then
+		return ("%d|cffc7c7cfs|r %d|cffeda55fc|r"):format(silver, copper)
+	end
+	return ("%d|cffeda55fc|r"):format(copper)
+end
+
+local GOLD_ICON = "|TInterface\\MoneyFrame\\UI-GoldIcon:%d:%d:2:0|t"
+local SILVER_ICON = "|TInterface\\MoneyFrame\\UI-SilverIcon:%d:%d:2:0|t"
+local COPPER_ICON = "|TInterface\\MoneyFrame\\UI-CopperIcon:%d:%d:2:0|t"
+
+function ns.FormatMoneyIcons(copper, iconSize)
+	iconSize = iconSize or 12
+	local gold = floor(copper / 1e4)
+	local silver = floor(copper % 1e4 / 100)
+	copper = copper % 100
+	local goldIcon = GOLD_ICON:format(iconSize, iconSize)
+	local silverIcon = SILVER_ICON:format(iconSize, iconSize)
+	local copperIcon = COPPER_ICON:format(iconSize, iconSize)
+	if gold > 0 then
+		return ("%d%s %d%s %d%s"):format(gold, goldIcon, silver, silverIcon, copper, copperIcon)
+	elseif silver > 0 then
+		return ("%d%s %d%s"):format(silver, silverIcon, copper, copperIcon)
+	end
+	return ("%d%s"):format(copper, copperIcon)
+end
+
 function ns.ColorGradient(percent, ...)
 	if percent ~= percent then
 		percent = 0
