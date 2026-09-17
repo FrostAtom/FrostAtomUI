@@ -1,13 +1,41 @@
 local _, ns = ...
 
 local WorldMapFrame = WorldMapFrame
+local WorldMapDetailFrame = WorldMapDetailFrame
+local WorldMapButton = WorldMapButton
+local WorldMapBlobFrame = WorldMapBlobFrame
+local WorldMapPOIFrame = WorldMapPOIFrame
+local WorldMapPlayer = WorldMapPlayer
+local WorldMapCorpse = WorldMapCorpse
+local WorldMapDeathRelease = WorldMapDeathRelease
+local WorldMapHighlight = WorldMapHighlight
+local WorldMapPositioningGuide = WorldMapPositioningGuide
 local BlackoutWorld = BlackoutWorld
 local GetScreenHeight = GetScreenHeight
+local GetCursorPosition = GetCursorPosition
+local GetPlayerMapPosition = GetPlayerMapPosition
+local GetCurrentMapZone = GetCurrentMapZone
+local GetCurrentMapContinent = GetCurrentMapContinent
+local SetMapToCurrentZone = SetMapToCurrentZone
+local UnitClass = UnitClass
+local UnitIsUnit = UnitIsUnit
+local UnitIsGhost = UnitIsGhost
+local UnitIsDeadOrGhost = UnitIsDeadOrGhost
+local InCombatLockdown = InCombatLockdown
+local max, min, abs = math.max, math.min, math.abs
+local unpack = unpack
 
 local Misc = ns:GetModule("Misc")
+local UF = ns:GetModule("UnitFrames")
+local classColors = UF.classColors
 
 local SCREEN_FRACTION = 0.8
 local LAYOUT_WIDTH, LAYOUT_HEIGHT = 1024, 768
+local MAP_WIDTH, MAP_HEIGHT = 1002, 668
+local MIN_ZOOM, MAX_ZOOM, ZOOM_STEP = 1, 4, 0.2
+local ARROW_SIZE = 36
+local UNIT_ICON_DEFAULT = "Interface\\WorldMap\\WorldMapPartyIcon"
+local COORD_FORMAT = "%s: %.1f, %.1f"
 
 BlackoutWorld:SetTexture(nil)
 
@@ -37,12 +65,474 @@ end
 hooksecurefunc("ToggleMapFramerate", layout)
 WorldMapFrame:HookScript("OnShow", layout)
 
-local WorldMapBlobFrame = WorldMapBlobFrame
-local blobWasShown, blobScale
+local scroll = CreateFrame("ScrollFrame", nil, WorldMapFrame)
+scroll:SetSize(MAP_WIDTH, MAP_HEIGHT)
+scroll:EnableMouseWheel(true)
+WorldMapDetailFrame:SetParent(scroll)
+scroll:SetScrollChild(WorldMapDetailFrame)
 
-hooksecurefunc(WorldMapDetailFrame, "SetScale", function(_, scale)
-	blobScale = scale
+local zoom = 1
+local maxScrollX, maxScrollY = 0, 0
+local panning, moved, panStartX, panStartY, scrollStartX, scrollStartY
+
+local function redrawBlob()
+	local quest = WORLDMAP_SETTINGS.selectedQuest
+	if not quest or InCombatLockdown() then
+		return
+	end
+	WorldMapBlobFrame:DrawQuestBlob(quest.questId, false)
+	if WorldMapBlobFrame:IsShown() and not quest.completed then
+		WorldMapBlobFrame:DrawQuestBlob(quest.questId, true)
+	end
+end
+
+local function layoutBlob()
+	if InCombatLockdown() then
+		return
+	end
+	WorldMapBlobFrame:SetParent(WorldMapDetailFrame)
+	WorldMapBlobFrame:ClearAllPoints()
+	WorldMapBlobFrame:SetAllPoints(WorldMapDetailFrame)
+	WorldMapBlobFrame:SetScale(zoom)
+	WorldMapBlobFrame.xRatio = nil
+end
+
+local function setScroll(x, y)
+	scroll:SetHorizontalScroll(min(max(x, 0), maxScrollX))
+	scroll:SetVerticalScroll(min(max(y, 0), maxScrollY))
+end
+
+local function setZoom(scale)
+	zoom = scale
+	local inverse = 1 / scale
+
+	WorldMapDetailFrame:SetScale(scale)
+	WorldMapPOIFrame:SetScale(1 / WORLDMAP_SETTINGS.size)
+	WorldMapBlobFrame:SetScale(scale)
+	WorldMapBlobFrame.xRatio = nil
+
+	WorldMapPlayer:SetScale(inverse)
+	WorldMapCorpse:SetScale(inverse)
+	WorldMapDeathRelease:SetScale(inverse)
+	for i = 1, NUM_WORLDMAP_FLAGS do
+		_G["WorldMapFlag" .. i]:SetScale(inverse)
+	end
+	for i = 1, MAX_PARTY_MEMBERS do
+		_G["WorldMapParty" .. i]:SetScale(inverse)
+	end
+	for i = 1, MAX_RAID_MEMBERS do
+		_G["WorldMapRaid" .. i]:SetScale(inverse)
+	end
+	for _, vehicle in ipairs(MAP_VEHICLES) do
+		vehicle:SetScale(inverse)
+	end
+
+	maxScrollX = MAP_WIDTH - MAP_WIDTH * inverse
+	maxScrollY = MAP_HEIGHT - MAP_HEIGHT * inverse
+end
+
+local function resetZoom()
+	setZoom(MIN_ZOOM)
+	setScroll(0, 0)
+	WorldMapFrame_UpdateQuests()
+	redrawBlob()
+end
+
+local function reanchor(frame, relativeTo)
+	local point, oldRelativeTo, relativePoint, x, y = frame:GetPoint()
+	if oldRelativeTo == WorldMapDetailFrame then
+		frame:ClearAllPoints()
+		frame:SetPoint(point, relativeTo, relativePoint, x, y)
+	end
+end
+
+local coords = CreateFrame("Frame", nil, WorldMapFrame)
+coords:SetFrameLevel(WORLDMAP_POI_FRAMELEVEL)
+local cursorText = coords:CreateFontString(nil, "OVERLAY")
+cursorText:SetFont(ns.Media.font, 12, "OUTLINE")
+local playerText = coords:CreateFontString(nil, "OVERLAY")
+playerText:SetFont(ns.Media.font, 12, "OUTLINE")
+
+local function captureDetailAnchor()
+	local point, relativeTo, relativePoint, x, y = WorldMapDetailFrame:GetPoint()
+	if not point or (relativeTo == scroll and x == 0 and y == 0) then
+		return
+	end
+	if relativeTo == scroll then
+		relativeTo = WorldMapFrame
+	end
+	scroll:ClearAllPoints()
+	scroll:SetPoint(point, relativeTo, relativePoint, x, y)
+	WorldMapDetailFrame:ClearAllPoints()
+	WorldMapDetailFrame:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
+end
+
+local function applyLayout()
+	local size = WORLDMAP_SETTINGS.size
+
+	captureDetailAnchor()
+	cursorText:ClearAllPoints()
+	playerText:ClearAllPoints()
+	if size == WORLDMAP_WINDOWED_SIZE then
+		cursorText:SetPoint("BOTTOMLEFT", scroll, "BOTTOM", 20, -22)
+		playerText:SetPoint("BOTTOMRIGHT", scroll, "BOTTOM", -20, -22)
+	else
+		cursorText:SetPoint("BOTTOMLEFT", WorldMapPositioningGuide, "BOTTOM", 50, 10)
+		playerText:SetPoint("BOTTOMRIGHT", WorldMapPositioningGuide, "BOTTOM", -50, 10)
+	end
+	scroll:SetScale(size)
+
+	WorldMapButton:SetParent(WorldMapDetailFrame)
+	WorldMapButton:SetScale(1)
+	WorldMapButton:ClearAllPoints()
+	WorldMapButton:SetAllPoints(WorldMapDetailFrame)
+	WorldMapPOIFrame:SetParent(WorldMapDetailFrame)
+	WorldMapPlayer:SetParent(WorldMapDetailFrame)
+
+	reanchor(WorldMapQuestScrollFrame, scroll)
+	reanchor(WorldMapQuestDetailScrollFrame, scroll)
+	reanchor(WorldMapTrackQuest, scroll)
+	reanchor(WorldMapQuestShowObjectives, scroll)
+	reanchor(WorldMapFrameTitle, scroll)
+
+	setZoom(zoom)
+	setScroll(scroll:GetHorizontalScroll(), scroll:GetVerticalScroll())
+	layoutBlob()
+end
+
+local function setup()
+	zoom = MIN_ZOOM
+	applyLayout()
+	setScroll(0, 0)
+	WorldMapFrame_UpdateQuests()
+end
+
+for _, name in ipairs({ "WorldMapFrame_SetFullMapView", "WorldMapFrame_SetQuestMapView", "WorldMapFrame_SetMiniMode", "WorldMapFrame_ToggleAdvanced", "WorldMap_ToggleSizeUp", "WorldMap_ToggleSizeDown" }) do
+	if _G[name] then
+		hooksecurefunc(name, applyLayout)
+	end
+end
+WorldMapFrame:HookScript("OnShow", setup)
+
+hooksecurefunc("WorldMapQuestShowObjectives_AdjustPosition", function()
+	reanchor(WorldMapQuestShowObjectives, scroll)
 end)
+
+hooksecurefunc("WorldMapFrame_DisplayQuestPOI", function(questFrame)
+	local _, x, y = QuestPOIGetIconInfo(questFrame.questId)
+	local icon = questFrame.poiIcon
+	if not (x and icon) then
+		return
+	end
+	icon:SetScale(WORLDMAP_SETTINGS.size / zoom)
+	icon:SetPoint("CENTER", WorldMapPOIFrame, "TOPLEFT", x * WorldMapDetailFrame:GetWidth() * zoom, -y * WorldMapDetailFrame:GetHeight() * zoom)
+end)
+
+WorldMapFrameAreaFrame:SetParent(WorldMapFrame)
+WorldMapFrameAreaFrame:SetFrameLevel(WORLDMAP_POI_FRAMELEVEL)
+WorldMapFrameAreaFrame:ClearAllPoints()
+WorldMapFrameAreaFrame:SetPoint("TOP", scroll, "TOP", 0, -10)
+
+WorldMapPing.Show = ns.noop
+WorldMapPing:SetModelScale(0)
+
+WorldMapPlayer:ClearAllPoints()
+WorldMapPlayer:SetSize(ARROW_SIZE, ARROW_SIZE)
+WorldMapPlayer.arrow = WorldMapPlayer:CreateTexture(nil, "ARTWORK")
+WorldMapPlayer.arrow:SetAllPoints()
+WorldMapPlayer.arrow:SetTexture(ns.Media.mapArrow)
+
+local function colorUnitIcon(frame, unit)
+	local icon = frame.icon
+	icon:SetTexture(ns.Media.mapUnit)
+	if UnitIsDeadOrGhost(unit) then
+		icon:SetVertexColor(0.3, 0.3, 0.3)
+		return
+	end
+	local _, class = UnitClass(unit)
+	local color = classColors[class]
+	if color then
+		icon:SetVertexColor(unpack(color))
+	else
+		icon:SetVertexColor(0.8, 0.8, 0.8)
+	end
+end
+
+local function placeUnit(frame, x, y, mapWidth, mapHeight)
+	frame:SetPoint("CENTER", WorldMapDetailFrame, "TOPLEFT", x * mapWidth, -y * mapHeight)
+	frame:Show()
+end
+
+local function onPan()
+	local x, y = GetCursorPosition()
+	local scale = WorldMapButton:GetEffectiveScale()
+	local dx = (panStartX - x) / scale
+	local dy = (y - panStartY) / scale
+	if abs(dx) >= 1 or abs(dy) >= 1 then
+		moved = true
+		setScroll(scrollStartX + dx, scrollStartY + dy)
+		redrawBlob()
+	end
+end
+
+local function onUpdate(self)
+	local scale = self:GetEffectiveScale()
+	local x, y = GetCursorPosition()
+	x, y = x / scale, y / scale
+	local width, height = self:GetWidth(), self:GetHeight()
+	local centerX, centerY = self:GetCenter()
+	local adjustedX = (x - (centerX - width / 2)) / width
+	local adjustedY = (centerY + height / 2 - y) / height
+	local mouseOver = self:IsMouseOver() and scroll:IsMouseOver()
+
+	local name, fileName, texPercentX, texPercentY, textureX, textureY, scrollChildX, scrollChildY
+	if mouseOver then
+		name, fileName, texPercentX, texPercentY, textureX, textureY, scrollChildX, scrollChildY = UpdateMapHighlight(adjustedX, adjustedY)
+		cursorText:SetFormattedText(COORD_FORMAT, "Cursor", adjustedX * 100, adjustedY * 100)
+	else
+		cursorText:SetText("")
+	end
+
+	WorldMapFrame.areaName = name
+	if not WorldMapFrame.poiHighlight then
+		WorldMapFrameAreaLabel:SetText(name)
+	end
+	if fileName then
+		WorldMapHighlight:SetTexCoord(0, texPercentX, 0, texPercentY)
+		WorldMapHighlight:SetTexture("Interface\\WorldMap\\" .. fileName .. "\\" .. fileName .. "Highlight")
+		textureX = textureX * width
+		textureY = textureY * height
+		if textureX > 0 and textureY > 0 then
+			WorldMapHighlight:SetSize(textureX, textureY)
+			WorldMapHighlight:SetPoint("TOPLEFT", WorldMapDetailFrame, "TOPLEFT", scrollChildX * width, -scrollChildY * height)
+			WorldMapHighlight:Show()
+		end
+	else
+		WorldMapHighlight:Hide()
+	end
+
+	local mapWidth, mapHeight = WorldMapDetailFrame:GetWidth() * zoom, WorldMapDetailFrame:GetHeight() * zoom
+
+	UpdateWorldMapArrowFrames()
+	ShowWorldMapArrowFrame(nil)
+	local playerX, playerY = GetPlayerMapPosition("player")
+	if playerX == 0 and playerY == 0 then
+		WorldMapPlayer:Hide()
+		playerText:SetText("")
+	else
+		WorldMapPlayer.arrow:SetRotation(PlayerArrowFrame:GetFacing())
+		placeUnit(WorldMapPlayer, playerX, playerY, mapWidth, mapHeight)
+		playerText:SetFormattedText(COORD_FORMAT, "Player", playerX * 100, playerY * 100)
+	end
+
+	local playerCount = 0
+	if GetNumRaidMembers() > 0 then
+		for i = 1, MAX_PARTY_MEMBERS do
+			_G["WorldMapParty" .. i]:Hide()
+		end
+		for i = 1, MAX_RAID_MEMBERS do
+			local unit = "raid" .. i
+			local unitX, unitY = GetPlayerMapPosition(unit)
+			local frame = _G["WorldMapRaid" .. (playerCount + 1)]
+			if (unitX == 0 and unitY == 0) or UnitIsUnit(unit, "player") then
+				frame:Hide()
+			else
+				frame.name = nil
+				frame.unit = unit
+				colorUnitIcon(frame, unit)
+				placeUnit(frame, unitX, unitY, mapWidth, mapHeight)
+				playerCount = playerCount + 1
+			end
+		end
+	else
+		for i = 1, MAX_PARTY_MEMBERS do
+			local unit = "party" .. i
+			local unitX, unitY = GetPlayerMapPosition(unit)
+			local frame = _G["WorldMapParty" .. i]
+			if unitX == 0 and unitY == 0 then
+				frame:Hide()
+			else
+				colorUnitIcon(frame, unit)
+				placeUnit(frame, unitX, unitY, mapWidth, mapHeight)
+			end
+		end
+	end
+
+	for i = playerCount + 1, MAX_RAID_MEMBERS do
+		local unitX, unitY, unitName = GetBattlefieldPosition(i - playerCount)
+		local frame = _G["WorldMapRaid" .. i]
+		if unitX == 0 and unitY == 0 then
+			frame:Hide()
+		else
+			frame.name = unitName
+			frame.unit = nil
+			frame.icon:SetTexture(UNIT_ICON_DEFAULT)
+			frame.icon:SetVertexColor(1, 1, 1)
+			placeUnit(frame, unitX, unitY, mapWidth, mapHeight)
+		end
+	end
+
+	local numFlags = GetNumBattlefieldFlagPositions()
+	for i = 1, NUM_WORLDMAP_FLAGS do
+		local frame = _G["WorldMapFlag" .. i]
+		if i > numFlags then
+			frame:Hide()
+		else
+			local flagX, flagY, flagToken = GetBattlefieldFlagPosition(i)
+			if flagX == 0 and flagY == 0 then
+				frame:Hide()
+			else
+				_G["WorldMapFlag" .. i .. "Texture"]:SetTexture("Interface\\WorldStateFrame\\" .. flagToken)
+				placeUnit(frame, flagX, flagY, mapWidth, mapHeight)
+			end
+		end
+	end
+
+	local corpseX, corpseY = GetCorpseMapPosition()
+	if corpseX == 0 and corpseY == 0 then
+		WorldMapCorpse:Hide()
+	else
+		placeUnit(WorldMapCorpse, corpseX, corpseY, mapWidth, mapHeight)
+	end
+
+	local releaseX, releaseY = GetDeathReleasePosition()
+	if (releaseX == 0 and releaseY == 0) or UnitIsGhost("player") then
+		WorldMapDeathRelease:Hide()
+	else
+		placeUnit(WorldMapDeathRelease, releaseX, releaseY, mapWidth, mapHeight)
+	end
+
+	local numVehicles = 0
+	if not (GetCurrentMapContinent() == WORLDMAP_WORLD_ID or (GetCurrentMapContinent() ~= -1 and GetCurrentMapZone() == 0)) then
+		numVehicles = GetNumBattlefieldVehicles()
+	end
+	for i = 1, numVehicles do
+		local frame = MAP_VEHICLES[i]
+		if not frame then
+			local vehicleName = "WorldMapVehicles" .. i
+			frame = CreateFrame("Frame", vehicleName, WorldMapButton, "WorldMapVehicleTemplate")
+			frame.texture = _G[vehicleName .. "Texture"]
+			frame:SetScale(1 / zoom)
+			MAP_VEHICLES[i] = frame
+		end
+		local vehicleX, vehicleY, unitName, isPossessed, vehicleType, orientation, isPlayer, isAlive = GetBattlefieldVehicleInfo(i)
+		if vehicleX and isAlive and not isPlayer and VEHICLE_TEXTURES[vehicleType] then
+			frame.texture:SetRotation(orientation)
+			frame.texture:SetTexture(WorldMap_GetVehicleTexture(vehicleType, isPossessed))
+			frame:SetSize(VEHICLE_TEXTURES[vehicleType].width, VEHICLE_TEXTURES[vehicleType].height)
+			frame.name = unitName
+			placeUnit(frame, vehicleX, vehicleY, mapWidth, mapHeight)
+		else
+			frame:Hide()
+		end
+	end
+	for i = numVehicles + 1, #MAP_VEHICLES do
+		MAP_VEHICLES[i]:Hide()
+	end
+
+	if panning then
+		onPan()
+	end
+end
+
+WorldMapButton:SetScript("OnUpdate", onUpdate)
+
+scroll:SetScript("OnMouseWheel", function(self, delta)
+	local oldZoom = zoom
+	local newZoom = min(max(oldZoom * (1 + delta * ZOOM_STEP), MIN_ZOOM), MAX_ZOOM)
+	if newZoom == oldZoom then
+		return
+	end
+
+	local scale = self:GetEffectiveScale()
+	local cursorX, cursorY = GetCursorPosition()
+	local frameX = cursorX / scale - self:GetLeft()
+	local frameY = self:GetTop() - cursorY / scale
+	local scrollX, scrollY = self:GetHorizontalScroll(), self:GetVerticalScroll()
+
+	setZoom(newZoom)
+	setScroll(scrollX + frameX / oldZoom - frameX / newZoom, scrollY + frameY / oldZoom - frameY / newZoom)
+	WorldMapFrame_UpdateQuests()
+	redrawBlob()
+end)
+
+WorldMapButton:SetScript("OnMouseDown", function(_, button)
+	if button == "LeftButton" and zoom > MIN_ZOOM then
+		panning = true
+		moved = false
+		panStartX, panStartY = GetCursorPosition()
+		scrollStartX, scrollStartY = scroll:GetHorizontalScroll(), scroll:GetVerticalScroll()
+	end
+end)
+
+local originalOnClick = WorldMapButton:GetScript("OnClick")
+local blizzardOnClick = originalOnClick or WorldMapButton_OnClick
+
+local function onClick(self, button)
+	if moved then
+		moved = false
+		return
+	end
+	blizzardOnClick(self, button)
+	if zoom > MIN_ZOOM then
+		resetZoom()
+	end
+end
+
+WorldMapButton:SetScript("OnMouseUp", function(self, button)
+	panning = false
+	if not originalOnClick then
+		onClick(self, button)
+	end
+end)
+
+if originalOnClick then
+	WorldMapButton:SetScript("OnClick", onClick)
+end
+
+for _, dropdown in ipairs({ WorldMapContinentDropDown, WorldMapZoneDropDown, WorldMapZoneMinimapDropDown, WorldMapLevelDropDown }) do
+	local button = dropdown and _G[dropdown:GetName() .. "Button"]
+	if button then
+		button:HookScript("OnClick", function()
+			DropDownList1:SetScale(WorldMapFrame:GetEffectiveScale())
+		end)
+	end
+end
+
+hooksecurefunc(WorldMapTooltip, "Show", function(self)
+	self:SetFrameStrata("TOOLTIP")
+end)
+
+local function zoneId()
+	return GetCurrentMapZone() + GetCurrentMapContinent() * 100
+end
+
+local realZone, battlefieldMinimapOnUpdate
+
+WorldMapFrame:HookScript("OnShow", function()
+	realZone = zoneId()
+	if BattlefieldMinimap then
+		battlefieldMinimapOnUpdate = BattlefieldMinimap:GetScript("OnUpdate")
+		BattlefieldMinimap:SetScript("OnUpdate", nil)
+	end
+end)
+
+WorldMapFrame:HookScript("OnHide", function()
+	SetMapToCurrentZone()
+	if BattlefieldMinimap then
+		BattlefieldMinimap:SetScript("OnUpdate", battlefieldMinimapOnUpdate or BattlefieldMinimap_OnUpdate)
+	end
+end)
+
+Misc:RegisterEvent("ZONE_CHANGED_NEW_AREA", function()
+	local current = zoneId()
+	if realZone == current or (current % 100 > 0 and GetPlayerMapPosition("player") ~= 0) then
+		SetMapToCurrentZone()
+		realZone = zoneId()
+	end
+end)
+
+local blobWasShown
 
 Misc:RegisterEvent("PLAYER_REGEN_DISABLED", function()
 	blobWasShown = WorldMapFrame:IsShown() and WorldMapBlobFrame:IsShown()
@@ -67,24 +557,13 @@ Misc:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 	WorldMapBlobFrame.SetScale = nil
 	WorldMapBlobFrame.SetFrameLevel = nil
 
-	local level = WorldMapDetailFrame:GetFrameLevel() + 1
-	WorldMapBlobFrame:SetParent(WorldMapFrame)
-	WorldMapBlobFrame:ClearAllPoints()
-	WorldMapBlobFrame:SetPoint("TOPLEFT", WorldMapDetailFrame)
-	WorldMapBlobFrame:SetScale(blobScale or WORLDMAP_SETTINGS.size)
-	WorldMapBlobFrame:SetFrameLevel(level)
-	WorldMapBlobFrame:SetFrameLevel(level)
+	layoutBlob()
 
 	if blobWasShown then
 		WorldMapBlobFrame:Show()
 		WorldMapBlobFrame_CalculateHitTranslations()
 	end
-	if WORLDMAP_SETTINGS.selectedQuest then
-		WorldMapBlobFrame:DrawQuestBlob(WORLDMAP_SETTINGS.selectedQuest.questId, false)
-		if blobWasShown and not WORLDMAP_SETTINGS.selectedQuest.completed then
-			WorldMapBlobFrame:DrawQuestBlob(WORLDMAP_SETTINGS.selectedQuest.questId, true)
-		end
-	end
+	redrawBlob()
 end)
 
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()

@@ -4,6 +4,8 @@ local MEDIA_PATH = "Interface\\AddOns\\" .. ADDON_NAME .. "\\Media\\"
 
 ns.Media = {
 	buttonNormal = MEDIA_PATH .. "textureNormal",
+	mapArrow = MEDIA_PATH .. "mapArrow",
+	mapUnit = MEDIA_PATH .. "mapUnit",
 	buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
 	blank = "Interface\\Buttons\\WHITE8x8",
 	border = "Interface\\Tooltips\\UI-Tooltip-Border",
