@@ -23,7 +23,8 @@ local CAST_SHIELDED_COLOR = { 0.4, 0.4, 0.4 }
 local TOTEM_ICON_SIZE = 24
 local RAID_ICON_SIZE = 22
 local ICON_TEXCOORD = { 0.07, 0.93, 0.07, 0.93 }
-local CHAT_BUBBLE_MAX_WIDTH = 310
+
+ns.CHAT_BUBBLE_CREATED = "FrostAtomUI_CHAT_BUBBLE_CREATED"
 
 ns:GetModule("CVars"):Pin("showVKeyCastbar", "1", "SHOW_TARGET_CASTBAR_IN_V_KEY")
 ns:GetModule("CVars"):Pin("ShowClassColorInNameplate", "1")
@@ -309,38 +310,6 @@ function NamePlates:GetTargetPlate()
 	end
 end
 
-local function onChatBubbleShow(bubble)
-	local text = bubble.text
-	bubble.bg:SetSize(math.min(text:GetStringWidth(), CHAT_BUBBLE_MAX_WIDTH) + 8, text:GetStringHeight() + 8)
-end
-
-local function collapseRegions(first, region, nextRegion, ...)
-	if not nextRegion then
-		return first, region
-	end
-	region:SetTexture(nil)
-	region:Hide()
-	return collapseRegions(first, nextRegion, ...)
-end
-
-local function setupChatBubble(bubble)
-	local bg, text = collapseRegions(bubble:GetRegions())
-
-	bg:SetTexture(0, 0, 0, 0.5)
-	bg:ClearAllPoints()
-	bg:SetPoint("CENTER")
-
-	local r, g, b = text:GetTextColor()
-	text:SetFontObject("NumberFontNormal")
-	text:SetTextColor(r, g, b)
-
-	bubble.bg = bg
-	bubble.text = text
-
-	onChatBubbleShow(bubble)
-	bubble:SetScript("OnShow", onChatBubbleShow)
-end
-
 local function identifyFrame(frame)
 	if frame:GetName() or not frame.GetRegions then
 		return
@@ -375,7 +344,7 @@ local function setupNewChildren(frame, ...)
 	if kind == "NamePlate" then
 		safeSetup(setupNamePlate, frame)
 	elseif kind == "ChatBubble" then
-		safeSetup(setupChatBubble, frame)
+		ns:Fire(ns.CHAT_BUBBLE_CREATED, frame)
 	end
 
 	return setupNewChildren(...)

@@ -13,6 +13,21 @@ local Chat = ns:NewModule("Chat")
 
 ns:GetModule("CVars"):Pin("chatStyle", "classic")
 
+local STICKY_TYPES = {
+	"SAY",
+	"YELL",
+	"WHISPER",
+	"BN_WHISPER",
+	"PARTY",
+	"RAID",
+	"RAID_WARNING",
+	"BATTLEGROUND",
+	"GUILD",
+	"OFFICER",
+	"CHANNEL",
+	"EMOTE",
+}
+
 local function enableClassColors()
 	for chatType, info in pairs(ChatTypeInfo) do
 		if not info.colorNameByClass then
@@ -21,10 +36,52 @@ local function enableClassColors()
 	end
 end
 
+local function enableSticky()
+	for _, chatType in ipairs(STICKY_TYPES) do
+		local info = ChatTypeInfo[chatType]
+		if info then
+			info.sticky = 1
+		end
+	end
+end
+
 function Chat:Initialize()
 	enableClassColors()
+	enableSticky()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", enableClassColors)
 end
+
+local function groupChatType()
+	local _, instanceType = IsInInstance()
+	if instanceType == "pvp" then
+		return "BATTLEGROUND"
+	elseif GetNumRaidMembers() > 0 then
+		return "RAID"
+	elseif GetNumPartyMembers() > 0 then
+		return "PARTY"
+	end
+	return "SAY"
+end
+
+SlashCmdList.FROSTATOMUI_GROUP = function(text)
+	if text:trim() ~= "" then
+		SendChatMessage(text, groupChatType())
+	end
+end
+SLASH_FROSTATOMUI_GROUP1 = "/gr"
+
+SlashCmdList.FROSTATOMUI_CLEAR = function()
+	local chatFrame = SELECTED_DOCK_FRAME or ChatFrame1
+	chatFrame:Clear()
+end
+SLASH_FROSTATOMUI_CLEAR1 = "/clear"
+
+SlashCmdList.FROSTATOMUI_CLEARALL = function()
+	for i = 1, NUM_CHAT_WINDOWS do
+		_G["ChatFrame" .. i]:Clear()
+	end
+end
+SLASH_FROSTATOMUI_CLEARALL1 = "/clearall"
 
 CombatLog_LoadUI = ns.noop
 Blizzard_CombatLog_Update_QuickButtons = ns.noop
@@ -36,8 +93,24 @@ Chat:RegisterEvent("UI_ERROR_MESSAGE", function(_, message)
 	end
 end)
 
+local function switchChatType(editBox, chatType, tellTarget)
+	editBox:SetAttribute("tellTarget", tellTarget)
+	editBox:SetAttribute("chatType", chatType)
+	editBox.setText = 1
+	editBox.text = ""
+	editBox:SetFocus()
+	ChatEdit_UpdateHeader(editBox)
+end
+
 hooksecurefunc("ChatEdit_OnSpacePressed", function(editBox)
-	if not editBox:GetText():lower():find("^/[wt]t ") or not UnitIsPlayer("target") then
+	local text = editBox:GetText():lower()
+
+	if text == "/gr " then
+		switchChatType(editBox, groupChatType())
+		return
+	end
+
+	if not text:find("^/[wt]t ") or not UnitIsPlayer("target") then
 		return
 	end
 
@@ -49,12 +122,7 @@ hooksecurefunc("ChatEdit_OnSpacePressed", function(editBox)
 		name = name .. "-" .. realm
 	end
 
-	editBox:SetAttribute("tellTarget", name)
-	editBox:SetAttribute("chatType", "WHISPER")
-	editBox.setText = 1
-	editBox.text = ""
-	editBox:SetFocus()
-	ChatEdit_UpdateHeader(editBox)
+	switchChatType(editBox, "WHISPER", name)
 end)
 
 local SYSTEM_SPAM = {
@@ -98,22 +166,56 @@ local function shortenChannelName(text)
 	return (text:gsub("%[(%d+)%. [^%]]+%]", "[%1]", 1))
 end
 
-local URL_LINK = "|cff3399ff|Hurl:%1|h[%1]|h|r"
+local URL_LINK = "|cff3399ff|Hurl:%s|h[%s]|h|r"
 local URL_PATTERNS = {
-	"(%a+://[%w%.%-_/#?=&%%:+~@;,!]+)",
-	"(www%.[%w%.%-_/#?=&%%:+~@;,!]+)",
-	"(%d+%.%d+%.%d+%.%d+:?%d*)",
-	"([%w%.%-_]+%.[%a][%a][%a]?[%a]?/[%w%.%-_/#?=&%%:+~@;,!]*)",
+	"%f[%S](%a[%w+.%-]+://%S+)",
+	"%f[%S](www%.[%w_%%%-]+%.%S+)",
+	"%f[%S](%d+%.%d+%.%d+%.%d+:?%d*/?%S*)",
+	"%f[%S]([%w_%.%%%-]+%.(%a%a+)[:/]%S+)",
+	"%f[%S]([%w_%.%%%-]+%.(%a%a+))%f[%s%p%z]",
 }
+
+local URL_TLDS = {}
+for tld in ("com net org ru su ua by kz eu de fr uk io gg tv me co info biz dev app xyz pro club online site live"):gmatch("%S+") do
+	URL_TLDS[tld] = true
+end
+
+local function linkUrl(url, tld)
+	if tld and not URL_TLDS[tld:lower()] then
+		return
+	end
+	return URL_LINK:format(url, url)
+end
 
 local function linkUrlsInPlainText(text)
 	for _, pattern in ipairs(URL_PATTERNS) do
-		local linked, count = text:gsub(pattern, URL_LINK)
-		if count > 0 then
+		local replaced = false
+		local linked = text:gsub(pattern, function(url, tld)
+			local link = linkUrl(url, tld)
+			replaced = replaced or link ~= nil
+			return link
+		end)
+		if replaced then
 			return linked
 		end
 	end
 	return text
+end
+
+local function firstUTF8Char(text)
+	return text:match("^[%z\1-\127\194-\244][\128-\191]*")
+end
+
+local function shortenRealm(text)
+	if not text:find("|Hplayer:[^|]*%-") then
+		return text
+	end
+	return (text:gsub("(|Hplayer:[^|]*%-[^|]*|h)(.-)(|h)", function(link, display, close)
+		display = display:gsub("%-([^%]|]+)", function(realm)
+			return "-" .. firstUTF8Char(realm)
+		end, 1)
+		return link .. display .. close
+	end))
 end
 
 local function linkUrls(text)
@@ -175,7 +277,7 @@ function SetItemRef(link, ...)
 	end
 end
 
-local MAX_LINES = 300
+local MAX_LINES = 1000
 
 Chat.lines = {}
 local rawAddMessage = {}
@@ -200,7 +302,7 @@ local function hookAddMessage(chatFrame)
 
 	chatFrame.AddMessage = function(self, text, r, g, b, ...)
 		if type(text) == "string" then
-			text = date(TIMESTAMP_FORMAT) .. linkUrls(shortenChannelName(text))
+			text = date(TIMESTAMP_FORMAT) .. linkUrls(shortenRealm(shortenChannelName(text)))
 			storeLine(self, text, r, g, b)
 		end
 		return addMessage(self, text, r, g, b, ...)
@@ -308,12 +410,33 @@ local function setupEditBox(name)
 	local backdrop = addBackdrop(editBox, 0)
 	backdrop:SetPoint("TOPRIGHT", 0, -4)
 	backdrop:SetPoint("BOTTOMLEFT", 0, 4)
+	editBox.backdrop = backdrop
 end
+
+hooksecurefunc("ChatEdit_UpdateHeader", function(editBox)
+	if not editBox.backdrop then
+		return
+	end
+
+	local chatType = editBox:GetAttribute("chatType")
+	if chatType == "CHANNEL" then
+		local channel = editBox:GetAttribute("channelTarget")
+		chatType = channel and channel ~= 0 and ("CHANNEL" .. channel) or nil
+	end
+
+	local info = chatType and ChatTypeInfo[chatType]
+	if info then
+		editBox.backdrop:SetBackdropBorderColor(info.r, info.g, info.b)
+	else
+		editBox.backdrop:SetBackdropBorderColor(1, 1, 1)
+	end
+end)
 
 local function setupChatFrame(name)
 	local chatFrame = _G[name]
 	chatFrame:SetScript("OnUpdate", nil)
 	chatFrame:SetTimeVisible(30)
+	chatFrame:SetMaxLines(MAX_LINES)
 	chatFrame:SetShadowOffset(0, 0)
 	chatFrame:SetClampRectInsets(-7, -7, -7, -31)
 

@@ -32,6 +32,48 @@ Chat:RegisterEvent("PLAYER_LOGOUT", function()
 	ns:SaveVariable("chat_history", saved)
 end)
 
+local SAVED_COMMANDS = 50
+
+local commandHistory = {}
+
+local function editBoxCommand(editBox)
+	local text = editBox:GetText()
+	if text == "" then
+		return
+	end
+
+	local chatType = editBox:GetAttribute("chatType")
+	local header = _G["SLASH_" .. chatType .. "1"] or ""
+	if chatType == "WHISPER" then
+		header = header .. " " .. (editBox:GetAttribute("tellTarget") or "")
+	elseif chatType == "CHANNEL" then
+		header = "/" .. (editBox:GetAttribute("channelTarget") or "")
+	end
+	return header .. " " .. text
+end
+
+hooksecurefunc(ChatFrame1EditBox, "AddHistoryLine", function(editBox)
+	local command = editBoxCommand(editBox)
+	if not command then
+		return
+	end
+
+	ns.tDeleteItem(commandHistory, command)
+	table.insert(commandHistory, 1, command)
+	while #commandHistory > SAVED_COMMANDS do
+		table.remove(commandHistory)
+	end
+end)
+
+Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
+	commandHistory = db.command_history or commandHistory
+	db.command_history = commandHistory
+
+	for i = #commandHistory, 1, -1 do
+		ChatFrame1EditBox:AddHistoryLine(commandHistory[i])
+	end
+end)
+
 local function plainText(text)
 	text = text:gsub("|T.-|t", "")
 	text = text:gsub("|H.-|h(.-)|h", "%1")
@@ -94,3 +136,22 @@ SlashCmdList.FROSTATOMUI_COPY = function()
 	editBox:HighlightText()
 end
 SLASH_FROSTATOMUI_COPY1 = "/copy"
+
+local copyButton = CreateFrame("Button", nil, ChatFrame1)
+copyButton:SetSize(16, 16)
+copyButton:SetPoint("TOPRIGHT", ChatFrame1, "TOPRIGHT", 4, 4)
+copyButton:SetFrameLevel(ChatFrame1:GetFrameLevel() + 5)
+copyButton:SetNormalTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
+copyButton:SetHighlightTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
+copyButton:SetAlpha(0.4)
+copyButton:SetScript("OnEnter", function(self)
+	self:SetAlpha(1)
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	GameTooltip:SetText("/copy")
+	GameTooltip:Show()
+end)
+copyButton:SetScript("OnLeave", function(self)
+	self:SetAlpha(0.4)
+	GameTooltip:Hide()
+end)
+copyButton:SetScript("OnClick", SlashCmdList.FROSTATOMUI_COPY)

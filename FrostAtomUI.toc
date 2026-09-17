@@ -67,6 +67,8 @@ Modules\CombatLogFix.lua
 Modules\Chat\Chat.lua
 Modules\Chat\WhisperBlock.lua
 Modules\Chat\History.lua
+Modules\Chat\Bubbles.lua
+Modules\Chat\ChannelColors.lua
 
 # Everything else
 Modules\Misc\Tweaks.lua
