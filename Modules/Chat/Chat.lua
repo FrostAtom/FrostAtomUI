@@ -129,11 +129,73 @@ local SYSTEM_SPAM = {
 	"^|cffff0000%[BG Queue Announcer%]:|r",
 }
 
-ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message)
+local QUEUE_ICON = "|TInterface\\Icons\\%s:14:14:0:0:64:64:4:60:4:60|t"
+local QUEUE_MELEE = QUEUE_ICON:format("Ability_MeleeDamage")
+local QUEUE_RANGED = QUEUE_ICON:format("Ability_Marksmanship")
+local QUEUE_HEALER = QUEUE_ICON:format("Spell_Holy_Renew")
+local QUEUE_ON = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t"
+local QUEUE_OFF = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t"
+
+local queueCounts = {}
+
+local function queueRating(low, high)
+	low, high = tonumber(low), tonumber(high)
+	return ("%d |cff7f7f7f[%d-%d]|r"):format((low + high) / 2, low, high)
+end
+
+local function filterQueueSpam(message)
+	local melee = message:match("^Melee classes: (%d+)$")
+	if melee then
+		queueCounts.melee = melee
+		return true
+	end
+	local ranged = message:match("^Ranged classes: (%d+)$")
+	if ranged then
+		queueCounts.ranged = ranged
+		return true
+	end
+	local healers = message:match("^Healers: (%d+)$")
+	if healers then
+		queueCounts.healers = healers
+		return true
+	end
+
+	local mixed = message:match("^Possibility of selecting a mixed arena team %(ignoring specializations%): (%a+)$")
+	if mixed then
+		local text = ("%s %s  %s %s  %s %s  %s"):format(
+			QUEUE_MELEE, queueCounts.melee or "?",
+			QUEUE_RANGED, queueCounts.ranged or "?",
+			QUEUE_HEALER, queueCounts.healers or "?",
+			mixed == "enabled" and QUEUE_ON or QUEUE_OFF
+		)
+		wipe(queueCounts)
+		return false, text
+	end
+
+	local low, high = message:match("^We are looking for the best team for you on the selection rating %[(%d+)%-(%d+)%]$")
+	if low then
+		return false, "Searching team: " .. queueRating(low, high)
+	end
+
+	local teamRating
+	teamRating, low, high = message:match("^Team to fight found! Team rating (%d+), looking for suitable opponents on the rating %[(%d+)%-(%d+)%]$")
+	if teamRating then
+		return false, ("Team found (%s), searching opponents: %s"):format(teamRating, queueRating(low, high))
+	end
+end
+
+ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message, ...)
 	for _, pattern in ipairs(SYSTEM_SPAM) do
 		if message:match(pattern) then
 			return true
 		end
+	end
+
+	local filtered, newMessage = filterQueueSpam(message)
+	if filtered then
+		return true
+	elseif newMessage then
+		return false, newMessage, ...
 	end
 end)
 

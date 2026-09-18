@@ -10,7 +10,7 @@ local PLAYER_AURA = { size = 34, gap = 2, anchor = "TOPRIGHT" }
 local ARENA_COOLDOWN_SKIP = { [42292] = true, [59752] = true, [7744] = true }
 
 local function createPlayer(self, config)
-	local player = self:CreateRectangle("player", 200, 45)
+	local player = self:CreateRectangle("player", 200, 45, "LEFT")
 	player:SetPoint(unpack(config.player))
 
 	local leader = self:AddElement(player, "leader")
@@ -29,6 +29,7 @@ local function createPlayer(self, config)
 	castbar.icon:SetSize(24, 24)
 
 	local loseControl = self:AddElement(player, "losecontrol")
+	loseControl:ClearAllPoints()
 	loseControl:SetSize(32, 32)
 	loseControl:SetPoint("CENTER", UIParent)
 
@@ -79,7 +80,7 @@ local function createParty(self, config)
 
 	for i = 1, MAX_PARTY_MEMBERS do
 		local unit = "party" .. i
-		local frame = self:CreateRectangle(unit, 180, 40)
+		local frame = self:CreateRectangle(unit, 180, 40, "LEFT")
 		frame:SetPoint(point, x, y - (i - 1) * config.partySpacing)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "UpdateAll")
 
@@ -100,9 +101,7 @@ local function createParty(self, config)
 		castbar:SetPoint("BOTTOM", frame, "TOP")
 		castbar.icon:SetSize(22, 22)
 
-		local loseControl = self:AddElement(frame, "losecontrol")
-		loseControl:SetSize(30, 30)
-		loseControl:SetPoint("CENTER")
+		self:AddElement(frame, "losecontrol")
 
 		local cooldowns = self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
 		cooldowns:SetPoint("TOPLEFT", frame, "BOTTOMRIGHT")
@@ -121,7 +120,7 @@ local function createArena(self, config)
 	local trinketSize = ns.Config.arenaTrinket.size
 
 	for i = 1, MAX_ARENA_OPPONENTS do
-		local frame = self:CreateRectangle("arena" .. i, 200, 50)
+		local frame = self:CreateRectangle("arena" .. i, 200, 50, "RIGHT")
 		frame:SetPoint(point, x, y + (MAX_ARENA_OPPONENTS - i) * config.arenaSpacing)
 
 		local debuffs = self:AddElement(frame, "debuffs", { size = 200 / 8, max = 16 })
@@ -132,9 +131,7 @@ local function createArena(self, config)
 		castbar:SetPoint("TOPRIGHT", frame, "TOPLEFT", 0, -2)
 		castbar.icon:SetSize(37, 37)
 
-		local loseControl = self:AddElement(frame, "losecontrol")
-		loseControl:SetSize(32, 32)
-		loseControl:SetPoint("CENTER")
+		self:AddElement(frame, "losecontrol")
 
 		local raidIcon = self:AddElement(frame, "raidicon")
 		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)

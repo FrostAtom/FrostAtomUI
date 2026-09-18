@@ -16,6 +16,8 @@ Core\Config.lua
 
 # Shared widgets
 Modules\CooldownTimer.lua
+Modules\CooldownData.lua
+Modules\Talents.lua
 Modules\CooldownTracker.lua
 
 # Action bars
@@ -34,6 +36,7 @@ Modules\UnitFrames\Elements\Health.lua
 Modules\UnitFrames\Elements\Power.lua
 Modules\UnitFrames\Elements\Name.lua
 Modules\UnitFrames\Elements\Combat.lua
+Modules\UnitFrames\Elements\ClassIcon.lua
 Modules\UnitFrames\Elements\Leader.lua
 Modules\UnitFrames\Elements\RaidIcon.lua
 Modules\UnitFrames\Elements\ComboPoints.lua

@@ -106,20 +106,37 @@ function UF:CreateBase(unit)
 	return frame
 end
 
-function UF:CreateRectangle(unit, width, height)
+function UnitFrameMixin:SetContentInset(inset)
+	local left, right = BORDER_INSET, -BORDER_INSET
+	if self.iconSide == "LEFT" then
+		left = left + inset
+	elseif self.iconSide == "RIGHT" then
+		right = right - inset
+	end
+	self.health:SetPoint("TOPRIGHT", right, -BORDER_INSET)
+	self.health:SetPoint("BOTTOMLEFT", left, BORDER_INSET + self.innerHeight / 3)
+	self.power:SetPoint("BOTTOMLEFT", left, BORDER_INSET)
+end
+
+function UF:CreateRectangle(unit, width, height, iconSide)
 	local frame = self:CreateBase(unit)
 	frame:SetSize(width, height)
+	frame.iconSide = iconSide
+	frame.innerHeight = height - BORDER_INSET * 2
 
-	local innerHeight = height - BORDER_INSET * 2
 	local health = self:AddElement(frame, "health")
-	health:SetPoint("TOPRIGHT", -BORDER_INSET, -BORDER_INSET)
-	health:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET + innerHeight / 3)
 	health.text:SetPoint("BOTTOMRIGHT")
 
 	local power = self:AddElement(frame, "power")
 	power:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT")
-	power:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET)
 	power.text:SetPoint("BOTTOMRIGHT")
+
+	frame:SetContentInset(0)
+
+	if iconSide then
+		local icon = self:AddElement(frame, "classicon", frame.innerHeight)
+		icon:SetPoint("TOP" .. iconSide, iconSide == "LEFT" and BORDER_INSET or -BORDER_INSET, -BORDER_INSET)
+	end
 
 	local name = self:AddElement(frame, "name")
 	name:SetJustifyH("RIGHT")
@@ -174,7 +191,7 @@ function UF:CreateTargetOfTarget(unit, size)
 end
 
 function UF:CreateTarget(unit, width, height)
-	local frame = self:CreateRectangle(unit, width, height)
+	local frame = self:CreateRectangle(unit, width, height, "RIGHT")
 
 	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
 	targetOfTarget:SetPoint("LEFT", frame, "RIGHT", 20)
@@ -190,9 +207,7 @@ function UF:CreateTarget(unit, width, height)
 	castbar:SetPoint("TOPLEFT", debuffs, "BOTTOMLEFT")
 	castbar.icon:SetSize(width * 0.1 + 2, width * 0.1 + 2)
 
-	local loseControl = self:AddElement(frame, "losecontrol")
-	loseControl:SetSize(30, 30)
-	loseControl:SetPoint("CENTER")
+	self:AddElement(frame, "losecontrol")
 
 	return frame, targetOfTarget
 end

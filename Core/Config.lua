@@ -40,7 +40,7 @@ ns.Config = {
 		spacing = 4,
 		inventoryColumns = 10,
 		bankColumns = 16,
-		inventory = { "BOTTOMRIGHT", -40, 120 },
+		inventory = { "BOTTOMRIGHT", -13, 64 },
 		bank = { "LEFT", 60, 0 },
 	},
 }

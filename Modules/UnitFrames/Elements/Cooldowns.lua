@@ -11,6 +11,9 @@ local CooldownTracker = ns:GetModule("CooldownTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local EXPIRY_CHECK_INTERVAL = 0.5
+local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
+local GLOW_SCALE = 1.75
+local GLOW_COLOR = { 1, 0.85, 0.3 }
 
 local function onIconEnter(icon)
 	GameTooltip:SetOwner(icon, "ANCHOR_BOTTOMRIGHT")
@@ -36,6 +39,14 @@ local function createIcon(container, index)
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
 	icon.cooldown:SetAllPoints()
 	CooldownTimer:Attach(icon.cooldown, container.size * 0.4)
+
+	icon.glow = icon:CreateTexture(nil, "OVERLAY")
+	icon.glow:SetPoint("CENTER")
+	icon.glow:SetSize(container.size * GLOW_SCALE, container.size * GLOW_SCALE)
+	icon.glow:SetTexture(GLOW_TEXTURE)
+	icon.glow:SetBlendMode("ADD")
+	icon.glow:SetVertexColor(unpack(GLOW_COLOR))
+	icon.glow:Hide()
 
 	return icon
 end
@@ -71,13 +82,18 @@ local function refresh(container)
 			icon.texture:SetTexture((select(3, GetSpellInfo(id))))
 
 			local start, duration = CooldownTracker:GetCooldown(container.guid, id)
+			local highlighted = CooldownTracker:IsHighlighted(container.guid, id)
 			if start then
-				icon.texture:SetDesaturated(true)
 				icon.cooldown:SetCooldown(start, duration)
 				nextExpiry = math.min(nextExpiry, start + duration)
 			else
-				icon.texture:SetDesaturated(false)
 				icon.cooldown:SetCooldown(0, 0)
+			end
+			icon.texture:SetDesaturated(start ~= nil and not highlighted)
+			if highlighted then
+				icon.glow:Show()
+			else
+				icon.glow:Hide()
 			end
 			icon:Show()
 		end
@@ -121,6 +137,7 @@ local function create(frame, options)
 	container.Refresh = refresh
 
 	frame:RegisterEvent(ns.COOLDOWN_UPDATED, onCooldownUpdated)
+	frame:RegisterEvent(ns.TALENTS_UPDATED, onCooldownUpdated)
 	frame:RegisterUnitEvent("UNIT_NAME_UPDATE", update)
 	frame:RegisterEvent("ARENA_OPPONENT_UPDATE", update)
 

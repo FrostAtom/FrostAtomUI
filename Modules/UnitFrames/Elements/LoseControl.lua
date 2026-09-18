@@ -64,6 +64,11 @@ local function create(frame, fontSize)
 
 	loseControl.texture = loseControl:CreateTexture(nil, "BORDER")
 	loseControl.texture:SetAllPoints()
+	loseControl.texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+	if frame.classicon then
+		loseControl:SetAllPoints(frame.classicon)
+	end
 
 	frame:RegisterUnitEvent("UNIT_AURA", update)
 

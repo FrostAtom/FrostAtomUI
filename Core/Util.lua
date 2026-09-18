@@ -34,6 +34,24 @@ function ns.FindAura(unit, wantedSpellId, filter)
 	end
 end
 
+local UnitGUID = UnitGUID
+local GUID_UNITS = {
+	"player", "target", "focus",
+	"party1", "party2", "party3", "party4",
+	"arena1", "arena2", "arena3",
+	"pet", "partypet1", "partypet2", "partypet3", "partypet4",
+	"arenapet1", "arenapet2", "arenapet3",
+}
+
+function ns.UnitByGUID(guid)
+	for i = 1, #GUID_UNITS do
+		local unit = GUID_UNITS[i]
+		if UnitGUID(unit) == guid then
+			return unit
+		end
+	end
+end
+
 function ns.noop() end
 
 function ns.DestroyFrame(frame, deep)
