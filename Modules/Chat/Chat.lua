@@ -133,6 +133,7 @@ local QUEUE_ICON = "|TInterface\\Icons\\%s:14:14:0:0:64:64:4:60:4:60|t"
 local QUEUE_MELEE = QUEUE_ICON:format("Ability_MeleeDamage")
 local QUEUE_RANGED = QUEUE_ICON:format("Ability_Marksmanship")
 local QUEUE_HEALER = QUEUE_ICON:format("Spell_Holy_Renew")
+local QUEUE_GROUPS = QUEUE_ICON:format("Achievement_PVP_A_A")
 local QUEUE_ON = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t"
 local QUEUE_OFF = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t"
 
@@ -144,6 +145,11 @@ local function queueRating(low, high)
 end
 
 local function filterQueueSpam(message)
+	local groups = message:match("^Number of groups in queue Arena 3v3 %(Solo%): (%d+)$")
+	if groups then
+		queueCounts.groups = groups
+		return true
+	end
 	local melee = message:match("^Melee classes: (%d+)$")
 	if melee then
 		queueCounts.melee = melee
@@ -162,7 +168,8 @@ local function filterQueueSpam(message)
 
 	local mixed = message:match("^Possibility of selecting a mixed arena team %(ignoring specializations%): (%a+)$")
 	if mixed then
-		local text = ("%s %s  %s %s  %s %s  %s"):format(
+		local text = ("%s %s  %s %s  %s %s  %s %s  %s"):format(
+			QUEUE_GROUPS, queueCounts.groups or "?",
 			QUEUE_MELEE, queueCounts.melee or "?",
 			QUEUE_RANGED, queueCounts.ranged or "?",
 			QUEUE_HEALER, queueCounts.healers or "?",
