@@ -60,6 +60,7 @@ local function setupModel(model, rotateLeft, rotateRight)
 end
 
 setupModel(CharacterModelFrame, CharacterModelFrameRotateLeftButton, CharacterModelFrameRotateRightButton)
+setupModel(DressUpModel, DressUpModelRotateLeftButton, DressUpModelRotateRightButton)
 
 ns:OnAddonLoaded("Blizzard_InspectUI", function()
 	setupModel(InspectModelFrame, InspectModelRotateLeftButton, InspectModelRotateRightButton)
