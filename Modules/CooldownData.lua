@@ -208,6 +208,7 @@ local SPELLS = {
 }
 
 local SPEC_HINTS = {
+	DEATHKNIGHT = {
 	{ 1, 45, 55050, 55258, 55259, 55260, 55261, 55262 }, -- Heart Strike
 	{ 2, 15, 51124 }, -- Killing Machine
 	{ 2, 30, 59052 }, -- Freezing Fog
@@ -215,7 +216,8 @@ local SPEC_HINTS = {
 	{ 2, 50, 49184, 51409, 51410, 51411 }, -- Howling Blast
 	{ 3, 15, 49194 }, -- Unholy Blight
 	{ 3, 45, 55090, 55265, 55270, 55271 }, -- Scourge Strike
-
+	},
+	DRUID = {
 	{ 1, 10, 16886 }, -- Nature's Grace
 	{ 1, 20, 5570, 24974, 24975, 24976, 24977, 27013, 48468 }, -- Insect Swarm
 	{ 1, 30, 24858 }, -- Moonkin Form
@@ -226,7 +228,8 @@ local SPEC_HINTS = {
 	{ 3, 35, 48504 }, -- Living Seed
 	{ 3, 40, 33891 }, -- Tree of Life
 	{ 3, 50, 53248, 53249, 53250, 53251 }, -- Wild Growth
-
+	},
+	HUNTER = {
 	{ 1, 45, 34692 }, -- The Beast Within
 	{ 2, 10, 19434, 20900, 20901, 20902, 20903, 20904, 27065, 49049, 49050 }, -- Aimed Shot
 	{ 2, 30, 19506 }, -- Trueshot Aura
@@ -235,7 +238,8 @@ local SPEC_HINTS = {
 	{ 3, 35, 34837 }, -- Master Tactician
 	{ 3, 45, 3674, 63668, 63669, 63670, 63671, 63672 }, -- Black Arrow
 	{ 3, 50, 53301, 60051, 60052, 60053 }, -- Explosive Shot
-
+	},
+	MAGE = {
 	{ 1, 15, 54646 }, -- Focus Magic
 	{ 1, 40, 44413 }, -- Incanter's Absorption
 	{ 1, 45, 31589 }, -- Slow
@@ -246,7 +250,8 @@ local SPEC_HINTS = {
 	{ 2, 50, 44457, 55359, 55360 }, -- Living Bomb
 	{ 3, 40, 44544 }, -- Fingers of Frost
 	{ 3, 40, 57761 }, -- Brain Freeze
-
+	},
+	PALADIN = {
 	{ 1, 30, 20473, 20929, 20930, 27174, 33072, 48824, 48825 }, -- Holy Shock
 	{ 1, 45, 53672, 54149 }, -- Infusion of Light
 	{ 1, 50, 53563 }, -- Beacon of Light
@@ -259,7 +264,8 @@ local SPEC_HINTS = {
 	{ 3, 40, 31930 }, -- Judgements of the Wise
 	{ 3, 50, 35395 }, -- Crusader Strike
 	{ 3, 50, 53385 }, -- Divine Storm
-
+	},
+	PRIEST = {
 	{ 1, 35, 63944 }, -- Renewed Hope
 	{ 1, 40, 47753 }, -- Divine Aegis
 	{ 1, 45, 47930 }, -- Grace
@@ -275,7 +281,8 @@ local SPEC_HINTS = {
 	{ 3, 20, 15286 }, -- Vampiric Embrace
 	{ 3, 30, 15473 }, -- Shadowform
 	{ 3, 40, 34914, 34916, 34917, 48159, 48160 }, -- Vampiric Touch
-
+	},
+	ROGUE = {
 	{ 1, 30, 58426, 58427 }, -- Overkill
 	{ 1, 45, 1329, 34411, 34412, 34413, 48663, 48666 }, -- Mutilate
 	{ 1, 45, 52910, 52914, 52915 }, -- Turn the Tables
@@ -286,7 +293,8 @@ local SPEC_HINTS = {
 	{ 3, 25, 16511, 17347, 17348, 26864, 48660 }, -- Hemorrhage
 	{ 3, 25, 31665 }, -- Master of Subtlety
 	{ 3, 30, 45182 }, -- Cheat Death
-
+	},
+	SHAMAN = {
 	{ 1, 10, 16246 }, -- Clearcasting
 	{ 1, 40, 30706, 57720, 57721, 57722 }, -- Totem of Wrath
 	{ 1, 40, 51466, 51470 }, -- Elemental Oath
@@ -301,7 +309,8 @@ local SPEC_HINTS = {
 	{ 3, 45, 974, 32593, 32594, 49283, 49284 }, -- Earth Shield
 	{ 3, 50, 53390 }, -- Tidal Waves
 	{ 3, 50, 61295, 61299, 61300, 61301 }, -- Riptide
-
+	},
+	WARLOCK = {
 	{ 1, 25, 32386, 32388, 32389, 32390, 32391 }, -- Shadow Embrace
 	{ 1, 35, 64368, 64370, 64371 }, -- Eradication
 	{ 1, 40, 30108, 30404, 30405, 47841, 47843 }, -- Unstable Affliction
@@ -313,7 +322,8 @@ local SPEC_HINTS = {
 	{ 3, 30, 17962 }, -- Conflagrate
 	{ 3, 45, 54274, 54276, 54277 }, -- Backdraft
 	{ 3, 50, 50796, 59170, 59171, 59172 }, -- Chaos Bolt
-
+	},
+	WARRIOR = {
 	{ 1, 20, 12328 }, -- Sweeping Strikes
 	{ 1, 20, 60503 }, -- Taste for Blood
 	{ 1, 30, 46856, 46857 }, -- Trauma
@@ -329,19 +339,22 @@ local SPEC_HINTS = {
 	{ 3, 30, 50720 }, -- Vigilance
 	{ 3, 40, 20243, 30016, 30022, 47497, 47498 }, -- Devastate
 	{ 3, 45, 50227 }, -- Sword and Board
+	},
 }
 
 local specHints = {}
-for _, row in ipairs(SPEC_HINTS) do
-	local tree, points = row[1], row[2]
-	for i = 3, #row do
-		specHints[row[i]] = { tree = tree, points = points }
+for class, rows in pairs(SPEC_HINTS) do
+	for _, row in ipairs(rows) do
+		local hint = { class = class, tree = row[1], points = row[2] }
+		for i = 3, #row do
+			specHints[row[i]] = hint
+		end
 	end
 end
-for _, spells in pairs(SPELLS) do
+for class, spells in pairs(SPELLS) do
 	for _, entry in ipairs(spells) do
 		if entry.tree then
-			local hint = { tree = entry.tree, points = entry.points }
+			local hint = { class = class, tree = entry.tree, points = entry.points }
 			specHints[entry[1]] = hint
 			for _, rank in ipairs(entry.ranks or {}) do
 				specHints[rank] = hint

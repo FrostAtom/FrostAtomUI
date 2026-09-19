@@ -9,6 +9,29 @@ local Misc = ns:GetModule("Misc")
 
 local declineDuels = false
 
+local function cancelDuel()
+	CancelDuel()
+end
+
+local function setDeclineDuels(enabled)
+	declineDuels = enabled
+	if enabled then
+		UIParent:UnregisterEvent("DUEL_REQUESTED")
+		Misc:RegisterEvent("DUEL_REQUESTED", cancelDuel)
+	else
+		Misc:UnregisterEvent("DUEL_REQUESTED")
+		UIParent:RegisterEvent("DUEL_REQUESTED")
+	end
+end
+
+UIErrorsFrame:UnregisterEvent("UI_INFO_MESSAGE")
+Misc:RegisterEvent("UI_INFO_MESSAGE", function(_, message)
+	if declineDuels and message == ERR_DUEL_CANCELLED then
+		return
+	end
+	UIErrorsFrame:AddMessage(message, 1, 1, 0, 1)
+end)
+
 local function fillDeleteConfirmation(which)
 	for i = 1, STATICPOPUP_NUMDIALOGS do
 		local dialog = _G["StaticPopup" .. i]
@@ -20,11 +43,7 @@ local function fillDeleteConfirmation(which)
 end
 
 hooksecurefunc("StaticPopup_Show", function(which)
-	if which == "DUEL_REQUESTED" then
-		if declineDuels then
-			StaticPopupDialogs[which].OnCancel()
-		end
-	elseif which == "DEATH" then
+	if which == "DEATH" then
 		local _, instanceType = IsInInstance()
 		if instanceType == "pvp" then
 			StaticPopupDialogs[which].OnAccept()
@@ -79,11 +98,11 @@ Misc:RegisterEvent("CHAT_MSG_WHISPER", FlashWindow)
 Misc:RegisterEvent("PLAYER_LOGOUT", FlashWindow)
 
 Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
-	declineDuels = db.NoDuel
+	setDeclineDuels(db.NoDuel)
 end)
 
 SlashCmdList.FROSTATOMUI_NODUEL = function()
-	declineDuels = not declineDuels
+	setDeclineDuels(not declineDuels)
 	ns:SaveVariable("NoDuel", declineDuels)
 	ns.Print("NoDuel %s", declineDuels and "enabled" or "disabled")
 end

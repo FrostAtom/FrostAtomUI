@@ -415,9 +415,9 @@ local function onCombatLogEvent(self, _, event, sourceGUID, _, sourceFlags, dest
 		return
 	end
 
-	local hint = strsub(event, 1, 6) == "SPELL_" and SPEC_HINTS[spellId]
+	local hint = strsub(event, 1, 6) == "SPELL_" and event ~= "SPELL_AURA_BROKEN_SPELL" and SPEC_HINTS[spellId]
 	if hint then
-		Talents:Observe(sourceGUID, hint.tree, hint.points)
+		Talents:Observe(sourceGUID, hint)
 	end
 
 	if event == "SPELL_CAST_SUCCESS" then

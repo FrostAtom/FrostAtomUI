@@ -7,6 +7,8 @@ CVars:Pin("showItemLevel", "0", "SHOW_ITEM_LEVEL")
 CVars:Pin("groundEffectDist", "0")
 CVars:Pin("showTutorials", "0")
 CVars:Pin("scriptErrors", "1")
+CVars:Pin("cameraDistanceMax", "50")
+CVars:Pin("cameraDistanceMaxFactor", "1")
 
 UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
 

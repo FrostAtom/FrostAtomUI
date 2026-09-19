@@ -207,12 +207,27 @@ function Talents:Has(guid, id)
 	return talents and talents[id]
 end
 
-function Talents:Observe(guid, tree, points)
+local guidClass = {}
+
+local function classOf(guid)
+	local class = guidClass[guid]
+	if class == nil then
+		class = select(2, GetPlayerInfoByGUID(guid)) or false
+		guidClass[guid] = class
+	end
+	return class
+end
+
+function Talents:Observe(guid, hint)
+	if classOf(guid) ~= hint.class then
+		return
+	end
 	local trees = observed[guid]
 	if not trees then
 		trees = {}
 		observed[guid] = trees
 	end
+	local tree, points = hint.tree, hint.points
 	if (trees[tree] or 0) < points then
 		trees[tree] = points
 		ns:Fire(ns.TALENTS_UPDATED, guid)
@@ -359,18 +374,20 @@ local SPEC_HINTS = Data.SPEC_HINTS
 local MAX_AURAS = 40
 
 local function scanAuras(unit)
-	local guid = UnitGUID(unit)
-	if not guid or not UnitIsPlayer(unit) or not UnitCanAttack("player", unit) then
+	if not UnitGUID(unit) or not UnitIsPlayer(unit) or not UnitCanAttack("player", unit) then
 		return
 	end
 	for i = 1, MAX_AURAS do
-		local name, _, _, _, _, _, _, _, _, _, spellId = UnitBuff(unit, i)
+		local name, _, _, _, _, _, _, caster, _, _, spellId = UnitBuff(unit, i)
 		if not name then
 			return
 		end
 		local hint = SPEC_HINTS[spellId]
-		if hint then
-			Talents:Observe(guid, hint.tree, hint.points)
+		if hint and caster and UnitIsPlayer(caster) then
+			local guid = UnitGUID(caster)
+			if guid then
+				Talents:Observe(guid, hint)
+			end
 		end
 	end
 end
