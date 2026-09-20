@@ -36,8 +36,9 @@ local UIParent = UIParent
 local bit_band = bit.band
 local ceil = math.ceil
 local unpack = unpack
+local pairs = pairs
+local wipe = wipe
 local NUM_BAG_SLOTS = NUM_BAG_SLOTS
-local NUM_BANKBAGSLOTS = NUM_BANKBAGSLOTS
 local NUM_BANKGENERIC_SLOTS = NUM_BANKGENERIC_SLOTS
 local BACKPACK_CONTAINER = BACKPACK_CONTAINER
 local BANK_CONTAINER = BANK_CONTAINER
@@ -76,6 +77,7 @@ local bagFrames = {}
 local bagFamilies = {}
 local bagSizes = {}
 local dirtyBags = {}
+local inventoryDirty = false
 local newItems = {}
 local searchCache = {}
 local searchText = ""
@@ -89,6 +91,11 @@ local function bagSize(bag)
 		return NUM_BANKGENERIC_SLOTS
 	end
 	return GetContainerNumSlots(bag)
+end
+
+local function updateBagFamily(bag)
+	local _, family = GetContainerNumFreeSlots(bag)
+	bagFamilies[bag] = family or 0
 end
 
 local function familyColor(family)
@@ -120,7 +127,8 @@ local countsScanned = false
 
 local function scanNewItems()
 	wipe(currentCounts)
-	for _, bag in ipairs(INVENTORY_BAGS) do
+	for i = 1, #INVENTORY_BAGS do
+		local bag = INVENTORY_BAGS[i]
 		for slot = 1, GetContainerNumSlots(bag) do
 			local itemId = GetContainerItemID(bag, slot)
 			if itemId then
@@ -144,13 +152,8 @@ end
 local ItemMixin = {}
 
 function ItemMixin:UpdateSearch()
-	if searchText == "" then
-		self:SetAlpha(1)
-	elseif self.itemId and itemMatchesSearch(self.itemId) then
-		self:SetAlpha(1)
-	else
-		self:SetAlpha(SEARCH_FADE_ALPHA)
-	end
+	local itemId = self.itemId
+	self:SetAlpha((searchText == "" or (itemId and itemMatchesSearch(itemId))) and 1 or SEARCH_FADE_ALPHA)
 end
 
 function ItemMixin:UpdateHighlight()
@@ -174,9 +177,10 @@ function ItemMixin:Update()
 	local bag, slot = self.bag, self.slot
 	local texture, count, locked, quality, readable = GetContainerItemInfo(bag, slot)
 	local link = texture and GetContainerItemLink(bag, slot)
+	local itemId = link and GetContainerItemID(bag, slot)
 
 	self.link = link
-	self.itemId = link and GetContainerItemID(bag, slot)
+	self.itemId = itemId
 	self.hasItem = texture and 1 or nil
 	self.readable = readable
 
@@ -211,7 +215,7 @@ function ItemMixin:Update()
 		self.level:SetText("")
 	end
 
-	if self.itemId and newItems[self.itemId] then
+	if itemId and newItems[itemId] then
 		self.glow:Show()
 	else
 		self.glow:Hide()
@@ -225,10 +229,11 @@ end
 local BagSlotMixin = {}
 
 function BagSlotMixin:GetInventorySlot()
-	if self.bag > NUM_BAG_SLOTS then
-		return BankButtonIDToInvSlotID(self.bag - NUM_BAG_SLOTS, 1)
-	elseif self.bag > BACKPACK_CONTAINER then
-		return ContainerIDToInventoryID(self.bag)
+	local bag = self.bag
+	if bag > NUM_BAG_SLOTS then
+		return BankButtonIDToInvSlotID(bag - NUM_BAG_SLOTS, 1)
+	elseif bag > BACKPACK_CONTAINER then
+		return ContainerIDToInventoryID(bag)
 	end
 end
 
@@ -252,13 +257,12 @@ function BagSlotMixin:Update()
 		icon:SetTexture(texture)
 		icon:SetVertexColor(1, 1, 1)
 		icon:SetDesaturated(IsInventoryItemLocked(invSlot))
+	elseif self:IsPurchasable() then
+		icon:SetTexture(EMPTY_BAG_ICON)
+		icon:SetVertexColor(1, 0.2, 0.2)
 	else
 		icon:SetTexture(EMPTY_BAG_ICON)
-		if self:IsPurchasable() then
-			icon:SetVertexColor(1, 0.2, 0.2)
-		else
-			icon:SetVertexColor(0.5, 0.5, 0.5)
-		end
+		icon:SetVertexColor(0.5, 0.5, 0.5)
 	end
 end
 
@@ -310,10 +314,12 @@ end
 
 local ContainerMixin = {}
 
-function ContainerMixin:ForEachButton(method, ...)
-	for _, button in ipairs(self.buttons) do
+function ContainerMixin:ForEachButton(method)
+	local buttons = self.buttons
+	for i = 1, #buttons do
+		local button = buttons[i]
 		if button:IsShown() then
-			button[method](button, ...)
+			button[method](button)
 		end
 	end
 end
@@ -322,10 +328,10 @@ local itemButtonCount = 0
 
 function ContainerMixin:CreateItemButton(index)
 	itemButtonCount = itemButtonCount + 1
-	local button = CreateFrame("Button", ITEM_BUTTON_NAME:format(itemButtonCount), self.itemArea, "ContainerFrameItemButtonTemplate")
+	local name = ITEM_BUTTON_NAME:format(itemButtonCount)
+	local button = CreateFrame("Button", name, self.itemArea, "ContainerFrameItemButtonTemplate")
 	ns.Mixin(button, ItemMixin)
 	button.container = self
-	local name = button:GetName()
 	local size = config.buttonSize
 
 	button:SetSize(size, size)
@@ -346,17 +352,19 @@ function ContainerMixin:CreateItemButton(index)
 	button.cooldown = _G[name .. "Cooldown"]
 	CooldownTimer:Attach(button.cooldown)
 
-	button.level = button:CreateFontString(nil, "OVERLAY")
-	button.level:SetFont(ns.Media.font, 10, "OUTLINE")
-	button.level:SetPoint("TOPLEFT", 1, -1)
+	local level = button:CreateFontString(nil, "OVERLAY")
+	level:SetFont(ns.Media.font, 10, "OUTLINE")
+	level:SetPoint("TOPLEFT", 1, -1)
+	button.level = level
 
-	button.glow = button:CreateTexture(nil, "OVERLAY")
-	button.glow:SetTexture(GLOW_TEXTURE)
-	button.glow:SetBlendMode("ADD")
-	button.glow:SetVertexColor(0.3, 1, 0.3, 0.8)
-	button.glow:SetSize(size * 1.6, size * 1.6)
-	button.glow:SetPoint("CENTER")
-	button.glow:Hide()
+	local glow = button:CreateTexture(nil, "OVERLAY")
+	glow:SetTexture(GLOW_TEXTURE)
+	glow:SetBlendMode("ADD")
+	glow:SetVertexColor(0.3, 1, 0.3, 0.8)
+	glow:SetSize(size * 1.6, size * 1.6)
+	glow:SetPoint("CENTER")
+	glow:Hide()
+	button.glow = glow
 
 	self.buttons[index] = button
 	return button
@@ -388,8 +396,9 @@ function ContainerMixin:CreateBagButton(bag, index)
 end
 
 function ContainerMixin:UpdateBagButtons()
-	for _, button in ipairs(self.bagButtons) do
-		button:Update()
+	local bagButtons = self.bagButtons
+	for i = 1, #bagButtons do
+		bagButtons[i]:Update()
 	end
 end
 
@@ -420,14 +429,15 @@ function ContainerMixin:CreateCurrency(index)
 end
 
 function ContainerMixin:UpdateCurrencies()
-	if not self.currencies then
+	local currencies = self.currencies
+	if not currencies then
 		return
 	end
 
 	local previous = self.freeText
 	for index = 1, MAX_WATCHED_TOKENS do
 		local name, count, currencyType, icon = GetBackpackCurrencyInfo(index)
-		local currency = self.currencies[index] or self:CreateCurrency(index)
+		local currency = currencies[index] or self:CreateCurrency(index)
 		if name then
 			if currencyType == 1 then
 				icon = ARENA_POINTS_ICON
@@ -448,8 +458,10 @@ function ContainerMixin:UpdateCurrencies()
 end
 
 function ContainerMixin:UpdateInfo()
+	local bags = self.bags
 	local free, total = 0, 0
-	for _, bag in ipairs(self.bags) do
+	for i = 1, #bags do
+		local bag = bags[i]
 		free = free + (GetContainerNumFreeSlots(bag) or 0)
 		total = total + bagSize(bag)
 	end
@@ -461,32 +473,35 @@ end
 
 function ContainerMixin:Layout()
 	local step = config.buttonSize + config.spacing
+	local columns = self.columns
+	local bags, buttons, holders = self.bags, self.buttons, self.holders
 	local index = 0
 
-	for _, bag in ipairs(self.bags) do
+	for i = 1, #bags do
+		local bag = bags[i]
 		local size = bagSize(bag)
 		bagSizes[bag] = size
-		bagFamilies[bag] = select(2, GetContainerNumFreeSlots(bag)) or 0
-		local holder = self.holders[bag]
+		updateBagFamily(bag)
+		local holder = holders[bag]
 		for slot = 1, size do
 			index = index + 1
-			local button = self.buttons[index] or self:CreateItemButton(index)
+			local button = buttons[index] or self:CreateItemButton(index)
 			button.bag, button.slot = bag, slot
 			button:SetParent(holder)
 			button:SetID(slot)
 			button:ClearAllPoints()
-			button:SetPoint(ns.GridPoint("TOPLEFT", index, self.columns, step))
+			button:SetPoint(ns.GridPoint("TOPLEFT", index, columns, step))
 			button:Show()
 			button:Update()
 		end
 	end
 
-	for i = index + 1, #self.buttons do
-		self.buttons[i]:Hide()
+	for i = index + 1, #buttons do
+		buttons[i]:Hide()
 	end
 
-	local rows = ceil(index / self.columns)
-	local width = self.columns * step - config.spacing
+	local rows = ceil(index / columns)
+	local width = columns * step - config.spacing
 	local height = rows * step - config.spacing
 	self.itemArea:SetSize(width, height)
 	self:SetSize(width + PADDING * 2, height + HEADER_HEIGHT + BAG_ROW_HEIGHT + FOOTER_HEIGHT + PADDING * 2)
@@ -501,8 +516,10 @@ function ContainerMixin:UpdateBag(bag)
 		return self:Layout()
 	end
 
-	bagFamilies[bag] = select(2, GetContainerNumFreeSlots(bag)) or 0
-	for _, button in ipairs(self.buttons) do
+	updateBagFamily(bag)
+	local buttons = self.buttons
+	for i = 1, #buttons do
+		local button = buttons[i]
 		if button.bag == bag and button:IsShown() then
 			button:Update()
 		end
@@ -523,15 +540,11 @@ function ContainerMixin:Toggle()
 	end
 end
 
-local function updateBagBar(shown)
-	MainMenuBarBackpackButton:SetChecked(shown)
-end
-
 local function onShow(self)
 	PlaySound("igBackPackOpen")
 	self:Layout()
 	if self == inventory then
-		updateBagBar(true)
+		MainMenuBarBackpackButton:SetChecked(true)
 	end
 end
 
@@ -544,7 +557,7 @@ local function onHide(self)
 	else
 		autoOpened = false
 		wipe(newItems)
-		updateBagBar(false)
+		MainMenuBarBackpackButton:SetChecked(false)
 	end
 end
 
@@ -554,13 +567,39 @@ local function setSearch(text)
 		return
 	end
 	searchText = text
-	for _, frame in ipairs(frames) do
+	for i = 1, #frames do
+		local frame = frames[i]
 		if frame.search:GetText():lower() ~= text then
 			frame.search:SetText(text)
 		end
 		if frame:IsShown() then
 			frame:ForEachButton("UpdateSearch")
 		end
+	end
+end
+
+local function onSearchEscape(self)
+	self:SetText("")
+	self:ClearFocus()
+end
+
+local function onSearchFocusGained(self)
+	self.placeholder:Hide()
+end
+
+local function onSearchFocusLost(self)
+	if self:GetText() == "" then
+		self.placeholder:Show()
+	end
+end
+
+local function onSearchTextChanged(self)
+	local text = self:GetText()
+	setSearch(text)
+	if text ~= "" then
+		self.placeholder:Hide()
+	elseif not self:HasFocus() then
+		self.placeholder:Show()
 	end
 end
 
@@ -580,36 +619,34 @@ local function createSearchBox(frame)
 	placeholder:SetTextColor(0.5, 0.5, 0.5)
 	placeholder:SetPoint("LEFT", 4, 0)
 	placeholder:SetText("Search")
+	search.placeholder = placeholder
 
-	search:SetScript("OnEscapePressed", function(self)
-		self:SetText("")
-		self:ClearFocus()
-	end)
+	search:SetScript("OnEscapePressed", onSearchEscape)
 	search:SetScript("OnEnterPressed", search.ClearFocus)
-	search:SetScript("OnEditFocusGained", function()
-		placeholder:Hide()
-	end)
-	search:SetScript("OnEditFocusLost", function(self)
-		if self:GetText() == "" then
-			placeholder:Show()
-		end
-	end)
-	search:SetScript("OnTextChanged", function(self)
-		setSearch(self:GetText())
-		if self:GetText() ~= "" then
-			placeholder:Hide()
-		elseif not self:HasFocus() then
-			placeholder:Show()
-		end
-	end)
+	search:SetScript("OnEditFocusGained", onSearchFocusGained)
+	search:SetScript("OnEditFocusLost", onSearchFocusLost)
+	search:SetScript("OnTextChanged", onSearchTextChanged)
 
 	return search
+end
+
+local function onCloseClick(self)
+	self:GetParent():Hide()
+end
+
+local function onSortEnter(self)
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	GameTooltip:SetText("Sort")
+	GameTooltip:Show()
+end
+
+local function onSortClick(self)
+	Bags:SortBags(self:GetParent())
 end
 
 local function createContainer(key, title, bags, columns)
 	local frame = CreateFrame("Frame", ADDON_NAME .. key, UIParent)
 	ns.Mixin(frame, ContainerMixin)
-	frame.key = key
 	frame.bags = bags
 	frame.columns = columns
 	frame.buttons = {}
@@ -625,59 +662,54 @@ local function createContainer(key, title, bags, columns)
 	frame:SetScript("OnHide", onHide)
 	tinsert(UISpecialFrames, frame:GetName())
 
-	frame.title = frame:CreateFontString(nil, "OVERLAY")
-	frame.title:SetFont(ns.Media.fontBold, 13, "OUTLINE")
-	frame.title:SetPoint("TOPLEFT", PADDING, -PADDING - 3)
-	frame.title:SetText(title)
+	local titleText = frame:CreateFontString(nil, "OVERLAY")
+	titleText:SetFont(ns.Media.fontBold, 13, "OUTLINE")
+	titleText:SetPoint("TOPLEFT", PADDING, -PADDING - 3)
+	titleText:SetText(title)
+	frame.title = titleText
 
-	frame.close = CreateFrame("Button", nil, frame)
-	frame.close:SetSize(26, 26)
-	frame.close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
-	frame.close:SetNormalTexture(CLOSE_ICON)
-	frame.close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
-	frame.close:SetScript("OnClick", function()
-		frame:Hide()
-	end)
+	local close = CreateFrame("Button", nil, frame)
+	close:SetSize(26, 26)
+	close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
+	close:SetNormalTexture(CLOSE_ICON)
+	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
+	close:SetScript("OnClick", onCloseClick)
+	frame.close = close
 
-	frame.sortButton = CreateFrame("Button", nil, frame)
-	frame.sortButton:SetSize(BAG_BUTTON_SIZE, BAG_BUTTON_SIZE)
-	frame.sortButton:SetPoint("TOPRIGHT", -PADDING, -(PADDING + HEADER_HEIGHT))
-	frame.sortButton:SetNormalTexture(ns.Media.buttonNormal)
-	frame.sortButton:GetNormalTexture():SetAllPoints()
-	frame.sortButton:SetHighlightTexture(ns.Media.buttonHighlight)
-	frame.sortButton.icon = frame.sortButton:CreateTexture(nil, "BORDER")
-	frame.sortButton.icon:SetTexture(SORT_ICON)
-	frame.sortButton.icon:SetAllPoints()
-	frame.sortButton:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText("Sort")
-		GameTooltip:Show()
-	end)
-	frame.sortButton:SetScript("OnLeave", GameTooltip_Hide)
-	frame.sortButton:SetScript("OnClick", function()
-		Bags:SortBags(frame)
-	end)
+	local sortButton = CreateFrame("Button", nil, frame)
+	sortButton:SetSize(BAG_BUTTON_SIZE, BAG_BUTTON_SIZE)
+	sortButton:SetPoint("TOPRIGHT", -PADDING, -(PADDING + HEADER_HEIGHT))
+	sortButton:SetNormalTexture(ns.Media.buttonNormal)
+	sortButton:GetNormalTexture():SetAllPoints()
+	sortButton:SetHighlightTexture(ns.Media.buttonHighlight)
+	sortButton.icon = sortButton:CreateTexture(nil, "BORDER")
+	sortButton.icon:SetTexture(SORT_ICON)
+	sortButton.icon:SetAllPoints()
+	sortButton:SetScript("OnEnter", onSortEnter)
+	sortButton:SetScript("OnLeave", GameTooltip_Hide)
+	sortButton:SetScript("OnClick", onSortClick)
+	frame.sortButton = sortButton
 
-	frame.search = createSearchBox(frame)
-	frame.search:SetPoint("LEFT", frame.title, "RIGHT", 10, 0)
-	frame.search:SetPoint("RIGHT", frame.close, "LEFT", -4, 0)
+	local search = createSearchBox(frame)
+	search:SetPoint("LEFT", titleText, "RIGHT", 10, 0)
+	search:SetPoint("RIGHT", close, "LEFT", -4, 0)
+	frame.search = search
 
-	for i, bag in ipairs(bags) do
+	local itemArea = CreateFrame("Frame", nil, frame)
+	itemArea:SetPoint("TOPLEFT", PADDING, -(PADDING + HEADER_HEIGHT + BAG_ROW_HEIGHT))
+	frame.itemArea = itemArea
+
+	local holders = {}
+	frame.holders = holders
+	for i = 1, #bags do
+		local bag = bags[i]
 		frame:CreateBagButton(bag, i)
+		local holder = CreateFrame("Frame", nil, itemArea)
+		holder:SetID(bag)
+		holder:SetAllPoints()
+		holders[bag] = holder
+		bagFrames[bag] = frame
 	end
-
-	frame.itemArea = CreateFrame("Frame", nil, frame)
-	frame.itemArea:SetPoint("TOPLEFT", PADDING, -(PADDING + HEADER_HEIGHT + BAG_ROW_HEIGHT))
-
-	frame.holders = setmetatable({}, {
-		__index = function(holders, bag)
-			local holder = CreateFrame("Frame", nil, frame.itemArea)
-			holder:SetID(bag)
-			holder:SetAllPoints()
-			holders[bag] = holder
-			return holder
-		end,
-	})
 
 	frame.freeText = frame:CreateFontString(nil, "OVERLAY")
 	frame.freeText:SetFont(ns.Media.font, 11, "OUTLINE")
@@ -687,9 +719,6 @@ local function createContainer(key, title, bags, columns)
 	frame.moneyText:SetFont(ns.Media.font, 11, "OUTLINE")
 	frame.moneyText:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
 
-	for _, bag in ipairs(bags) do
-		bagFrames[bag] = frame
-	end
 	frames[#frames + 1] = frame
 
 	return frame
@@ -700,11 +729,9 @@ updater:Hide()
 updater:SetScript("OnUpdate", function(self)
 	self:Hide()
 
-	for bag in pairs(dirtyBags) do
-		if bag >= BACKPACK_CONTAINER and bag <= NUM_BAG_SLOTS then
-			scanNewItems()
-			break
-		end
+	if inventoryDirty then
+		inventoryDirty = false
+		scanNewItems()
 	end
 
 	for bag in pairs(dirtyBags) do
@@ -718,6 +745,9 @@ end)
 
 local function markDirty(bag)
 	dirtyBags[bag] = true
+	if bag >= BACKPACK_CONTAINER and bag <= NUM_BAG_SLOTS then
+		inventoryDirty = true
+	end
 	updater:Show()
 end
 
@@ -734,12 +764,19 @@ local function autoHide()
 	end
 end
 
+local function updateCurrencies()
+	if inventory:IsShown() then
+		inventory:UpdateCurrencies()
+	end
+end
+
 function Bags:BAG_UPDATE(bag)
 	markDirty(bag)
 end
 
 function Bags:BAG_UPDATE_COOLDOWN()
-	for _, frame in ipairs(frames) do
+	for i = 1, #frames do
+		local frame = frames[i]
 		if frame:IsShown() then
 			frame:ForEachButton("UpdateCooldown")
 		end
@@ -750,7 +787,9 @@ function Bags:ITEM_LOCK_CHANGED(bag, slot)
 	if slot then
 		local frame = bagFrames[bag]
 		if frame and frame:IsShown() then
-			for _, button in ipairs(frame.buttons) do
+			local buttons = frame.buttons
+			for i = 1, #buttons do
+				local button = buttons[i]
 				if button.bag == bag and button.slot == slot and button:IsShown() then
 					button:UpdateLock()
 					return
@@ -760,7 +799,8 @@ function Bags:ITEM_LOCK_CHANGED(bag, slot)
 		return
 	end
 
-	for _, frame in ipairs(frames) do
+	for i = 1, #frames do
+		local frame = frames[i]
 		if frame:IsShown() then
 			frame:UpdateBagButtons()
 			frame:ForEachButton("UpdateLock")
@@ -795,7 +835,8 @@ function Bags:BANKFRAME_CLOSED()
 end
 
 function Bags:PLAYER_MONEY()
-	for _, frame in ipairs(frames) do
+	for i = 1, #frames do
+		local frame = frames[i]
 		if frame:IsShown() then
 			frame:UpdateInfo()
 		end
@@ -803,8 +844,8 @@ function Bags:PLAYER_MONEY()
 end
 
 local function questLogChanged()
-	for _, bag in ipairs(INVENTORY_BAGS) do
-		markDirty(bag)
+	for i = 1, #INVENTORY_BAGS do
+		markDirty(INVENTORY_BAGS[i])
 	end
 end
 
@@ -869,11 +910,6 @@ function Bags:Initialize()
 	bank = createContainer("bank", "Bank", BANK_BAGS, config.bankColumns)
 	inventory.currencies = {}
 
-	local function updateCurrencies()
-		if inventory:IsShown() then
-			inventory:UpdateCurrencies()
-		end
-	end
 	self:RegisterEvent("CURRENCY_DISPLAY_UPDATE", updateCurrencies)
 	hooksecurefunc("BackpackTokenFrame_Update", updateCurrencies)
 

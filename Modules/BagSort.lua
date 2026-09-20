@@ -18,6 +18,9 @@ local tremove = table.remove
 local tsort = table.sort
 local floor = math.floor
 local bit_band = bit.band
+local wipe = wipe
+local pairs = pairs
+local next = next
 
 local Bags = ns:GetModule("Bags")
 
@@ -56,10 +59,12 @@ local SLOT_ORDER = {
 }
 
 local ids, counts, maxStacks, qualities = {}, {}, {}, {}
+local itemTypeOrder, itemSubTypeOrder, itemSlotOrder, itemLevels, itemPrices, itemNames, itemFamilies =
+	{}, {}, {}, {}, {}, {}, {}
 local moves = {}
-local sorted, initialOrder, locked = {}, {}, {}
+local sorted, sortedPosition, initialOrder, locked = {}, {}, {}, {}
 local targetItems, targetSlots, sourceUsed, emptySlots = {}, {}, {}, {}
-local normalBags, specialtyBags = {}, {}
+local normalBags, specialtyBags, bagFamilies = {}, {}, {}
 local typeOrder, subTypeOrder = {}, {}
 local activeFrame
 
@@ -72,13 +77,37 @@ local function decode(key)
 end
 
 local function buildTypeOrder()
-	for i, itemType in ipairs({ GetAuctionItemClasses() }) do
+	local types = { GetAuctionItemClasses() }
+	for i = 1, #types do
+		local itemType = types[i]
 		typeOrder[itemType] = i
-		subTypeOrder[itemType] = {}
-		for j, subType in ipairs({ GetAuctionItemSubClasses(i) }) do
-			subTypeOrder[itemType][subType] = j
+		local subOrder = {}
+		subTypeOrder[itemType] = subOrder
+		local subTypes = { GetAuctionItemSubClasses(i) }
+		for j = 1, #subTypes do
+			subOrder[subTypes[j]] = j
 		end
 	end
+end
+
+local function cacheItem(id)
+	if itemTypeOrder[id] then
+		return
+	end
+	local name, _, _, level, _, itemType, subType, _, equipLoc, _, price = GetItemInfo(id)
+	itemTypeOrder[id] = typeOrder[itemType] or 99
+	local subOrder = subTypeOrder[itemType]
+	itemSubTypeOrder[id] = subOrder and subOrder[subType] or 99
+	itemSlotOrder[id] = SLOT_ORDER[equipLoc] or 99
+	itemLevels[id] = level or 0
+	itemPrices[id] = price or 0
+	itemNames[id] = name or ""
+
+	local family = GetItemFamily(id)
+	if family and family > 0 and equipLoc == "INVTYPE_QUIVER" then
+		family = 1
+	end
+	itemFamilies[id] = family
 end
 
 local function scan(bags)
@@ -86,7 +115,15 @@ local function scan(bags)
 	wipe(counts)
 	wipe(maxStacks)
 	wipe(qualities)
-	for _, bag in ipairs(bags) do
+	wipe(itemTypeOrder)
+	wipe(itemSubTypeOrder)
+	wipe(itemSlotOrder)
+	wipe(itemLevels)
+	wipe(itemPrices)
+	wipe(itemNames)
+	wipe(itemFamilies)
+	for i = 1, #bags do
+		local bag = bags[i]
 		for slot = 1, GetContainerNumSlots(bag) do
 			local id = GetContainerItemID(bag, slot)
 			if id then
@@ -97,6 +134,7 @@ local function scan(bags)
 				counts[key] = count or 1
 				maxStacks[key] = maxStack or 1
 				qualities[key] = quality or 0
+				cacheItem(id)
 			end
 		end
 	end
@@ -125,12 +163,9 @@ local function addMove(from, to)
 	moves[#moves + 1] = { from, to }
 end
 
-local function isPartial(key)
-	return (maxStacks[key] or 0) - (counts[key] or 0) > 0
-end
-
 local function stack(sourceBags, targetBags, partialOnly)
-	for _, bag in ipairs(targetBags) do
+	for i = 1, #targetBags do
+		local bag = targetBags[i]
 		for slot = 1, GetContainerNumSlots(bag) do
 			local key = slotKey(bag, slot)
 			local id = ids[key]
@@ -146,13 +181,18 @@ local function stack(sourceBags, targetBags, partialOnly)
 		for slot = GetContainerNumSlots(bag), 1, -1 do
 			local source = slotKey(bag, slot)
 			local id = ids[source]
-			if id and targetItems[id] and (not partialOnly or isPartial(source)) then
+			if id and targetItems[id] and (not partialOnly or counts[source] < maxStacks[source]) then
 				for i = #targetSlots, 1, -1 do
 					local target = targetSlots[i]
 					if not ids[source] or not targetItems[id] then
 						break
 					end
-					if ids[target] == id and target ~= source and counts[target] ~= maxStacks[target] and not sourceUsed[target] then
+					if
+						ids[target] == id
+						and target ~= source
+						and counts[target] ~= maxStacks[target]
+						and not sourceUsed[target]
+					then
 						addMove(source, target)
 						sourceUsed[source] = true
 						if counts[target] == maxStacks[target] then
@@ -170,19 +210,17 @@ local function stack(sourceBags, targetBags, partialOnly)
 end
 
 local function canGoInBag(id, bag)
-	local itemFamily = GetItemFamily(id)
+	local itemFamily = itemFamilies[id]
 	if not itemFamily then
 		return false
 	end
-	if itemFamily > 0 and select(9, GetItemInfo(id)) == "INVTYPE_QUIVER" then
-		itemFamily = 1
-	end
-	local bagFamily = select(2, GetContainerNumFreeSlots(bag))
+	local bagFamily = bagFamilies[bag]
 	return bagFamily == 0 or bit_band(itemFamily, bagFamily) > 0
 end
 
 local function fill(sourceBags, targetBags)
-	for _, bag in ipairs(targetBags) do
+	for i = 1, #targetBags do
+		local bag = targetBags[i]
 		for slot = 1, GetContainerNumSlots(bag) do
 			local key = slotKey(bag, slot)
 			if not ids[key] then
@@ -226,36 +264,32 @@ local function compare(a, b)
 		return aQuality > bQuality
 	end
 
-	local aName, _, _, aLevel, _, aType, aSubType, _, aLoc, _, aPrice = GetItemInfo(aId)
-	local bName, _, _, bLevel, _, bType, bSubType, _, bLoc, _, bPrice = GetItemInfo(bId)
-
-	local aTypeOrder, bTypeOrder = typeOrder[aType] or 99, typeOrder[bType] or 99
-	if aTypeOrder ~= bTypeOrder then
-		return aTypeOrder < bTypeOrder
+	local aOrder, bOrder = itemTypeOrder[aId], itemTypeOrder[bId]
+	if aOrder ~= bOrder then
+		return aOrder < bOrder
 	end
 
-	local aSubOrder = subTypeOrder[aType] and subTypeOrder[aType][aSubType] or 99
-	local bSubOrder = subTypeOrder[bType] and subTypeOrder[bType][bSubType] or 99
-	if aSubOrder ~= bSubOrder then
-		return aSubOrder < bSubOrder
+	aOrder, bOrder = itemSubTypeOrder[aId], itemSubTypeOrder[bId]
+	if aOrder ~= bOrder then
+		return aOrder < bOrder
 	end
 
-	local aSlot, bSlot = SLOT_ORDER[aLoc] or 99, SLOT_ORDER[bLoc] or 99
-	if aSlot ~= bSlot then
-		return aSlot < bSlot
+	aOrder, bOrder = itemSlotOrder[aId], itemSlotOrder[bId]
+	if aOrder ~= bOrder then
+		return aOrder < bOrder
 	end
 
-	aLevel, bLevel = aLevel or 0, bLevel or 0
+	local aLevel, bLevel = itemLevels[aId], itemLevels[bId]
 	if aLevel ~= bLevel then
 		return aLevel > bLevel
 	end
 
-	aPrice, bPrice = aPrice or 0, bPrice or 0
+	local aPrice, bPrice = itemPrices[aId], itemPrices[bId]
 	if aPrice ~= bPrice then
 		return aPrice > bPrice
 	end
 
-	aName, bName = aName or "", bName or ""
+	local aName, bName = itemNames[aId], itemNames[bId]
 	if aName ~= bName then
 		return aName < bName
 	end
@@ -264,20 +298,17 @@ local function compare(a, b)
 end
 
 local function shouldMove(source, destination)
-	if destination == source or not ids[source] then
-		return false
-	end
-	return not (ids[source] == ids[destination] and counts[source] == counts[destination])
+	local id = ids[source]
+	return destination ~= source
+		and id ~= nil
+		and not (id == ids[destination] and counts[source] == counts[destination])
 end
 
-local function updateSorted(source, destination)
-	for i, key in ipairs(sorted) do
-		if key == source then
-			sorted[i] = destination
-		elseif key == destination then
-			sorted[i] = source
-		end
-	end
+local function swapSorted(source, destination)
+	local sourceIndex, destinationIndex = sortedPosition[source], sortedPosition[destination]
+	sorted[sourceIndex] = destination
+	sorted[destinationIndex] = source
+	sortedPosition[source], sortedPosition[destination] = destinationIndex, sourceIndex
 end
 
 local function sort(bags)
@@ -285,7 +316,8 @@ local function sort(bags)
 	wipe(initialOrder)
 
 	local index = 0
-	for _, bag in ipairs(bags) do
+	for i = 1, #bags do
+		local bag = bags[i]
 		for slot = 1, GetContainerNumSlots(bag) do
 			local key = slotKey(bag, slot)
 			index = index + 1
@@ -294,13 +326,17 @@ local function sort(bags)
 		end
 	end
 	tsort(sorted, compare)
+	for i = 1, index do
+		sortedPosition[sorted[i]] = i
+	end
 
 	local passNeeded, passes = true, 0
 	while passNeeded and passes < MAX_PASSES do
 		passNeeded = false
 		passes = passes + 1
 		local i = 1
-		for _, bag in ipairs(bags) do
+		for b = 1, #bags do
+			local bag = bags[b]
 			for slot = 1, GetContainerNumSlots(bag) do
 				local destination = slotKey(bag, slot)
 				local source = sorted[i]
@@ -309,7 +345,7 @@ local function sort(bags)
 						passNeeded = true
 					else
 						addMove(source, destination)
-						updateSorted(source, destination)
+						swapSorted(source, destination)
 						locked[source] = true
 						locked[destination] = true
 					end
@@ -321,6 +357,7 @@ local function sort(bags)
 	end
 
 	wipe(sorted)
+	wipe(sortedPosition)
 	wipe(initialOrder)
 end
 
@@ -354,7 +391,8 @@ local function doMove(move)
 		return nil
 	end
 	local targetId = GetContainerItemID(targetBag, targetSlot)
-	local stackSize = select(8, GetItemInfo(sourceId)) or 1
+	local _, _, _, _, _, _, _, stackSize = GetItemInfo(sourceId)
+	stackSize = stackSize or 1
 
 	if sourceId == targetId and targetCount < stackSize and targetCount + sourceCount > stackSize then
 		SplitContainerItem(sourceBag, sourceSlot, stackSize - targetCount)
@@ -444,14 +482,21 @@ function Bags:SortBags(frame)
 
 	wipe(normalBags)
 	wipe(specialtyBags)
-	for _, bag in ipairs(bags) do
+	wipe(bagFamilies)
+	for i = 1, #bags do
+		local bag = bags[i]
 		if GetContainerNumSlots(bag) > 0 then
-			local family = select(2, GetContainerNumFreeSlots(bag)) or 0
+			local _, family = GetContainerNumFreeSlots(bag)
+			family = family or 0
+			bagFamilies[bag] = family
 			if family == 0 then
 				normalBags[#normalBags + 1] = bag
 			else
-				specialtyBags[family] = specialtyBags[family] or {}
 				local group = specialtyBags[family]
+				if not group then
+					group = {}
+					specialtyBags[family] = group
+				end
 				group[#group + 1] = bag
 			end
 		end
