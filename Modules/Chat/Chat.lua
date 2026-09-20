@@ -129,6 +129,8 @@ end)
 
 local SYSTEM_SPAM = {
 	"^|cffff0000%[BG Queue Announcer%]:|r",
+	"wowcircle%.net",
+	"control panel at our website",
 }
 
 local function formatToPattern(text)
@@ -329,18 +331,12 @@ local function linkUrlsInPlainText(text)
 	return text
 end
 
-local function firstUTF8Char(text)
-	return text:match("^[%z\1-\127\194-\244][\128-\191]*")
-end
-
-local function shortenRealm(text)
+local function stripRealm(text)
 	if not text:find("|Hplayer:[^|]*%-") then
 		return text
 	end
 	return (text:gsub("(|Hplayer:[^|]*%-[^|]*|h)(.-)(|h)", function(link, display, close)
-		display = display:gsub("%-([^%]|]+)", function(realm)
-			return "-" .. firstUTF8Char(realm)
-		end, 1)
+		display = display:gsub("%-[^%]|]+", "", 1)
 		return link .. display .. close
 	end))
 end
@@ -429,7 +425,7 @@ local function hookAddMessage(chatFrame)
 
 	chatFrame.AddMessage = function(self, text, r, g, b, ...)
 		if type(text) == "string" then
-			text = date(TIMESTAMP_FORMAT) .. linkUrls(shortenRealm(shortenChannelName(text)))
+			text = date(TIMESTAMP_FORMAT) .. linkUrls(stripRealm(shortenChannelName(text)))
 			storeLine(self, text, r, g, b)
 		end
 		return addMessage(self, text, r, g, b, ...)
