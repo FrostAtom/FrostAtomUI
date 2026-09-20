@@ -1,0 +1,849 @@
+local _, ns = ...
+
+local CreateFrame = CreateFrame
+local GetNumBattlefieldScores = GetNumBattlefieldScores
+local GetBattlefieldScore = GetBattlefieldScore
+local GetBattlefieldTeamInfo = GetBattlefieldTeamInfo
+local GetBattlefieldWinner = GetBattlefieldWinner
+local GetBattlefieldInstanceRunTime = GetBattlefieldInstanceRunTime
+local IsActiveBattlefieldArena = IsActiveBattlefieldArena
+local IsInInstance = IsInInstance
+local GetRealZoneText = GetRealZoneText
+local GetNumPartyMembers = GetNumPartyMembers
+local UnitName = UnitName
+local UnitGUID = UnitGUID
+local GameTooltip = GameTooltip
+local StaticPopup_Show = StaticPopup_Show
+local FauxScrollFrame_Update = FauxScrollFrame_Update
+local FauxScrollFrame_OnVerticalScroll = FauxScrollFrame_OnVerticalScroll
+local FauxScrollFrame_GetOffset = FauxScrollFrame_GetOffset
+local FauxScrollFrame_SetOffset = FauxScrollFrame_SetOffset
+local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+local UIParent = UIParent
+local time, date = time, date
+local floor = math.floor
+local tinsert, tremove = table.insert, table.remove
+local wipe, unpack, select = wipe, unpack, select
+local format = string.format
+
+local Misc = ns:GetModule("Misc")
+local UF = ns:GetModule("UnitFrames")
+local Talents = ns:GetModule("Talents")
+
+local FRAME_NAME = "FrostAtomUIArenaHistory"
+local MAX_GAMES = 1000
+local MAX_TEAM = 5
+local WIDTH = 800
+local PADDING = 12
+local HEADER_HEIGHT = 22
+local FILTER_HEIGHT = 20
+local FILTER_WIDTH = 46
+local LIST_ROWS = 14
+local LIST_ROW_HEIGHT = 20
+local DETAIL_ROW_HEIGHT = 18
+local DETAIL_GAP = 10
+local SCROLLBAR_WIDTH = 24
+local ICON_SIZE = 16
+local ICON_GAP = 1
+local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
+local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
+local WIN_COLOR = { 0.3, 1, 0.3 }
+local LOSS_COLOR = { 1, 0.3, 0.3 }
+local HEADER_COLOR = { 0.7, 0.7, 0.7 }
+local UNKNOWN = UNKNOWNOBJECT
+
+local CLASS_ICONS = UF.CLASS_ICONS
+local ICON_TRIM = UF.ICON_TRIM
+local classCoords = UF.classCoords
+local specIcons = UF.specIcons
+
+local FILTERS = { { "all", "All" }, { "2v2", "2v2" }, { "3v3", "3v3" }, { "solo", "Solo" } }
+local BRACKET_LABELS = { solo = "Solo" }
+local MAP_LABELS = {
+	["Nagrand Arena"] = "Nagrand",
+	["Blade's Edge Arena"] = "Blade's Edge",
+	["Ruins of Lordaeron"] = "Lordaeron",
+	["Dalaran Sewers"] = "Dalaran",
+	["The Ring of Valor"] = "Ring of Valor",
+}
+
+local ICONS_WIDTH = MAX_TEAM * (ICON_SIZE + ICON_GAP) + 8
+local LIST_COLUMNS = {
+	{ key = "date", title = "Date", width = 90 },
+	{ key = "bracket", title = "Type", width = 42 },
+	{ key = "map", title = "Map", width = 100 },
+	{ key = "duration", title = "Time", width = 46 },
+	{ key = "result", title = "Result", width = 72 },
+	{ key = "mmr", title = "MMR", width = 46 },
+	{ key = "team", title = "Team", width = ICONS_WIDTH, icons = 1 },
+	{ key = "enemy", title = "Enemy", width = ICONS_WIDTH, icons = 2 },
+	{ key = "names", title = "", width = 0 },
+}
+local DETAIL_COLUMNS = {
+	{ key = "name", title = "Name", width = 170 },
+	{ key = "race", title = "Race", width = 90 },
+	{ key = "kb", title = "Kills", width = 50, right = true },
+	{ key = "deaths", title = "Deaths", width = 60, right = true },
+	{ key = "damage", title = "Damage", width = 80, right = true },
+	{ key = "healing", title = "Healing", width = 80, right = true },
+	{ key = "hk", title = "HK", width = 50, right = true },
+	{ key = "honor", title = "Honor", width = 60, right = true },
+}
+
+local function layoutColumns(columns, totalWidth)
+	local x = 0
+	for i = 1, #columns do
+		local column = columns[i]
+		column.x = x
+		if column.width == 0 then
+			column.width = totalWidth - x
+		end
+		x = x + column.width
+	end
+end
+
+local CONTENT_WIDTH = WIDTH - PADDING * 2
+layoutColumns(LIST_COLUMNS, CONTENT_WIDTH - SCROLLBAR_WIDTH)
+layoutColumns(DETAIL_COLUMNS, CONTENT_WIDTH)
+
+local history
+local current
+local inArena = false
+local guids = {}
+
+local frame
+local filter = "all"
+local filtered = {}
+local selected
+
+local function stripRealm(name)
+	return name and name:match("^([^%-]+)") or name
+end
+
+local function collectGuid(unit)
+	local guid = UnitGUID(unit)
+	if guid then
+		guids[UnitName(unit)] = guid
+	end
+end
+
+local function collectGuids()
+	collectGuid("player")
+	for i = 1, GetNumPartyMembers() do
+		collectGuid("party" .. i)
+	end
+	for i = 1, MAX_TEAM do
+		collectGuid("arena" .. i)
+	end
+end
+
+local function bracketOf(teamName, size)
+	if teamName and teamName:find("^Solo Team") then
+		return "solo"
+	end
+	return size .. "v" .. size
+end
+
+local refresh
+
+local function snapshot()
+	local winner = GetBattlefieldWinner()
+	if not winner or not history then
+		return
+	end
+	local numScores = GetNumBattlefieldScores()
+	if numScores == 0 then
+		return
+	end
+
+	collectGuids()
+	local playerName = UnitName("player")
+	local playerTeam
+	local scores = {}
+	for i = 1, numScores do
+		local name, kb, hk, deaths, honor, teamIndex, _, race, _, class, damage, healing = GetBattlefieldScore(i)
+		name = stripRealm(name) or UNKNOWN
+		if name == playerName then
+			playerTeam = teamIndex
+		end
+		local guid = guids[name]
+		scores[i] = {
+			name = name,
+			class = class,
+			race = race,
+			spec = guid and Talents:GetSpec(guid) or nil,
+			teamIndex = teamIndex,
+			kb = kb or 0,
+			hk = hk or 0,
+			deaths = deaths or 0,
+			honor = honor or 0,
+			damage = damage or 0,
+			healing = healing or 0,
+		}
+	end
+	if not playerTeam then
+		return
+	end
+
+	local record = current
+	if not record then
+		record = { time = time() }
+		current = record
+		tinsert(history, 1, record)
+		while #history > MAX_GAMES do
+			tremove(history)
+		end
+	end
+	record.map = GetRealZoneText()
+	record.duration = floor(GetBattlefieldInstanceRunTime() / 1000)
+	record.rated = select(2, IsActiveBattlefieldArena()) and true or false
+	record.win = winner == playerTeam
+
+	local players, size = {}, 0
+	for side = 1, 2 do
+		local teamIndex = side == 1 and playerTeam or 1 - playerTeam
+		local name, lost, gained, mmr = GetBattlefieldTeamInfo(teamIndex)
+		lost, gained = lost or 0, gained or 0
+		record[side == 1 and "team" or "enemy"] = {
+			name = name,
+			lost = lost,
+			gained = gained,
+			change = gained - lost,
+			mmr = mmr or 0,
+		}
+		for i = 1, numScores do
+			local score = scores[i]
+			if score.teamIndex == teamIndex then
+				score.teamIndex = nil
+				score.team = side
+				players[#players + 1] = score
+				if side == 1 then
+					size = size + 1
+				end
+			end
+		end
+	end
+	record.players = players
+	record.bracket = bracketOf(record.team.name, size)
+
+	refresh()
+end
+
+Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
+	history = db.arena_history or {}
+	db.arena_history = history
+end)
+
+Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+	inArena = select(2, IsInInstance()) == "arena"
+	current = nil
+	wipe(guids)
+	if inArena then
+		collectGuids()
+	end
+end)
+
+Misc:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
+	if inArena then
+		collectGuids()
+	end
+end)
+
+local function onUnitChanged(_, unit)
+	if inArena and unit:find("^arena%d$") then
+		collectGuid(unit)
+	end
+end
+Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", onUnitChanged)
+Misc:RegisterEvent("UNIT_NAME_UPDATE", onUnitChanged)
+
+local function onScoreUpdate()
+	if inArena then
+		snapshot()
+	end
+end
+Misc:RegisterEvent("UPDATE_BATTLEFIELD_SCORE", onScoreUpdate)
+Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", onScoreUpdate)
+
+local function classColor(class)
+	local color = class and RAID_CLASS_COLORS[class]
+	if color then
+		return color.r, color.g, color.b
+	end
+	return 1, 1, 1
+end
+
+local classHex = {}
+
+local function coloredName(player)
+	local class = player.class or "UNKNOWN"
+	local hex = classHex[class]
+	if not hex then
+		local r, g, b = classColor(class)
+		hex = format("|cff%02x%02x%02x", r * 255, g * 255, b * 255)
+		classHex[class] = hex
+	end
+	return hex .. player.name .. "|r"
+end
+
+local function resultColor(win)
+	return unpack(win and WIN_COLOR or LOSS_COLOR)
+end
+
+local function formatDuration(seconds)
+	return format("%d:%02d", seconds / 60, seconds % 60)
+end
+
+local function formatChange(change)
+	if change > 0 then
+		return format("|cff4dff4d+%d|r", change)
+	elseif change < 0 then
+		return format("|cffff4d4d%d|r", change)
+	end
+	return "|cff7f7f7f0|r"
+end
+
+local function bracketLabel(record)
+	return BRACKET_LABELS[record.bracket] or record.bracket
+end
+
+local function mapLabel(record)
+	return MAP_LABELS[record.map] or record.map or UNKNOWN
+end
+
+local function teamLabel(record, side)
+	local team = side == 1 and record.team or record.enemy
+	local text = format("%s  |cffffffff%d|r", team.name or UNKNOWN, team.mmr)
+	if record.rated then
+		text = text .. "  " .. formatChange(team.change)
+	end
+	return text
+end
+
+local function setPlayerIcon(icon, player)
+	local class = player.class
+	local specIcon = player.spec and specIcons[class] and specIcons[class][player.spec]
+	local coords = classCoords[class]
+	if specIcon then
+		icon:SetTexture(specIcon)
+		icon:SetTexCoord(ICON_TRIM, 1 - ICON_TRIM, ICON_TRIM, 1 - ICON_TRIM)
+	elseif coords then
+		icon:SetTexture(CLASS_ICONS)
+		icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	else
+		icon:SetTexture(ns.Media.questionMark)
+		icon:SetTexCoord(ICON_TRIM, 1 - ICON_TRIM, ICON_TRIM, 1 - ICON_TRIM)
+	end
+end
+
+local function createCells(row, columns, height)
+	local cells = {}
+	for i = 1, #columns do
+		local column = columns[i]
+		if not column.icons then
+			local cell = row:CreateFontString(nil, "OVERLAY")
+			cell:SetFont(ns.Media.font, 12)
+			cell:SetPoint("LEFT", column.x + 4, 0)
+			cell:SetSize(column.width - 8, height)
+			cell:SetJustifyH(column.right and "RIGHT" or "LEFT")
+			cell:SetJustifyV("MIDDLE")
+			cells[column.key] = cell
+		end
+	end
+	row.cells = cells
+end
+
+local function createHeaders(parent, columns, y)
+	for i = 1, #columns do
+		local column = columns[i]
+		local header = parent:CreateFontString(nil, "OVERLAY")
+		header:SetFont(ns.Media.fontBold, 11, "OUTLINE")
+		header:SetTextColor(unpack(HEADER_COLOR))
+		header:SetPoint("TOPLEFT", column.x + 4, y)
+		header:SetSize(column.width - 8, DETAIL_ROW_HEIGHT)
+		header:SetJustifyH(column.right and "RIGHT" or "LEFT")
+		header:SetJustifyV("MIDDLE")
+		header:SetText(column.title)
+	end
+end
+
+local function createIcons(row, column)
+	local icons = {}
+	for i = 1, MAX_TEAM do
+		local icon = row:CreateTexture(nil, "ARTWORK")
+		icon:SetSize(ICON_SIZE, ICON_SIZE)
+		icon:SetPoint("LEFT", column.x + 4 + (i - 1) * (ICON_SIZE + ICON_GAP), 0)
+		icons[i] = icon
+	end
+	return icons
+end
+
+local function fillIcons(icons, record, side)
+	local shown = 0
+	local players = record.players
+	for i = 1, #players do
+		local player = players[i]
+		if player.team == side and shown < MAX_TEAM then
+			shown = shown + 1
+			setPlayerIcon(icons[shown], player)
+			icons[shown]:Show()
+		end
+	end
+	for i = shown + 1, MAX_TEAM do
+		icons[i]:Hide()
+	end
+end
+
+local names = {}
+
+local function teamNames(record, side)
+	wipe(names)
+	local players = record.players
+	for i = 1, #players do
+		local player = players[i]
+		if player.team == side then
+			names[#names + 1] = coloredName(player)
+		end
+	end
+	return table.concat(names, ", ")
+end
+
+local function fillListRow(row, record)
+	local cells = row.cells
+	row.record = record
+	cells.date:SetText(date("%d.%m %H:%M", record.time))
+	cells.bracket:SetText(bracketLabel(record))
+	cells.map:SetText(mapLabel(record))
+	cells.duration:SetText(formatDuration(record.duration))
+	if record.rated then
+		cells.result:SetFormattedText("%s %+d", record.win and "Win" or "Loss", record.team.change)
+	else
+		cells.result:SetText(record.win and "Win" or "Loss")
+	end
+	cells.result:SetTextColor(resultColor(record.win))
+	cells.mmr:SetText(record.team.mmr)
+	fillIcons(row.icons[1], record, 1)
+	fillIcons(row.icons[2], record, 2)
+	cells.names:SetText(teamNames(record, 2))
+	if record == selected then
+		row.selected:Show()
+	else
+		row.selected:Hide()
+	end
+end
+
+local function onRowEnter(self)
+	local record = self.record
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	for side = 1, 2 do
+		if side == 2 then
+			GameTooltip:AddLine(" ")
+		end
+		GameTooltip:AddLine(teamLabel(record, side), 1, 0.82, 0)
+		local players = record.players
+		for i = 1, #players do
+			local player = players[i]
+			if player.team == side then
+				GameTooltip:AddDoubleLine(coloredName(player), player.race or "", 1, 1, 1, 0.7, 0.7, 0.7)
+			end
+		end
+	end
+	GameTooltip:AddLine(" ")
+	GameTooltip:AddLine("Right-click to delete", 0.5, 0.5, 0.5)
+	GameTooltip:Show()
+end
+
+local function onRowClick(self, button)
+	if button == "RightButton" then
+		StaticPopup_Show("FROSTATOMUI_ARENA_HISTORY_DELETE", nil, nil, self.record)
+	else
+		selected = self.record
+		refresh()
+	end
+end
+
+local function createListRow(parent, index)
+	local row = CreateFrame("Button", nil, parent)
+	row:SetHeight(LIST_ROW_HEIGHT)
+	row:SetPoint("TOPLEFT", 0, -(index - 1) * LIST_ROW_HEIGHT)
+	row:SetPoint("RIGHT")
+	row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	row:SetHighlightTexture(ns.Media.blank)
+	row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
+
+	row.selected = row:CreateTexture(nil, "BACKGROUND")
+	row.selected:SetTexture(ns.Media.blank)
+	row.selected:SetVertexColor(1, 1, 1, 0.08)
+	row.selected:SetAllPoints()
+
+	createCells(row, LIST_COLUMNS, LIST_ROW_HEIGHT)
+	row.icons = { createIcons(row, LIST_COLUMNS[7]), createIcons(row, LIST_COLUMNS[8]) }
+
+	row:SetScript("OnEnter", onRowEnter)
+	row:SetScript("OnLeave", GameTooltip_Hide)
+	row:SetScript("OnClick", onRowClick)
+	return row
+end
+
+local function createDetailRow(detail, index)
+	local row = CreateFrame("Frame", nil, detail)
+	row:SetHeight(DETAIL_ROW_HEIGHT)
+	row:SetPoint("RIGHT")
+	createCells(row, DETAIL_COLUMNS, DETAIL_ROW_HEIGHT)
+
+	row.icon = row:CreateTexture(nil, "ARTWORK")
+	row.icon:SetSize(ICON_SIZE, ICON_SIZE)
+	row.icon:SetPoint("LEFT", DETAIL_COLUMNS[1].x + 4, 0)
+	row.cells.name:ClearAllPoints()
+	row.cells.name:SetPoint("LEFT", row.icon, "RIGHT", 4, 0)
+	row.cells.name:SetWidth(DETAIL_COLUMNS[1].width - ICON_SIZE - 12)
+
+	detail.rows[index] = row
+	return row
+end
+
+local function fillDetailRow(row, player)
+	local cells = row.cells
+	setPlayerIcon(row.icon, player)
+	cells.name:SetText(player.name)
+	cells.name:SetTextColor(classColor(player.class))
+	cells.race:SetText(player.race or "")
+	cells.kb:SetText(player.kb)
+	cells.deaths:SetText(player.deaths)
+	cells.damage:SetText(ns.FormatValue(player.damage))
+	cells.healing:SetText(ns.FormatValue(player.healing))
+	cells.hk:SetText(player.hk)
+	cells.honor:SetText(player.honor)
+end
+
+local function refreshDetail()
+	local detail = frame.detail
+	local record = selected
+	if not record then
+		detail:Hide()
+		return 0
+	end
+	detail:Show()
+
+	local title = format(
+		"%s   |cff7f7f7f·|r   %s   |cff7f7f7f·|r   %s   |cff7f7f7f·|r   %s",
+		mapLabel(record),
+		bracketLabel(record),
+		date("%d.%m.%Y %H:%M", record.time),
+		formatDuration(record.duration)
+	)
+	if not record.rated then
+		title = title .. "   |cff7f7f7f·|r   Skirmish"
+	end
+	detail.title:SetText(title)
+
+	local y = -DETAIL_ROW_HEIGHT * 2
+	local rowIndex = 0
+	local players = record.players
+	for side = 1, 2 do
+		local header = detail.teamHeaders[side]
+		header:SetPoint("TOPLEFT", 4, y)
+		header:SetText(teamLabel(record, side))
+		header:SetTextColor(resultColor(record.win == (side == 1)))
+		y = y - DETAIL_ROW_HEIGHT
+
+		for i = 1, #players do
+			local player = players[i]
+			if player.team == side then
+				rowIndex = rowIndex + 1
+				local row = detail.rows[rowIndex] or createDetailRow(detail, rowIndex)
+				row:SetPoint("TOPLEFT", 0, y)
+				fillDetailRow(row, player)
+				row:Show()
+				y = y - DETAIL_ROW_HEIGHT
+			end
+		end
+	end
+	for i = rowIndex + 1, #detail.rows do
+		detail.rows[i]:Hide()
+	end
+
+	detail:SetHeight(-y)
+	return -y + DETAIL_GAP
+end
+
+local function refreshList()
+	local offset = FauxScrollFrame_GetOffset(frame.scroll)
+	local rows = frame.rows
+	for i = 1, LIST_ROWS do
+		local row = rows[i]
+		local record = filtered[i + offset]
+		if record then
+			fillListRow(row, record)
+			row:Show()
+		else
+			row:Hide()
+		end
+	end
+	FauxScrollFrame_Update(frame.scroll, #filtered, LIST_ROWS, LIST_ROW_HEIGHT)
+	if #filtered == 0 then
+		frame.empty:Show()
+	else
+		frame.empty:Hide()
+	end
+end
+
+local function refreshStats()
+	local wins, change = 0, 0
+	for i = 1, #filtered do
+		local record = filtered[i]
+		if record.win then
+			wins = wins + 1
+		end
+		if record.rated then
+			change = change + record.team.change
+		end
+	end
+	local total = #filtered
+	local losses = total - wins
+	if total == 0 then
+		frame.stats:SetText("")
+		return
+	end
+	frame.stats:SetFormattedText(
+		"%d games   |cff4dff4d%d|r - |cffff4d4d%d|r   %d%%   %s",
+		total,
+		wins,
+		losses,
+		wins / total * 100,
+		formatChange(change)
+	)
+end
+
+local function refreshFilters()
+	local buttons = frame.filters
+	for i = 1, #buttons do
+		local button = buttons[i]
+		if button.filter == filter then
+			button:SetBackdropColor(1, 1, 1, 0.15)
+			button.text:SetTextColor(1, 1, 1)
+		else
+			button:SetBackdropColor(0, 0, 0, 0.5)
+			button.text:SetTextColor(0.7, 0.7, 0.7)
+		end
+	end
+end
+
+function refresh()
+	if not frame or not frame:IsShown() then
+		return
+	end
+
+	wipe(filtered)
+	for i = 1, #history do
+		local record = history[i]
+		if filter == "all" or record.bracket == filter then
+			filtered[#filtered + 1] = record
+		end
+	end
+	if not selected or not ns.tContains(filtered, selected) then
+		selected = filtered[1]
+	end
+
+	refreshFilters()
+	refreshStats()
+	refreshList()
+	local detailHeight = refreshDetail()
+	frame:SetHeight(frame.listBottom + detailHeight + PADDING)
+end
+
+local function onFilterClick(self)
+	filter = self.filter
+	selected = nil
+	FauxScrollFrame_SetOffset(frame.scroll, 0)
+	frame.scrollBar:SetValue(0)
+	refresh()
+end
+
+local function createFilterButton(parent, index, key, label)
+	local button = CreateFrame("Button", nil, parent)
+	button.filter = key
+	button:SetSize(FILTER_WIDTH, FILTER_HEIGHT - 2)
+	button:SetPoint("TOPLEFT", PADDING + (index - 1) * (FILTER_WIDTH + 4), -(PADDING + HEADER_HEIGHT))
+	button:SetBackdrop(ns.CreateBackdrop(8))
+	button:SetBackdropBorderColor(0.6, 0.6, 0.6)
+	button:SetHighlightTexture(ns.Media.blank)
+	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
+
+	button.text = button:CreateFontString(nil, "OVERLAY")
+	button.text:SetFont(ns.Media.font, 12)
+	button.text:SetPoint("CENTER")
+	button.text:SetText(label)
+
+	button:SetScript("OnClick", onFilterClick)
+	return button
+end
+
+local function createFrame()
+	frame = CreateFrame("Frame", FRAME_NAME, UIParent)
+	frame:Hide()
+	frame:SetWidth(WIDTH)
+	frame:SetPoint(unpack(ns.Config.arenaHistory))
+	frame:SetFrameStrata("HIGH")
+	frame:EnableMouse(true)
+	frame:SetMovable(true)
+	frame:SetClampedToScreen(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", frame.StartMoving)
+	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	frame:SetScript("OnShow", refresh)
+	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
+	frame:SetBackdropColor(0, 0, 0, 0.6)
+	tinsert(UISpecialFrames, FRAME_NAME)
+
+	local title = frame:CreateFontString(nil, "OVERLAY")
+	title:SetFont(ns.Media.fontBold, 13, "OUTLINE")
+	title:SetPoint("TOPLEFT", PADDING, -PADDING - 3)
+	title:SetText("Arena history")
+
+	local close = CreateFrame("Button", nil, frame)
+	close:SetSize(26, 26)
+	close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
+	close:SetNormalTexture(CLOSE_ICON)
+	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
+	close:SetScript("OnClick", function()
+		frame:Hide()
+	end)
+
+	local filters = {}
+	for i = 1, #FILTERS do
+		filters[i] = createFilterButton(frame, i, FILTERS[i][1], FILTERS[i][2])
+	end
+	frame.filters = filters
+
+	local stats = frame:CreateFontString(nil, "OVERLAY")
+	stats:SetFont(ns.Media.font, 12)
+	stats:SetPoint("LEFT", filters[#filters], "RIGHT", 12, 0)
+	frame.stats = stats
+
+	local clear = CreateFrame("Button", nil, frame)
+	clear:SetSize(FILTER_WIDTH, FILTER_HEIGHT - 2)
+	clear:SetPoint("TOPRIGHT", -PADDING, -(PADDING + HEADER_HEIGHT))
+	clear:SetBackdrop(ns.CreateBackdrop(8))
+	clear:SetBackdropColor(0, 0, 0, 0.5)
+	clear:SetBackdropBorderColor(0.6, 0.6, 0.6)
+	clear:SetHighlightTexture(ns.Media.blank)
+	clear:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
+	clear.text = clear:CreateFontString(nil, "OVERLAY")
+	clear.text:SetFont(ns.Media.font, 12)
+	clear.text:SetTextColor(0.7, 0.7, 0.7)
+	clear.text:SetPoint("CENTER")
+	clear.text:SetText("Clear")
+	clear:SetScript("OnClick", function()
+		StaticPopup_Show("FROSTATOMUI_ARENA_HISTORY_CLEAR")
+	end)
+
+	local listTop = PADDING + HEADER_HEIGHT + FILTER_HEIGHT + 6
+	local list = CreateFrame("Frame", nil, frame)
+	list:SetPoint("TOPLEFT", PADDING, -(listTop + DETAIL_ROW_HEIGHT))
+	list:SetSize(CONTENT_WIDTH - SCROLLBAR_WIDTH, LIST_ROWS * LIST_ROW_HEIGHT)
+
+	local listHeader = CreateFrame("Frame", nil, frame)
+	listHeader:SetPoint("BOTTOMLEFT", list, "TOPLEFT")
+	listHeader:SetSize(list:GetWidth(), DETAIL_ROW_HEIGHT)
+	createHeaders(listHeader, LIST_COLUMNS, 0)
+
+	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "Scroll", list, "FauxScrollFrameTemplate")
+	scroll:SetAllPoints()
+	scroll:SetScript("OnVerticalScroll", function(self, offset)
+		FauxScrollFrame_OnVerticalScroll(self, offset, LIST_ROW_HEIGHT, refreshList)
+	end)
+	frame.scroll = scroll
+	frame.scrollBar = _G[FRAME_NAME .. "ScrollScrollBar"]
+
+	local rows = {}
+	for i = 1, LIST_ROWS do
+		rows[i] = createListRow(list, i)
+	end
+	frame.rows = rows
+
+	local empty = list:CreateFontString(nil, "OVERLAY")
+	empty:SetFont(ns.Media.font, 13)
+	empty:SetTextColor(0.5, 0.5, 0.5)
+	empty:SetPoint("CENTER")
+	empty:SetText("No games recorded yet")
+	frame.empty = empty
+
+	frame.listBottom = listTop + DETAIL_ROW_HEIGHT + LIST_ROWS * LIST_ROW_HEIGHT + DETAIL_GAP
+
+	local detail = CreateFrame("Frame", nil, frame)
+	detail:SetPoint("TOPLEFT", PADDING, -frame.listBottom)
+	detail:SetWidth(CONTENT_WIDTH)
+	detail.rows = {}
+	frame.detail = detail
+
+	local line = detail:CreateTexture(nil, "BACKGROUND")
+	line:SetTexture(ns.Media.blank)
+	line:SetVertexColor(1, 1, 1, 0.15)
+	line:SetPoint("TOPLEFT", 0, DETAIL_GAP / 2)
+	line:SetPoint("TOPRIGHT", 0, DETAIL_GAP / 2)
+	line:SetHeight(1)
+
+	detail.title = detail:CreateFontString(nil, "OVERLAY")
+	detail.title:SetFont(ns.Media.fontBold, 12, "OUTLINE")
+	detail.title:SetPoint("TOPLEFT", 4, 0)
+	detail.title:SetHeight(DETAIL_ROW_HEIGHT)
+	detail.title:SetJustifyV("MIDDLE")
+
+	createHeaders(detail, DETAIL_COLUMNS, -DETAIL_ROW_HEIGHT)
+
+	detail.teamHeaders = {}
+	for side = 1, 2 do
+		local header = detail:CreateFontString(nil, "OVERLAY")
+		header:SetFont(ns.Media.fontBold, 12, "OUTLINE")
+		header:SetHeight(DETAIL_ROW_HEIGHT)
+		header:SetJustifyV("MIDDLE")
+		detail.teamHeaders[side] = header
+	end
+end
+
+StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_CLEAR = {
+	text = "Clear the whole arena history?",
+	button1 = YES,
+	button2 = NO,
+	OnAccept = function()
+		wipe(history)
+		selected = nil
+		refresh()
+	end,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+}
+
+StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_DELETE = {
+	text = "Delete this game from the history?",
+	button1 = YES,
+	button2 = NO,
+	OnAccept = function(_, record)
+		ns.tDeleteItem(history, record)
+		if selected == record then
+			selected = nil
+		end
+		refresh()
+	end,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+}
+
+SlashCmdList.FROSTATOMUI_ARENA_HISTORY = function()
+	if not history then
+		return
+	end
+	if not frame then
+		createFrame()
+	end
+	if frame:IsShown() then
+		frame:Hide()
+	else
+		frame:Show()
+	end
+end
+SLASH_FROSTATOMUI_ARENA_HISTORY1 = "/history"
+SLASH_FROSTATOMUI_ARENA_HISTORY2 = "/ah"

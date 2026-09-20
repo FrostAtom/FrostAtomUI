@@ -70,6 +70,9 @@ all in one addon, no configuration screens, ready to play right after install.
   as a whisper to yourself), click again to leave the queue, enter the arena in one click once the match is ready,
   and leave the arena in one click while inside. The rating range the queue is currently searching in is shown
   under the button (gold once a team is found) instead of the "Searching team" chat message.
+- **Arena history** (`/history`): every finished 2v2 / 3v3 / solo queue match is saved with the full scoreboard —
+  map, duration, result and rating change, team MMR, and for every player their class/spec icon, race, kills,
+  deaths, damage and healing. Filter by bracket, click a game for the details, right-click to delete it.
 - FPS / latency readout in the top-left corner; the numbers turn amber and red as things get worse.
 - Transparent, movable world map that doesn't lock you out of the game; player coordinates on the map.
 - Single-window **bags and bank** with a sort button, item quality borders, quest item marks.
@@ -114,6 +117,7 @@ all in one addon, no configuration screens, ready to play right after install.
 | `/bind`, `/b` | Keybinding mode for action buttons |
 | `/pm` | Toggle blocking whispers from strangers (friends still get through; blocked messages are shown when you turn it off) |
 | `/copy` | Open a window to copy text from the current chat tab |
+| `/history`, `/ah` | Toggle the arena history window |
 | `/clear`, `/clearall` | Clear the current / all chat tabs |
 | `/gr <text>` | Send a message to raid, party or say — whichever is active |
 | `/ia` | Toggle interrupt announcements to the group |

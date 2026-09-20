@@ -11,7 +11,7 @@ unused_args = false
 
 read_globals = {
 	-- Lua extensions provided by the client
-	"bit", "date", "wipe", "strsplit", "tinsert", "tremove", "hooksecurefunc",
+	"bit", "date", "time", "wipe", "strsplit", "tinsert", "tremove", "hooksecurefunc",
 	"CopyTable", "tContains", "getglobal", "setglobal",
 
 	-- WoW API (only what the addon uses)
@@ -41,7 +41,7 @@ read_globals = {
 	"SendChatMessage", "SendSystemMessage", "IsInInstance", "GetZoneText",
 	"GetNumBattlefieldScores", "GetBattlefieldScore", "GetBattlefieldTeamInfo",
 	"GetBattlefieldWinner", "IsActiveBattlefieldArena", "GetBattlefieldStatus", "GetBattlefieldTimeWaited",
-	"AcceptBattlefieldPort", "LeaveBattlefield",
+	"GetBattlefieldInstanceRunTime", "GetRealZoneText", "AcceptBattlefieldPort", "LeaveBattlefield",
 	"CombatLogClearEntries", "ToggleCalendar", "collectgarbage", "geterrorhandler", "GetLocale",
 	"GetComboPoints", "UnitHasVehicleUI", "GetRaidTargetIndex", "SetRaidTargetIconTexture",
 	"UnitInRange", "CheckInteractDistance", "UnitLevel", "UnitXP", "UnitXPMax", "GetXPExhaustion",
@@ -67,7 +67,8 @@ read_globals = {
 	"ChatEdit_UpdateHeader", "ChatFrame_AddMessageEventFilter", "ChatFrame_RemoveMessageEventFilter",
 	"ChatTypeInfo", "SetChatColorNameByClass",
 	"StaticPopup_Show", "StaticPopup_Hide", "ToggleDropDownMenu", "UIDropDownMenu_Initialize",
-	"UnitPopup_ShowMenu",
+	"UnitPopup_ShowMenu", "FauxScrollFrame_Update", "FauxScrollFrame_OnVerticalScroll",
+	"FauxScrollFrame_GetOffset", "FauxScrollFrame_SetOffset",
 
 	-- FrameXML tables & constants
 	"UIDROPDOWNMENU_INIT_MENU", "RAID_CLASS_COLORS", "PowerBarColor", "DebuffTypeColor", "RAID_TARGET_ICON",

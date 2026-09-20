@@ -45,6 +45,11 @@ for class, coords in pairs(CLASS_ICON_TCOORDS) do
 	classCoords[class] = { l + w, r - w, t + h, b - h }
 end
 
+UF.CLASS_ICONS = CLASS_ICONS
+UF.ICON_TRIM = TRIM
+UF.classCoords = classCoords
+UF.specIcons = SPEC_ICONS
+
 local function update(frame)
 	local unit = frame.unit
 	local icon = frame.classicon

@@ -163,6 +163,7 @@ local ARENA_SPAM = {
 	"^The Arena battle has begun!$",
 	"^Speeding up the battle start! Players ready: %d+%.$",
 	"^You are in Spectator Mode%. ",
+	"^The %a+ Team wins!$",
 }
 
 local wasInArena, arenaLeftAt = false, 0
@@ -279,6 +280,10 @@ end)
 
 ChatFrame_AddMessageEventFilter("CHAT_MSG_BG_SYSTEM_NEUTRAL", function(_, _, message)
 	return isArenaSpam(message)
+end)
+
+ChatFrame_AddMessageEventFilter("CHAT_MSG_TARGETICONS", function()
+	return wasInArena
 end)
 
 local CHANNEL_GETS = {

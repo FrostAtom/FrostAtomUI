@@ -30,6 +30,8 @@ ns.Config = {
 
 	arenaTrinket = { size = 30 },
 
+	arenaHistory = { "CENTER", 0, 40 },
+
 	combatAlert = { "CENTER", 0, 150 },
 
 	performance = { "TOPLEFT", 12, -10 },
