@@ -4,7 +4,6 @@ local CreateFrame = CreateFrame
 local GetTime = GetTime
 local GetZoneText = GetZoneText
 local ceil = math.ceil
-local FlashWindow = FlashWindow or ns.noop
 
 local COUNTDOWN_MESSAGE = "Fifteen seconds until the Arena battle begins!"
 local COUNTDOWN_SECONDS = 15
@@ -22,7 +21,6 @@ countdown:SetScript("OnUpdate", function(self, elapsed)
 	self.remain = self.remain - elapsed
 	if self.remain <= 0 then
 		self:Hide()
-		FlashWindow()
 	elseif self.remain <= 3 then
 		self.text:SetFormattedText("%.1f", self.remain)
 		self.text:SetTextColor(1, 0, 0)

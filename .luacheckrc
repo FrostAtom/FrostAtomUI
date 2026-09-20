@@ -61,9 +61,6 @@ read_globals = {
 	"PickupContainerItem", "SplitContainerItem", "GetBackpackCurrencyInfo", "MAX_WATCHED_TOKENS",
 	"BackpackTokenFrame_Update", "GameTooltip_Hide",
 
-	-- Server-specific API (WoWCircle)
-	"FlashWindow",
-
 	-- FrameXML functions
 	"CooldownFrame_SetTimer", "GameTooltip_SetDefaultAnchor", "UnitFrame_OnEnter", "UnitFrame_OnLeave", "Minimap_OnClick",
 	"ChatEdit_UpdateHeader", "ChatFrame_AddMessageEventFilter", "ChatFrame_RemoveMessageEventFilter",

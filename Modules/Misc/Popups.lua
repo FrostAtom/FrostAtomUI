@@ -3,7 +3,6 @@ local _, ns = ...
 local StaticPopupDialogs = StaticPopupDialogs
 local InCombatLockdown = InCombatLockdown
 local IsInInstance = IsInInstance
-local FlashWindow = FlashWindow or ns.noop
 
 local Misc = ns:GetModule("Misc")
 
@@ -52,8 +51,6 @@ hooksecurefunc("StaticPopup_Show", function(which)
 		if InCombatLockdown() then
 			StaticPopupDialogs[which].OnCancel()
 		end
-	elseif which == "PARTY_INVITE" or which == "CONFIRM_BATTLEFIELD_ENTRY" then
-		FlashWindow()
 	elseif which == "DELETE_GOOD_ITEM" or which == "DELETE_GOOD_QUEST_ITEM" then
 		fillDeleteConfirmation(which)
 	end
@@ -93,9 +90,6 @@ Misc:RegisterEvent("PARTY_INVITE_REQUEST", function(_, leader)
 		ns.Print("accepted %s's invite", leader)
 	end
 end)
-
-Misc:RegisterEvent("CHAT_MSG_WHISPER", FlashWindow)
-Misc:RegisterEvent("PLAYER_LOGOUT", FlashWindow)
 
 Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
 	setDeclineDuels(db.NoDuel)
