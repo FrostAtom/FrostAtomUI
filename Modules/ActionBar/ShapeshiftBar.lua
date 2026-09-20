@@ -18,8 +18,9 @@ local PLACEHOLDER_TEXTURE = "Interface\\Icons\\Spell_Nature_WispSplode"
 local buttons = {}
 
 local function setTooltip(button)
-	if button:GetID() <= GetNumShapeshiftForms() then
-		GameTooltip:SetShapeshift(button:GetID())
+	local id = button:GetID()
+	if id <= GetNumShapeshiftForms() then
+		GameTooltip:SetShapeshift(id)
 	else
 		GameTooltip:Hide()
 	end
@@ -107,8 +108,6 @@ function ActionBar:SetupShapeshiftButton(button)
 end
 
 function ActionBar:InitializeShapeshiftBar(parent)
-	self.shapeshiftBar = parent
-
 	local slot = self.SMALL_BUTTON_SIZE + self.BUTTON_GAP
 	for i = 1, NUM_SHAPESHIFT_SLOTS do
 		local button = self:SetupShapeshiftButton(_G["ShapeshiftButton" .. i])

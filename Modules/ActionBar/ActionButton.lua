@@ -20,11 +20,14 @@ local InCombatLockdown = InCombatLockdown
 local PickupAction = PickupAction
 local PlaceAction = PlaceAction
 local GameTooltip = GameTooltip
+local pairs = pairs
 
+local Media = ns.Media
 local ActionBar = ns:GetModule("ActionBar")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local BUTTON_NAME = ADDON_NAME .. "ActionButton%d"
+local BINDING_NAME = "CLICK " .. BUTTON_NAME .. ":LeftButton"
 local RANGE_CHECK_INTERVAL = 0.1
 
 local ACTION_EVENTS = {
@@ -55,7 +58,8 @@ local KEY_ABBREVIATIONS = {
 }
 
 local function abbreviateKey(key)
-	for _, pair in ipairs(KEY_ABBREVIATIONS) do
+	for i = 1, #KEY_ABBREVIATIONS do
+		local pair = KEY_ABBREVIATIONS[i]
 		key = key:gsub(pair[1], pair[2])
 	end
 	return key
@@ -117,7 +121,7 @@ function ActionButtonMixin:UpdateStateForCompanion(companionType)
 end
 
 function ActionButtonMixin:UpdateBindings()
-	local key = GetBindingKey(("CLICK %s:LeftButton"):format(self:GetName()))
+	local key = GetBindingKey(self.bindingName)
 	if key then
 		self.hotkey:SetText(abbreviateKey(key))
 		self.hotkey:Show()
@@ -139,9 +143,9 @@ end
 function ActionButtonMixin:UpdateIcon()
 	local texture = GetActionTexture(self.action)
 	if not texture then
-		texture = ns.Media.emptySlot
+		texture = Media.emptySlot
 	elseif texture == "" then
-		texture = ns.Media.questionMark
+		texture = Media.questionMark
 	end
 	self.icon:SetTexture(texture)
 end
@@ -238,6 +242,7 @@ function ActionBar:CreateActionButton(action, parent)
 	button:SetAttribute("type", "action")
 	button:SetAttribute("action", action)
 	button.action = action
+	button.bindingName = BINDING_NAME:format(action)
 
 	self:StyleButton(button, self.BUTTON_SIZE)
 
@@ -249,13 +254,13 @@ function ActionBar:CreateActionButton(action, parent)
 	button.icon:SetAllPoints()
 
 	button.hotkey = button:CreateFontString(nil, "ARTWORK")
-	button.hotkey:SetFont(ns.Media.font, 9, "OUTLINE")
+	button.hotkey:SetFont(Media.font, 9, "OUTLINE")
 	button.hotkey:SetPoint("TOPRIGHT")
 	button.hotkey:SetJustifyH("LEFT")
 	button.hotkey:SetJustifyV("BOTTOM")
 
 	button.name = button:CreateFontString(nil, "ARTWORK")
-	button.name:SetFont(ns.Media.font, 9, "OUTLINE")
+	button.name:SetFont(Media.font, 9, "OUTLINE")
 	button.name:SetPoint("BOTTOM", 0, 2)
 
 	button:RegisterForClicks("LeftButtonDown")

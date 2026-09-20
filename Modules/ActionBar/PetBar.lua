@@ -10,6 +10,7 @@ local GetBindingKey = GetBindingKey
 local GameTooltip = GameTooltip
 local NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS
 
+local Media = ns.Media
 local ActionBar = ns:GetModule("ActionBar")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
@@ -25,15 +26,16 @@ local tokenTextures = setmetatable({}, {
 })
 
 local function setTooltip(button)
-	if GetPetActionInfo(button:GetID()) then
-		GameTooltip:SetPetAction(button:GetID())
+	local id = button:GetID()
+	if GetPetActionInfo(id) then
+		GameTooltip:SetPetAction(id)
 	else
 		GameTooltip:Hide()
 	end
 end
 
 local function updateHotkey(button)
-	local key = GetBindingKey("BONUSACTIONBUTTON" .. button:GetID())
+	local key = GetBindingKey(button.bindingName)
 	if key then
 		button.hotkey:SetText(ActionBar.AbbreviateKey(key))
 		button.hotkey:Show()
@@ -74,7 +76,7 @@ function ActionBar:UpdatePetBar()
 				self:SetButtonColors(button, 1, 1, 1, 1)
 			end
 		else
-			button.icon:SetTexture(ns.Media.emptySlot)
+			button.icon:SetTexture(Media.emptySlot)
 			button.icon:SetDesaturated(nil)
 		end
 	end
@@ -93,6 +95,7 @@ function ActionBar:CreatePetButton(index, parent)
 	button:SetAttribute("checkselfcast", true)
 	button:SetAttribute("type", "pet")
 	button:SetAttribute("action", index)
+	button.bindingName = "BONUSACTIONBUTTON" .. index
 
 	self:StyleButton(button, self.SMALL_BUTTON_SIZE)
 
@@ -105,7 +108,7 @@ function ActionBar:CreatePetButton(index, parent)
 	button.icon:SetAllPoints()
 
 	button.hotkey = button:CreateFontString(nil, "ARTWORK")
-	button.hotkey:SetFont(ns.Media.font, 9, "OUTLINE")
+	button.hotkey:SetFont(Media.font, 9, "OUTLINE")
 	button.hotkey:SetPoint("TOPRIGHT")
 
 	button:RegisterForClicks("LeftButtonDown")

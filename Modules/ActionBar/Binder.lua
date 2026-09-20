@@ -148,6 +148,8 @@ SlashCmdList.FROSTATOMUI_BIND = function()
 		StaticPopup_Show(POPUP)
 	end
 end
+SLASH_FROSTATOMUI_BIND1 = "/b"
+SLASH_FROSTATOMUI_BIND2 = "/bind"
 
 local combatWatcher = CreateFrame("Frame")
 combatWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -158,5 +160,3 @@ combatWatcher:SetScript("OnEvent", function()
 		ns.Print("keybinding mode closed: entering combat, changes discarded")
 	end
 end)
-SLASH_FROSTATOMUI_BIND1 = "/b"
-SLASH_FROSTATOMUI_BIND2 = "/bind"

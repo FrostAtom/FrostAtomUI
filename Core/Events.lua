@@ -2,6 +2,7 @@ local _, ns = ...
 
 local tContains, tDeleteItem = ns.tContains, ns.tDeleteItem
 local IsAddOnLoaded = IsAddOnLoaded
+local pairs, next, type = pairs, next, type
 
 local eventFrame = CreateFrame("Frame")
 
@@ -101,8 +102,8 @@ local function onAddonLoaded(_, addon)
 		return
 	end
 	addonWaiters[addon] = nil
-	for _, callback in ipairs(waiters) do
-		callback()
+	for i = 1, #waiters do
+		waiters[i]()
 	end
 	if not next(addonWaiters) then
 		addonWatcher:UnregisterEvent("ADDON_LOADED")

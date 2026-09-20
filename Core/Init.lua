@@ -1,11 +1,11 @@
 local ADDON_NAME, ns = ...
 
-ns.ADDON_NAME = ADDON_NAME
 ns.PLAYER_CLASS = select(2, UnitClass("player"))
 
 function ns.Mixin(target, ...)
 	for i = 1, select("#", ...) do
-		for key, value in pairs((select(i, ...))) do
+		local source = select(i, ...)
+		for key, value in pairs(source) do
 			target[key] = value
 		end
 	end

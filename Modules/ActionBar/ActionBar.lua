@@ -2,8 +2,10 @@ local _, ns = ...
 
 local CreateFrame = CreateFrame
 local RegisterStateDriver = RegisterStateDriver
+local GameTooltip = GameTooltip
 local floor = math.floor
 
+local Media = ns.Media
 local ActionBar = ns:NewModule("ActionBar")
 
 local BUTTONS_PER_BAR = 12
@@ -17,9 +19,9 @@ ActionBar.BUTTON_GAP = BUTTON_GAP
 
 function ActionBar:StyleButton(button, size)
 	button:SetSize(size, size)
-	button:SetNormalTexture(ns.Media.buttonNormal)
+	button:SetNormalTexture(Media.buttonNormal)
 	button:GetNormalTexture():SetAllPoints()
-	button:SetHighlightTexture(ns.Media.buttonHighlight)
+	button:SetHighlightTexture(Media.buttonHighlight)
 	button:HookScript("OnClick", self.PlayClickAnimation)
 end
 
@@ -91,14 +93,10 @@ local CLASS_PAGE_CONDITIONS = {
 	PRIEST = "[bonusbar:1] 7;",
 }
 
-local function pageDriverCondition()
-	local condition = "[vehicleui] 11; [bonusbar:5] 11; "
-	local classCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
-	if classCondition then
-		condition = condition .. classCondition .. " "
-	end
-	return condition .. "1"
-end
+local classPageCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
+local PAGE_DRIVER_CONDITION = "[vehicleui] 11; [bonusbar:5] 11; "
+	.. (classPageCondition and classPageCondition .. " " or "")
+	.. "1"
 
 local PAGE_CHANGED_SNIPPET = [[
 	self:SetAttribute("action", (message - 1) * 12 + self:GetAttribute("id"))
@@ -109,11 +107,18 @@ local function setupPagedButton(button, index)
 	button:SetAttribute("_childupdate-page", PAGE_CHANGED_SNIPPET)
 end
 
+local function createSmallBarAnchor(anchor, x)
+	local frame = CreateFrame("Frame", nil, UIParent)
+	frame:SetSize(2, 2)
+	frame:SetPoint("BOTTOM", anchor, x, SLOT)
+	return frame
+end
+
 function ActionBar:Initialize()
 	local bar1 = self:CreateBar(1, rowPoint, setupPagedButton)
 	bar1:SetPoint("BOTTOM", 0, 2)
 	bar1:SetAttribute("_onstate-page", [[ control:ChildUpdate("page", newstate) ]])
-	RegisterStateDriver(bar1, "page", pageDriverCondition())
+	RegisterStateDriver(bar1, "page", PAGE_DRIVER_CONDITION)
 
 	local bar2 = self:CreateBar(2, rowPoint)
 	bar2:SetPoint("BOTTOM", bar1, 0, SLOT)
@@ -121,21 +126,9 @@ function ActionBar:Initialize()
 	local bar3 = self:CreateBar(3, rowPoint)
 	bar3:SetPoint("BOTTOM", bar2, 0, SLOT)
 
-	local bar4 = self:CreateBar(4, squarePoint)
-	bar4:SetPoint("BOTTOM", bar1, -SLOT * 8 - 12, 0)
+	self:CreateBar(4, squarePoint):SetPoint("BOTTOM", bar1, -SLOT * 8 - 12, 0)
+	self:CreateBar(5, squarePoint):SetPoint("BOTTOM", bar1, SLOT * 8 + 12, 0)
 
-	local bar5 = self:CreateBar(5, squarePoint)
-	bar5:SetPoint("BOTTOM", bar1, SLOT * 8 + 12, 0)
-
-	local shapeshiftBar = CreateFrame("Frame", nil, UIParent)
-	shapeshiftBar:SetSize(2, 2)
-	shapeshiftBar:SetPoint("BOTTOM", bar3, -SLOT * 5, SLOT)
-	self:InitializeShapeshiftBar(shapeshiftBar)
-
-	local petBar = CreateFrame("Frame", nil, UIParent)
-	petBar:SetSize(2, 2)
-	petBar:SetPoint("BOTTOM", bar3, -SLOT * 2, SLOT)
-	self:InitializePetBar(petBar)
-
-	self.bars = { bar1, bar2, bar3, bar4, bar5 }
+	self:InitializeShapeshiftBar(createSmallBarAnchor(bar3, -SLOT * 5))
+	self:InitializePetBar(createSmallBarAnchor(bar3, -SLOT * 2))
 end

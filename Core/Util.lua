@@ -1,19 +1,20 @@
 local ADDON_NAME, ns = ...
 
 local tremove = table.remove
-local floor = math.floor
-local modf = math.modf
+local floor, modf, min, abs = math.floor, math.modf, math.min, math.abs
+local select, ipairs, pairs, next = select, ipairs, pairs, next
 
-function ns.tContains(tbl, item)
+local function tContains(tbl, item)
 	for i = 1, #tbl do
 		if tbl[i] == item then
 			return i
 		end
 	end
 end
+ns.tContains = tContains
 
 function ns.tDeleteItem(tbl, item)
-	local index = ns.tContains(tbl, item)
+	local index = tContains(tbl, item)
 	if index then
 		return tremove(tbl, index)
 	end
@@ -35,6 +36,7 @@ function ns.FindAura(unit, wantedSpellId, filter)
 end
 
 local UnitGUID = UnitGUID
+-- stylua: ignore
 local GUID_UNITS = {
 	"player", "target", "focus",
 	"party1", "party2", "party3", "party4",
@@ -54,7 +56,7 @@ end
 
 function ns.noop() end
 
-function ns.DestroyFrame(frame, deep)
+local function destroyFrame(frame, deep)
 	if not frame then
 		return
 	end
@@ -65,10 +67,11 @@ function ns.DestroyFrame(frame, deep)
 
 	if deep then
 		for _, child in ipairs({ frame:GetChildren() }) do
-			ns.DestroyFrame(child)
+			destroyFrame(child)
 		end
 	end
 end
+ns.DestroyFrame = destroyFrame
 
 local SMOOTH_SPEED = 12
 local smoothing = {}
@@ -76,12 +79,12 @@ local smoothing = {}
 local smoother = CreateFrame("Frame")
 smoother:Hide()
 smoother:SetScript("OnUpdate", function(_, elapsed)
-	local step = math.min(elapsed * SMOOTH_SPEED, 1)
+	local step = min(elapsed * SMOOTH_SPEED, 1)
 	for bar, target in pairs(smoothing) do
 		local current = bar:GetValue()
-		local min, max = bar:GetMinMaxValues()
+		local low, high = bar:GetMinMaxValues()
 		local new = current + (target - current) * step
-		if math.abs(target - new) < (max - min) * 0.002 or not bar:IsVisible() then
+		if abs(target - new) < (high - low) * 0.002 or not bar:IsVisible() then
 			new = target
 			smoothing[bar] = nil
 		end
@@ -151,10 +154,12 @@ function ns.FormatValue(value)
 	end
 end
 
-function ns.FormatMoney(copper)
-	local gold = floor(copper / 1e4)
-	local silver = floor(copper % 1e4 / 100)
-	copper = copper % 100
+local function splitMoney(copper)
+	return floor(copper / 1e4), floor(copper % 1e4 / 100), copper % 100
+end
+
+function ns.FormatMoney(money)
+	local gold, silver, copper = splitMoney(money)
 	if gold > 0 then
 		return ("%d|cffffd700g|r %d|cffc7c7cfs|r"):format(gold, silver)
 	elseif silver > 0 then
@@ -167,11 +172,9 @@ local GOLD_ICON = "|TInterface\\MoneyFrame\\UI-GoldIcon:%d:%d:2:0|t"
 local SILVER_ICON = "|TInterface\\MoneyFrame\\UI-SilverIcon:%d:%d:2:0|t"
 local COPPER_ICON = "|TInterface\\MoneyFrame\\UI-CopperIcon:%d:%d:2:0|t"
 
-function ns.FormatMoneyIcons(copper, iconSize)
+function ns.FormatMoneyIcons(money, iconSize)
 	iconSize = iconSize or 12
-	local gold = floor(copper / 1e4)
-	local silver = floor(copper % 1e4 / 100)
-	copper = copper % 100
+	local gold, silver, copper = splitMoney(money)
 	local goldIcon = GOLD_ICON:format(iconSize, iconSize)
 	local silverIcon = SILVER_ICON:format(iconSize, iconSize)
 	local copperIcon = COPPER_ICON:format(iconSize, iconSize)
