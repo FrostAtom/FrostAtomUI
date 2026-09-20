@@ -131,6 +131,7 @@ local SYSTEM_SPAM = {
 	"^|cffff0000%[BG Queue Announcer%]:|r",
 	"wowcircle%.net",
 	"control panel at our website",
+	"Speeding up the battle start",
 }
 
 local function formatToPattern(text)
