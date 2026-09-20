@@ -8,6 +8,7 @@ local SendSystemMessage = SendSystemMessage
 local IsControlKeyDown = IsControlKeyDown
 local StaticPopup_Show = StaticPopup_Show
 local GameTooltip = GameTooltip
+local IsInInstance = IsInInstance
 
 local Chat = ns:NewModule("Chat")
 
@@ -129,6 +130,29 @@ local SYSTEM_SPAM = {
 	"^|cffff0000%[BG Queue Announcer%]:|r",
 }
 
+local ARENA_SPAM = {
+	"^Looting changed to ",
+	"^Loot threshold set to ",
+	"^You have joined a raid group%.$",
+	"^%S+ has joined the battle%.$",
+	"^One minute until the Arena battle begins!$",
+	"^Thirty seconds until the Arena battle begins!$",
+	"^Fifteen seconds until the Arena battle begins!$",
+	"^The Arena battle has begun!$",
+}
+
+local function isArenaSpam(message)
+	if select(2, IsInInstance()) ~= "arena" then
+		return false
+	end
+	for _, pattern in ipairs(ARENA_SPAM) do
+		if message:match(pattern) then
+			return true
+		end
+	end
+	return false
+end
+
 local QUEUE_ICON = "|TInterface\\Icons\\%s:14:14:0:0:64:64:4:60:4:60|t"
 local QUEUE_MELEE = QUEUE_ICON:format("Ability_MeleeDamage")
 local QUEUE_RANGED = QUEUE_ICON:format("Ability_Marksmanship")
@@ -198,12 +222,20 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message, ...)
 		end
 	end
 
+	if isArenaSpam(message) then
+		return true
+	end
+
 	local filtered, newMessage = filterQueueSpam(message)
 	if filtered then
 		return true
 	elseif newMessage then
 		return false, newMessage, ...
 	end
+end)
+
+ChatFrame_AddMessageEventFilter("CHAT_MSG_BG_SYSTEM_NEUTRAL", function(_, _, message)
+	return isArenaSpam(message)
 end)
 
 local CHANNEL_GETS = {

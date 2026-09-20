@@ -20,7 +20,6 @@ watchdog:SetScript("OnUpdate", function(self, elapsed)
 	self.remain = self.remain - elapsed
 	if self.remain < 0 then
 		CombatLogClearEntries()
-		ns.Print("combat log reset")
 		self:Hide()
 	end
 end)
