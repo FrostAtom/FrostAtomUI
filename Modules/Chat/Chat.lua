@@ -10,6 +10,13 @@ local StaticPopup_Show = StaticPopup_Show
 local GameTooltip = GameTooltip
 local IsInInstance = IsInInstance
 local GetTime = GetTime
+local date = date
+local type = type
+local tonumber = tonumber
+local select = select
+local find, match, gsub, format, lower, sub =
+	string.find, string.match, string.gsub, string.format, string.lower, string.sub
+local tconcat, tremove = table.concat, table.remove
 
 local Chat = ns:NewModule("Chat")
 
@@ -38,18 +45,14 @@ local function enableClassColors()
 	end
 end
 
-local function enableSticky()
-	for _, chatType in ipairs(STICKY_TYPES) do
-		local info = ChatTypeInfo[chatType]
+function Chat:Initialize()
+	enableClassColors()
+	for i = 1, #STICKY_TYPES do
+		local info = ChatTypeInfo[STICKY_TYPES[i]]
 		if info then
 			info.sticky = 1
 		end
 	end
-end
-
-function Chat:Initialize()
-	enableClassColors()
-	enableSticky()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", enableClassColors)
 end
 
@@ -90,7 +93,7 @@ Blizzard_CombatLog_Update_QuickButtons = ns.noop
 ChatConfigFrame:SetScript("OnShow", nil)
 
 Chat:RegisterEvent("UI_ERROR_MESSAGE", function(_, message)
-	if message:find("^You must wait .- before speaking again.$") then
+	if find(message, "^You must wait .- before speaking again.$") then
 		SendSystemMessage(message)
 	end
 end)
@@ -105,14 +108,14 @@ local function switchChatType(editBox, chatType, tellTarget)
 end
 
 hooksecurefunc("ChatEdit_OnSpacePressed", function(editBox)
-	local text = editBox:GetText():lower()
+	local text = lower(editBox:GetText())
 
 	if text == "/gr " then
 		switchChatType(editBox, groupChatType())
 		return
 	end
 
-	if not text:find("^/[wt]t ") or not UnitIsPlayer("target") then
+	if not find(text, "^/[wt]t ") or not UnitIsPlayer("target") then
 		return
 	end
 
@@ -135,7 +138,7 @@ local SYSTEM_SPAM = {
 }
 
 local function formatToPattern(text)
-	return "^" .. text:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"):gsub("%%%%[sd]", "(.-)") .. "$"
+	return "^" .. gsub(gsub(text, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "%%%%[sd]", "(.-)") .. "$"
 end
 
 local ARENA_SPAM = {
@@ -151,6 +154,8 @@ local ARENA_SPAM = {
 	formatToPattern(ERR_BG_PLAYER_LEFT_S),
 	formatToPattern(ERR_PLAYER_DIED_S),
 	formatToPattern(ERR_LEFT_GROUP_S),
+	formatToPattern(ERR_NEW_LEADER_YOU),
+	formatToPattern(ERR_NEW_LEADER_S),
 	"^%S+ has joined the battle%.?$",
 	"^One minute until the Arena battle begins!$",
 	"^Thirty seconds until the Arena battle begins!$",
@@ -170,92 +175,97 @@ Chat:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	wasInArena = inArena
 end)
 
-local function isArenaSpam(message)
-	if not wasInArena and GetTime() - arenaLeftAt > 10 then
-		return false
-	end
-	for _, pattern in ipairs(ARENA_SPAM) do
-		if message:match(pattern) then
+local function matchesAny(message, patterns)
+	for i = 1, #patterns do
+		if find(message, patterns[i]) then
 			return true
 		end
 	end
 	return false
 end
 
+local function isArenaSpam(message)
+	if not wasInArena and GetTime() - arenaLeftAt > 10 then
+		return false
+	end
+	return matchesAny(message, ARENA_SPAM)
+end
+
 local QUEUE_ICON = "|TInterface\\Icons\\%s:14:14:0:0:64:64:4:60:4:60|t"
-local QUEUE_MELEE = QUEUE_ICON:format("Ability_MeleeDamage")
-local QUEUE_RANGED = QUEUE_ICON:format("Ability_Marksmanship")
-local QUEUE_HEALER = QUEUE_ICON:format("Spell_Holy_Renew")
-local QUEUE_GROUPS = QUEUE_ICON:format("Achievement_PVP_A_A")
+local QUEUE_MELEE = format(QUEUE_ICON, "Ability_MeleeDamage")
+local QUEUE_RANGED = format(QUEUE_ICON, "Ability_Marksmanship")
+local QUEUE_HEALER = format(QUEUE_ICON, "Spell_Holy_Renew")
+local QUEUE_GROUPS = format(QUEUE_ICON, "Achievement_PVP_A_A")
 local QUEUE_ON = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t"
 local QUEUE_OFF = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t"
+
+local QUEUE_COUNT_PATTERNS = {
+	{ "^Number of groups in queue Arena 3v3 %(Solo%): (%d+)$", "groups" },
+	{ "^Melee classes: (%d+)$", "melee" },
+	{ "^Ranged classes: (%d+)$", "ranged" },
+	{ "^Healers: (%d+)$", "healers" },
+}
+local QUEUE_MIXED_PATTERN = "^Possibility of selecting a mixed arena team %(ignoring specializations%): (%a+)$"
+local QUEUE_SEARCHING_PATTERN = "^We are looking for the best team for you on the selection rating %[(%d+)%-(%d+)%]$"
+local QUEUE_TEAM_FOUND_PATTERN =
+	"^Team to fight found! Team rating (%d+), looking for suitable opponents on the rating %[(%d+)%-(%d+)%]$"
 
 ns.SOLOQ_SEARCHING = "FrostAtomUI_SOLOQ_SEARCHING"
 
 local queueCounts = {}
 
-local function queueRating(low, high)
-	low, high = tonumber(low), tonumber(high)
-	return ("%d |cff7f7f7f[%d-%d]|r"):format((low + high) / 2, low, high)
-end
-
 local function filterQueueSpam(message)
-	local groups = message:match("^Number of groups in queue Arena 3v3 %(Solo%): (%d+)$")
-	if groups then
-		queueCounts.groups = groups
-		return true
-	end
-	local melee = message:match("^Melee classes: (%d+)$")
-	if melee then
-		queueCounts.melee = melee
-		return true
-	end
-	local ranged = message:match("^Ranged classes: (%d+)$")
-	if ranged then
-		queueCounts.ranged = ranged
-		return true
-	end
-	local healers = message:match("^Healers: (%d+)$")
-	if healers then
-		queueCounts.healers = healers
-		return true
+	for i = 1, #QUEUE_COUNT_PATTERNS do
+		local entry = QUEUE_COUNT_PATTERNS[i]
+		local count = match(message, entry[1])
+		if count then
+			queueCounts[entry[2]] = count
+			return true
+		end
 	end
 
-	local mixed = message:match("^Possibility of selecting a mixed arena team %(ignoring specializations%): (%a+)$")
+	local mixed = match(message, QUEUE_MIXED_PATTERN)
 	if mixed then
-		local text = ("%s %s  %s %s  %s %s  %s %s  %s"):format(
-			QUEUE_GROUPS, queueCounts.groups or "?",
-			QUEUE_MELEE, queueCounts.melee or "?",
-			QUEUE_RANGED, queueCounts.ranged or "?",
-			QUEUE_HEALER, queueCounts.healers or "?",
+		local text = format(
+			"%s %s  %s %s  %s %s  %s %s  %s",
+			QUEUE_GROUPS,
+			queueCounts.groups or "?",
+			QUEUE_MELEE,
+			queueCounts.melee or "?",
+			QUEUE_RANGED,
+			queueCounts.ranged or "?",
+			QUEUE_HEALER,
+			queueCounts.healers or "?",
 			mixed == "enabled" and QUEUE_ON or QUEUE_OFF
 		)
 		wipe(queueCounts)
 		return false, text
 	end
 
-	local low, high = message:match("^We are looking for the best team for you on the selection rating %[(%d+)%-(%d+)%]$")
+	local low, high = match(message, QUEUE_SEARCHING_PATTERN)
 	if low then
 		ns:Fire(ns.SOLOQ_SEARCHING, tonumber(low), tonumber(high))
 		return true
 	end
 
 	local teamRating
-	teamRating, low, high = message:match("^Team to fight found! Team rating (%d+), looking for suitable opponents on the rating %[(%d+)%-(%d+)%]$")
+	teamRating, low, high = match(message, QUEUE_TEAM_FOUND_PATTERN)
 	if teamRating then
-		ns:Fire(ns.SOLOQ_SEARCHING, tonumber(low), tonumber(high), tonumber(teamRating))
-		return false, ("Team found (%s), searching opponents: %s"):format(teamRating, queueRating(low, high))
+		low, high = tonumber(low), tonumber(high)
+		ns:Fire(ns.SOLOQ_SEARCHING, low, high, tonumber(teamRating))
+		return false,
+			format(
+				"Team found (%s), searching opponents: %d |cff7f7f7f[%d-%d]|r",
+				teamRating,
+				(low + high) / 2,
+				low,
+				high
+			)
 	end
 end
 
 ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message, ...)
-	for _, pattern in ipairs(SYSTEM_SPAM) do
-		if message:match(pattern) then
-			return true
-		end
-	end
-
-	if isArenaSpam(message) then
+	if matchesAny(message, SYSTEM_SPAM) or isArenaSpam(message) then
 		return true
 	end
 
@@ -297,7 +307,7 @@ end
 local TIMESTAMP_FORMAT = "|cff7f7f7f%H:%M|r "
 
 local function shortenChannelName(text)
-	return (text:gsub("%[(%d+)%. [^%]]+%]", "[%1]", 1))
+	return (gsub(text, "%[(%d+)%. [^%]]+%]", "[%1]", 1))
 end
 
 local URL_LINK = "|cff3399ff|Hurl:%s|h[%s]|h|r"
@@ -310,60 +320,73 @@ local URL_PATTERNS = {
 }
 
 local URL_TLDS = {}
-for tld in ("com net org ru su ua by kz eu de fr uk io gg tv me co info biz dev app xyz pro club online site live"):gmatch("%S+") do
+for tld in
+	("com net org ru su ua by kz eu de fr uk io gg tv me co info biz dev app xyz pro club online site live"):gmatch(
+		"%S+"
+	)
+do
 	URL_TLDS[tld] = true
 end
 
+local linkedAny = false
+
 local function linkUrl(url, tld)
-	if tld and not URL_TLDS[tld:lower()] then
+	if tld and not URL_TLDS[lower(tld)] then
 		return
 	end
-	return URL_LINK:format(url, url)
+	linkedAny = true
+	return format(URL_LINK, url, url)
 end
 
 local function linkUrlsInPlainText(text)
-	for _, pattern in ipairs(URL_PATTERNS) do
-		local replaced = false
-		local linked = text:gsub(pattern, function(url, tld)
-			local link = linkUrl(url, tld)
-			replaced = replaced or link ~= nil
-			return link
-		end)
-		if replaced then
+	for i = 1, #URL_PATTERNS do
+		linkedAny = false
+		local linked = gsub(text, URL_PATTERNS[i], linkUrl)
+		if linkedAny then
 			return linked
 		end
 	end
 	return text
 end
 
-local function stripRealm(text)
-	if not text:find("|Hplayer:[^|]*%-") then
-		return text
-	end
-	return (text:gsub("(|Hplayer:[^|]*%-[^|]*|h)(.-)(|h)", function(link, display, close)
-		display = display:gsub("%-[^%]|]+", "", 1)
-		return link .. display .. close
-	end))
+local function stripRealmFromLink(link, display, close)
+	return link .. gsub(display, "%-[^%]|]+", "", 1) .. close
 end
 
+local function stripRealm(text)
+	if not find(text, "|Hplayer:[^|]*%-") then
+		return text
+	end
+	return (gsub(text, "(|Hplayer:[^|]*%-[^|]*|h)(.-)(|h)", stripRealmFromLink))
+end
+
+local urlParts = {}
+
 local function linkUrls(text)
-	if not text:find("|H", 1, true) then
+	if not find(text, "|H", 1, true) then
 		return linkUrlsInPlainText(text)
 	end
 
-	local parts = {}
+	wipe(urlParts)
 	local position = 1
 	while true do
-		local linkStart, linkEnd = text:find("|H.-|h.-|h", position)
+		local linkStart, linkEnd = find(text, "|H.-|h.-|h", position)
 		if not linkStart then
 			break
 		end
-		parts[#parts + 1] = linkUrlsInPlainText(text:sub(position, linkStart - 1))
-		parts[#parts + 1] = text:sub(linkStart, linkEnd)
+		urlParts[#urlParts + 1] = linkUrlsInPlainText(sub(text, position, linkStart - 1))
+		urlParts[#urlParts + 1] = sub(text, linkStart, linkEnd)
 		position = linkEnd + 1
 	end
-	parts[#parts + 1] = linkUrlsInPlainText(text:sub(position))
-	return table.concat(parts)
+	urlParts[#urlParts + 1] = linkUrlsInPlainText(sub(text, position))
+	return tconcat(urlParts)
+end
+
+local function focusEditBoxText(popup, url)
+	local editBox = _G[popup:GetName() .. "EditBox"]
+	editBox:SetText(url)
+	editBox:SetFocus()
+	editBox:HighlightText()
 end
 
 StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
@@ -375,10 +398,7 @@ StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
 	whileDead = true,
 	hideOnEscape = true,
 	OnShow = function(self)
-		local editBox = _G[self:GetName() .. "EditBox"]
-		editBox:SetText(self.url or "")
-		editBox:SetFocus()
-		editBox:HighlightText()
+		focusEditBoxText(self, self.url or "")
 	end,
 	EditBoxOnEnterPressed = function(self)
 		self:GetParent():Hide()
@@ -390,7 +410,7 @@ StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
 
 local blizzardSetItemRef = SetItemRef
 function SetItemRef(link, ...)
-	local url = link:match("^url:(.+)$")
+	local url = match(link, "^url:(.+)$")
 	if not url then
 		return blizzardSetItemRef(link, ...)
 	end
@@ -398,10 +418,7 @@ function SetItemRef(link, ...)
 	local popup = StaticPopup_Show("FROSTATOMUI_COPY_URL")
 	if popup then
 		popup.url = url
-		local editBox = _G[popup:GetName() .. "EditBox"]
-		editBox:SetText(url)
-		editBox:SetFocus()
-		editBox:HighlightText()
+		focusEditBoxText(popup, url)
 	end
 end
 
@@ -414,7 +431,7 @@ local function storeLine(chatFrame, text, r, g, b)
 	local lines = Chat.lines[chatFrame]
 	lines[#lines + 1] = { text, r, g, b }
 	if #lines > MAX_LINES then
-		table.remove(lines, 1)
+		tremove(lines, 1)
 	end
 end
 
@@ -448,7 +465,7 @@ local TOOLTIP_LINK_TYPES = {
 }
 
 local function onHyperlinkEnter(chatFrame, link)
-	if TOOLTIP_LINK_TYPES[link:match("^(%a+):")] then
+	if TOOLTIP_LINK_TYPES[match(link, "^(%a+):")] then
 		GameTooltip:SetOwner(chatFrame, "ANCHOR_CURSOR")
 		GameTooltip:SetHyperlink(link)
 		GameTooltip:Show()
@@ -471,11 +488,6 @@ local function onMouseWheel(chatFrame, delta)
 	else
 		chatFrame:ScrollDown()
 	end
-end
-
-local function hookMouseWheel(chatFrame)
-	chatFrame:EnableMouseWheel(true)
-	chatFrame:SetScript("OnMouseWheel", onMouseWheel)
 end
 
 CHAT_FRAME_FADE_OUT_TIME = 0.5
@@ -542,7 +554,8 @@ local function setupEditBox(name)
 end
 
 hooksecurefunc("ChatEdit_UpdateHeader", function(editBox)
-	if not editBox.backdrop then
+	local backdrop = editBox.backdrop
+	if not backdrop then
 		return
 	end
 
@@ -554,9 +567,9 @@ hooksecurefunc("ChatEdit_UpdateHeader", function(editBox)
 
 	local info = chatType and ChatTypeInfo[chatType]
 	if info then
-		editBox.backdrop:SetBackdropBorderColor(info.r, info.g, info.b)
+		backdrop:SetBackdropBorderColor(info.r, info.g, info.b)
 	else
-		editBox.backdrop:SetBackdropBorderColor(1, 1, 1)
+		backdrop:SetBackdropBorderColor(1, 1, 1)
 	end
 end)
 
@@ -586,7 +599,8 @@ local function setupChatFrame(name)
 	)
 	addBackdrop(chatFrame, 6)
 	hookAddMessage(chatFrame)
-	hookMouseWheel(chatFrame)
+	chatFrame:EnableMouseWheel(true)
+	chatFrame:SetScript("OnMouseWheel", onMouseWheel)
 	chatFrame:SetScript("OnHyperlinkEnter", onHyperlinkEnter)
 	chatFrame:SetScript("OnHyperlinkLeave", onHyperlinkLeave)
 end

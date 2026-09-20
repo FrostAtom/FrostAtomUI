@@ -6,6 +6,10 @@ local GetTime = GetTime
 local SendChatMessage = SendChatMessage
 local ChatFrame_AddMessageEventFilter = ChatFrame_AddMessageEventFilter
 local ChatFrame_RemoveMessageEventFilter = ChatFrame_RemoveMessageEventFilter
+local date = date
+local type = type
+local find = string.find
+local tremove = table.remove
 
 local Chat = ns:GetModule("Chat")
 
@@ -13,6 +17,7 @@ local REPLY_EN = "private messages closed"
 local REPLY_RU = "личные сообщения закрыты"
 local REPLY_COOLDOWN = 0.25
 local MAX_STORED_MESSAGES = 200
+local TIME_FORMAT = "%m/%d/%y %H:%M:%S"
 
 local blocked = false
 local blockedMessages
@@ -32,10 +37,6 @@ local function printMessage(entry)
 	ns.Print("%s (at %s): %s", entry.sender, entry.time, entry.text)
 end
 
-local function hasCyrillic(text)
-	return text:find("[\208\209]") ~= nil
-end
-
 local function onWhisper(_, _, message, sender)
 	if isFriend(sender) or whitelist[sender] then
 		return
@@ -44,26 +45,19 @@ local function onWhisper(_, _, message, sender)
 	local now = GetTime()
 	if now - lastReplyTime > REPLY_COOLDOWN then
 		lastReplyTime = now
-		SendChatMessage(hasCyrillic(message) and REPLY_RU or REPLY_EN, "WHISPER", nil, sender)
+		SendChatMessage(find(message, "[\208\209]") and REPLY_RU or REPLY_EN, "WHISPER", nil, sender)
 	end
 
 	if lastMessageText ~= message then
 		lastMessageText = message
-		blockedMessages[#blockedMessages + 1] = { sender = sender, time = date("%m/%d/%y %H:%M:%S"), text = message }
+		blockedMessages[#blockedMessages + 1] = { sender = sender, time = date(TIME_FORMAT), text = message }
 
 		while #blockedMessages > MAX_STORED_MESSAGES do
-			table.remove(blockedMessages, 1)
+			tremove(blockedMessages, 1)
 		end
 	end
 
 	return true
-end
-
-local function flushMessages()
-	for _, entry in ipairs(blockedMessages) do
-		printMessage(entry)
-	end
-	wipe(blockedMessages)
 end
 
 local function onWhisperSent(_, _, message, target)
@@ -71,14 +65,15 @@ local function onWhisperSent(_, _, message, target)
 		return true
 	end
 
-	for _, entry in ipairs(blockedMessages) do
+	for i = 1, #blockedMessages do
+		local entry = blockedMessages[i]
 		if entry.sender == target then
 			printMessage(entry)
 		end
 	end
 	for i = #blockedMessages, 1, -1 do
 		if blockedMessages[i].sender == target then
-			table.remove(blockedMessages, i)
+			tremove(blockedMessages, i)
 		end
 	end
 	whitelist[target] = true
@@ -103,7 +98,7 @@ Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
 
 	for i = #blockedMessages, 1, -1 do
 		if type(blockedMessages[i]) ~= "table" then
-			table.remove(blockedMessages, i)
+			tremove(blockedMessages, i)
 		end
 	end
 
@@ -116,7 +111,10 @@ SlashCmdList.FROSTATOMUI_PM = function()
 	setBlocked(not blocked)
 	ns:SaveVariable("pm_blocked", blocked)
 
-	flushMessages()
+	for i = 1, #blockedMessages do
+		printMessage(blockedMessages[i])
+	end
+	wipe(blockedMessages)
 	wipe(whitelist)
 end
 SLASH_FROSTATOMUI_PM1 = "/pm"

@@ -2,22 +2,24 @@ local _, ns = ...
 
 local GetChannelList = GetChannelList
 local ChangeChatColor = ChangeChatColor
+local select = select
+local match = string.match
+local abs = math.abs
 
 local Chat = ns:GetModule("Chat")
 
 local savedColors
 
-local function channelName(index)
-	local list = { GetChannelList() }
-	for i = 1, #list, 2 do
-		if list[i] == index then
-			return list[i + 1]
+local function channelName(index, ...)
+	for i = 1, select("#", ...), 2 do
+		if select(i, ...) == index then
+			return (select(i + 1, ...))
 		end
 	end
 end
 
 local function sameColor(info, color)
-	return math.abs(info.r - color.r) < 0.01 and math.abs(info.g - color.g) < 0.01 and math.abs(info.b - color.b) < 0.01
+	return abs(info.r - color.r) < 0.01 and abs(info.g - color.g) < 0.01 and abs(info.b - color.b) < 0.01
 end
 
 local function restoreColors()
@@ -27,11 +29,11 @@ local function restoreColors()
 
 	local list = { GetChannelList() }
 	for i = 1, #list, 2 do
-		local index, name = list[i], list[i + 1]
-		local color = savedColors[name]
-		local info = ChatTypeInfo["CHANNEL" .. index]
+		local chatType = "CHANNEL" .. list[i]
+		local color = savedColors[list[i + 1]]
+		local info = ChatTypeInfo[chatType]
 		if color and info and not sameColor(info, color) then
-			ChangeChatColor("CHANNEL" .. index, color.r, color.g, color.b)
+			ChangeChatColor(chatType, color.r, color.g, color.b)
 		end
 	end
 end
@@ -41,8 +43,8 @@ Chat:RegisterEvent("UPDATE_CHAT_COLOR", function(_, chatType, r, g, b)
 		return
 	end
 
-	local index = chatType:match("^CHANNEL(%d+)$")
-	local name = index and channelName(tonumber(index))
+	local index = match(chatType, "^CHANNEL(%d+)$")
+	local name = index and channelName(tonumber(index), GetChannelList())
 	if name then
 		savedColors[name] = { r = r, g = g, b = b }
 	end
