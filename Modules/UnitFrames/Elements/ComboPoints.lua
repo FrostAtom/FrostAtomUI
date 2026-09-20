@@ -32,10 +32,6 @@ local function update(frame)
 	combo:Show()
 end
 
-local function onComboPointsChanged(frame)
-	update(frame)
-end
-
 local function create(frame, options)
 	options = options or {}
 	local size = options.size or 8
@@ -53,7 +49,7 @@ local function create(frame, options)
 		combo[i] = point
 	end
 
-	frame:RegisterEvent("UNIT_COMBO_POINTS", onComboPointsChanged)
+	frame:RegisterEvent("UNIT_COMBO_POINTS", update)
 
 	return combo
 end

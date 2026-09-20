@@ -12,7 +12,7 @@ local TRINKET_ICON = "Interface\\Icons\\INV_Jewelry_TrinketPVP_02"
 local TRINKET_SPELLS = {
 	[42292] = 120, -- PvP Trinket
 	[59752] = 120, -- Every Man for Himself
-	[7744] = 45, -- Will of the Forsaken (shares 45s with the trinket in 3.3)
+	[7744] = 45, -- Will of the Forsaken
 }
 
 local cooldownBySpellName = {}

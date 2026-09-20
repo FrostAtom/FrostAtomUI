@@ -11,7 +11,7 @@ local INTERRUPTED_TEXT = "|cff8B0000INTERRUPTED|r"
 local FAILED_TEXT = "|cff808080FAILED|r"
 
 local function setInterruptible(castbar, interruptible)
-	if interruptible or castbar:GetParent().unit == "player" then
+	if interruptible or castbar.isPlayer then
 		castbar.icon:SetDesaturated(nil)
 		castbar:SetStatusBarColor(0.75, 0.4, 0)
 	else
@@ -115,13 +115,13 @@ local function onCastStop(frame)
 	end
 end
 
-local function onCastDelayed(frame)
+local function refreshTimes(frame, getInfo)
 	local castbar = frame.castbar
 	if not castbar.casting then
 		return
 	end
 
-	local name, _, _, _, startTime, endTime = UnitCastingInfo(frame.unit)
+	local name, _, _, _, startTime, endTime = getInfo(frame.unit)
 	if name then
 		setTimes(castbar, startTime / 1e3, endTime / 1e3)
 		setProgress(castbar, castbar.remain)
@@ -130,19 +130,12 @@ local function onCastDelayed(frame)
 	end
 end
 
-local function onChannelUpdate(frame)
-	local castbar = frame.castbar
-	if not castbar.casting then
-		return
-	end
+local function onCastDelayed(frame)
+	refreshTimes(frame, UnitCastingInfo)
+end
 
-	local name, _, _, _, startTime, endTime = UnitChannelInfo(frame.unit)
-	if name then
-		setTimes(castbar, startTime / 1e3, endTime / 1e3)
-		setProgress(castbar, castbar.remain)
-	else
-		stopCast(castbar)
-	end
+local function onChannelUpdate(frame)
+	refreshTimes(frame, UnitChannelInfo)
 end
 
 local function onInterruptible(frame)
@@ -159,6 +152,7 @@ local function create(frame)
 	castbar:SetFrameLevel(frame:GetFrameLevel())
 	castbar:SetMinMaxValues(0, 1)
 	castbar:SetStatusBarTexture(ns.Media.blank)
+	castbar.isPlayer = frame.unit == "player"
 	castbar:SetScript("OnUpdate", onUpdate)
 
 	local bg = CreateFrame("Frame", nil, castbar)

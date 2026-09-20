@@ -15,6 +15,7 @@ local ColorGradient = ns.ColorGradient
 local classColors = UF.classBarColors
 
 local GRADIENT = { 0.8, 0.2, 0.2, 0.65, 0.63, 0.35, 0.33, 0.59, 0.33 }
+local DEAD_BG_R, DEAD_BG_G, DEAD_BG_B = GRADIENT[1] * 0.3, GRADIENT[2] * 0.3, GRADIENT[3] * 0.3
 
 local CUTAWAY_FADE_SPEED = 2.5
 
@@ -54,9 +55,7 @@ local function update(frame)
 	elseif UnitIsDeadOrGhost(unit) then
 		health:SetMinMaxValues(0, 1)
 		setValue(health, 0)
-
-		local r, g, b = ColorGradient(0, unpack(GRADIENT))
-		health.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
+		health.bg:SetVertexColor(DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
 		health.text:SetText("RIP")
 		health.lastCurrent = nil
 	else
@@ -71,8 +70,9 @@ local function update(frame)
 
 		local r, g, b
 		local _, class = UnitClass(unit)
-		if UnitIsPlayer(unit) and classColors[class] then
-			r, g, b = unpack(classColors[class])
+		local classColor = UnitIsPlayer(unit) and classColors[class]
+		if classColor then
+			r, g, b = unpack(classColor)
 		else
 			r, g, b = ColorGradient(current / max, unpack(GRADIENT))
 		end

@@ -9,6 +9,7 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local MAX_AURAS = 40
 
+-- stylua: ignore
 local CC_SPELL_IDS = {
 	47481, 51209, 47476, 5211, 33786, 2637, 22570, 9005,
 	339, 19675, 60210, 3355, 24394, 1513, 19503, 19386,

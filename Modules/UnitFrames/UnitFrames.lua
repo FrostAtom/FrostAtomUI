@@ -4,6 +4,7 @@ local CreateFrame = CreateFrame
 local RegisterUnitWatch = RegisterUnitWatch
 local UnitFrame_OnEnter = UnitFrame_OnEnter
 local UnitFrame_OnLeave = UnitFrame_OnLeave
+local min, max, floor, ceil = math.min, math.max, math.floor, math.ceil
 
 local UF = ns:NewModule("UnitFrames")
 
@@ -13,7 +14,7 @@ local BORDER_INSET = 2
 UF.classColors = {}
 UF.classBarColors = {}
 for class, color in pairs(RAID_CLASS_COLORS) do
-	UF.classColors[class] = { math.min(color.r * 1.25, 1), math.min(color.g * 1.25, 1), math.min(color.b * 1.25, 1) }
+	UF.classColors[class] = { min(color.r * 1.25, 1), min(color.g * 1.25, 1), min(color.b * 1.25, 1) }
 	UF.classBarColors[class] = { color.r * 0.75, color.g * 0.75, color.b * 0.75 }
 end
 
@@ -21,6 +22,11 @@ UF.powerColors = {}
 for powerType = 0, #PowerBarColor do
 	local color = PowerBarColor[powerType]
 	UF.powerColors[powerType] = { color.r * 0.66, color.g * 0.66, color.b * 0.66 }
+end
+
+UF.debuffColors = {}
+for debuffType, color in pairs(DebuffTypeColor) do
+	UF.debuffColors[debuffType] = { color.r, color.g, color.b }
 end
 
 UF.textColor = { 1, 0.9, 0.8 }
@@ -59,13 +65,14 @@ local function layoutGrid(grid, shown)
 		grid[i]:Hide()
 	end
 
-	local step = grid.size + grid.gap
-	local rows = math.ceil(shown / grid.perRow)
-	grid:SetHeight(math.max(math.max(rows, grid.minRows) * step - grid.gap, 2))
+	local gap = grid.gap
+	local step = grid.size + gap
+	local rows = ceil(shown / grid.perRow)
+	grid:SetHeight(max(max(rows, grid.minRows) * step - gap, 2))
 
 	if shown > 0 then
-		local columns = math.min(shown, grid.perRow)
-		grid.bg:SetSize(columns * step - grid.gap + GRID_PADDING * 2, rows * step - grid.gap + GRID_PADDING * 2)
+		local columns = min(shown, grid.perRow)
+		grid.bg:SetSize(columns * step - gap + GRID_PADDING * 2, rows * step - gap + GRID_PADDING * 2)
 		grid.bg:Show()
 	else
 		grid.bg:Hide()
@@ -81,7 +88,7 @@ function UF:CreateIconGrid(frame, options)
 	grid.gap = options.gap or 1
 	grid.perRow = options.perRow or 8
 	if options.width then
-		grid.perRow = math.max(math.floor((options.width + grid.gap) / (grid.size + grid.gap)), 1)
+		grid.perRow = max(floor((options.width + grid.gap) / (grid.size + grid.gap)), 1)
 		grid.size = (options.width + grid.gap) / grid.perRow - grid.gap
 	end
 	grid.anchor = options.anchor or "TOPLEFT"
@@ -91,7 +98,7 @@ function UF:CreateIconGrid(frame, options)
 	grid:SetSize(grid.perRow * (grid.size + grid.gap) - grid.gap, 2)
 
 	grid.bg = CreateFrame("Frame", nil, grid)
-	grid.bg:SetFrameLevel(math.max(grid:GetFrameLevel() - 1, 0))
+	grid.bg:SetFrameLevel(max(grid:GetFrameLevel() - 1, 0))
 	grid.bg.texture = grid.bg:CreateTexture(nil, "BACKGROUND")
 	grid.bg.texture:SetAllPoints()
 	grid.bg.texture:SetTexture(0, 0, 0, GRID_BG_ALPHA)
@@ -231,7 +238,7 @@ function UF:CreateSquare(unit, size)
 	return frame
 end
 
-local function onOwnerPetChanged(self, owner)
+local function onOwnerUnitChanged(self, owner)
 	if self.ownerUnit == owner then
 		self:UpdateAll()
 	end
@@ -240,20 +247,14 @@ end
 function UF:CreatePet(unit, size)
 	local frame = self:CreateSquare(unit, size)
 	frame.ownerUnit = unit == "pet" and "player" or unit:gsub("pet(%d)$", "%1")
-	frame:RegisterEvent("UNIT_PET", onOwnerPetChanged)
+	frame:RegisterEvent("UNIT_PET", onOwnerUnitChanged)
 	return frame
-end
-
-local function onOwnerTargetChanged(self, owner)
-	if self.ownerUnit == owner then
-		self:UpdateAll()
-	end
 end
 
 function UF:CreateTargetOfTarget(unit, size)
 	local frame = self:CreateSquare(unit, size)
 	frame.ownerUnit = unit:match("^(.+)target$")
-	frame:RegisterEvent("UNIT_TARGET", onOwnerTargetChanged)
+	frame:RegisterEvent("UNIT_TARGET", onOwnerUnitChanged)
 
 	local name = self:AddElement(frame, "name", 3)
 	name:SetPoint("TOP", 0, -2)

@@ -11,6 +11,15 @@ local unpack = unpack
 local FormatValue = ns.FormatValue
 local powerColors = UF.powerColors
 
+local MAX_POWER_EVENTS = {
+	"UNIT_MAXMANA",
+	"UNIT_MAXRAGE",
+	"UNIT_MAXFOCUS",
+	"UNIT_MAXENERGY",
+	"UNIT_MAXRUNIC_POWER",
+	"UNIT_DISPLAYPOWER",
+}
+
 local function update(frame)
 	local unit = frame.unit
 	local power = frame.power
@@ -62,15 +71,8 @@ local function create(frame)
 	power.text:SetTextColor(unpack(UF.textColor))
 
 	power:SetScript("OnUpdate", onUpdate)
-	for _, event in ipairs({
-		"UNIT_MAXMANA",
-		"UNIT_MAXRAGE",
-		"UNIT_MAXFOCUS",
-		"UNIT_MAXENERGY",
-		"UNIT_MAXRUNIC_POWER",
-		"UNIT_DISPLAYPOWER",
-	}) do
-		frame:RegisterUnitEvent(event, update)
+	for i = 1, #MAX_POWER_EVENTS do
+		frame:RegisterUnitEvent(MAX_POWER_EVENTS[i], update)
 	end
 
 	return power

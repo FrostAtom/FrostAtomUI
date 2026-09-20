@@ -18,24 +18,23 @@ local function isInRange(unit)
 	end
 end
 
+local UPDATE_INTERVAL = 0.25
+local OUT_OF_RANGE_ALPHA = ns.Config.unitFrames.outOfRangeAlpha
+
 local function update(frame)
-	frame:SetAlpha(isInRange(frame.unit) and 1 or frame.range.alpha)
+	frame:SetAlpha(isInRange(frame.unit) and 1 or OUT_OF_RANGE_ALPHA)
 end
 
 local function onUpdate(range, elapsed)
 	range.timer = range.timer - elapsed
 	if range.timer <= 0 then
-		range.timer = range.interval
+		range.timer = UPDATE_INTERVAL
 		update(range:GetParent())
 	end
 end
 
-local function create(frame, options)
-	options = options or {}
-
+local function create(frame)
 	local range = CreateFrame("Frame", nil, frame)
-	range.alpha = options.alpha or ns.Config.unitFrames.outOfRangeAlpha
-	range.interval = options.interval or 0.25
 	range.timer = 0
 	range:SetScript("OnUpdate", onUpdate)
 

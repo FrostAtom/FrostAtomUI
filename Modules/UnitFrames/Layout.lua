@@ -1,4 +1,4 @@
-﻿local _, ns = ...
+local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
 local MAX_ARENA_OPPONENTS = 3
@@ -11,8 +11,11 @@ local PARTY_BUFFS = { size = 19, width = PARTY_WIDTH, max = 18 }
 local ARENA_DEBUFFS = { size = 32, width = ARENA_WIDTH, max = 12, minRows = 1, anchor = "TOPRIGHT" }
 local GRID_GAP = 6
 
--- PvP Trinket, Every Man for Himself, Will of the Forsaken
-local ARENA_COOLDOWN_SKIP = { [42292] = true, [59752] = true, [7744] = true }
+local ARENA_COOLDOWN_SKIP = {
+	[42292] = true, -- PvP Trinket
+	[59752] = true, -- Every Man for Himself
+	[7744] = true, -- Will of the Forsaken
+}
 
 local function createPlayer(self, config)
 	local player = self:CreateRectangle("player", 200, 45, "LEFT")

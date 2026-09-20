@@ -15,12 +15,10 @@ local function update(frame)
 	end
 end
 
-local function create(frame, options)
-	local size = options and options.size or 16
-
+local function create(frame)
 	local icon = frame:CreateTexture(nil, "OVERLAY")
 	icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-	icon:SetSize(size, size)
+	icon:SetSize(16, 16)
 	icon:Hide()
 
 	frame:RegisterEvent("RAID_TARGET_UPDATE", update)

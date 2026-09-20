@@ -5,21 +5,19 @@ local CreateFrame = CreateFrame
 local UnitAura = UnitAura
 local CancelUnitBuff = CancelUnitBuff
 local GameTooltip = GameTooltip
-local unpack = unpack
+local min = math.min
 
 local MAX_AURAS = 40
 
-local debuffColors = {}
-for debuffType, color in pairs(DebuffTypeColor) do
-	debuffColors[debuffType] = { color.r, color.g, color.b }
-end
+local debuffColors = UF.debuffColors
+local NO_TYPE_COLOR = debuffColors[""]
+local STEALABLE_COLOR = debuffColors.Magic
 
 local PURGE_CLASSES = { PRIEST = true, SHAMAN = true, MAGE = true, HUNTER = true, WARLOCK = true }
 local canPurge = PURGE_CLASSES[ns.PLAYER_CLASS]
-local STEALABLE_COLOR = debuffColors.Magic
 
 local function onIconUpdate(icon)
-	GameTooltip:SetUnitAura(icon:GetParent():GetParent().unit, icon:GetID(), icon.filter)
+	GameTooltip:SetUnitAura(icon.unit, icon:GetID(), icon.filter)
 end
 
 local function onIconEnter(icon)
@@ -37,13 +35,12 @@ local function onIconClick(icon)
 end
 
 local function createIcon(container, index)
-	local frame = container:GetParent()
-
 	local icon = CreateFrame("Button", nil, container)
 	icon:SetFrameLevel(container:GetFrameLevel() + 1)
 	icon:SetSize(container.size, container.size)
 	icon:SetPoint(UF.GridIconPoint(container, index))
 	icon:SetID(index)
+	icon.unit = container.unit
 	icon.filter = container.filter
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
@@ -60,7 +57,7 @@ local function createIcon(container, index)
 	icon.count = icon:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 	icon.count:SetPoint("BOTTOMRIGHT", icon, -1, 0)
 
-	if frame.unit == "player" then
+	if container.unit == "player" then
 		icon:RegisterForClicks("RightButtonDown")
 		icon:SetScript("OnClick", onIconClick)
 	else
@@ -84,9 +81,10 @@ local function setIcon(icon, texture, count, debuffType, duration, endTime, stea
 	local overlay = icon.overlay
 	if overlay then
 		if icon.isDebuff then
-			overlay:SetVertexColor(unpack(debuffColors[debuffType or ""]))
+			local color = debuffType and debuffColors[debuffType] or NO_TYPE_COLOR
+			overlay:SetVertexColor(color[1], color[2], color[3])
 		elseif stealable then
-			overlay:SetVertexColor(unpack(STEALABLE_COLOR))
+			overlay:SetVertexColor(STEALABLE_COLOR[1], STEALABLE_COLOR[2], STEALABLE_COLOR[3])
 			overlay:Show()
 		else
 			overlay:Hide()
@@ -110,12 +108,10 @@ local function setIcon(icon, texture, count, debuffType, duration, endTime, stea
 end
 
 local function updateContainer(container)
-	local unit = container:GetParent().unit
-	local filter = container.filter
-	local limit = math.min(container.max or MAX_AURAS, MAX_AURAS)
+	local unit, filter = container.unit, container.filter
 
 	local shown = 0
-	for i = 1, limit do
+	for i = 1, container.limit do
 		local name, _, texture, count, debuffType, duration, endTime, _, stealable = UnitAura(unit, i, filter)
 		if not name then
 			break
@@ -135,8 +131,10 @@ end
 
 local function createContainer(frame, options, filter, isDebuff)
 	local container = UF:CreateIconGrid(frame, options)
+	container.unit = frame.unit
 	container.filter = filter
 	container.isDebuff = isDebuff
+	container.limit = min(container.max or MAX_AURAS, MAX_AURAS)
 	return container
 end
 

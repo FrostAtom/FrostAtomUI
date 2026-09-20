@@ -6,6 +6,7 @@ local UnitGUID = UnitGUID
 local GetSpellInfo = GetSpellInfo
 local GameTooltip = GameTooltip
 local GetTime = GetTime
+local min, huge = math.min, math.huge
 
 local CooldownTracker = ns:GetModule("CooldownTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
@@ -54,6 +55,8 @@ local function createIcon(container, index)
 	return icon
 end
 
+local refresh
+
 local function onContainerUpdate(container, elapsed)
 	container.untilCheck = container.untilCheck - elapsed
 	if container.untilCheck > 0 then
@@ -62,19 +65,22 @@ local function onContainerUpdate(container, elapsed)
 	container.untilCheck = EXPIRY_CHECK_INTERVAL
 
 	if container.nextExpiry <= GetTime() then
-		container:Refresh()
+		refresh(container)
 	end
 end
 
-local function refresh(container)
-	local frame = container:GetParent()
-	container.guid = UnitGUID(frame.unit)
+function refresh(container)
+	local unit = container.unit
+	local guid = UnitGUID(unit)
+	container.guid = guid
 
 	local shown = 0
-	local nextExpiry = math.huge
-	for _, id in ipairs(CooldownTracker:GetTracked(frame.unit) or {}) do
-		local start, duration = CooldownTracker:GetCooldown(container.guid, id)
-		local highlighted = CooldownTracker:IsHighlighted(container.guid, id)
+	local nextExpiry = huge
+	local tracked = CooldownTracker:GetTracked(unit)
+	for i = 1, tracked and #tracked or 0 do
+		local id = tracked[i]
+		local start, duration = CooldownTracker:GetCooldown(guid, id)
+		local highlighted = CooldownTracker:IsHighlighted(guid, id)
 		if (start or highlighted) and not container.skip[id] then
 			shown = shown + 1
 			local icon = container[shown]
@@ -84,11 +90,12 @@ local function refresh(container)
 			end
 
 			icon.spellId = id
-			icon.texture:SetTexture((select(3, GetSpellInfo(id))))
+			local _, _, texture = GetSpellInfo(id)
+			icon.texture:SetTexture(texture)
 
 			if start then
 				icon.cooldown:SetCooldown(start, duration)
-				nextExpiry = math.min(nextExpiry, start + duration)
+				nextExpiry = min(nextExpiry, start + duration)
 			else
 				icon.cooldown:SetCooldown(0, 0)
 			end
@@ -104,7 +111,7 @@ local function refresh(container)
 	container:Layout(shown)
 
 	container.nextExpiry = nextExpiry
-	container:SetScript("OnUpdate", nextExpiry < math.huge and onContainerUpdate or nil)
+	container:SetScript("OnUpdate", nextExpiry < huge and onContainerUpdate or nil)
 end
 
 local function update(frame)
@@ -122,10 +129,10 @@ local function create(frame, options)
 	options = options or {}
 
 	local container = UF:CreateIconGrid(frame, options)
+	container.unit = frame.unit
 	container.skip = options.skip or {}
 	container.untilCheck = 0
-	container.nextExpiry = math.huge
-	container.Refresh = refresh
+	container.nextExpiry = huge
 
 	frame:RegisterEvent(ns.COOLDOWN_UPDATED, onCooldownUpdated)
 	frame:RegisterEvent(ns.TALENTS_UPDATED, onCooldownUpdated)

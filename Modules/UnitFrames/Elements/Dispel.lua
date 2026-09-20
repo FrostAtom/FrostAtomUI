@@ -5,6 +5,8 @@ local UnitAura = UnitAura
 local UnitCanAssist = UnitCanAssist
 
 local MAX_AURAS = 40
+local HIGHLIGHT_ALPHA = ns.Config.dispelHighlightAlpha
+local debuffColors = UF.debuffColors
 
 local DISPEL_TYPES = {
 	PRIEST = { Magic = true, Disease = true },
@@ -16,11 +18,6 @@ local DISPEL_TYPES = {
 }
 
 local canDispel = DISPEL_TYPES[ns.PLAYER_CLASS]
-
-local debuffColors = {}
-for debuffType, color in pairs(DebuffTypeColor) do
-	debuffColors[debuffType] = { color.r, color.g, color.b }
-end
 
 local function firstDispellable(unit)
 	for i = 1, MAX_AURAS do
@@ -41,7 +38,7 @@ local function update(frame)
 	local debuffType = UnitCanAssist("player", unit) and firstDispellable(unit)
 	if debuffType then
 		local color = debuffColors[debuffType]
-		overlay:SetVertexColor(color[1], color[2], color[3], ns.Config.dispelHighlightAlpha)
+		overlay:SetVertexColor(color[1], color[2], color[3], HIGHLIGHT_ALPHA)
 		overlay:Show()
 	else
 		overlay:Hide()

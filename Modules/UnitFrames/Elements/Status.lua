@@ -14,11 +14,9 @@ local function updateResting(frame)
 	end
 end
 
-local function createResting(frame, options)
-	local size = options and options.size or 18
-
+local function createResting(frame)
 	local resting = frame:CreateTexture(nil, "OVERLAY")
-	resting:SetSize(size, size)
+	resting:SetSize(18, 18)
 	resting:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
 	resting:SetTexCoord(0, 0.5, 0, 0.421875)
 	resting:Hide()
@@ -36,27 +34,27 @@ local function updatePvp(frame)
 	local unit = frame.unit
 	local pvp = frame.pvp
 
+	local variant
 	if UnitIsPVPFreeForAll(unit) then
-		pvp:SetTexture(PVP_TEXTURE:format("FFA"))
-		pvp:Show()
+		variant = "FFA"
 	elseif UnitIsPVP(unit) then
 		local faction = UnitFactionGroup(unit)
-		if faction and faction ~= "Neutral" then
-			pvp:SetTexture(PVP_TEXTURE:format(faction))
-			pvp:Show()
-			return
+		if faction ~= "Neutral" then
+			variant = faction
 		end
-		pvp:Hide()
+	end
+
+	if variant then
+		pvp:SetTexture(PVP_TEXTURE:format(variant))
+		pvp:Show()
 	else
 		pvp:Hide()
 	end
 end
 
-local function createPvp(frame, options)
-	local size = options and options.size or 16
-
+local function createPvp(frame)
 	local pvp = frame:CreateTexture(nil, "OVERLAY")
-	pvp:SetSize(size, size)
+	pvp:SetSize(16, 16)
 	pvp:SetTexCoord(0, 0.6, 0, 0.6)
 	pvp:Hide()
 

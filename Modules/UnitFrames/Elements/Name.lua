@@ -6,14 +6,15 @@ local UnitName = UnitName
 local unpack = unpack
 
 local TruncateUTF8 = ns.TruncateUTF8
+local NICKNAME = ns.Config.nickname
 
 local function update(frame)
 	local unit = frame.unit
 	local name = frame.name
 
 	local text
-	if ns.Config.nickname and UnitIsUnit(unit, "player") then
-		text = ns.Config.nickname
+	if NICKNAME and UnitIsUnit(unit, "player") then
+		text = NICKNAME
 	else
 		text = UnitName(unit) or "UNKNOWN"
 	end
