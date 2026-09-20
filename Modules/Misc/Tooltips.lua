@@ -24,6 +24,8 @@ local NotifyInspect = NotifyInspect
 local GetTime = GetTime
 local CreateFrame = CreateFrame
 local unpack = unpack
+local wipe = wipe
+local tconcat = table.concat
 
 local Misc = ns:GetModule("Misc")
 
@@ -40,13 +42,16 @@ end
 
 local function onTooltipSetSpell(tooltip)
 	local _, _, spellId = tooltip:GetSpell()
-	if not (spellId and GetSpellInfo(spellId)) then
+	if not spellId then
+		return
+	end
+	local spellName, _, texture = GetSpellInfo(spellId)
+	if not spellName then
 		return
 	end
 
 	local title = titleLine(tooltip)
 	if title then
-		local _, _, texture = GetSpellInfo(spellId)
 		title:SetFormattedText(TITLE_ICON, texture, title:GetText())
 	end
 
@@ -56,7 +61,11 @@ end
 
 local function onTooltipSetItem(tooltip)
 	local itemName, link = tooltip:GetItem()
-	if not (link and GetItemInfo(link)) then
+	if not link then
+		return
+	end
+	local knownName, _, _, itemLevel = GetItemInfo(link)
+	if not knownName then
 		return
 	end
 
@@ -69,7 +78,6 @@ local function onTooltipSetItem(tooltip)
 		end
 	end
 
-	local _, _, _, itemLevel = GetItemInfo(link)
 	local itemId = link:match("|Hitem:(%d+):")
 	tooltip:AddDoubleLine(itemId and labeled("ID", itemId), itemLevel and labeled("ilvl", itemLevel))
 
@@ -225,10 +233,12 @@ local function onTooltipSetUnit(tooltip)
 	if title then
 		title:SetText(colorize(unit, title:GetText() or UnitName(unit)))
 	end
-	if UnitIsPlayer(unit) then
+	local isPlayer = UnitIsPlayer(unit)
+	if isPlayer then
 		local guild, rank = GetGuildInfo(unit)
 		local second = titleLine(tooltip, 2)
-		if guild and second and second:GetText() and second:GetText():find(guild, 1, true) then
+		local secondText = guild and second and second:GetText()
+		if secondText and secondText:find(guild, 1, true) then
 			second:SetFormattedText("<|cff00ff10%s|r> |cffaaaaaa%s|r", guild, rank or "")
 		end
 		unitItemLevel(tooltip, unit)
@@ -248,11 +258,12 @@ local function onTooltipSetUnit(tooltip)
 			targetedBy[#targetedBy + 1] = colorize(member, UnitName(member))
 		end
 	end
-	if #targetedBy > 0 then
-		tooltip:AddLine(("Targeted by (%d): %s"):format(#targetedBy, table.concat(targetedBy, ", ")), 1, 1, 1, true)
+	local numTargeting = #targetedBy
+	if numTargeting > 0 then
+		tooltip:AddLine(("Targeted by (%d): %s"):format(numTargeting, tconcat(targetedBy, ", ")), 1, 1, 1, true)
 	end
 
-	if not UnitIsPlayer(unit) then
+	if not isPlayer then
 		local guid = UnitGUID(unit)
 		local npcId = guid and tonumber(guid:sub(7, 12), 16)
 		if npcId and npcId > 0 then

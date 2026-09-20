@@ -3,6 +3,9 @@ local _, ns = ...
 local StaticPopupDialogs = StaticPopupDialogs
 local InCombatLockdown = InCombatLockdown
 local IsInInstance = IsInInstance
+local GetNumFriends, GetFriendInfo = GetNumFriends, GetFriendInfo
+local GetNumGuildMembers, GetGuildRosterInfo = GetNumGuildMembers, GetGuildRosterInfo
+local GetNumPartyMembers, GetNumRaidMembers = GetNumPartyMembers, GetNumRaidMembers
 
 local Misc = ns:GetModule("Misc")
 
@@ -55,10 +58,6 @@ hooksecurefunc("StaticPopup_Show", function(which)
 		fillDeleteConfirmation(which)
 	end
 end)
-
-local GetNumFriends, GetFriendInfo = GetNumFriends, GetFriendInfo
-local GetNumGuildMembers, GetGuildRosterInfo = GetNumGuildMembers, GetGuildRosterInfo
-local GetNumPartyMembers, GetNumRaidMembers = GetNumPartyMembers, GetNumRaidMembers
 
 local function isFriendOrGuildMate(name)
 	for i = 1, GetNumFriends() do

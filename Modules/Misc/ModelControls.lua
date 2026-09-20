@@ -7,9 +7,8 @@ local PAN_SPEED = 0.01
 local ZOOM_STEP = 0.4
 
 local function onMouseDown(model, button)
-	local x, y = GetCursorPosition()
 	model.dragButton = button
-	model.dragX, model.dragY = x, y
+	model.dragX, model.dragY = GetCursorPosition()
 end
 
 local function onMouseUp(model)

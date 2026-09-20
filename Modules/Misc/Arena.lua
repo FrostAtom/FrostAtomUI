@@ -33,7 +33,7 @@ end)
 countdown:SetScript("OnEvent", function(self, event, message)
 	if event == "PLAYER_ENTERING_WORLD" then
 		self:Hide()
-	elseif message:find(COUNTDOWN_MESSAGE) then
+	elseif message:find(COUNTDOWN_MESSAGE, 1, true) then
 		self.remain = COUNTDOWN_SECONDS
 		self:Show()
 	end

@@ -24,8 +24,8 @@ local function sellGreys()
 			local link = GetContainerItemLink(bag, slot)
 			if link then
 				local _, _, quality, _, _, _, _, _, _, _, price = GetItemInfo(link)
-				local _, stack = GetContainerItemInfo(bag, slot)
 				if quality == POOR_QUALITY and price and price > 0 then
+					local _, stack = GetContainerItemInfo(bag, slot)
 					UseContainerItem(bag, slot)
 					total = total + price * (stack or 1)
 					count = count + 1

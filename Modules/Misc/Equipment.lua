@@ -6,6 +6,7 @@ local GetInventoryItemTexture = GetInventoryItemTexture
 local GetInventoryItemDurability = GetInventoryItemDurability
 local GetItemInfo = GetItemInfo
 local ColorGradient = ns.ColorGradient
+local min, pi = math.min, math.pi
 
 local Misc = ns:GetModule("Misc")
 
@@ -37,10 +38,8 @@ local function itemLevelColor(difference)
 	if difference >= 0 then
 		return 0.1, 1, 0.1
 	end
-	return ColorGradient(math.pi / -difference, 1, 0.1, 0.1, 1, 1, 0.1, 0.1, 1, 0.1)
+	return ColorGradient(pi / -difference, 1, 0.1, 0.1, 1, 1, 0.1, 0.1, 1, 0.1)
 end
-
-local pages = {}
 
 local function slotItemLevel(unit, slot)
 	local link = GetInventoryItemLink(unit, slot)
@@ -93,7 +92,7 @@ local function updatePage(page)
 	end
 end
 
-local function createPage(name, getUnit, modelFrame, slotPrefix, anchor)
+local function createPage(getUnit, modelFrame, slotPrefix, anchor)
 	local page = { getUnit = getUnit, slotTexts = {}, retries = 0 }
 
 	for slot, suffix in pairs(SLOT_NAMES) do
@@ -131,11 +130,10 @@ local function createPage(name, getUnit, modelFrame, slotPrefix, anchor)
 	end)
 	page.retry = retry
 
-	pages[name] = page
 	return page
 end
 
-local character = createPage("Character", function()
+local character = createPage(function()
 	return "player"
 end, CharacterModelFrame, "Character", { PlayerStatFrameRightDropDown, "TOPRIGHT", -18, -2 })
 
@@ -150,7 +148,7 @@ Misc:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", function()
 end)
 
 ns:OnAddonLoaded("Blizzard_InspectUI", function()
-	local inspect = createPage("Inspect", function()
+	local inspect = createPage(function()
 		return InspectFrame.unit
 	end, InspectModelFrame, "Inspect", { InspectModelFrame, "BOTTOMRIGHT", -4, 4 })
 
@@ -168,10 +166,10 @@ local warned = false
 
 local function lowestDurability()
 	local lowest = 1
-	for _, slot in ipairs(DURABILITY_SLOTS) do
-		local current, max = GetInventoryItemDurability(slot)
+	for i = 1, #DURABILITY_SLOTS do
+		local current, max = GetInventoryItemDurability(DURABILITY_SLOTS[i])
 		if current and max and max > 0 then
-			lowest = math.min(lowest, current / max)
+			lowest = min(lowest, current / max)
 		end
 	end
 	return lowest
