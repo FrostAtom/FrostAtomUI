@@ -2,13 +2,13 @@ local _, ns = ...
 
 local SendChatMessage = SendChatMessage
 local UnitName = UnitName
+local UnitExists = UnitExists
 
 local Misc = ns:GetModule("Misc")
 
 if ns.PLAYER_CLASS == "PALADIN" then
 	local UnitInRaid = UnitInRaid
 	local IsPartyLeader = IsPartyLeader
-	local UnitExists = UnitExists
 	local UnitBuff = UnitBuff
 
 	local AURA_MASTERY = GetSpellInfo(31821)
@@ -45,21 +45,115 @@ local GetBattlefieldScore = GetBattlefieldScore
 local GetBattlefieldTeamInfo = GetBattlefieldTeamInfo
 local GetBattlefieldWinner = GetBattlefieldWinner
 local IsActiveBattlefieldArena = IsActiveBattlefieldArena
+local IsInInstance = IsInInstance
+local GetNumPartyMembers = GetNumPartyMembers
+local wipe = wipe
+local tconcat = table.concat
+local format = string.format
 
-local function playerTeamIndex()
+local UNKNOWN = UNKNOWNOBJECT
+
+local ourNames, enemyNames = {}, {}
+local ourSeen, enemySeen = {}, {}
+local inArena = false
+
+local function addName(list, seen, name)
+	if not name or name == UNKNOWN or seen[name] then
+		return
+	end
+	seen[name] = true
+	list[#list + 1] = name
+end
+
+local function collectParty()
+	addName(ourNames, ourSeen, UnitName("player"))
+	for i = 1, GetNumPartyMembers() do
+		addName(ourNames, ourSeen, UnitName("party" .. i))
+	end
+end
+
+local function collectArena(unit)
+	if UnitExists(unit) then
+		addName(enemyNames, enemySeen, UnitName(unit))
+	end
+end
+
+local function collectAllArena()
+	for i = 1, 5 do
+		collectArena("arena" .. i)
+	end
+end
+
+local function scoreEntry(i)
+	local name, _, _, _, _, teamIndex = GetBattlefieldScore(i)
+	return name:match("^([^%-]+)") or name, teamIndex
+end
+
+local function collectScores()
 	local playerName = UnitName("player")
-	for i = 1, GetNumBattlefieldScores() do
-		local name, _, _, _, _, teamIndex = GetBattlefieldScore(i)
+	local playerTeam
+	local numScores = GetNumBattlefieldScores()
+	for i = 1, numScores do
+		local name, teamIndex = scoreEntry(i)
 		if name == playerName then
-			return teamIndex
+			playerTeam = teamIndex
+			break
 		end
 	end
+	for i = 1, numScores do
+		local name, teamIndex = scoreEntry(i)
+		if teamIndex == playerTeam then
+			addName(ourNames, ourSeen, name)
+		else
+			addName(enemyNames, enemySeen, name)
+		end
+	end
+	return playerTeam
+end
+
+local function teamSummary(teamIndex, playerTeam)
+	local name, lost, gained, rating = GetBattlefieldTeamInfo(teamIndex)
+
+	if name:find("^Solo Team [1-2]$") then
+		local names = playerTeam == teamIndex and ourNames or enemyNames
+		name = #names > 0 and tconcat(names, ", ") or name
+	end
+
+	local change = gained > 0 and ("+" .. gained) or lost > 0 and ("-" .. lost) or "0"
+	return format('"%s"(%d) %s', name, rating, change)
 end
 
 local ratingReported = false
 
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	ratingReported = false
+	inArena = select(2, IsInInstance()) == "arena"
+	if inArena then
+		wipe(ourNames)
+		wipe(enemyNames)
+		wipe(ourSeen)
+		wipe(enemySeen)
+		collectParty()
+		collectAllArena()
+	end
+end)
+
+Misc:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
+	if inArena then
+		collectParty()
+	end
+end)
+
+Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", function(_, unit)
+	if inArena then
+		collectArena(unit)
+	end
+end)
+
+Misc:RegisterEvent("UNIT_NAME_UPDATE", function(_, unit)
+	if inArena and unit:find("^arena%d$") then
+		collectArena(unit)
+	end
 end)
 
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
@@ -68,19 +162,11 @@ Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
 	end
 	ratingReported = true
 
-	for teamIndex = 0, 1 do
-		local name, lost, gained, rating = GetBattlefieldTeamInfo(teamIndex)
-
-		if name:find("^Solo Team [1-2]$") then
-			name = playerTeamIndex() == teamIndex and "Our team" or "Enemy team"
-		end
-
-		if gained > 0 then
-			ns.Print("%q(%d) +%d", name, rating, gained)
-		elseif lost > 0 then
-			ns.Print("%q(%d) -%d", name, rating, lost)
-		else
-			ns.Print("%q(%d) no changes", name, rating)
-		end
+	local playerTeam = collectScores() or 0
+	local message = teamSummary(playerTeam, playerTeam) .. " VS " .. teamSummary(1 - playerTeam, playerTeam)
+	if UnitExists("party1") then
+		SendChatMessage(message, "PARTY")
+	else
+		ns.Print("%s", message)
 	end
 end)
