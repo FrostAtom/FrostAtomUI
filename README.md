@@ -65,8 +65,8 @@ all in one addon, no configuration screens, ready to play right after install.
 - Restyled chat bubbles with raid icons (`{skull}`, `{x}`, …).
 
 ### 🗺️ Minimap, map & bags
-- Square minimap in the top-right corner: wheel to zoom, right-click for tracking, middle-click for the calendar,
-  FPS / latency readout.
+- Square minimap in the top-right corner: wheel to zoom, right-click for tracking, middle-click for the calendar.
+- FPS / latency readout in the top-left corner; the numbers turn amber and red as things get worse.
 - Transparent, movable world map that doesn't lock you out of the game; player coordinates on the map.
 - Single-window **bags and bank** with a sort button, item quality borders, quest item marks.
 

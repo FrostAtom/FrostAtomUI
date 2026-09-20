@@ -32,6 +32,8 @@ ns.Config = {
 
 	combatAlert = { "CENTER", 0, 150 },
 
+	performance = { "TOPLEFT", 12, -10 },
+
 	tooltip = { "BOTTOMRIGHT", -13, 64 },
 
 	bags = {

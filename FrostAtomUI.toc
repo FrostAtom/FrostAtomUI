@@ -91,6 +91,7 @@ Modules\Misc\Equipment.lua
 Modules\Misc\ModelControls.lua
 Modules\Misc\CombatAlert.lua
 Modules\Misc\ShieldIndicator.lua
+Modules\Misc\Performance.lua
 Modules\Misc\WorldMap.lua
 
 # Must stay last: runs every module's Initialize

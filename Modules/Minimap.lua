@@ -5,10 +5,8 @@ local MinimapZoomOut = MinimapZoomOut
 local ToggleCalendar = ToggleCalendar
 local ToggleDropDownMenu = ToggleDropDownMenu
 local Minimap_OnClick = Minimap_OnClick
-local GetFramerate = GetFramerate
-local GetNetStats = GetNetStats
 
-local STATS_UPDATE_INTERVAL = 1
+local CLOCK_UPDATE_INTERVAL = 1
 
 TimeManager_LoadUI = ns.noop
 
@@ -46,34 +44,15 @@ local clock = Minimap:CreateFontString(nil, "OVERLAY")
 clock:SetFont(ns.Media.fontBold, 12, "OUTLINE")
 clock:SetPoint("BOTTOM", 0, 4)
 
-local stats = Minimap:CreateFontString(nil, "OVERLAY")
-stats:SetFont(ns.Media.font, 18, "OUTLINE")
-stats:SetPoint("TOP", Minimap, "BOTTOM", 0, -4)
-stats:SetJustifyH("CENTER")
-stats:SetTextColor(1, 0.9, 0.8)
-
-local function latencyColor(ms)
-	if ms < 100 then
-		return "|cff55ff55"
-	elseif ms < 250 then
-		return "|cffffff55"
-	else
-		return "|cffff5555"
-	end
-end
-
 local untilNextTick = 0
 Minimap:SetScript("OnUpdate", function(_, elapsed)
 	untilNextTick = untilNextTick - elapsed
 	if untilNextTick > 0 then
 		return
 	end
-	untilNextTick = STATS_UPDATE_INTERVAL
+	untilNextTick = CLOCK_UPDATE_INTERVAL
 
 	clock:SetText(date("%H:%M"))
-
-	local _, _, latency = GetNetStats()
-	stats:SetFormattedText("%d fps  %s%d ms|r", GetFramerate(), latencyColor(latency), latency)
 end)
 
 GameTimeCalendarInvitesTexture:ClearAllPoints()
