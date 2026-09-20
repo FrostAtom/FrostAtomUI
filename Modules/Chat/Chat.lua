@@ -9,6 +9,7 @@ local IsControlKeyDown = IsControlKeyDown
 local StaticPopup_Show = StaticPopup_Show
 local GameTooltip = GameTooltip
 local IsInInstance = IsInInstance
+local GetTime = GetTime
 
 local Chat = ns:NewModule("Chat")
 
@@ -130,19 +131,44 @@ local SYSTEM_SPAM = {
 	"^|cffff0000%[BG Queue Announcer%]:|r",
 }
 
+local function formatToPattern(text)
+	return "^" .. text:gsub("[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"):gsub("%%%%[sd]", "(.-)") .. "$"
+end
+
 local ARENA_SPAM = {
-	"^Looting changed to ",
-	"^Loot threshold set to ",
-	"^You have joined a raid group%.$",
-	"^%S+ has joined the battle%.$",
+	formatToPattern(ERR_SET_LOOT_FREEFORALL),
+	formatToPattern(ERR_SET_LOOT_GROUP),
+	formatToPattern(ERR_SET_LOOT_MASTER),
+	formatToPattern(ERR_SET_LOOT_ROUNDROBIN),
+	formatToPattern(ERR_SET_LOOT_THRESHOLD_S),
+	formatToPattern(ERR_RAID_YOU_JOINED),
+	formatToPattern(ERR_RAID_YOU_LEFT),
+	formatToPattern(ERR_RAID_MEMBER_ADDED_S),
+	formatToPattern(ERR_RAID_MEMBER_REMOVED_S),
+	formatToPattern(ERR_BG_PLAYER_LEFT_S),
+	formatToPattern(ERR_PLAYER_DIED_S),
+	formatToPattern(ERR_LEFT_GROUP_S),
+	"^%S+ has joined the battle%.?$",
 	"^One minute until the Arena battle begins!$",
 	"^Thirty seconds until the Arena battle begins!$",
 	"^Fifteen seconds until the Arena battle begins!$",
 	"^The Arena battle has begun!$",
+	"^Speeding up the battle start! Players ready: %d+%.$",
+	"^You are in Spectator Mode%. ",
 }
 
+local wasInArena, arenaLeftAt = false, 0
+
+Chat:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+	local inArena = select(2, IsInInstance()) == "arena"
+	if wasInArena and not inArena then
+		arenaLeftAt = GetTime()
+	end
+	wasInArena = inArena
+end)
+
 local function isArenaSpam(message)
-	if select(2, IsInInstance()) ~= "arena" then
+	if not wasInArena and GetTime() - arenaLeftAt > 10 then
 		return false
 	end
 	for _, pattern in ipairs(ARENA_SPAM) do

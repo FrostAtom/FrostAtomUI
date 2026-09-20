@@ -2,7 +2,6 @@ local _, ns = ...
 
 local CreateFrame = CreateFrame
 local GetTime = GetTime
-local GetGameTime = GetGameTime
 local GetZoneText = GetZoneText
 local ceil = math.ceil
 local FlashWindow = FlashWindow or ns.noop
@@ -23,7 +22,6 @@ countdown:SetScript("OnUpdate", function(self, elapsed)
 	self.remain = self.remain - elapsed
 	if self.remain <= 0 then
 		self:Hide()
-		ns.Print("Battle began at %d:%d", GetGameTime())
 		FlashWindow()
 	elseif self.remain <= 3 then
 		self.text:SetFormattedText("%.1f", self.remain)
