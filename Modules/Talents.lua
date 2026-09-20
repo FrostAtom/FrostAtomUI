@@ -20,12 +20,15 @@ local UnitIsConnected = UnitIsConnected
 local UnitCanAttack = UnitCanAttack
 local UnitLevel = UnitLevel
 local IsInInstance = IsInInstance
+local GetPlayerInfoByGUID = GetPlayerInfoByGUID
 local GetTime = GetTime
 
 local Data = ns.CooldownData
 local MAX_TALENT_POINTS = Data.MAX_TALENT_POINTS
+local SPEC_HINTS = Data.SPEC_HINTS
 
 local NUM_GLYPH_SOCKETS = 6
+local MAX_AURAS = 40
 local INSPECT_INTERVAL = 1.5
 local INSPECT_TIMEOUT = 5
 local INSPECT_RETRIES = 4
@@ -85,7 +88,8 @@ local function registerRow(row)
 end
 
 for _, spells in pairs(Data.SPELLS) do
-	for _, entry in ipairs(spells) do
+	for i = 1, #spells do
+		local entry = spells[i]
 		local talent = entry.talent
 		if talent then
 			local id = talent == true and entry[1] or talent
@@ -134,7 +138,8 @@ local function readTalents(isInspect, into)
 		for i = 1, GetNumTalents(tab, isInspect) do
 			local name, _, _, _, rank = GetTalentInfo(tab, i, isInspect, nil, group)
 			if rank and rank > 0 then
-				local ids = talentRanks[name] and talentRanks[name][rank]
+				local ranks = talentRanks[name]
+				local ids = ranks and ranks[rank]
 				if ids then
 					for j = 1, #ids do
 						into[ids[j]] = true
@@ -212,7 +217,8 @@ local guidClass = {}
 local function classOf(guid)
 	local class = guidClass[guid]
 	if class == nil then
-		class = select(2, GetPlayerInfoByGUID(guid)) or false
+		local _, playerClass = GetPlayerInfoByGUID(guid)
+		class = playerClass or false
 		guidClass[guid] = class
 	end
 	return class
@@ -254,14 +260,16 @@ queue.sinceArenaTick = 0
 queue.arenaTicks = 0
 
 local function guidToUnit(guid)
-	for _, unit in ipairs(INSPECT_UNITS) do
+	for i = 1, #INSPECT_UNITS do
+		local unit = INSPECT_UNITS[i]
 		if UnitGUID(unit) == guid then
 			return unit
 		end
 	end
-	for _, unit in ipairs(INSPECT_UNITS) do
-		if UnitGUID(unit .. "target") == guid then
-			return unit .. "target"
+	for i = 1, #INSPECT_UNITS do
+		local unit = INSPECT_UNITS[i] .. "target"
+		if UnitGUID(unit) == guid then
+			return unit
 		end
 	end
 end
@@ -305,7 +313,12 @@ local function requestInspect()
 		local unit = guidToUnit(guid)
 		if not unit then
 			pending[guid] = nil
-		elseif UnitIsVisible(unit) and UnitIsConnected(unit) and CanInspect(unit) and CheckInteractDistance(unit, 1) then
+		elseif
+			UnitIsVisible(unit)
+			and UnitIsConnected(unit)
+			and CanInspect(unit)
+			and CheckInteractDistance(unit, 1)
+		then
 			NotifyInspect(unit)
 			return
 		end
@@ -324,8 +337,8 @@ queue:SetScript("OnUpdate", function(self, elapsed)
 		if self.sinceArenaTick >= ARENA_REINSPECT_INTERVAL then
 			self.sinceArenaTick = 0
 			self.arenaTicks = self.arenaTicks - 1
-			for _, unit in ipairs(PARTY_UNITS) do
-				enqueue(unit, true)
+			for i = 1, #PARTY_UNITS do
+				enqueue(PARTY_UNITS[i], true)
 			end
 		end
 	end
@@ -370,9 +383,6 @@ function Talents:INSPECT_TALENT_READY()
 	store(guid, talents, spec)
 end
 
-local SPEC_HINTS = Data.SPEC_HINTS
-local MAX_AURAS = 40
-
 local function scanAuras(unit)
 	if not UnitGUID(unit) or not UnitIsPlayer(unit) or not UnitCanAttack("player", unit) then
 		return
@@ -398,13 +408,9 @@ function Talents:UNIT_AURA(unit)
 	end
 end
 
-function Talents:ARENA_OPPONENT_UPDATE(unit)
-	if HOSTILE_SCAN_UNITS[unit] then
-		scanAuras(unit)
-	end
-end
+Talents.ARENA_OPPONENT_UPDATE = Talents.UNIT_AURA
 
-local function onUnitChanged(_, unit)
+local function onUnitChanged(unit)
 	if UnitCanAttack("player", unit) then
 		scanAuras(unit)
 	else
@@ -413,20 +419,20 @@ local function onUnitChanged(_, unit)
 end
 
 function Talents:PLAYER_TARGET_CHANGED()
-	onUnitChanged(nil, "target")
+	onUnitChanged("target")
 end
 
 function Talents:PLAYER_FOCUS_CHANGED()
-	onUnitChanged(nil, "focus")
+	onUnitChanged("focus")
 end
 
 function Talents:UPDATE_MOUSEOVER_UNIT()
-	onUnitChanged(nil, "mouseover")
+	onUnitChanged("mouseover")
 end
 
 function Talents:PARTY_MEMBERS_CHANGED()
-	for _, unit in ipairs(PARTY_UNITS) do
-		enqueue(unit)
+	for i = 1, #PARTY_UNITS do
+		enqueue(PARTY_UNITS[i])
 	end
 end
 

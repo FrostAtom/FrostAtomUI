@@ -10,8 +10,6 @@ local MAX_TOTEMS = MAX_TOTEMS or 4
 local ICON_SIZE = 30
 local ICON_GAP = 2
 
-local SLOT_ORDER = { 1, 2, 3, 4 }
-
 local buttons = {}
 
 local function updateButton(button)
@@ -34,16 +32,16 @@ function Totems:PLAYER_TOTEM_UPDATE(slot)
 end
 
 function Totems:UpdateAll()
-	for _, button in pairs(buttons) do
-		updateButton(button)
+	for i = 1, #buttons do
+		updateButton(buttons[i])
 	end
 end
 
-local function createButton(slot, parent, index)
+local function createButton(slot, parent)
 	local button = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
 	button:SetID(slot)
 	button:SetSize(ICON_SIZE, ICON_SIZE)
-	button:SetPoint("LEFT", (index - 1) * (ICON_SIZE + ICON_GAP), 0)
+	button:SetPoint("LEFT", (slot - 1) * (ICON_SIZE + ICON_GAP), 0)
 	button:SetAlpha(0)
 	button:RegisterForClicks("RightButtonUp")
 	button:SetAttribute("type", "destroytotem")
@@ -59,7 +57,6 @@ local function createButton(slot, parent, index)
 	CooldownTimer:Attach(button.cooldown, 11)
 
 	buttons[slot] = button
-	return button
 end
 
 function Totems:Initialize()
@@ -71,8 +68,8 @@ function Totems:Initialize()
 	holder:SetSize(MAX_TOTEMS * (ICON_SIZE + ICON_GAP) - ICON_GAP, ICON_SIZE)
 	holder:SetPoint(unpack(ns.Config.totems))
 
-	for index, slot in ipairs(SLOT_ORDER) do
-		createButton(slot, holder, index)
+	for slot = 1, MAX_TOTEMS do
+		createButton(slot, holder)
 	end
 
 	self:RegisterEvent("PLAYER_TOTEM_UPDATE")

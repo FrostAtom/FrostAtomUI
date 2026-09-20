@@ -16,10 +16,10 @@ local function setTimerText(timer, remain)
 		timer:SetText(ceil(remain))
 	elseif remain <= 3600 then
 		timer:SetTextColor(1, 1, 1)
-		timer:SetText(ceil(remain / 60) .. "m")
+		timer:SetFormattedText("%dm", ceil(remain / 60))
 	else
 		timer:SetTextColor(0.6, 0.6, 0.6)
-		timer:SetText(ceil(remain / 3600) .. "h")
+		timer:SetFormattedText("%dh", ceil(remain / 3600))
 	end
 end
 

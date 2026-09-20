@@ -18,7 +18,7 @@ local function onClick(icon)
 end
 
 local function onUpdate(icon)
-	GameTooltip:SetInventoryItem("player", MAIN_HAND_SLOT - 1 + icon.weaponIndex)
+	GameTooltip:SetInventoryItem("player", icon.slot)
 end
 
 local function onEnter(icon)
@@ -57,14 +57,17 @@ local icons = setmetatable({}, {
 
 local function showEnchants(...)
 	local shown = 0
+	local weaponIndex = 0
 	for i = 1, select("#", ...), 3 do
-		local hasEnchant = select(i, ...)
-		if hasEnchant then
+		weaponIndex = weaponIndex + 1
+		if select(i, ...) then
 			shown = shown + 1
 
 			local icon = icons[shown]
-			icon.weaponIndex = math.ceil(i / 3)
-			icon.texture:SetTexture(GetInventoryItemTexture("player", MAIN_HAND_SLOT - 1 + icon.weaponIndex))
+			local slot = MAIN_HAND_SLOT - 1 + weaponIndex
+			icon.weaponIndex = weaponIndex
+			icon.slot = slot
+			icon.texture:SetTexture(GetInventoryItemTexture("player", slot))
 			icon:Show()
 		end
 	end

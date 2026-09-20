@@ -29,7 +29,14 @@ local SPELLS = {
 		{ 49376, 30, talent = 49377, tree = 2, points = 25 }, -- Feral Charge - Cat
 		{ 5211, 60, ranks = { 6798, 8983 } }, -- Bash
 		{ 22570, 10, ranks = { 49802 } }, -- Maim
-		{ 50516, 20, ranks = { 53223, 53225, 53226, 53227, 61384, 61387, 61388, 61390, 61391 }, talent = true, tree = 1, points = 40 }, -- Typhoon
+		{
+			50516,
+			20,
+			ranks = { 53223, 53225, 53226, 53227, 61384, 61387, 61388, 61390, 61391 },
+			talent = true,
+			tree = 1,
+			points = 40,
+		}, -- Typhoon
 		{ 22812, 60, buff = true }, -- Barkskin
 		{ 61336, 180, talent = true, tree = 2, points = 10, buff = true }, -- Survival Instincts
 		{ 22842, 180, buff = true }, -- Frenzied Regeneration
@@ -67,11 +74,26 @@ local SPELLS = {
 		{ 2139, 24 }, -- Counterspell
 		{ 44572, 30, talent = true, tree = 3, points = 50 }, -- Deep Freeze
 		{ 31661, 20, ranks = { 33041, 33042, 33043, 42949, 42950 }, talent = true, tree = 2, points = 40 }, -- Dragon's Breath
-		{ 11113, 30, ranks = { 13018, 13019, 13020, 13021, 27133, 33933, 42944, 42945 }, talent = true, tree = 2, points = 25 }, -- Blast Wave
+		{
+			11113,
+			30,
+			ranks = { 13018, 13019, 13020, 13021, 27133, 33933, 42944, 42945 },
+			talent = true,
+			tree = 2,
+			points = 25,
+		}, -- Blast Wave
 		{ 122, 25, ranks = { 865, 6131, 10230, 27088, 42917 } }, -- Frost Nova
 		{ 45438, 300, buff = true }, -- Ice Block
 		{ 11958, 480, talent = true, tree = 3, points = 20 }, -- Cold Snap
-		{ 11426, 30, ranks = { 13031, 13032, 13033, 27134, 33405, 43038, 43039 }, talent = true, tree = 3, points = 30, buff = true }, -- Ice Barrier
+		{
+			11426,
+			30,
+			ranks = { 13031, 13032, 13033, 27134, 33405, 43038, 43039 },
+			talent = true,
+			tree = 3,
+			points = 30,
+			buff = true,
+		}, -- Ice Barrier
 		{ 543, 30, ranks = { 8457, 8458, 10223, 10225, 27128, 43010 }, buff = true }, -- Fire Ward
 		{ 6143, 30, ranks = { 8461, 8462, 10177, 28609, 32796, 43012 }, buff = true }, -- Frost Ward
 		{ 66, 180, buff = true }, -- Invisibility
@@ -111,7 +133,14 @@ local SPELLS = {
 		{ 33206, 180, talent = true, tree = 1, points = 45, buff = true }, -- Pain Suppression
 		{ 47788, 180, talent = true, tree = 2, points = 50, buff = true }, -- Guardian Spirit
 		{ 47585, 120, talent = true, tree = 3, points = 50, buff = true }, -- Dispersion
-		{ 19236, 120, ranks = { 19238, 19240, 19241, 19242, 19243, 25437, 48172, 48173 }, talent = true, tree = 2, points = 10 }, -- Desperate Prayer
+		{
+			19236,
+			120,
+			ranks = { 19238, 19240, 19241, 19242, 19243, 25437, 48172, 48173 },
+			talent = true,
+			tree = 2,
+			points = 10,
+		}, -- Desperate Prayer
 		{ 6346, 180, buff = true }, -- Fear Ward
 		{ 586, 30, ranks = { 9578, 9579, 9592, 10941, 10942, 25429 }, buff = true }, -- Fade
 		{ 32379, 12, ranks = { 32996, 48157, 48158 } }, -- Shadow Word: Death
@@ -209,155 +238,160 @@ local SPELLS = {
 
 local SPEC_HINTS = {
 	DEATHKNIGHT = {
-	{ 1, 45, 55050, 55258, 55259, 55260, 55261, 55262 }, -- Heart Strike
-	{ 2, 15, 51124 }, -- Killing Machine
-	{ 2, 30, 59052 }, -- Freezing Fog
-	{ 2, 45, 49143, 51416, 51417, 51418, 51419, 55268 }, -- Frost Strike
-	{ 2, 50, 49184, 51409, 51410, 51411 }, -- Howling Blast
-	{ 3, 15, 49194 }, -- Unholy Blight
-	{ 3, 45, 55090, 55265, 55270, 55271 }, -- Scourge Strike
+		{ 1, 45, 55050, 55258, 55259, 55260, 55261, 55262 }, -- Heart Strike
+		{ 2, 15, 51124 }, -- Killing Machine
+		{ 2, 30, 59052 }, -- Freezing Fog
+		{ 2, 45, 49143, 51416, 51417, 51418, 51419, 55268 }, -- Frost Strike
+		{ 2, 50, 49184, 51409, 51410, 51411 }, -- Howling Blast
+		{ 3, 15, 49194 }, -- Unholy Blight
+		{ 3, 45, 55090, 55265, 55270, 55271 }, -- Scourge Strike
 	},
 	DRUID = {
-	{ 1, 10, 16886 }, -- Nature's Grace
-	{ 1, 20, 5570, 24974, 24975, 24976, 24977, 27013, 48468 }, -- Insect Swarm
-	{ 1, 30, 24858 }, -- Moonkin Form
-	{ 1, 35, 48391 }, -- Owlkin Frenzy
-	{ 1, 40, 48517, 48518 }, -- Eclipse
-	{ 2, 35, 17007 }, -- Leader of the Pack
-	{ 2, 45, 33876, 33982, 33983, 48565, 48566, 33878, 33986, 33987, 48563, 48564 }, -- Mangle
-	{ 3, 35, 48504 }, -- Living Seed
-	{ 3, 40, 33891 }, -- Tree of Life
-	{ 3, 50, 53248, 53249, 53250, 53251 }, -- Wild Growth
+		{ 1, 10, 16886 }, -- Nature's Grace
+		{ 1, 20, 5570, 24974, 24975, 24976, 24977, 27013, 48468 }, -- Insect Swarm
+		{ 1, 30, 24858 }, -- Moonkin Form
+		{ 1, 35, 48391 }, -- Owlkin Frenzy
+		{ 1, 40, 48517, 48518 }, -- Eclipse
+		{ 2, 35, 17007 }, -- Leader of the Pack
+		{ 2, 45, 33876, 33982, 33983, 48565, 48566, 33878, 33986, 33987, 48563, 48564 }, -- Mangle
+		{ 3, 35, 48504 }, -- Living Seed
+		{ 3, 40, 33891 }, -- Tree of Life
+		{ 3, 50, 53248, 53249, 53250, 53251 }, -- Wild Growth
 	},
 	HUNTER = {
-	{ 1, 45, 34692 }, -- The Beast Within
-	{ 2, 10, 19434, 20900, 20901, 20902, 20903, 20904, 27065, 49049, 49050 }, -- Aimed Shot
-	{ 2, 30, 19506 }, -- Trueshot Aura
-	{ 2, 50, 53209 }, -- Chimera Shot
-	{ 3, 20, 56453 }, -- Lock and Load
-	{ 3, 35, 34837 }, -- Master Tactician
-	{ 3, 45, 3674, 63668, 63669, 63670, 63671, 63672 }, -- Black Arrow
-	{ 3, 50, 53301, 60051, 60052, 60053 }, -- Explosive Shot
+		{ 1, 45, 34692 }, -- The Beast Within
+		{ 2, 10, 19434, 20900, 20901, 20902, 20903, 20904, 27065, 49049, 49050 }, -- Aimed Shot
+		{ 2, 30, 19506 }, -- Trueshot Aura
+		{ 2, 50, 53209 }, -- Chimera Shot
+		{ 3, 20, 56453 }, -- Lock and Load
+		{ 3, 35, 34837 }, -- Master Tactician
+		{ 3, 45, 3674, 63668, 63669, 63670, 63671, 63672 }, -- Black Arrow
+		{ 3, 50, 53301, 60051, 60052, 60053 }, -- Explosive Shot
 	},
 	MAGE = {
-	{ 1, 15, 54646 }, -- Focus Magic
-	{ 1, 40, 44413 }, -- Incanter's Absorption
-	{ 1, 45, 31589 }, -- Slow
-	{ 1, 50, 44401 }, -- Missile Barrage
-	{ 1, 50, 44425, 44780, 44781 }, -- Arcane Barrage
-	{ 2, 10, 11366, 12505, 12522, 12523, 12524, 12525, 12526, 18809, 27132, 33938, 42890, 42891 }, -- Pyroblast
-	{ 2, 45, 48108 }, -- Hot Streak
-	{ 2, 50, 44457, 55359, 55360 }, -- Living Bomb
-	{ 3, 40, 44544 }, -- Fingers of Frost
-	{ 3, 40, 57761 }, -- Brain Freeze
+		{ 1, 15, 54646 }, -- Focus Magic
+		{ 1, 40, 44413 }, -- Incanter's Absorption
+		{ 1, 45, 31589 }, -- Slow
+		{ 1, 50, 44401 }, -- Missile Barrage
+		{ 1, 50, 44425, 44780, 44781 }, -- Arcane Barrage
+		{ 2, 10, 11366, 12505, 12522, 12523, 12524, 12525, 12526, 18809, 27132, 33938, 42890, 42891 }, -- Pyroblast
+		{ 2, 45, 48108 }, -- Hot Streak
+		{ 2, 50, 44457, 55359, 55360 }, -- Living Bomb
+		{ 3, 40, 44544 }, -- Fingers of Frost
+		{ 3, 40, 57761 }, -- Brain Freeze
 	},
 	PALADIN = {
-	{ 1, 30, 20473, 20929, 20930, 27174, 33072, 48824, 48825 }, -- Holy Shock
-	{ 1, 45, 53672, 54149 }, -- Infusion of Light
-	{ 1, 50, 53563 }, -- Beacon of Light
-	{ 2, 20, 20911, 25899 }, -- Blessing of Sanctuary
-	{ 2, 20, 20178 }, -- Reckoning
-	{ 2, 30, 20925, 20927, 20928, 27179, 48951, 48952 }, -- Holy Shield
-	{ 2, 50, 53595 }, -- Hammer of the Righteous
-	{ 3, 10, 20375 }, -- Seal of Command
-	{ 3, 35, 59578 }, -- The Art of War
-	{ 3, 40, 31930 }, -- Judgements of the Wise
-	{ 3, 50, 35395 }, -- Crusader Strike
-	{ 3, 50, 53385 }, -- Divine Storm
+		{ 1, 30, 20473, 20929, 20930, 27174, 33072, 48824, 48825 }, -- Holy Shock
+		{ 1, 45, 53672, 54149 }, -- Infusion of Light
+		{ 1, 50, 53563 }, -- Beacon of Light
+		{ 2, 20, 20911, 25899 }, -- Blessing of Sanctuary
+		{ 2, 20, 20178 }, -- Reckoning
+		{ 2, 30, 20925, 20927, 20928, 27179, 48951, 48952 }, -- Holy Shield
+		{ 2, 50, 53595 }, -- Hammer of the Righteous
+		{ 3, 10, 20375 }, -- Seal of Command
+		{ 3, 35, 59578 }, -- The Art of War
+		{ 3, 40, 31930 }, -- Judgements of the Wise
+		{ 3, 50, 35395 }, -- Crusader Strike
+		{ 3, 50, 53385 }, -- Divine Storm
 	},
 	PRIEST = {
-	{ 1, 35, 63944 }, -- Renewed Hope
-	{ 1, 40, 47753 }, -- Divine Aegis
-	{ 1, 45, 47930 }, -- Grace
-	{ 1, 50, 59887, 59888, 59889, 59890, 59891 }, -- Borrowed Time
-	{ 1, 50, 47540, 53005, 53006, 53007 }, -- Penance
-	{ 2, 20, 27827 }, -- Spirit of Redemption
-	{ 2, 25, 33151 }, -- Surge of Light
-	{ 2, 30, 724 }, -- Lightwell
-	{ 2, 35, 65081 }, -- Body and Soul
-	{ 2, 40, 63731, 63734, 63735 }, -- Serendipity
-	{ 2, 45, 34861, 34863, 34864, 34865, 34866, 48088, 48089 }, -- Circle of Healing
-	{ 3, 10, 15407, 17311, 17312, 17313, 17314, 18807, 25387, 48155, 48156 }, -- Mind Flay
-	{ 3, 20, 15286 }, -- Vampiric Embrace
-	{ 3, 30, 15473 }, -- Shadowform
-	{ 3, 40, 34914, 34916, 34917, 48159, 48160 }, -- Vampiric Touch
+		{ 1, 35, 63944 }, -- Renewed Hope
+		{ 1, 40, 47753 }, -- Divine Aegis
+		{ 1, 45, 47930 }, -- Grace
+		{ 1, 50, 59887, 59888, 59889, 59890, 59891 }, -- Borrowed Time
+		{ 1, 50, 47540, 53005, 53006, 53007 }, -- Penance
+		{ 2, 20, 27827 }, -- Spirit of Redemption
+		{ 2, 25, 33151 }, -- Surge of Light
+		{ 2, 30, 724 }, -- Lightwell
+		{ 2, 35, 65081 }, -- Body and Soul
+		{ 2, 40, 63731, 63734, 63735 }, -- Serendipity
+		{ 2, 45, 34861, 34863, 34864, 34865, 34866, 48088, 48089 }, -- Circle of Healing
+		{ 3, 10, 15407, 17311, 17312, 17313, 17314, 18807, 25387, 48155, 48156 }, -- Mind Flay
+		{ 3, 20, 15286 }, -- Vampiric Embrace
+		{ 3, 30, 15473 }, -- Shadowform
+		{ 3, 40, 34914, 34916, 34917, 48159, 48160 }, -- Vampiric Touch
 	},
 	ROGUE = {
-	{ 1, 30, 58426, 58427 }, -- Overkill
-	{ 1, 45, 1329, 34411, 34412, 34413, 48663, 48666 }, -- Mutilate
-	{ 1, 45, 52910, 52914, 52915 }, -- Turn the Tables
-	{ 1, 50, 51662 }, -- Hunger for Blood
-	{ 2, 10, 14251 }, -- Riposte
-	{ 2, 45, 58684 }, -- Savage Combat
-	{ 3, 10, 14278 }, -- Ghostly Strike
-	{ 3, 25, 16511, 17347, 17348, 26864, 48660 }, -- Hemorrhage
-	{ 3, 25, 31665 }, -- Master of Subtlety
-	{ 3, 30, 45182 }, -- Cheat Death
+		{ 1, 30, 58426, 58427 }, -- Overkill
+		{ 1, 45, 1329, 34411, 34412, 34413, 48663, 48666 }, -- Mutilate
+		{ 1, 45, 52910, 52914, 52915 }, -- Turn the Tables
+		{ 1, 50, 51662 }, -- Hunger for Blood
+		{ 2, 10, 14251 }, -- Riposte
+		{ 2, 45, 58684 }, -- Savage Combat
+		{ 3, 10, 14278 }, -- Ghostly Strike
+		{ 3, 25, 16511, 17347, 17348, 26864, 48660 }, -- Hemorrhage
+		{ 3, 25, 31665 }, -- Master of Subtlety
+		{ 3, 30, 45182 }, -- Cheat Death
 	},
 	SHAMAN = {
-	{ 1, 10, 16246 }, -- Clearcasting
-	{ 1, 40, 30706, 57720, 57721, 57722 }, -- Totem of Wrath
-	{ 1, 40, 51466, 51470 }, -- Elemental Oath
-	{ 2, 15, 16257, 16277, 16278, 16279, 16280 }, -- Flurry
-	{ 2, 25, 30802, 30808, 30809, 30810, 30811 }, -- Unleashed Rage
-	{ 2, 35, 17364 }, -- Stormstrike
-	{ 2, 40, 60103 }, -- Lava Lash
-	{ 2, 50, 53817 }, -- Maelstrom Weapon
-	{ 3, 30, 31616 }, -- Nature's Guardian
-	{ 3, 30, 51886 }, -- Cleanse Spirit
-	{ 3, 40, 52752 }, -- Ancestral Awakening
-	{ 3, 45, 974, 32593, 32594, 49283, 49284 }, -- Earth Shield
-	{ 3, 50, 53390 }, -- Tidal Waves
-	{ 3, 50, 61295, 61299, 61300, 61301 }, -- Riptide
+		{ 1, 10, 16246 }, -- Clearcasting
+		{ 1, 40, 30706, 57720, 57721, 57722 }, -- Totem of Wrath
+		{ 1, 40, 51466, 51470 }, -- Elemental Oath
+		{ 2, 15, 16257, 16277, 16278, 16279, 16280 }, -- Flurry
+		{ 2, 25, 30802, 30808, 30809, 30810, 30811 }, -- Unleashed Rage
+		{ 2, 35, 17364 }, -- Stormstrike
+		{ 2, 40, 60103 }, -- Lava Lash
+		{ 2, 50, 53817 }, -- Maelstrom Weapon
+		{ 3, 30, 31616 }, -- Nature's Guardian
+		{ 3, 30, 51886 }, -- Cleanse Spirit
+		{ 3, 40, 52752 }, -- Ancestral Awakening
+		{ 3, 45, 974, 32593, 32594, 49283, 49284 }, -- Earth Shield
+		{ 3, 50, 53390 }, -- Tidal Waves
+		{ 3, 50, 61295, 61299, 61300, 61301 }, -- Riptide
 	},
 	WARLOCK = {
-	{ 1, 25, 32386, 32388, 32389, 32390, 32391 }, -- Shadow Embrace
-	{ 1, 35, 64368, 64370, 64371 }, -- Eradication
-	{ 1, 40, 30108, 30404, 30405, 47841, 47843 }, -- Unstable Affliction
-	{ 1, 50, 48181, 59161, 59163, 59164 }, -- Haunt
-	{ 2, 25, 47383 }, -- Molten Core
-	{ 2, 35, 63165, 63167 }, -- Decimation
-	{ 2, 40, 30146 }, -- Summon Felguard
-	{ 3, 10, 17877, 18867, 18868, 18869, 18870, 18871, 27263, 30546, 47826, 47827 }, -- Shadowburn
-	{ 3, 30, 17962 }, -- Conflagrate
-	{ 3, 45, 54274, 54276, 54277 }, -- Backdraft
-	{ 3, 50, 50796, 59170, 59171, 59172 }, -- Chaos Bolt
+		{ 1, 25, 32386, 32388, 32389, 32390, 32391 }, -- Shadow Embrace
+		{ 1, 35, 64368, 64370, 64371 }, -- Eradication
+		{ 1, 40, 30108, 30404, 30405, 47841, 47843 }, -- Unstable Affliction
+		{ 1, 50, 48181, 59161, 59163, 59164 }, -- Haunt
+		{ 2, 25, 47383 }, -- Molten Core
+		{ 2, 35, 63165, 63167 }, -- Decimation
+		{ 2, 40, 30146 }, -- Summon Felguard
+		{ 3, 10, 17877, 18867, 18868, 18869, 18870, 18871, 27263, 30546, 47826, 47827 }, -- Shadowburn
+		{ 3, 30, 17962 }, -- Conflagrate
+		{ 3, 45, 54274, 54276, 54277 }, -- Backdraft
+		{ 3, 50, 50796, 59170, 59171, 59172 }, -- Chaos Bolt
 	},
 	WARRIOR = {
-	{ 1, 20, 12328 }, -- Sweeping Strikes
-	{ 1, 20, 60503 }, -- Taste for Blood
-	{ 1, 30, 46856, 46857 }, -- Trauma
-	{ 1, 35, 12294, 21551, 21552, 21553, 25248, 30330, 47485, 47486 }, -- Mortal Strike
-	{ 1, 45, 65156 }, -- Juggernaut
-	{ 1, 50, 52437 }, -- Sudden Death
-	{ 1, 50, 30069, 30070 }, -- Blood Frenzy
-	{ 2, 20, 12880, 14201, 14202, 14203, 14204 }, -- Enrage
-	{ 2, 30, 12966, 12967, 12968, 12969, 12970 }, -- Flurry
-	{ 2, 35, 23881 }, -- Bloodthirst
-	{ 2, 45, 29801 }, -- Rampage
-	{ 2, 50, 46916 }, -- Bloodsurge
-	{ 3, 30, 50720 }, -- Vigilance
-	{ 3, 40, 20243, 30016, 30022, 47497, 47498 }, -- Devastate
-	{ 3, 45, 50227 }, -- Sword and Board
+		{ 1, 20, 12328 }, -- Sweeping Strikes
+		{ 1, 20, 60503 }, -- Taste for Blood
+		{ 1, 30, 46856, 46857 }, -- Trauma
+		{ 1, 35, 12294, 21551, 21552, 21553, 25248, 30330, 47485, 47486 }, -- Mortal Strike
+		{ 1, 45, 65156 }, -- Juggernaut
+		{ 1, 50, 52437 }, -- Sudden Death
+		{ 1, 50, 30069, 30070 }, -- Blood Frenzy
+		{ 2, 20, 12880, 14201, 14202, 14203, 14204 }, -- Enrage
+		{ 2, 30, 12966, 12967, 12968, 12969, 12970 }, -- Flurry
+		{ 2, 35, 23881 }, -- Bloodthirst
+		{ 2, 45, 29801 }, -- Rampage
+		{ 2, 50, 46916 }, -- Bloodsurge
+		{ 3, 30, 50720 }, -- Vigilance
+		{ 3, 40, 20243, 30016, 30022, 47497, 47498 }, -- Devastate
+		{ 3, 45, 50227 }, -- Sword and Board
 	},
 }
 
 local specHints = {}
 for class, rows in pairs(SPEC_HINTS) do
-	for _, row in ipairs(rows) do
+	for i = 1, #rows do
+		local row = rows[i]
 		local hint = { class = class, tree = row[1], points = row[2] }
-		for i = 3, #row do
-			specHints[row[i]] = hint
+		for j = 3, #row do
+			specHints[row[j]] = hint
 		end
 	end
 end
 for class, spells in pairs(SPELLS) do
-	for _, entry in ipairs(spells) do
+	for i = 1, #spells do
+		local entry = spells[i]
 		if entry.tree then
 			local hint = { class = class, tree = entry.tree, points = entry.points }
 			specHints[entry[1]] = hint
-			for _, rank in ipairs(entry.ranks or {}) do
-				specHints[rank] = hint
+			local ranks = entry.ranks
+			if ranks then
+				for j = 1, #ranks do
+					specHints[ranks[j]] = hint
+				end
 			end
 		end
 	end

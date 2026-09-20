@@ -22,7 +22,8 @@ local EMPTY_COLOR = { 0.2, 0.2, 0.2 }
 local RuneMixin = {}
 
 function RuneMixin:UpdateType()
-	local r, g, b = unpack(RUNE_COLORS[GetRuneType(self:GetID())] or EMPTY_COLOR)
+	local color = RUNE_COLORS[GetRuneType(self:GetID())] or EMPTY_COLOR
+	local r, g, b = color[1], color[2], color[3]
 	self:GetStatusBarTexture():SetTexture(r, g, b)
 	self.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
 end

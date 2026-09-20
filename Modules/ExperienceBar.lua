@@ -6,11 +6,12 @@ local UnitXP, UnitXPMax = UnitXP, UnitXPMax
 local GetXPExhaustion = GetXPExhaustion
 local GetWatchedFactionInfo = GetWatchedFactionInfo
 local GameTooltip = GameTooltip
+local min = math.min
 local MAX_PLAYER_LEVEL = MAX_PLAYER_LEVEL or 80
 
 local ExperienceBar = ns:NewModule("ExperienceBar")
 
-local XP_COLOR = { 0.58, 0.0, 0.55 }
+local XP_R, XP_G, XP_B = 0.58, 0.0, 0.55
 local RESTED_COLOR = { 0.0, 0.39, 0.88, 0.6 }
 local FACTION_COLORS = FACTION_BAR_COLORS
 
@@ -20,12 +21,12 @@ local function showExperience()
 	local current, max = UnitXP("player"), UnitXPMax("player")
 	bar:SetMinMaxValues(0, max)
 	bar:SetValue(current)
-	bar:SetStatusBarColor(unpack(XP_COLOR))
+	bar:SetStatusBarColor(XP_R, XP_G, XP_B)
 
 	local exhaustion = GetXPExhaustion()
 	if exhaustion and exhaustion > 0 then
 		rested:SetMinMaxValues(0, max)
-		rested:SetValue(math.min(current + exhaustion, max))
+		rested:SetValue(min(current + exhaustion, max))
 		rested:Show()
 	else
 		rested:Hide()

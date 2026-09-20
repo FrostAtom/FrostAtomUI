@@ -16,12 +16,11 @@ local TRACKED_AURAS = {
 		{ spell = 48168, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Inner Fire
 	},
 	DEATHKNIGHT = {
-		{ spell = 55379, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- haste proc (meta gem)
-		-- own diseases on the target: Blood Plague, Frost Fever, Ebon Plague, Unholy Blight
-		{ spell = 55078, unit = "target", type = "debuff", isMine = true, point = { "CENTER", -48, -42 }, size = 30 },
-		{ spell = 55095, unit = "target", type = "debuff", isMine = true, point = { "CENTER", -16, -42 }, size = 30 },
-		{ spell = 51735, unit = "target", type = "debuff", isMine = true, point = { "CENTER", 16, -42 }, size = 30 },
-		{ spell = 50536, unit = "target", type = "debuff", isMine = true, point = { "CENTER", 48, -42 }, size = 30 },
+		{ spell = 55379, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- meta gem haste proc
+		{ spell = 55078, unit = "target", type = "debuff", isMine = true, point = { "CENTER", -48, -42 }, size = 30 }, -- Blood Plague
+		{ spell = 55095, unit = "target", type = "debuff", isMine = true, point = { "CENTER", -16, -42 }, size = 30 }, -- Frost Fever
+		{ spell = 51735, unit = "target", type = "debuff", isMine = true, point = { "CENTER", 16, -42 }, size = 30 }, -- Ebon Plague
+		{ spell = 50536, unit = "target", type = "debuff", isMine = true, point = { "CENTER", 48, -42 }, size = 30 }, -- Unholy Blight
 	},
 	SHAMAN = {
 		{ spell = 57960, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Water Shield
@@ -32,6 +31,7 @@ local TRACKED_AURAS = {
 
 local CreateFrame = CreateFrame
 local UnitExists = UnitExists
+local unpack = unpack
 local FindAura = ns.FindAura
 
 local AuraTracker = ns:NewModule("AuraTracker")
@@ -81,9 +81,9 @@ local function createAuraFrame(data)
 	frame:Hide()
 	frame:SetFrameStrata("HIGH")
 
-	local size = data.size or 32
+	local size = data.size
 	frame:SetSize(size, size)
-	frame:SetPoint(unpack(data.point or { "CENTER" }))
+	frame:SetPoint(unpack(data.point))
 
 	frame.unit = data.unit
 	frame.spell = data.spell
@@ -118,9 +118,7 @@ function AuraTracker:Initialize()
 		return
 	end
 
-	self.frames = {}
-	for _, data in ipairs(auras) do
-		assert(type(data.spell) == "number", "tracked aura needs a spell id")
-		self.frames[#self.frames + 1] = createAuraFrame(data)
+	for i = 1, #auras do
+		createAuraFrame(auras[i])
 	end
 end

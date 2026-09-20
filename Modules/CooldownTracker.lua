@@ -15,6 +15,7 @@ local FORBEARANCE_DURATION = 120
 
 local bit_band = bit.band
 local strsub = string.sub
+local min = math.min
 local GetTime = GetTime
 local UnitGUID = UnitGUID
 local UnitClass = UnitClass
@@ -31,42 +32,38 @@ local spellInfo = {}
 local baseSpell = {}
 local auraSpell = {}
 
-do
-	local order = 0
-	for _, spells in pairs(SPELLS) do
-		for _, entry in ipairs(spells) do
-			local id = entry[1]
-			order = order + 1
-			spellInfo[id] = {
-				id = id,
-				cooldown = entry[2],
-				order = order,
-				pet = entry.pet,
-				talent = entry.talent == true and id or entry.talent,
-				preactive = entry.preactive == true and id or entry.preactive,
-				buff = entry.buff and id,
-				dynamic = entry.dynamic,
-				tree = entry.tree,
-				points = entry.points,
-			}
-			baseSpell[id] = id
-			for _, rank in ipairs(entry.ranks or {}) do
-				baseSpell[rank] = id
+for _, spells in pairs(SPELLS) do
+	for i = 1, #spells do
+		local entry = spells[i]
+		local id = entry[1]
+		local preactive = entry.preactive == true and id or entry.preactive
+		spellInfo[id] = {
+			cooldown = entry[2],
+			pet = entry.pet,
+			talent = entry.talent == true and id or entry.talent,
+			preactive = preactive,
+			buff = entry.buff and id,
+			dynamic = entry.dynamic,
+			tree = entry.tree,
+			points = entry.points,
+		}
+		baseSpell[id] = id
+		local ranks = entry.ranks
+		if ranks then
+			for j = 1, #ranks do
+				baseSpell[ranks[j]] = id
 			end
-			if entry.preactive then
-				auraSpell[spellInfo[id].preactive] = id
-			end
-			if entry.buff then
-				auraSpell[id] = id
-			end
+		end
+		if preactive then
+			auraSpell[preactive] = id
+		end
+		if entry.buff then
+			auraSpell[id] = id
 		end
 	end
 end
 
-CooldownTracker.spellInfo = spellInfo
-
 local cooldowns = {}
-CooldownTracker.cooldowns = cooldowns
 
 local function getEntries(guid)
 	local entries = cooldowns[guid]
@@ -77,8 +74,7 @@ local function getEntries(guid)
 	return entries
 end
 
-local function getEntry(guid, id)
-	local entries = getEntries(guid)
+local function getEntry(entries, id)
 	local entry = entries[id]
 	if not entry then
 		entry = {}
@@ -87,8 +83,8 @@ local function getEntry(guid, id)
 	return entry
 end
 
-local function isOnCooldown(entry, now)
-	return entry.start ~= nil and entry.start + entry.duration > now
+local function endsBefore(entry, endTime)
+	return not entry or not entry.start or entry.start + entry.duration < endTime
 end
 
 local trackedList = {}
@@ -104,8 +100,8 @@ function CooldownTracker:GetTracked(unit)
 	local entries = cooldowns[guid]
 
 	wipe(trackedList)
-	for _, entry in ipairs(spells) do
-		local id = entry[1]
+	for i = 1, #spells do
+		local id = spells[i][1]
 		local info = spellInfo[id]
 		local shown = true
 		if info.talent then
@@ -120,14 +116,19 @@ function CooldownTracker:GetTracked(unit)
 		end
 	end
 	trackedList[#trackedList + 1] = PVP_TRINKET
-	local racial = RACIALS[select(2, UnitRace(unit))]
+	local _, race = UnitRace(unit)
+	local racial = RACIALS[race]
 	if racial then
 		trackedList[#trackedList + 1] = racial
 	end
-	for _, entry in ipairs(SPELLS.COMMON) do
-		local id = entry[1]
-		if entry.dynamic and entries and entries[id] then
-			trackedList[#trackedList + 1] = id
+	if entries then
+		local common = SPELLS.COMMON
+		for i = 1, #common do
+			local entry = common[i]
+			local id = entry[1]
+			if entry.dynamic and entries[id] then
+				trackedList[#trackedList + 1] = id
+			end
 		end
 	end
 	return trackedList
@@ -136,7 +137,7 @@ end
 function CooldownTracker:GetCooldown(guid, id)
 	local entries = guid and cooldowns[guid]
 	local entry = entries and entries[id]
-	if entry and isOnCooldown(entry, GetTime()) then
+	if entry and entry.start and entry.start + entry.duration > GetTime() then
 		return entry.start, entry.duration
 	end
 end
@@ -172,18 +173,28 @@ function CooldownTracker:GetDuration(guid, id)
 	return duration
 end
 
-local function startCooldown(guid, id, duration, now)
-	local entry = getEntry(guid, id)
+local function startCooldown(entries, id, duration, now)
+	local entry = getEntry(entries, id)
 	entry.start = now
 	entry.duration = duration
 	entry.pending = nil
 	entry.forbearance = nil
+	return entry
 end
 
 local function clearCooldown(entry)
 	entry.start = nil
 	entry.duration = nil
 	entry.forbearance = nil
+end
+
+local function clearCooldowns(entries, ids)
+	for i = 1, #ids do
+		local entry = entries[ids[i]]
+		if entry then
+			clearCooldown(entry)
+		end
+	end
 end
 
 local function applyResets(guid, id, entries)
@@ -199,19 +210,9 @@ local function applyResets(guid, id, entries)
 		end
 		return
 	end
-	for _, other in ipairs(resets) do
-		local entry = entries[other]
-		if entry then
-			clearCooldown(entry)
-		end
-	end
+	clearCooldowns(entries, resets)
 	if resets.glyph and Talents:Has(guid, resets.glyph) then
-		for _, other in ipairs(resets.glyphed) do
-			local entry = entries[other]
-			if entry then
-				clearCooldown(entry)
-			end
-		end
+		clearCooldowns(entries, resets.glyphed)
 	end
 end
 
@@ -234,7 +235,7 @@ function CooldownTracker:OnCast(guid, id, isDuplicateEvent)
 	end
 
 	if info.preactive then
-		local entry = getEntry(guid, id)
+		local entry = getEntry(entries, id)
 		clearCooldown(entry)
 		entry.pending = true
 		entry.pendingAt = now
@@ -242,15 +243,14 @@ function CooldownTracker:OnCast(guid, id, isDuplicateEvent)
 		return true
 	end
 
-	startCooldown(guid, id, self:GetDuration(guid, id), now)
+	startCooldown(entries, id, self:GetDuration(guid, id), now)
 
 	local shared = SHARED_COOLDOWNS[id]
 	if shared then
 		for i = 1, #shared, 2 do
 			local other, duration = shared[i], shared[i + 1]
-			local entry = entries[other]
-			if not entry or not entry.start or entry.start + entry.duration < now + duration then
-				startCooldown(guid, other, duration, now)
+			if endsBefore(entries[other], now + duration) then
+				startCooldown(entries, other, duration, now)
 			end
 		end
 	end
@@ -273,7 +273,7 @@ local function onAuraApplied(guid, spellId, destGUID)
 		return
 	end
 	if info.buff or (info.preactive and guid == destGUID) then
-		local entry = getEntry(guid, id)
+		local entry = getEntry(getEntries(guid), id)
 		if not entry.active then
 			entry.active = true
 			ns:Fire(ns.COOLDOWN_UPDATED, guid)
@@ -301,7 +301,7 @@ local function onAuraRemoved(guid, spellId, destGUID)
 	end
 
 	if info.preactive and entry.pending and guid == destGUID then
-		startCooldown(guid, id, CooldownTracker:GetDuration(guid, id), GetTime())
+		startCooldown(entries, id, CooldownTracker:GetDuration(guid, id), GetTime())
 		changed = true
 	end
 
@@ -322,11 +322,11 @@ local function onForbearanceApplied(guid)
 	end
 
 	local entries = getEntries(guid)
-	for _, id in ipairs(FORBEARANCE_SPELLS) do
-		local entry = entries[id]
-		if not entry or not entry.start or entry.start + entry.duration < now + duration then
-			startCooldown(guid, id, duration, now)
-			entries[id].forbearance = true
+	local endTime = now + duration
+	for i = 1, #FORBEARANCE_SPELLS do
+		local id = FORBEARANCE_SPELLS[i]
+		if endsBefore(entries[id], endTime) then
+			startCooldown(entries, id, duration, now).forbearance = true
 		end
 	end
 	ns:Fire(ns.COOLDOWN_UPDATED, guid)
@@ -337,8 +337,8 @@ local function onForbearanceRemoved(guid)
 	if not entries then
 		return
 	end
-	for _, id in ipairs(FORBEARANCE_SPELLS) do
-		local entry = entries[id]
+	for i = 1, #FORBEARANCE_SPELLS do
+		local entry = entries[FORBEARANCE_SPELLS[i]]
 		if entry and entry.forbearance then
 			clearCooldown(entry)
 		end
@@ -375,11 +375,15 @@ local function cachePet(owner)
 	end
 end
 
-local function cacheAllPets()
-	wipe(petOwners)
+local function cachePets()
 	for owner in pairs(OWNER_PETS) do
 		cachePet(owner)
 	end
+end
+
+local function cacheAllPets()
+	wipe(petOwners)
+	cachePets()
 end
 
 local function petOwnerGUID(petGUID)
@@ -387,9 +391,7 @@ local function petOwnerGUID(petGUID)
 	if owner then
 		return owner
 	end
-	for unit in pairs(OWNER_PETS) do
-		cachePet(unit)
-	end
+	cachePets()
 	return petOwners[petGUID]
 end
 
@@ -466,14 +468,16 @@ SlashCmdList.FROSTATOMUI_COOLDOWN_TEST = function()
 		return
 	end
 
-	for _, unit in ipairs(TEST_UNITS) do
+	for i = 1, #TEST_UNITS do
+		local unit = TEST_UNITS[i]
 		local guid = UnitGUID(unit)
-		local spells = guid and SPELLS[select(2, UnitClass(unit))]
+		local _, class = UnitClass(unit)
+		local spells = guid and SPELLS[class]
 		if spells then
-			for i = 1, math.min(TEST_SPELLS, #spells) do
-				CooldownTracker:OnCast(guid, spells[i][1])
+			for j = 1, min(TEST_SPELLS, #spells) do
+				CooldownTracker:OnCast(guid, spells[j][1])
 			end
-			CooldownTracker:OnCast(guid, 42292)
+			CooldownTracker:OnCast(guid, PVP_TRINKET)
 		end
 	end
 end
