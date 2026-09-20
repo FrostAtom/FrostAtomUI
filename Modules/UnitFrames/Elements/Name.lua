@@ -2,12 +2,9 @@ local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
 local UnitIsUnit = UnitIsUnit
-local UnitIsPlayer = UnitIsPlayer
-local UnitClass = UnitClass
 local UnitName = UnitName
 local unpack = unpack
 
-local classColors = UF.classColors
 local TruncateUTF8 = ns.TruncateUTF8
 
 local function update(frame)
@@ -21,17 +18,11 @@ local function update(frame)
 		text = UnitName(unit) or "UNKNOWN"
 	end
 	name:SetText(name.maxLength and TruncateUTF8(text, name.maxLength) or text)
-
-	local _, class = UnitClass(unit)
-	if UnitIsPlayer(unit) and class then
-		name:SetTextColor(unpack(classColors[class]))
-	else
-		name:SetTextColor(unpack(UF.textColor))
-	end
 end
 
 local function create(frame, maxLength)
 	local name = frame:CreateFontString(nil, "OVERLAY", "SystemFont_Outline_Small")
+	name:SetTextColor(unpack(UF.textColor))
 	name.maxLength = maxLength
 
 	frame:RegisterUnitEvent("UNIT_NAME_UPDATE", update)

@@ -6,7 +6,6 @@ local UnitAura = UnitAura
 local CancelUnitBuff = CancelUnitBuff
 local GameTooltip = GameTooltip
 local unpack = unpack
-local ceil = math.ceil
 
 local MAX_AURAS = 40
 
@@ -41,9 +40,9 @@ local function createIcon(container, index)
 	local frame = container:GetParent()
 
 	local icon = CreateFrame("Button", nil, container)
-	icon:SetFrameLevel(container:GetFrameLevel())
+	icon:SetFrameLevel(container:GetFrameLevel() + 1)
 	icon:SetSize(container.size, container.size)
-	icon:SetPoint(ns.GridPoint(container.anchor, index, container.perRow, container.size + container.gap))
+	icon:SetPoint(UF.GridIconPoint(container, index))
 	icon:SetID(index)
 	icon.filter = container.filter
 	icon:SetScript("OnEnter", onIconEnter)
@@ -56,7 +55,7 @@ local function createIcon(container, index)
 	icon.cooldown:SetFrameLevel(icon:GetFrameLevel())
 
 	icon.texture = icon:CreateTexture(nil, "BACKGROUND")
-	icon.texture:SetAllPoints()
+	UF.SkinIcon(icon, icon.texture)
 
 	icon.count = icon:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 	icon.count:SetPoint("BOTTOMRIGHT", icon, -1, 0)
@@ -131,28 +130,13 @@ local function updateContainer(container)
 		shown = i
 	end
 
-	for i = shown + 1, #container do
-		container[i]:Hide()
-	end
-
-	local rows = ceil(shown / container.perRow)
-	container:SetHeight(math.max(rows * (container.size + container.gap), 2))
+	container:Layout(shown)
 end
 
 local function createContainer(frame, options, filter, isDebuff)
-	options = options or {}
-
-	local container = CreateFrame("Frame", nil, frame)
-	container:SetFrameLevel(frame:GetFrameLevel())
-	container:SetSize(2, 2)
+	local container = UF:CreateIconGrid(frame, options)
 	container.filter = filter
 	container.isDebuff = isDebuff
-	container.size = options.size or 22
-	container.gap = options.gap or 0
-	container.perRow = options.perRow or 8
-	container.anchor = options.anchor or "TOPLEFT"
-	container.max = options.max
-
 	return container
 end
 

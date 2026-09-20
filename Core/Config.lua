@@ -4,12 +4,11 @@ ns.Config = {
 	nickname = "Cute Boy",
 
 	unitFrames = {
-		player = { "TOPLEFT", 150, -40 },
+		player = { "LEFT", 240, 456 },
 		playerCastbar = { "CENTER", 0, -270 },
-		party = { "TOPLEFT", 50, -150 },
-		partySpacing = 112,
-		arena = { "RIGHT", -150, 0 },
-		arenaSpacing = 104,
+		party = { "LEFT", 150, 230 },
+		arena = { "RIGHT", -150, 230 },
+		groupSpacing = 146,
 		boss = { "RIGHT", -150, 300 },
 		bossSpacing = 60,
 		outOfRangeAlpha = 0.45,

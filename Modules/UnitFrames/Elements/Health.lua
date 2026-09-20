@@ -6,10 +6,13 @@ local UnitIsConnected = UnitIsConnected
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 local UnitGUID = UnitGUID
+local UnitIsPlayer = UnitIsPlayer
+local UnitClass = UnitClass
 local unpack = unpack
 
 local FormatValue = ns.FormatValue
 local ColorGradient = ns.ColorGradient
+local classColors = UF.classBarColors
 
 local GRADIENT = { 0.8, 0.2, 0.2, 0.65, 0.63, 0.35, 0.33, 0.59, 0.33 }
 
@@ -66,7 +69,13 @@ local function update(frame)
 		end
 		health.lastCurrent = current
 
-		local r, g, b = ColorGradient(current / max, unpack(GRADIENT))
+		local r, g, b
+		local _, class = UnitClass(unit)
+		if UnitIsPlayer(unit) and classColors[class] then
+			r, g, b = unpack(classColors[class])
+		else
+			r, g, b = ColorGradient(current / max, unpack(GRADIENT))
+		end
 		health:SetStatusBarColor(r, g, b)
 		health.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
 		health.text:SetText(FormatValue(current))

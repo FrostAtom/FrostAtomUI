@@ -26,19 +26,21 @@ end
 
 local function createIcon(container, index)
 	local icon = CreateFrame("Frame", nil, container)
+	icon:SetFrameLevel(container:GetFrameLevel() + 1)
 	icon:SetSize(container.size, container.size)
-	icon:SetPoint(ns.GridPoint(container.anchor, index, container.perRow, container.size + container.gap))
+	icon:SetPoint(UF.GridIconPoint(container, index))
 	icon:EnableMouse(true)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
 
 	icon.texture = icon:CreateTexture(nil, "BORDER")
-	icon.texture:SetAllPoints()
-	icon.texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+	UF.SkinIcon(icon, icon.texture)
 
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
 	icon.cooldown:SetAllPoints()
-	CooldownTimer:Attach(icon.cooldown, container.size * 0.4)
+	CooldownTimer:Attach(icon.cooldown, container.size * 0.38)
+	icon.cooldown.timer:ClearAllPoints()
+	icon.cooldown.timer:SetPoint("BOTTOM", 0, 1)
 
 	icon.glow = icon:CreateTexture(nil, "OVERLAY")
 	icon.glow:SetPoint("CENTER")
@@ -70,7 +72,9 @@ local function refresh(container)
 	local shown = 0
 	local nextExpiry = math.huge
 	for _, id in ipairs(CooldownTracker:GetTracked(frame.unit) or {}) do
-		if not container.skip[id] then
+		local start, duration = CooldownTracker:GetCooldown(container.guid, id)
+		local highlighted = CooldownTracker:IsHighlighted(container.guid, id)
+		if (start or highlighted) and not container.skip[id] then
 			shown = shown + 1
 			local icon = container[shown]
 			if not icon then
@@ -81,15 +85,12 @@ local function refresh(container)
 			icon.spellId = id
 			icon.texture:SetTexture((select(3, GetSpellInfo(id))))
 
-			local start, duration = CooldownTracker:GetCooldown(container.guid, id)
-			local highlighted = CooldownTracker:IsHighlighted(container.guid, id)
 			if start then
 				icon.cooldown:SetCooldown(start, duration)
 				nextExpiry = math.min(nextExpiry, start + duration)
 			else
 				icon.cooldown:SetCooldown(0, 0)
 			end
-			icon.texture:SetDesaturated(start ~= nil and not highlighted)
 			if highlighted then
 				icon.glow:Show()
 			else
@@ -99,12 +100,7 @@ local function refresh(container)
 		end
 	end
 
-	for i = shown + 1, #container do
-		container[i]:Hide()
-	end
-
-	local rows = math.ceil(shown / container.perRow)
-	container:SetHeight(math.max(rows * (container.size + container.gap), 2))
+	container:Layout(shown)
 
 	container.nextExpiry = nextExpiry
 	container:SetScript("OnUpdate", nextExpiry < math.huge and onContainerUpdate or nil)
@@ -124,13 +120,7 @@ end
 local function create(frame, options)
 	options = options or {}
 
-	local container = CreateFrame("Frame", nil, frame)
-	container:SetFrameLevel(frame:GetFrameLevel())
-	container:SetSize(2, 2)
-	container.size = options.size or 24
-	container.gap = options.gap or 2
-	container.perRow = options.perRow or 8
-	container.anchor = options.anchor or "TOPLEFT"
+	local container = UF:CreateIconGrid(frame, options)
 	container.skip = options.skip or {}
 	container.untilCheck = 0
 	container.nextExpiry = math.huge

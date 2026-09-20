@@ -38,18 +38,21 @@ trash:Hide()
 
 local PlateMixin = {}
 
-local classColorKeys = {}
+local UF = ns:GetModule("UnitFrames")
+local classKeys = {}
 local function colorKey(r, g, b)
 	return ("%d,%d,%d"):format(r * 100 + 0.5, g * 100 + 0.5, b * 100 + 0.5)
 end
 for class, color in pairs(RAID_CLASS_COLORS) do
-	classColorKeys[colorKey(color.r, color.g, color.b)] = ns:GetModule("UnitFrames").classColors[class]
+	classKeys[colorKey(color.r, color.g, color.b)] = class
 end
 
 function PlateMixin:UpdateColors(r, g, b)
-	local classColor = classColorKeys[colorKey(r, g, b)]
-	if classColor then
-		r, g, b = classColor[1], classColor[2], classColor[3]
+	local class = classKeys[colorKey(r, g, b)]
+	local classColor = class and UF.classColors[class]
+	if class then
+		local barColor = UF.classBarColors[class]
+		r, g, b = barColor[1], barColor[2], barColor[3]
 	elseif g + b == 0 then
 		r, g, b = 0.69, 0.31, 0.31
 	elseif r + b == 0 then

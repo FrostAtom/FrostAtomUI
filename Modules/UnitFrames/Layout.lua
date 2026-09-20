@@ -1,10 +1,15 @@
-local _, ns = ...
+﻿local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
 local PLAYER_AURA = { size = 34, gap = 2, anchor = "TOPRIGHT" }
+local PARTY_WIDTH, ARENA_WIDTH = 180, 200
+local PARTY_DEBUFFS = { size = 29, width = PARTY_WIDTH, max = 12, minRows = 1 }
+local PARTY_BUFFS = { size = 19, width = PARTY_WIDTH, max = 18 }
+local ARENA_DEBUFFS = { size = 32, width = ARENA_WIDTH, max = 12, minRows = 1, anchor = "TOPRIGHT" }
+local GRID_GAP = 6
 
 -- PvP Trinket, Every Man for Himself, Will of the Forsaken
 local ARENA_COOLDOWN_SKIP = { [42292] = true, [59752] = true, [7744] = true }
@@ -20,7 +25,7 @@ local function createPlayer(self, config)
 	buffs:SetPoint("TOPRIGHT", Minimap, "TOPLEFT", -15, 0)
 
 	local debuffs = self:AddElement(player, "debuffs", PLAYER_AURA)
-	debuffs:SetPoint("TOPRIGHT", buffs, "BOTTOMRIGHT")
+	debuffs:SetPoint("TOPRIGHT", buffs, "BOTTOMRIGHT", 0, -PLAYER_AURA.size * 0.2)
 
 	local castbar = self:AddElement(player, "castbar")
 	castbar:SetSize(240, 22)
@@ -80,8 +85,8 @@ local function createParty(self, config)
 
 	for i = 1, MAX_PARTY_MEMBERS do
 		local unit = "party" .. i
-		local frame = self:CreateRectangle(unit, 180, 40, "LEFT")
-		frame:SetPoint(point, x, y - (i - 1) * config.partySpacing)
+		local frame = self:CreateRectangle(unit, PARTY_WIDTH, 40, "LEFT")
+		frame:SetPoint(point, x, y - (i - 1) * config.groupSpacing)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "UpdateAll")
 
 		local leader = self:AddElement(frame, "leader")
@@ -90,11 +95,14 @@ local function createParty(self, config)
 		local raidIcon = self:AddElement(frame, "raidicon")
 		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
 
-		local buffs = self:AddElement(frame, "buffs", { size = 180 / 8, max = 16 })
-		buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT")
+		local debuffs = self:AddElement(frame, "debuffs", PARTY_DEBUFFS)
+		debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -GRID_GAP)
 
-		local debuffs = self:AddElement(frame, "debuffs", { size = 180 / 8, max = 16 })
-		debuffs:SetPoint("LEFT", frame, "RIGHT")
+		local cooldowns = self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
+		cooldowns:SetPoint("TOPLEFT", debuffs, "TOPRIGHT", GRID_GAP, 0)
+
+		local buffs = self:AddElement(frame, "buffs", PARTY_BUFFS)
+		buffs:SetPoint("TOPLEFT", debuffs, "BOTTOMLEFT", 0, -GRID_GAP)
 
 		local castbar = self:AddElement(frame, "castbar")
 		castbar:SetSize(176, 20)
@@ -102,9 +110,6 @@ local function createParty(self, config)
 		castbar.icon:SetSize(22, 22)
 
 		self:AddElement(frame, "losecontrol")
-
-		local cooldowns = self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
-		cooldowns:SetPoint("TOPLEFT", frame, "BOTTOMRIGHT")
 
 		self:AddElement(frame, "range")
 		self:AddElement(frame, "dispel")
@@ -120,11 +125,11 @@ local function createArena(self, config)
 	local trinketSize = ns.Config.arenaTrinket.size
 
 	for i = 1, MAX_ARENA_OPPONENTS do
-		local frame = self:CreateRectangle("arena" .. i, 200, 50, "RIGHT")
-		frame:SetPoint(point, x, y + (MAX_ARENA_OPPONENTS - i) * config.arenaSpacing)
+		local frame = self:CreateRectangle("arena" .. i, ARENA_WIDTH, 50, "RIGHT")
+		frame:SetPoint(point, x, y - (i - 1) * config.groupSpacing)
 
-		local debuffs = self:AddElement(frame, "debuffs", { size = 200 / 8, max = 16 })
-		debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT")
+		local debuffs = self:AddElement(frame, "debuffs", ARENA_DEBUFFS)
+		debuffs:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -GRID_GAP)
 
 		local castbar = self:AddElement(frame, "castbar")
 		castbar:SetSize(160, 35)
@@ -149,7 +154,7 @@ local function createArena(self, config)
 			"cooldowns",
 			{ size = config.arenaCooldownSize, skip = ARENA_COOLDOWN_SKIP, anchor = "TOPRIGHT" }
 		)
-		cooldowns:SetPoint("TOPRIGHT", frame, "BOTTOMLEFT")
+		cooldowns:SetPoint("TOPRIGHT", debuffs, "TOPLEFT", -GRID_GAP, 0)
 	end
 end
 

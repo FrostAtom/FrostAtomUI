@@ -51,7 +51,7 @@ end
 
 local health = createBar(HEALTH_HEIGHT)
 health:SetPoint("TOP")
-local classColor = UF.classColors[ns.PLAYER_CLASS]
+local classColor = UF.classBarColors[ns.PLAYER_CLASS]
 health:SetStatusBarColor(unpack(classColor))
 health.bg:SetVertexColor(classColor[1] * 0.3, classColor[2] * 0.3, classColor[3] * 0.3)
 
