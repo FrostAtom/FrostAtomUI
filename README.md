@@ -66,6 +66,10 @@ all in one addon, no configuration screens, ready to play right after install.
 
 ### 🗺️ Minimap, map & bags
 - Square minimap in the top-right corner: wheel to zoom, right-click for tracking, middle-click for the calendar.
+- **Solo queue button** in the minimap's bottom-right corner: click to join the solo 3v3 queue (sends `.soloq join`
+  as a whisper to yourself), click again to leave the queue, enter the arena in one click once the match is ready,
+  and leave the arena in one click while inside. The rating range the queue is currently searching in is shown
+  under the button (gold once a team is found) instead of the "Searching team" chat message.
 - FPS / latency readout in the top-left corner; the numbers turn amber and red as things get worse.
 - Transparent, movable world map that doesn't lock you out of the game; player coordinates on the map.
 - Single-window **bags and bank** with a sort button, item quality borders, quest item marks.

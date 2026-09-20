@@ -190,6 +190,8 @@ local QUEUE_GROUPS = QUEUE_ICON:format("Achievement_PVP_A_A")
 local QUEUE_ON = "|TInterface\\RaidFrame\\ReadyCheck-Ready:14|t"
 local QUEUE_OFF = "|TInterface\\RaidFrame\\ReadyCheck-NotReady:14|t"
 
+ns.SOLOQ_SEARCHING = "FrostAtomUI_SOLOQ_SEARCHING"
+
 local queueCounts = {}
 
 local function queueRating(low, high)
@@ -234,12 +236,14 @@ local function filterQueueSpam(message)
 
 	local low, high = message:match("^We are looking for the best team for you on the selection rating %[(%d+)%-(%d+)%]$")
 	if low then
-		return false, "Searching team: " .. queueRating(low, high)
+		ns:Fire(ns.SOLOQ_SEARCHING, tonumber(low), tonumber(high))
+		return true
 	end
 
 	local teamRating
 	teamRating, low, high = message:match("^Team to fight found! Team rating (%d+), looking for suitable opponents on the rating %[(%d+)%-(%d+)%]$")
 	if teamRating then
+		ns:Fire(ns.SOLOQ_SEARCHING, tonumber(low), tonumber(high), tonumber(teamRating))
 		return false, ("Team found (%s), searching opponents: %s"):format(teamRating, queueRating(low, high))
 	end
 end

@@ -83,6 +83,7 @@ Modules\Misc\WheelPaging.lua
 Modules\Misc\CursorTrail.lua
 Modules\Misc\LowHealthFlash.lua
 Modules\Misc\Arena.lua
+Modules\Misc\SoloQueue.lua
 Modules\Misc\Announcers.lua
 Modules\Misc\InterruptAnnounce.lua
 Modules\Misc\Battleground.lua
