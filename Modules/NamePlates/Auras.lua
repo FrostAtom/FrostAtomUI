@@ -6,6 +6,7 @@ local UnitAura = UnitAura
 local UnitExists = UnitExists
 local GetTime = GetTime
 local GetSpellInfo = GetSpellInfo
+local max = math.max
 
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
@@ -13,29 +14,31 @@ local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
 local ICON_SIZE = 20
 local ICON_HEIGHT = 13
 local ICON_GAP = 2
+local ICON_STEP = ICON_SIZE + ICON_GAP
 local MAX_ICONS = 6
 local MAX_AURAS = 40
 local TIMER_FONT_SIZE = 10
 local DURATION_BAR_HEIGHT = 2
-local DURATION_BAR_COLOR = { 1, 0.85, 0.2 }
 
--- Rend, Mortal Strike, Hamstring, Piercing Howl, Demoralizing Shout, Thunder Clap
-local OWN_SPELL_IDS = { 47465, 47486, 1715, 12323, 47437, 47502 }
+local OWN_SPELL_IDS = {
+	47465, -- Rend
+	47486, -- Mortal Strike
+	1715, -- Hamstring
+	12323, -- Piercing Howl
+	47437, -- Demoralizing Shout
+	47502, -- Thunder Clap
+}
 local ownSpellNames = {}
-for _, spellId in ipairs(OWN_SPELL_IDS) do
-	local name = GetSpellInfo(spellId)
+for i = 1, #OWN_SPELL_IDS do
+	local name = GetSpellInfo(OWN_SPELL_IDS[i])
 	if name then
 		ownSpellNames[name] = true
 	end
 end
 
-local function isWanted(name, caster)
-	return ccSpellNames[name] or (ownSpellNames[name] and caster == "player")
-end
-
 local row = CreateFrame("Frame", nil, WorldFrame)
 row:Hide()
-row:SetSize(MAX_ICONS * (ICON_SIZE + ICON_GAP), ICON_HEIGHT)
+row:SetSize(MAX_ICONS * ICON_STEP, ICON_HEIGHT)
 row:SetFrameStrata("LOW")
 
 local icons = {}
@@ -46,10 +49,11 @@ local TEXCOORD_TOP, TEXCOORD_BOTTOM = 0.07 + CROP_Y, 0.93 - CROP_Y
 local function createIcon(index)
 	local icon = CreateFrame("Frame", nil, row)
 	icon:SetSize(ICON_SIZE, ICON_HEIGHT)
-	icon:SetPoint("LEFT", (index - 1) * (ICON_SIZE + ICON_GAP), 0)
+	icon:SetPoint("LEFT", (index - 1) * ICON_STEP, 0)
 
 	icon.texture = icon:CreateTexture(nil, "ARTWORK")
 	icon.texture:SetAllPoints()
+	icon.texture:SetTexCoord(0.07, 0.93, TEXCOORD_TOP, TEXCOORD_BOTTOM)
 
 	icon.border = icon:CreateTexture(nil, "BACKGROUND")
 	icon.border:SetTexture(0, 0, 0)
@@ -61,7 +65,7 @@ local function createIcon(index)
 	icon.timer:SetPoint("CENTER")
 
 	icon.bar = icon:CreateTexture(nil, "OVERLAY")
-	icon.bar:SetTexture(unpack(DURATION_BAR_COLOR))
+	icon.bar:SetTexture(1, 0.85, 0.2)
 	icon.bar:SetHeight(DURATION_BAR_HEIGHT)
 	icon.bar:SetPoint("BOTTOMLEFT")
 
@@ -85,11 +89,10 @@ local function updateAuras()
 			break
 		end
 
-		if isWanted(name, caster) then
+		if ccSpellNames[name] or (ownSpellNames[name] and caster == "player") then
 			shown = shown + 1
 			local icon = icons[shown] or createIcon(shown)
 			icon.texture:SetTexture(texture)
-			icon.texture:SetTexCoord(0.07, 0.93, TEXCOORD_TOP, TEXCOORD_BOTTOM)
 			if duration and duration > 0 then
 				icon.duration, icon.endTime = duration, endTime
 				icon.timer:Show()
@@ -112,7 +115,7 @@ local function updateAuras()
 		icons[i]:Hide()
 	end
 
-	row:SetWidth(math.max(shown * (ICON_SIZE + ICON_GAP) - ICON_GAP, 1))
+	row:SetWidth(max(shown * ICON_STEP - ICON_GAP, 1))
 	row.hasAuras = shown > 0
 	row:Show()
 end
@@ -125,7 +128,7 @@ local function updateTimers()
 			local remain = icon.endTime - now
 			if remain > 0 then
 				SetTimerText(icon.timer, remain)
-				icon.bar:SetWidth(math.max(ICON_SIZE * remain / icon.duration, 0.1))
+				icon.bar:SetWidth(max(ICON_SIZE * remain / icon.duration, 0.1))
 			else
 				icon.endTime = nil
 				icon.timer:Hide()
@@ -135,7 +138,7 @@ local function updateTimers()
 	end
 end
 
-local function onUpdate()
+CreateFrame("Frame"):SetScript("OnUpdate", function()
 	local plate = row.hasAuras and NamePlates:GetTargetPlate()
 	if plate and not plate.totem:IsShown() then
 		row:ClearAllPoints()
@@ -145,16 +148,11 @@ local function onUpdate()
 	else
 		row:SetAlpha(0)
 	end
-end
+end)
 
-local anchorUpdater = CreateFrame("Frame")
-anchorUpdater:SetScript("OnUpdate", onUpdate)
-
-function NamePlates:UNIT_AURA(unit)
+NamePlates:RegisterEvent("UNIT_AURA", function(_, unit)
 	if unit == "target" then
 		updateAuras()
 	end
-end
-
-NamePlates:RegisterEvent("UNIT_AURA")
+end)
 NamePlates:RegisterEvent("PLAYER_TARGET_CHANGED", updateAuras)

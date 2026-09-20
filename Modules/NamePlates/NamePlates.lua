@@ -4,7 +4,8 @@ local CreateFrame = CreateFrame
 local WorldFrame = WorldFrame
 local UnitExists = UnitExists
 local select = select
-local math = math
+local pcall = pcall
+local format = string.format
 
 local NamePlates = ns:NewModule("NamePlates")
 
@@ -18,20 +19,22 @@ local NAME_FONT_SIZE = 9
 local NAME_OFFSET = 1
 local PERCENT_FONT_SIZE = 9
 local WHITE = { 1, 1, 1 }
-local CAST_COLOR = { 0.75, 0.4, 0 }
-local CAST_SHIELDED_COLOR = { 0.4, 0.4, 0.4 }
+local CAST_R, CAST_G, CAST_B = 0.75, 0.4, 0
+local CAST_SHIELDED_R, CAST_SHIELDED_G, CAST_SHIELDED_B = 0.4, 0.4, 0.4
 local TOTEM_ICON_SIZE = 24
 local RAID_ICON_SIZE = 22
-local ICON_TEXCOORD = { 0.07, 0.93, 0.07, 0.93 }
+local ICON_TEXCOORD_LEFT, ICON_TEXCOORD_RIGHT, ICON_TEXCOORD_TOP, ICON_TEXCOORD_BOTTOM = 0.07, 0.93, 0.07, 0.93
 
 ns.CHAT_BUBBLE_CREATED = "FrostAtomUI_CHAT_BUBBLE_CREATED"
 
-ns:GetModule("CVars"):Pin("showVKeyCastbar", "1", "SHOW_TARGET_CASTBAR_IN_V_KEY")
-ns:GetModule("CVars"):Pin("ShowClassColorInNameplate", "1")
+local CVars = ns:GetModule("CVars")
+CVars:Pin("showVKeyCastbar", "1", "SHOW_TARGET_CASTBAR_IN_V_KEY")
+CVars:Pin("ShowClassColorInNameplate", "1")
 
-NamePlates.plates = {}
-
-NamePlates.onPlateShow = {}
+local plates = {}
+local onPlateShow = {}
+NamePlates.plates = plates
+NamePlates.onPlateShow = onPlateShow
 
 local trash = CreateFrame("Frame")
 trash:Hide()
@@ -39,9 +42,10 @@ trash:Hide()
 local PlateMixin = {}
 
 local UF = ns:GetModule("UnitFrames")
+local classColors, classBarColors = UF.classColors, UF.classBarColors
 local classKeys = {}
 local function colorKey(r, g, b)
-	return ("%d,%d,%d"):format(r * 100 + 0.5, g * 100 + 0.5, b * 100 + 0.5)
+	return format("%d,%d,%d", r * 100 + 0.5, g * 100 + 0.5, b * 100 + 0.5)
 end
 for class, color in pairs(RAID_CLASS_COLORS) do
 	classKeys[colorKey(color.r, color.g, color.b)] = class
@@ -49,9 +53,8 @@ end
 
 function PlateMixin:UpdateColors(r, g, b)
 	local class = classKeys[colorKey(r, g, b)]
-	local classColor = class and UF.classColors[class]
 	if class then
-		local barColor = UF.classBarColors[class]
+		local barColor = classBarColors[class]
 		r, g, b = barColor[1], barColor[2], barColor[3]
 	elseif g + b == 0 then
 		r, g, b = 0.69, 0.31, 0.31
@@ -69,7 +72,7 @@ function PlateMixin:UpdateColors(r, g, b)
 	self.totem.bg:SetTexture(r, g, b)
 	healthbar.r, healthbar.g, healthbar.b = r, g, b
 
-	local nameColor = classColor or WHITE
+	local nameColor = class and classColors[class] or WHITE
 	self.nameColor = nameColor
 	self.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
 end
@@ -92,10 +95,12 @@ function PlateMixin:OnUpdate()
 
 	local border = healthbar.border
 	local isTarget = self:IsTarget()
+	local threat = self.threat
+	local hasThreat = threat:IsShown()
 	if isTarget then
 		border:SetTexture(1, 1, 1)
 		border:SetAlpha(0.67)
-	elseif self.threat:IsShown() then
+	elseif hasThreat then
 		border:SetTexture(1, 1, 1)
 		border:SetAlpha(0.4)
 	else
@@ -103,8 +108,8 @@ function PlateMixin:OnUpdate()
 		border:SetAlpha(1)
 	end
 
-	if self.threat:IsShown() then
-		self.name:SetTextColor(self.threat:GetVertexColor())
+	if hasThreat then
+		self.name:SetTextColor(threat:GetVertexColor())
 	else
 		local nameColor = self.nameColor
 		self.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
@@ -123,11 +128,12 @@ end
 function PlateMixin:OnShow()
 	local name = self.blizzardName:GetText()
 	local totemIcon = NamePlates.totemIcons[name]
+	local totem = self.totem
 
 	if totemIcon then
-		self.totem:SetTexture(totemIcon)
-		self.totem:Show()
-		self.totem.bg:Show()
+		totem:SetTexture(totemIcon)
+		totem:Show()
+		totem.bg:Show()
 		self.name:Hide()
 		self.healthbar:Hide()
 		self.raidicon:SetAlpha(0)
@@ -139,8 +145,8 @@ function PlateMixin:OnShow()
 		healthbar:Show()
 		self:UpdateColors(healthbar:GetStatusBarColor())
 
-		self.totem:Hide()
-		self.totem.bg:Hide()
+		totem:Hide()
+		totem.bg:Hide()
 		self.name:SetText(name)
 		self.name:Show()
 		self.raidicon:SetAlpha(1)
@@ -148,8 +154,8 @@ function PlateMixin:OnShow()
 
 	self.level:Hide()
 
-	for _, callback in ipairs(NamePlates.onPlateShow) do
-		callback(self, name)
+	for i = 1, #onPlateShow do
+		onPlateShow[i](self, name)
 	end
 end
 
@@ -164,10 +170,10 @@ function CastbarMixin:OnUpdate()
 	icon:SetTexture(self.blizzardIcon:GetTexture())
 
 	if self.shield:IsShown() then
-		self:SetStatusBarColor(unpack(CAST_SHIELDED_COLOR))
+		self:SetStatusBarColor(CAST_SHIELDED_R, CAST_SHIELDED_G, CAST_SHIELDED_B)
 		icon:SetDesaturated(1)
 	else
-		self:SetStatusBarColor(unpack(CAST_COLOR))
+		self:SetStatusBarColor(CAST_R, CAST_G, CAST_B)
 		icon:SetDesaturated(nil)
 	end
 end
@@ -181,16 +187,19 @@ function CastbarMixin:OnShow()
 	self:OnUpdate()
 end
 
+local function createBorder(parent, anchor, layer, sublevel)
+	local size = ns.PixelPerfect(1)
+	local border = parent:CreateTexture(nil, layer, nil, sublevel)
+	border:SetTexture(0, 0, 0)
+	border:SetPoint("TOPRIGHT", anchor, size, size)
+	border:SetPoint("BOTTOMLEFT", anchor, -size, -size)
+	return border
+end
+
 local function setupHealthbar(plate, healthbar, blizzardBackground)
 	healthbar:SetFrameLevel(plate:GetFrameLevel())
 	healthbar:SetStatusBarTexture(ns.Media.blank)
-
-	local borderSize = ns.PixelPerfect(1)
-	local border = healthbar:CreateTexture(nil, "BACKGROUND")
-	border:SetTexture(0, 0, 0)
-	border:SetPoint("TOPRIGHT", borderSize, borderSize)
-	border:SetPoint("BOTTOMLEFT", -borderSize, -borderSize)
-	healthbar.border = border
+	healthbar.border = createBorder(healthbar, healthbar, "BACKGROUND")
 
 	blizzardBackground:SetParent(healthbar)
 	blizzardBackground:SetDrawLayer("BORDER")
@@ -214,11 +223,7 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	shield:SetTexture(nil)
 	castbar.shield = shield
 
-	local borderSize = ns.PixelPerfect(1)
-	local border = castbar:CreateTexture(nil, "BACKGROUND", nil, -1)
-	border:SetTexture(0, 0, 0)
-	border:SetPoint("TOPRIGHT", borderSize, borderSize)
-	border:SetPoint("BOTTOMLEFT", -borderSize, -borderSize)
+	createBorder(castbar, castbar, "BACKGROUND", -1)
 
 	local bg = castbar:CreateTexture(nil, "BACKGROUND")
 	bg:SetTexture(0.2, 0.2, 0.2)
@@ -228,11 +233,8 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	local icon = castbar:CreateTexture(nil, "ARTWORK")
 	icon:SetSize(CASTBAR_ICON_SIZE, CASTBAR_ICON_SIZE)
 	icon:SetPoint("RIGHT", castbar, "LEFT", -3, 0)
-	icon:SetTexCoord(unpack(ICON_TEXCOORD))
-	local iconBorder = castbar:CreateTexture(nil, "BORDER")
-	iconBorder:SetTexture(0, 0, 0)
-	iconBorder:SetPoint("TOPRIGHT", icon, borderSize, borderSize)
-	iconBorder:SetPoint("BOTTOMLEFT", icon, -borderSize, -borderSize)
+	icon:SetTexCoord(ICON_TEXCOORD_LEFT, ICON_TEXCOORD_RIGHT, ICON_TEXCOORD_TOP, ICON_TEXCOORD_BOTTOM)
+	createBorder(castbar, icon, "BORDER")
 	castbar.icon = icon
 	castbar.blizzardIcon = blizzardIcon
 	blizzardIcon:SetParent(trash)
@@ -245,7 +247,7 @@ local function setupTotemIcon(plate)
 	local totem = plate:CreateTexture(nil, "ARTWORK")
 	totem:SetSize(TOTEM_ICON_SIZE, TOTEM_ICON_SIZE)
 	totem:SetPoint("TOP")
-	totem:SetTexCoord(unpack(ICON_TEXCOORD))
+	totem:SetTexCoord(ICON_TEXCOORD_LEFT, ICON_TEXCOORD_RIGHT, ICON_TEXCOORD_TOP, ICON_TEXCOORD_BOTTOM)
 	totem:Hide()
 
 	local bg = plate:CreateTexture(nil, "BORDER")
@@ -279,9 +281,10 @@ local function setupNamePlate(plate)
 	raidIcon:SetPoint("RIGHT", healthbar, "LEFT", -15, 0)
 
 	highlight:SetTexture(nil)
-	for _, region in ipairs({ bossIcon, elite, castBorder, threat }) do
-		region:SetParent(trash)
-	end
+	bossIcon:SetParent(trash)
+	elite:SetParent(trash)
+	castBorder:SetParent(trash)
+	threat:SetParent(trash)
 
 	plate.healthbar = healthbar
 	plate.castbar = castbar
@@ -299,14 +302,15 @@ local function setupNamePlate(plate)
 		castbar:OnShow()
 	end
 
-	NamePlates.plates[#NamePlates.plates + 1] = plate
+	plates[#plates + 1] = plate
 end
 
 function NamePlates:GetTargetPlate()
 	if not UnitExists("target") then
 		return
 	end
-	for _, plate in ipairs(self.plates) do
+	for i = 1, #plates do
+		local plate = plates[i]
 		if plate:IsShown() and plate:IsTarget() then
 			return plate
 		end
@@ -331,13 +335,6 @@ local function identifyFrame(frame)
 	end
 end
 
-local function safeSetup(setup, frame)
-	local ok, err = pcall(setup, frame)
-	if not ok then
-		geterrorhandler()(err)
-	end
-end
-
 local function setupNewChildren(frame, ...)
 	if not frame then
 		return
@@ -345,7 +342,10 @@ local function setupNewChildren(frame, ...)
 
 	local kind = identifyFrame(frame)
 	if kind == "NamePlate" then
-		safeSetup(setupNamePlate, frame)
+		local ok, err = pcall(setupNamePlate, frame)
+		if not ok then
+			geterrorhandler()(err)
+		end
 	elseif kind == "ChatBubble" then
 		ns:Fire(ns.CHAT_BUBBLE_CREATED, frame)
 	end
