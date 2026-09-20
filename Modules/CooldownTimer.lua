@@ -58,8 +58,8 @@ local function onSetCooldown(cooldown, startTime, duration)
 	end
 end
 
-function CooldownTimer:Attach(cooldown, fontSize)
-	local timer = cooldown:CreateFontString(nil, "ARTWORK")
+function CooldownTimer:Attach(cooldown, fontSize, parent)
+	local timer = (parent or cooldown):CreateFontString(nil, "ARTWORK")
 	timer:SetPoint("CENTER")
 	timer:SetFont(ns.Media.font, fontSize or 12, "OUTLINE")
 	timer:SetShadowOffset(1, -1)

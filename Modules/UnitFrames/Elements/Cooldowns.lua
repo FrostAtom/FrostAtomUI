@@ -38,7 +38,8 @@ local function createIcon(container, index)
 
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
 	icon.cooldown:SetAllPoints()
-	CooldownTimer:Attach(icon.cooldown, container.size * 0.38)
+	icon.cooldown:SetAlpha(0)
+	CooldownTimer:Attach(icon.cooldown, container.size * 0.38, icon)
 	icon.cooldown.timer:ClearAllPoints()
 	icon.cooldown.timer:SetPoint("BOTTOM", 0, 1)
 
