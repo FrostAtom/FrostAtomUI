@@ -10,7 +10,7 @@ local TemporaryEnchant = ns:NewModule("TemporaryEnchant")
 
 local ICON_SIZE = 30
 local ICON_GAP = 2
-local TOP_OFFSET = 30
+local TOP_OFFSET = 8
 local MAIN_HAND_SLOT = 16
 
 local function onClick(icon)
