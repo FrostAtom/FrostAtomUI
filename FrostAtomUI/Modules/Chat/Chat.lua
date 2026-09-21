@@ -14,6 +14,7 @@ local date = date
 local type = type
 local tonumber = tonumber
 local select = select
+local unpack = unpack
 local find, match, gsub, format, lower, sub =
 	string.find, string.match, string.gsub, string.format, string.lower, string.sub
 local tconcat, tremove = table.concat, table.remove
@@ -48,6 +49,12 @@ end
 
 local chatBackdrops = {}
 
+local function applyPosition()
+	ChatFrame1:ClearAllPoints()
+	ChatFrame1:SetPoint(unpack(config.point))
+	ChatFrame1:SetSize(config.width, config.height)
+end
+
 local function applyFrameConfig()
 	for i = 1, NUM_CHAT_WINDOWS do
 		_G["ChatFrame" .. i]:SetTimeVisible(config.fadeTime)
@@ -55,12 +62,52 @@ local function applyFrameConfig()
 	for i = 1, #chatBackdrops do
 		chatBackdrops[i]:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 	end
+	applyPosition()
+end
+
+local blizzardAddButton = UIDropDownMenu_AddButton
+
+local function addButtonWithoutLock(info, level)
+	if info.text ~= LOCK_WINDOW and info.text ~= UNLOCK_WINDOW then
+		blizzardAddButton(info, level)
+	end
+end
+
+local function initializeTabDropDown(...)
+	UIDropDownMenu_AddButton = addButtonWithoutLock
+	FCFOptionsDropDown_Initialize(...)
+	UIDropDownMenu_AddButton = blizzardAddButton
+end
+
+local function lockChatFrames()
+	FCF_ToggleLock = ns.noop
+	for i = 1, NUM_CHAT_WINDOWS do
+		local name = "ChatFrame" .. i
+		local chatFrame = _G[name]
+		FCF_SetLocked(chatFrame, 1)
+
+		local tab = _G[name .. "Tab"]
+		tab:RegisterForDrag()
+		tab:SetScript("OnDragStart", nil)
+		tab:SetScript("OnDragStop", nil)
+		_G[name .. "TabDropDown"].initialize = initializeTabDropDown
+
+		local resizeButton = _G[name .. "ResizeButton"]
+		resizeButton:Hide()
+		resizeButton:SetScript("OnShow", resizeButton.Hide)
+	end
+	hooksecurefunc("FCF_RestorePositionAndDimensions", function(chatFrame)
+		if chatFrame == ChatFrame1 then
+			applyPosition()
+		end
+	end)
 end
 
 function Chat:Initialize()
 	if config.skin then
 		self:Skin()
 	end
+	lockChatFrames()
 	applyClassColors()
 	applyFrameConfig()
 	for i = 1, #STICKY_TYPES do
@@ -532,6 +579,7 @@ local function onMouseWheel(chatFrame, delta)
 end
 
 local BACKDROP = ns.CreateBackdrop(14, 3)
+local FRIENDS_ICON = [[Interface\FriendsFrame\UI-Toast-FriendOnlineIcon]]
 
 local function hideRegions(prefix, ...)
 	for i = 1, select("#", ...) do
@@ -564,10 +612,13 @@ local function setupTab(name)
 	tab.middleHighlightTexture:SetTexCoord(0, 0, 1, 0.5)
 end
 
-local function setupEditBox(name)
+local function setupEditBox(name, chatFrame)
 	local editBox = _G[name]
 	editBox:SetAltArrowKeyMode(false)
 	editBox:Hide()
+	editBox:ClearAllPoints()
+	editBox:SetPoint("TOPLEFT", chatFrame, "BOTTOMLEFT", -6, -2)
+	editBox:SetPoint("TOPRIGHT", chatFrame, "BOTTOMRIGHT", 6, -2)
 
 	hideRegions(name, "Left", "Right", "Mid")
 	editBox.focusLeft:SetTexture(nil)
@@ -649,13 +700,30 @@ function Chat:Skin()
 	ChatFrameMenuButton:Hide()
 	ChatFrameMenuButton:SetScript("OnShow", ChatFrameMenuButton.Hide)
 
-	FriendsMicroButton:SetPoint("BOTTOM", ChatFrame1, "TOPLEFT", 8, 4)
-	FriendsMicroButton:SetFrameLevel(ChatFrame1Tab:GetFrameLevel() + 1)
+	FriendsMicroButton:SetParent(ChatFrame1)
+	FriendsMicroButton:ClearAllPoints()
+	FriendsMicroButton:SetPoint("TOPLEFT", ChatFrame1, "TOPLEFT", -4, 4)
+	FriendsMicroButton:SetSize(24, 24)
+	FriendsMicroButton:SetFrameLevel(ChatFrame1:GetFrameLevel() + 5)
+	FriendsMicroButton:SetNormalTexture(FRIENDS_ICON)
+	FriendsMicroButton:SetPushedTexture(FRIENDS_ICON)
+	FriendsMicroButton:SetHighlightTexture(FRIENDS_ICON)
+	FriendsMicroButton:GetNormalTexture():SetTexCoord(0.15, 0.85, 0.15, 0.85)
+	FriendsMicroButton:GetPushedTexture():SetTexCoord(0.15, 0.85, 0.15, 0.85)
+	FriendsMicroButton:GetHighlightTexture():SetTexCoord(0.15, 0.85, 0.15, 0.85)
+	FriendsMicroButton:SetAlpha(0.7)
+	FriendsMicroButton:HookScript("OnEnter", function(self)
+		self:SetAlpha(1)
+	end)
+	FriendsMicroButton:HookScript("OnLeave", function(self)
+		self:SetAlpha(0.7)
+	end)
+	FriendsMicroButtonCount:Hide()
 
 	for i = 1, NUM_CHAT_WINDOWS do
 		local name = "ChatFrame" .. i
 		skinChatFrame(name)
 		setupTab(name .. "Tab")
-		setupEditBox(name .. "EditBox")
+		setupEditBox(name .. "EditBox", _G[name])
 	end
 end

@@ -12,8 +12,23 @@ MinimapModule.configKey = "minimap"
 local config = ns.Config.minimap
 
 local CLOCK_UPDATE_INTERVAL = 1
+local ICON_SIZE = 18
+local ICON_INSET = 3
+local MAIL_ICON = "Interface\\Minimap\\Tracking\\Mailbox"
+local BATTLEFIELD_ICON = "Interface\\GossipFrame\\BattleMasterGossipIcon"
 
 local clock
+
+local function skinIcon(frame, icon, border, texture, point, x, y)
+	frame:SetSize(ICON_SIZE, ICON_SIZE)
+	frame:ClearAllPoints()
+	frame:SetPoint(point, x, y)
+	border:Hide()
+	icon:ClearAllPoints()
+	icon:SetAllPoints()
+	icon:SetTexture(texture)
+	icon:SetTexCoord(0, 1, 0, 1)
+end
 
 local function applyConfig()
 	Minimap:SetSize(config.size, config.size)
@@ -80,8 +95,19 @@ function MinimapModule:Initialize()
 	MiniMapInstanceDifficulty:SetParent(Minimap)
 	MiniMapInstanceDifficulty:SetPoint("TOPRIGHT", 3, 2)
 
-	MiniMapBattlefieldFrame:ClearAllPoints()
-	MiniMapBattlefieldFrame:SetPoint("BOTTOMLEFT")
+	skinIcon(MiniMapMailFrame, MiniMapMailIcon, MiniMapMailBorder, MAIL_ICON, "TOPLEFT", ICON_INSET, -ICON_INSET)
+	skinIcon(
+		MiniMapBattlefieldFrame,
+		MiniMapBattlefieldIcon,
+		MiniMapBattlefieldBorder,
+		BATTLEFIELD_ICON,
+		"BOTTOMLEFT",
+		ICON_INSET,
+		ICON_INSET
+	)
+	hooksecurefunc("BattlefieldFrame_UpdateStatus", function()
+		MiniMapBattlefieldIcon:SetTexture(BATTLEFIELD_ICON)
+	end)
 
 	hooksecurefunc("Minimap_UpdateRotationSetting", function()
 		MinimapNorthTag:Hide()

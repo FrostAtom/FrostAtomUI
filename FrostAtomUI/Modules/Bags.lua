@@ -47,19 +47,20 @@ Bags.configKey = "bags"
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local config = ns.Config.bags
-local PADDING = 12
-local HEADER_HEIGHT = 22
-local BAG_BUTTON_SIZE = 24
-local BAG_ROW_HEIGHT = BAG_BUTTON_SIZE + 6
-local FOOTER_HEIGHT = 16
+local PADDING = 8
+local ROW_GAP = 6
+local HEADER_HEIGHT = 20
+local BAG_BUTTON_SIZE = 20
+local FOOTER_HEIGHT = BAG_BUTTON_SIZE
 
 local ITEM_BUTTON_NAME = ADDON_NAME .. "BagItem%d"
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
-local EMPTY_BAG_ICON = "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"
-local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
-local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
+local CLOSE_ICON = "Interface\\FriendsFrame\\ClearBroadcastIcon"
+local SORT_ICON = "Interface\\ChatFrame\\UI-ChatIcon-ScrollEnd-Up"
+local SORT_ICON_CROP = 0.3
+local GLYPH_SIZE = 16
+local GLYPH_ALPHA = 0.6
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
-local SORT_ICON = "Interface\\Icons\\INV_Misc_Gear_01"
 local ARENA_POINTS_ICON = "Interface\\PVPFrame\\PVP-ArenaPoints-Icon"
 local HONOR_ICON = "Interface\\TargetingFrame\\UI-PVP-%s"
 local CURRENCY_ICON_SIZE = 14
@@ -248,26 +249,26 @@ end
 
 function BagSlotMixin:Update()
 	local invSlot = self:GetInventorySlot()
-	local icon = self.icon
+	local icon, border = self.icon, self:GetNormalTexture()
 	icon:SetDesaturated(false)
 
 	if not invSlot then
 		icon:SetTexture(BACKPACK_ICON)
-		icon:SetVertexColor(1, 1, 1)
+		border:SetVertexColor(1, 1, 1)
 		return
 	end
 
 	local texture = GetInventoryItemTexture("player", invSlot)
 	if texture then
 		icon:SetTexture(texture)
-		icon:SetVertexColor(1, 1, 1)
 		icon:SetDesaturated(IsInventoryItemLocked(invSlot))
+		border:SetVertexColor(1, 1, 1)
 	elseif self:IsPurchasable() then
-		icon:SetTexture(EMPTY_BAG_ICON)
-		icon:SetVertexColor(1, 0.2, 0.2)
+		icon:SetTexture(nil)
+		border:SetVertexColor(1, 0.2, 0.2)
 	else
-		icon:SetTexture(EMPTY_BAG_ICON)
-		icon:SetVertexColor(0.5, 0.5, 0.5)
+		icon:SetTexture(nil)
+		border:SetVertexColor(0.5, 0.5, 0.5)
 	end
 end
 
@@ -381,7 +382,7 @@ function ContainerMixin:CreateBagButton(bag, index)
 	ns.Mixin(button, BagSlotMixin)
 	button.bag = bag
 	button:SetSize(BAG_BUTTON_SIZE, BAG_BUTTON_SIZE)
-	button:SetPoint("TOPLEFT", PADDING + (index - 1) * (BAG_BUTTON_SIZE + 2), -(PADDING + HEADER_HEIGHT))
+	button:SetPoint("BOTTOMLEFT", PADDING + (index - 1) * (BAG_BUTTON_SIZE + 2), PADDING)
 	button:SetNormalTexture(ns.Media.buttonNormal)
 	button:GetNormalTexture():SetAllPoints()
 	button:SetHighlightTexture(ns.Media.buttonHighlight)
@@ -515,7 +516,7 @@ function ContainerMixin:Layout()
 	local width = columns * step - config.spacing
 	local height = rows * step - config.spacing
 	self.itemArea:SetSize(width, height)
-	self:SetSize(width + PADDING * 2, height + HEADER_HEIGHT + BAG_ROW_HEIGHT + FOOTER_HEIGHT + PADDING * 2)
+	self:SetSize(width + PADDING * 2, height + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + PADDING * 2)
 	self:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 	self:UpdateInfo()
 end
@@ -541,7 +542,7 @@ end
 
 function ContainerMixin:SetSorting(sorting)
 	self.sortButton:EnableMouse(not sorting)
-	self.sortButton.icon:SetDesaturated(sorting)
+	self.sortButton:SetAlpha(sorting and 0.2 or GLYPH_ALPHA)
 end
 
 function ContainerMixin:Toggle()
@@ -615,10 +616,10 @@ local function onSearchTextChanged(self)
 	end
 end
 
-local function createSearchBox(frame)
+local function createSearchBox(frame, title)
 	local search = CreateFrame("EditBox", nil, frame)
 	search:SetAutoFocus(false)
-	search:SetHeight(18)
+	search:SetHeight(HEADER_HEIGHT)
 	search:SetFont(ns.Media.font, 12)
 	search:SetTextInsets(4, 4, 0, 0)
 	search:SetMaxLetters(40)
@@ -630,7 +631,7 @@ local function createSearchBox(frame)
 	placeholder:SetFont(ns.Media.font, 12)
 	placeholder:SetTextColor(0.5, 0.5, 0.5)
 	placeholder:SetPoint("LEFT", 4, 0)
-	placeholder:SetText("Search")
+	placeholder:SetText(title)
 	search.placeholder = placeholder
 
 	search:SetScript("OnEscapePressed", onSearchEscape)
@@ -646,14 +647,35 @@ local function onCloseClick(self)
 	self:GetParent():Hide()
 end
 
-local function onSortEnter(self)
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetText("Sort")
-	GameTooltip:Show()
-end
-
 local function onSortClick(self)
 	Bags:SortBags(self:GetParent())
+end
+
+local function onGlyphEnter(self)
+	self:SetAlpha(1)
+end
+
+local function onGlyphLeave(self)
+	self:SetAlpha(GLYPH_ALPHA)
+end
+
+local function createGlyphButton(parent, texture, crop, onClick)
+	local button = CreateFrame("Button", nil, parent)
+	button:SetSize(GLYPH_SIZE, GLYPH_SIZE)
+	button:SetNormalTexture(texture)
+	button:SetPushedTexture(texture)
+	button:GetPushedTexture():SetVertexColor(0.5, 0.5, 0.5)
+	if crop then
+		button:GetNormalTexture():SetTexCoord(crop, 1 - crop, crop, 1 - crop)
+		button:GetPushedTexture():SetTexCoord(crop, 1 - crop, crop, 1 - crop)
+		button:GetNormalTexture():SetDesaturated(true)
+		button:GetPushedTexture():SetDesaturated(true)
+	end
+	button:SetAlpha(GLYPH_ALPHA)
+	button:SetScript("OnEnter", onGlyphEnter)
+	button:SetScript("OnLeave", onGlyphLeave)
+	button:SetScript("OnClick", onClick)
+	return button
 end
 
 local function createContainer(key, title, bags, columnsKey)
@@ -674,41 +696,21 @@ local function createContainer(key, title, bags, columnsKey)
 	frame:SetScript("OnHide", onHide)
 	tinsert(UISpecialFrames, frame:GetName())
 
-	local titleText = frame:CreateFontString(nil, "OVERLAY")
-	titleText:SetFont(ns.Media.fontBold, 13, "OUTLINE")
-	titleText:SetPoint("TOPLEFT", PADDING, -PADDING - 3)
-	titleText:SetText(title)
-	frame.title = titleText
-
-	local close = CreateFrame("Button", nil, frame)
-	close:SetSize(26, 26)
-	close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
-	close:SetNormalTexture(CLOSE_ICON)
-	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
-	close:SetScript("OnClick", onCloseClick)
+	local close = createGlyphButton(frame, CLOSE_ICON, nil, onCloseClick)
+	close:SetPoint("TOPRIGHT", -PADDING, -PADDING - (HEADER_HEIGHT - GLYPH_SIZE) / 2)
 	frame.close = close
 
-	local sortButton = CreateFrame("Button", nil, frame)
-	sortButton:SetSize(BAG_BUTTON_SIZE, BAG_BUTTON_SIZE)
-	sortButton:SetPoint("TOPRIGHT", -PADDING, -(PADDING + HEADER_HEIGHT))
-	sortButton:SetNormalTexture(ns.Media.buttonNormal)
-	sortButton:GetNormalTexture():SetAllPoints()
-	sortButton:SetHighlightTexture(ns.Media.buttonHighlight)
-	sortButton.icon = sortButton:CreateTexture(nil, "BORDER")
-	sortButton.icon:SetTexture(SORT_ICON)
-	sortButton.icon:SetAllPoints()
-	sortButton:SetScript("OnEnter", onSortEnter)
-	sortButton:SetScript("OnLeave", GameTooltip_Hide)
-	sortButton:SetScript("OnClick", onSortClick)
+	local sortButton = createGlyphButton(frame, SORT_ICON, SORT_ICON_CROP, onSortClick)
+	sortButton:SetPoint("RIGHT", close, "LEFT", -ROW_GAP, 0)
 	frame.sortButton = sortButton
 
-	local search = createSearchBox(frame)
-	search:SetPoint("LEFT", titleText, "RIGHT", 10, 0)
-	search:SetPoint("RIGHT", close, "LEFT", -4, 0)
+	local search = createSearchBox(frame, title)
+	search:SetPoint("TOPLEFT", PADDING, -PADDING)
+	search:SetPoint("RIGHT", sortButton, "LEFT", -ROW_GAP, 0)
 	frame.search = search
 
 	local itemArea = CreateFrame("Frame", nil, frame)
-	itemArea:SetPoint("TOPLEFT", PADDING, -(PADDING + HEADER_HEIGHT + BAG_ROW_HEIGHT))
+	itemArea:SetPoint("TOPLEFT", PADDING, -(PADDING + HEADER_HEIGHT + ROW_GAP))
 	frame.itemArea = itemArea
 
 	local holders = {}
@@ -725,11 +727,11 @@ local function createContainer(key, title, bags, columnsKey)
 
 	frame.freeText = frame:CreateFontString(nil, "OVERLAY")
 	frame.freeText:SetFont(ns.Media.font, 11, "OUTLINE")
-	frame.freeText:SetPoint("BOTTOMLEFT", PADDING, PADDING)
+	frame.freeText:SetPoint("LEFT", frame.bagButtons[#bags], "RIGHT", ROW_GAP, 0)
 
 	frame.moneyText = frame:CreateFontString(nil, "OVERLAY")
 	frame.moneyText:SetFont(ns.Media.font, 11, "OUTLINE")
-	frame.moneyText:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
+	frame.moneyText:SetPoint("RIGHT", frame, "BOTTOMRIGHT", -PADDING, PADDING + FOOTER_HEIGHT / 2)
 
 	frames[#frames + 1] = frame
 

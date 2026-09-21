@@ -10,6 +10,7 @@ local GetItemFamily = GetItemFamily
 local GetAuctionItemClasses = GetAuctionItemClasses
 local GetAuctionItemSubClasses = GetAuctionItemSubClasses
 local GetCursorInfo = GetCursorInfo
+local ClearCursor = ClearCursor
 local PickupContainerItem = PickupContainerItem
 local SplitContainerItem = SplitContainerItem
 local InCombatLockdown = InCombatLockdown
@@ -24,49 +25,55 @@ local next = next
 
 local Bags = ns:GetModule("Bags")
 
-local TICK = 0.05
-local MAX_MOVE_TIME = 1.25
-local MAX_RETRIES = 5
-local MAX_PASSES = 50
+local MOVES_PER_FRAME = 12
+local MOVE_TIMEOUT = 2
+local MAX_REPLANS = 5
+
+local CLASS_ORDER = { 2, 1, 8, 3, 5, 6, 11, 12, 7, 4, 9, 10 }
+
+local PINNED = {
+	[6948] = 1, -- Hearthstone
+}
 
 local SLOT_ORDER = {
-	INVTYPE_AMMO = 0,
 	INVTYPE_HEAD = 1,
 	INVTYPE_NECK = 2,
 	INVTYPE_SHOULDER = 3,
-	INVTYPE_BODY = 4,
+	INVTYPE_CLOAK = 4,
 	INVTYPE_CHEST = 5,
 	INVTYPE_ROBE = 5,
-	INVTYPE_WAIST = 6,
-	INVTYPE_LEGS = 7,
-	INVTYPE_FEET = 8,
-	INVTYPE_WRIST = 9,
-	INVTYPE_HAND = 10,
-	INVTYPE_FINGER = 11,
-	INVTYPE_TRINKET = 12,
-	INVTYPE_CLOAK = 13,
-	INVTYPE_WEAPON = 14,
-	INVTYPE_SHIELD = 15,
-	INVTYPE_2HWEAPON = 16,
-	INVTYPE_WEAPONMAINHAND = 18,
-	INVTYPE_WEAPONOFFHAND = 19,
+	INVTYPE_BODY = 6,
+	INVTYPE_TABARD = 7,
+	INVTYPE_WRIST = 8,
+	INVTYPE_HAND = 9,
+	INVTYPE_WAIST = 10,
+	INVTYPE_LEGS = 11,
+	INVTYPE_FEET = 12,
+	INVTYPE_FINGER = 13,
+	INVTYPE_TRINKET = 14,
+	INVTYPE_2HWEAPON = 15,
+	INVTYPE_WEAPONMAINHAND = 16,
+	INVTYPE_WEAPON = 17,
+	INVTYPE_WEAPONOFFHAND = 18,
+	INVTYPE_SHIELD = 19,
 	INVTYPE_HOLDABLE = 20,
 	INVTYPE_RANGED = 21,
-	INVTYPE_THROWN = 22,
-	INVTYPE_RANGEDRIGHT = 23,
+	INVTYPE_RANGEDRIGHT = 22,
+	INVTYPE_THROWN = 23,
 	INVTYPE_RELIC = 24,
-	INVTYPE_TABARD = 25,
+	INVTYPE_AMMO = 25,
 }
 
-local ids, counts, maxStacks, qualities = {}, {}, {}, {}
-local itemTypeOrder, itemSubTypeOrder, itemSlotOrder, itemLevels, itemPrices, itemNames, itemFamilies =
-	{}, {}, {}, {}, {}, {}, {}
+local ids, counts, maxStacks = {}, {}, {}
+local itemOrder, itemFamilies = {}, {}
 local moves = {}
-local sorted, sortedPosition, initialOrder, locked = {}, {}, {}, {}
+local slots, sorted, sortedPosition, initialOrder = {}, {}, {}, {}
 local targetItems, targetSlots, sourceUsed, emptySlots = {}, {}, {}, {}
 local normalBags, specialtyBags, bagFamilies = {}, {}, {}
 local typeOrder, subTypeOrder = {}, {}
+local busy = {}
 local activeFrame
+local replans = 0
 
 local function slotKey(bag, slot)
 	return bag * 100 + slot
@@ -80,7 +87,7 @@ local function buildTypeOrder()
 	local types = { GetAuctionItemClasses() }
 	for i = 1, #types do
 		local itemType = types[i]
-		typeOrder[itemType] = i
+		typeOrder[itemType] = CLASS_ORDER[i] or i
 		local subOrder = {}
 		subTypeOrder[itemType] = subOrder
 		local subTypes = { GetAuctionItemSubClasses(i) }
@@ -91,17 +98,21 @@ local function buildTypeOrder()
 end
 
 local function cacheItem(id)
-	if itemTypeOrder[id] then
+	if itemOrder[id] then
 		return
 	end
-	local name, _, _, level, _, itemType, subType, _, equipLoc, _, price = GetItemInfo(id)
-	itemTypeOrder[id] = typeOrder[itemType] or 99
+	local name, _, quality, level, _, itemType, subType, _, equipLoc, _, price = GetItemInfo(id)
 	local subOrder = subTypeOrder[itemType]
-	itemSubTypeOrder[id] = subOrder and subOrder[subType] or 99
-	itemSlotOrder[id] = SLOT_ORDER[equipLoc] or 99
-	itemLevels[id] = level or 0
-	itemPrices[id] = price or 0
-	itemNames[id] = name or ""
+	itemOrder[id] = ("%02d%02d%02d%d%04d%02d%08d%s"):format(
+		PINNED[id] or 99,
+		typeOrder[itemType] or 99,
+		SLOT_ORDER[equipLoc] or 99,
+		9 - (quality or 0),
+		9999 - (level or 0),
+		subOrder and subOrder[subType] or 99,
+		99999999 - (price or 0),
+		name or ""
+	)
 
 	local family = GetItemFamily(id)
 	if family and family > 0 and equipLoc == "INVTYPE_QUIVER" then
@@ -114,13 +125,7 @@ local function scan(bags)
 	wipe(ids)
 	wipe(counts)
 	wipe(maxStacks)
-	wipe(qualities)
-	wipe(itemTypeOrder)
-	wipe(itemSubTypeOrder)
-	wipe(itemSlotOrder)
-	wipe(itemLevels)
-	wipe(itemPrices)
-	wipe(itemNames)
+	wipe(itemOrder)
 	wipe(itemFamilies)
 	for i = 1, #bags do
 		local bag = bags[i]
@@ -129,11 +134,10 @@ local function scan(bags)
 			if id then
 				local key = slotKey(bag, slot)
 				local _, count = GetContainerItemInfo(bag, slot)
-				local _, _, quality, _, _, _, _, maxStack = GetItemInfo(id)
+				local _, _, _, _, _, _, _, maxStack = GetItemInfo(id)
 				ids[key] = id
 				counts[key] = count or 1
 				maxStacks[key] = maxStack or 1
-				qualities[key] = quality or 0
 				cacheItem(id)
 			end
 		end
@@ -148,19 +152,24 @@ local function updateLocation(from, to)
 			counts[to] = stackSize
 		else
 			counts[to] = counts[to] + counts[from]
-			ids[from], counts[from], maxStacks[from], qualities[from] = nil, nil, nil, nil
+			ids[from], counts[from], maxStacks[from] = nil, nil, nil
 		end
 	else
 		ids[from], ids[to] = ids[to], ids[from]
 		counts[from], counts[to] = counts[to], counts[from]
 		maxStacks[from], maxStacks[to] = maxStacks[to], maxStacks[from]
-		qualities[from], qualities[to] = qualities[to], qualities[from]
 	end
 end
 
 local function addMove(from, to)
 	updateLocation(from, to)
-	moves[#moves + 1] = { from, to }
+	moves[#moves + 1] = {
+		from = from,
+		to = to,
+		fromId = ids[from] or false,
+		toId = ids[to],
+		toCount = counts[to],
+	}
 end
 
 local function stack(sourceBags, targetBags, partialOnly)
@@ -251,64 +260,23 @@ local function compare(a, b)
 		return aId ~= nil and bId == nil
 	end
 
-	if aId == bId then
-		local aCount, bCount = counts[a], counts[b]
-		if aCount ~= bCount then
-			return aCount < bCount
+	if aId ~= bId then
+		local aOrder, bOrder = itemOrder[aId], itemOrder[bId]
+		if aOrder ~= bOrder then
+			return aOrder < bOrder
 		end
-		return initialOrder[a] < initialOrder[b]
+		return aId < bId
 	end
 
-	local aQuality, bQuality = qualities[a], qualities[b]
-	if aQuality ~= bQuality then
-		return aQuality > bQuality
+	local aCount, bCount = counts[a], counts[b]
+	if aCount ~= bCount then
+		return aCount > bCount
 	end
-
-	local aOrder, bOrder = itemTypeOrder[aId], itemTypeOrder[bId]
-	if aOrder ~= bOrder then
-		return aOrder < bOrder
-	end
-
-	aOrder, bOrder = itemSubTypeOrder[aId], itemSubTypeOrder[bId]
-	if aOrder ~= bOrder then
-		return aOrder < bOrder
-	end
-
-	aOrder, bOrder = itemSlotOrder[aId], itemSlotOrder[bId]
-	if aOrder ~= bOrder then
-		return aOrder < bOrder
-	end
-
-	local aLevel, bLevel = itemLevels[aId], itemLevels[bId]
-	if aLevel ~= bLevel then
-		return aLevel > bLevel
-	end
-
-	local aPrice, bPrice = itemPrices[aId], itemPrices[bId]
-	if aPrice ~= bPrice then
-		return aPrice > bPrice
-	end
-
-	local aName, bName = itemNames[aId], itemNames[bId]
-	if aName ~= bName then
-		return aName < bName
-	end
-
 	return initialOrder[a] < initialOrder[b]
 end
 
-local function shouldMove(source, destination)
-	local id = ids[source]
-	return destination ~= source
-		and id ~= nil
-		and not (id == ids[destination] and counts[source] == counts[destination])
-end
-
-local function swapSorted(source, destination)
-	local sourceIndex, destinationIndex = sortedPosition[source], sortedPosition[destination]
-	sorted[sourceIndex] = destination
-	sorted[destinationIndex] = source
-	sortedPosition[source], sortedPosition[destination] = destinationIndex, sourceIndex
+local function sameContent(a, b)
+	return ids[a] == ids[b] and counts[a] == counts[b]
 end
 
 local function sort(bags)
@@ -322,6 +290,7 @@ local function sort(bags)
 			local key = slotKey(bag, slot)
 			index = index + 1
 			initialOrder[key] = index
+			slots[index] = key
 			sorted[index] = key
 		end
 	end
@@ -330,154 +299,24 @@ local function sort(bags)
 		sortedPosition[sorted[i]] = i
 	end
 
-	local passNeeded, passes = true, 0
-	while passNeeded and passes < MAX_PASSES do
-		passNeeded = false
-		passes = passes + 1
-		local i = 1
-		for b = 1, #bags do
-			local bag = bags[b]
-			for slot = 1, GetContainerNumSlots(bag) do
-				local destination = slotKey(bag, slot)
-				local source = sorted[i]
-				if shouldMove(source, destination) then
-					if locked[source] or locked[destination] then
-						passNeeded = true
-					else
-						addMove(source, destination)
-						swapSorted(source, destination)
-						locked[source] = true
-						locked[destination] = true
-					end
-				end
-				i = i + 1
-			end
+	for i = 1, index do
+		local source, destination = sorted[i], slots[i]
+		if source ~= destination and ids[source] and not sameContent(source, destination) then
+			addMove(source, destination)
+			local sourceIndex, destinationIndex = sortedPosition[source], sortedPosition[destination]
+			sorted[sourceIndex], sorted[destinationIndex] = destination, source
+			sortedPosition[source], sortedPosition[destination] = destinationIndex, sourceIndex
 		end
-		wipe(locked)
 	end
 
+	wipe(slots)
 	wipe(sorted)
 	wipe(sortedPosition)
 	wipe(initialOrder)
 end
 
-local ticker = CreateFrame("Frame")
-ticker:Hide()
-
-local function stop(message)
+local function plan(bags)
 	wipe(moves)
-	ticker:Hide()
-	if activeFrame then
-		activeFrame:SetSorting(false)
-		activeFrame = nil
-	end
-	if message then
-		ns.Print(message)
-	end
-end
-
-local function doMove(move)
-	local sourceBag, sourceSlot = decode(move[1])
-	local targetBag, targetSlot = decode(move[2])
-
-	local _, sourceCount, sourceLocked = GetContainerItemInfo(sourceBag, sourceSlot)
-	local _, targetCount, targetLocked = GetContainerItemInfo(targetBag, targetSlot)
-	if sourceLocked or targetLocked then
-		return false
-	end
-
-	local sourceId = GetContainerItemID(sourceBag, sourceSlot)
-	if not sourceId then
-		return nil
-	end
-	local targetId = GetContainerItemID(targetBag, targetSlot)
-	local _, _, _, _, _, _, _, stackSize = GetItemInfo(sourceId)
-	stackSize = stackSize or 1
-
-	if sourceId == targetId and targetCount < stackSize and targetCount + sourceCount > stackSize then
-		SplitContainerItem(sourceBag, sourceSlot, stackSize - targetCount)
-	else
-		PickupContainerItem(sourceBag, sourceSlot)
-	end
-	if GetCursorInfo() == "item" then
-		PickupContainerItem(targetBag, targetSlot)
-	end
-
-	move.expect = sourceId
-	return true
-end
-
-ticker:SetScript("OnUpdate", function(self, elapsed)
-	self.timer = self.timer - elapsed
-	if self.timer > 0 then
-		return
-	end
-	self.timer = TICK
-
-	if InCombatLockdown() then
-		return stop("sorting interrupted by combat")
-	end
-
-	local move = moves[1]
-	if not move then
-		return stop()
-	end
-
-	if move.started then
-		local sourceBag, sourceSlot = decode(move[1])
-		local targetBag, targetSlot = decode(move[2])
-
-		local cursorType, cursorId = GetCursorInfo()
-		if cursorType == "item" then
-			if cursorId == move.expect then
-				PickupContainerItem(targetBag, targetSlot)
-				return
-			end
-			return stop("sorting aborted: cursor is busy")
-		end
-
-		local _, _, sourceLocked = GetContainerItemInfo(sourceBag, sourceSlot)
-		local _, _, targetLocked = GetContainerItemInfo(targetBag, targetSlot)
-		if sourceLocked or targetLocked then
-			return
-		end
-
-		if GetContainerItemID(targetBag, targetSlot) == move.expect then
-			tremove(moves, 1)
-			return
-		end
-
-		if GetTime() - move.started > MAX_MOVE_TIME then
-			move.retries = (move.retries or 0) + 1
-			if move.retries > MAX_RETRIES then
-				return stop("sorting failed, try again")
-			end
-			move.started = nil
-		end
-		return
-	end
-
-	if GetCursorInfo() then
-		return
-	end
-
-	local ok = doMove(move)
-	if ok then
-		move.started = GetTime()
-	elseif ok == nil then
-		tremove(moves, 1)
-	end
-end)
-
-function Bags:SortBags(frame)
-	if ticker:IsShown() or InCombatLockdown() then
-		return
-	end
-	if not next(typeOrder) then
-		buildTypeOrder()
-	end
-
-	local bags = frame.bags
 	scan(bags)
 
 	wipe(normalBags)
@@ -510,13 +349,136 @@ function Bags:SortBags(frame)
 	end
 	stack(normalBags, normalBags, true)
 	sort(normalBags)
+	return #moves > 0
+end
 
-	if #moves == 0 then
+local ticker = CreateFrame("Frame")
+ticker:Hide()
+
+local function stop(message)
+	wipe(moves)
+	wipe(busy)
+	ticker:Hide()
+	if activeFrame then
+		activeFrame:SetSorting(false)
+		activeFrame = nil
+	end
+	if message then
+		ns.Print(message)
+	end
+end
+
+local function replan()
+	replans = replans + 1
+	if replans > MAX_REPLANS then
+		return stop("sorting failed, try again")
+	end
+	if not plan(activeFrame.bags) then
+		return stop()
+	end
+end
+
+local function slotState(key)
+	local bag, slot = decode(key)
+	local _, count, locked = GetContainerItemInfo(bag, slot)
+	return GetContainerItemID(bag, slot) or false, count or 0, locked
+end
+
+local function moveFinished(move)
+	local toId, toCount, toLocked = slotState(move.to)
+	local fromId, _, fromLocked = slotState(move.from)
+	if toLocked or fromLocked then
+		return false
+	end
+	return toId == move.toId and toCount == move.toCount and fromId == move.fromId
+end
+
+local function issue(move)
+	local sourceBag, sourceSlot = decode(move.from)
+	local targetBag, targetSlot = decode(move.to)
+	local sourceId, sourceCount = slotState(move.from)
+	local targetId, targetCount = slotState(move.to)
+	if not sourceId then
+		return false
+	end
+
+	if sourceId == targetId and move.toCount > targetCount and move.toCount < targetCount + sourceCount then
+		SplitContainerItem(sourceBag, sourceSlot, move.toCount - targetCount)
+	else
+		PickupContainerItem(sourceBag, sourceSlot)
+	end
+	if GetCursorInfo() ~= "item" then
+		return false
+	end
+	PickupContainerItem(targetBag, targetSlot)
+	if GetCursorInfo() then
+		ClearCursor()
+		return false
+	end
+	move.started = GetTime()
+	return true
+end
+
+ticker:SetScript("OnUpdate", function()
+	if InCombatLockdown() then
+		return stop("sorting interrupted by combat")
+	end
+	if not moves[1] then
+		return replan()
+	end
+	if GetCursorInfo() then
+		return
+	end
+
+	wipe(busy)
+	local issued = 0
+	local now = GetTime()
+	local i = 1
+	while moves[i] do
+		local move = moves[i]
+		local from, to = move.from, move.to
+		if move.started then
+			if moveFinished(move) then
+				tremove(moves, i)
+				i = i - 1
+			elseif now - move.started > MOVE_TIMEOUT then
+				return replan()
+			else
+				busy[from], busy[to] = true, true
+			end
+		elseif not (busy[from] or busy[to]) then
+			if issued < MOVES_PER_FRAME then
+				local _, _, fromLocked = slotState(from)
+				local _, _, toLocked = slotState(to)
+				if not (fromLocked or toLocked) then
+					if not issue(move) then
+						return replan()
+					end
+					issued = issued + 1
+				end
+			end
+			busy[from], busy[to] = true, true
+		else
+			busy[from], busy[to] = true, true
+		end
+		i = i + 1
+	end
+end)
+
+function Bags:SortBags(frame)
+	if ticker:IsShown() or InCombatLockdown() then
+		return
+	end
+	if not next(typeOrder) then
+		buildTypeOrder()
+	end
+
+	replans = 0
+	if not plan(frame.bags) then
 		return
 	end
 
 	activeFrame = frame
 	frame:SetSorting(true)
-	ticker.timer = TICK
 	ticker:Show()
 end

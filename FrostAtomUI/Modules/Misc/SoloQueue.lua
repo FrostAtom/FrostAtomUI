@@ -15,20 +15,19 @@ local unpack = unpack
 local MAX_BATTLEFIELD_QUEUES = MAX_BATTLEFIELD_QUEUES or 2
 
 local Misc = ns:GetModule("Misc")
-local UF = ns:GetModule("UnitFrames")
 
 local JOIN_COMMAND = ".soloq join"
-local BUTTON_SIZE = 26
+local BUTTON_SIZE = 20
 local BUTTON_INSET = 3
 local RANGE_OFFSET = 8
 local PULSE_PERIOD = 1.6
 local PULSE_MIN_ALPHA = 0.35
 local TOOLTIP_REFRESH_INTERVAL = 0.5
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
-local GLOW_SCALE = 1.75
+local GLOW_SCALE = 2.2
 local GLOW_COLOR = { 0.3, 1, 0.3 }
-local QUEUE_ICON = "Interface\\Icons\\Achievement_Arena_3v3_7"
-local LEAVE_ICON = "Interface\\Icons\\INV_Misc_Rune_01"
+local QUEUE_ICON = "Interface\\GossipFrame\\BattleMasterGossipIcon"
+local LEAVE_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
 local TEAM_SEARCH_COLOR = { 1, 1, 1 }
 local OPPONENT_SEARCH_COLOR = { 1, 0.85, 0.3 }
 
@@ -43,11 +42,14 @@ local button = CreateFrame("Button", nil, Minimap)
 button:Hide()
 button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
 button:SetPoint("BOTTOMRIGHT", -BUTTON_INSET, BUTTON_INSET)
-button:SetHighlightTexture(ns.Media.buttonHighlight)
 button:RegisterForClicks("LeftButtonUp")
 
 button.icon = button:CreateTexture(nil, "BORDER")
-UF.SkinIcon(button, button.icon)
+button.icon:SetAllPoints()
+
+button.highlight = button:CreateTexture(nil, "HIGHLIGHT")
+button.highlight:SetAllPoints()
+button.highlight:SetBlendMode("ADD")
 
 button.glow = button:CreateTexture(nil, "OVERLAY")
 button.glow:SetPoint("CENTER")
@@ -117,6 +119,10 @@ local function setState(state, queueIndex)
 	local info = STATES[state]
 	button.icon:SetTexture(info.icon)
 	button.icon:SetAlpha(1)
+	button.highlight:SetTexture(info.icon)
+	if state == "queued" or state == "enter" then
+		MiniMapBattlefieldFrame:Hide()
+	end
 	if info.glow then
 		button.glow:Show()
 	else
@@ -131,6 +137,12 @@ local function setState(state, queueIndex)
 		onEnter(button)
 	end
 end
+
+hooksecurefunc("BattlefieldFrame_UpdateStatus", function()
+	if button.state == "queued" or button.state == "enter" then
+		MiniMapBattlefieldFrame:Hide()
+	end
+end)
 
 local function findQueue()
 	local foundIndex, foundStatus

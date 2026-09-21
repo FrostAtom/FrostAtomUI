@@ -112,6 +112,10 @@ local function createCopyFrame()
 	editBox:SetScript("OnEscapePressed", function()
 		frame:Hide()
 	end)
+	editBox:EnableMouseWheel(true)
+	editBox:SetScript("OnMouseWheel", function(_, delta)
+		ScrollFrameTemplate_OnMouseWheel(scroll, delta)
+	end)
 	scroll:SetScrollChild(editBox)
 
 	frame.scroll = scroll
@@ -119,10 +123,10 @@ local function createCopyFrame()
 	return frame
 end
 
-SlashCmdList.FROSTATOMUI_COPY = function()
+local function copyChatFrame(chatFrame)
 	copyFrame = copyFrame or createCopyFrame()
 
-	local lines = Chat.lines[SELECTED_DOCK_FRAME or ChatFrame1]
+	local lines = Chat.lines[chatFrame]
 	local text = {}
 	for i = 1, #lines do
 		text[i] = plainText(lines[i][1])
@@ -135,23 +139,38 @@ SlashCmdList.FROSTATOMUI_COPY = function()
 	editBox:SetFocus()
 	editBox:HighlightText()
 end
+
+SlashCmdList.FROSTATOMUI_COPY = function()
+	copyChatFrame(SELECTED_DOCK_FRAME or ChatFrame1)
+end
 SLASH_FROSTATOMUI_COPY1 = "/copy"
 
-local copyButton = CreateFrame("Button", nil, ChatFrame1)
-copyButton:SetSize(16, 16)
-copyButton:SetPoint("TOPRIGHT", ChatFrame1, "TOPRIGHT", 4, 4)
-copyButton:SetFrameLevel(ChatFrame1:GetFrameLevel() + 5)
-copyButton:SetNormalTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
-copyButton:SetHighlightTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
-copyButton:SetAlpha(0.4)
-copyButton:SetScript("OnEnter", function(self)
+local function onCopyButtonEnter(self)
 	self:SetAlpha(1)
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:SetText("/copy")
 	GameTooltip:Show()
-end)
-copyButton:SetScript("OnLeave", function(self)
+end
+
+local function onCopyButtonLeave(self)
 	self:SetAlpha(0.4)
 	GameTooltip:Hide()
-end)
-copyButton:SetScript("OnClick", SlashCmdList.FROSTATOMUI_COPY)
+end
+
+local function onCopyButtonClick(self)
+	copyChatFrame(self:GetParent())
+end
+
+for i = 1, NUM_CHAT_WINDOWS do
+	local chatFrame = _G["ChatFrame" .. i]
+	local copyButton = CreateFrame("Button", nil, chatFrame)
+	copyButton:SetSize(16, 16)
+	copyButton:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", 4, 4)
+	copyButton:SetFrameLevel(chatFrame:GetFrameLevel() + 5)
+	copyButton:SetNormalTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
+	copyButton:SetHighlightTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
+	copyButton:SetAlpha(0.4)
+	copyButton:SetScript("OnEnter", onCopyButtonEnter)
+	copyButton:SetScript("OnLeave", onCopyButtonLeave)
+	copyButton:SetScript("OnClick", onCopyButtonClick)
+end
