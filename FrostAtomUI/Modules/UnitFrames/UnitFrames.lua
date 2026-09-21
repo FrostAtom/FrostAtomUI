@@ -11,6 +11,7 @@ UF.configKey = "unitFrames"
 
 local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
 local BORDER_INSET = 4
+local CLASS_ICON_INSET = 2
 local POWER_RATIO = 0.2
 local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
@@ -19,6 +20,7 @@ local TARGET_AURA_ROWS = 2
 local config = ns.Config.unitFrames
 
 UF.BORDER_INSET = BORDER_INSET
+UF.CLASS_ICON_INSET = CLASS_ICON_INSET
 UF.CASTBAR_ICON_GAP = CASTBAR_ICON_GAP
 UF.backdrop = ns.CreateBackdrop(14, 3)
 
@@ -294,8 +296,8 @@ function UF:CreateRectangle(unit, width, height, iconSide)
 	frame:SetContentInset(0)
 
 	if iconSide then
-		local icon = self:AddElement(frame, "classicon", frame.innerHeight)
-		icon:SetPoint("TOP" .. iconSide, iconSide == "LEFT" and BORDER_INSET or -BORDER_INSET, -BORDER_INSET)
+		local icon = self:AddElement(frame, "classicon", height - CLASS_ICON_INSET * 2)
+		icon:SetPoint("TOP" .. iconSide, iconSide == "LEFT" and CLASS_ICON_INSET or -CLASS_ICON_INSET, -CLASS_ICON_INSET)
 	end
 
 	local name = self:AddElement(frame, "name")

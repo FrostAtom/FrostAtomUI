@@ -64,7 +64,7 @@ local function setIcon(frame, icon, class, spec)
 	end
 
 	icon:Show()
-	frame:SetContentInset(icon:GetWidth() + GAP)
+	frame:SetContentInset(icon:GetWidth() + GAP + UF.CLASS_ICON_INSET - UF.BORDER_INSET)
 end
 
 local function update(frame)
