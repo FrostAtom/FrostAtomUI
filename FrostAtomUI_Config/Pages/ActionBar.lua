@@ -1,0 +1,42 @@
+local _, ns = ...
+
+ns.RegisterPage({
+	key = "actionbar",
+	name = "Action bars",
+	order = 15,
+	enable = "actionBar.enabled",
+	schema = {
+		{
+			path = "actionBar.enabled",
+			label = "Enable",
+			type = "toggle",
+			reload = true,
+			desc = "Replace Blizzard action bars.",
+		},
+		{ path = "actionBar.showBar2", label = "Show bar 2", type = "toggle" },
+		{ path = "actionBar.showBar3", label = "Show bar 3", type = "toggle" },
+		{ path = "actionBar.showBar4", label = "Show left side bar", type = "toggle" },
+		{ path = "actionBar.showBar5", label = "Show right side bar", type = "toggle" },
+		{ header = "Layout" },
+		{ path = "actionBar.buttonSize", label = "Button size", type = "number", min = 20, max = 60, step = 1 },
+		{
+			path = "actionBar.smallButtonSize",
+			label = "Pet / stance button size",
+			type = "number",
+			min = 16,
+			max = 50,
+			step = 1,
+		},
+		{ path = "actionBar.gap", label = "Button spacing", type = "number", min = 0, max = 12, step = 1 },
+		{ path = "actionBar.bottomOffset", label = "Bottom offset", type = "number", min = 0, max = 300, step = 1 },
+		{ header = "Text" },
+		{ path = "actionBar.showHotkeys", label = "Show hotkeys", type = "toggle" },
+		{ path = "actionBar.hotkeyFont", label = "Hotkey font", type = "font", enabledBy = "actionBar.showHotkeys" },
+		{ path = "actionBar.showNames", label = "Show macro names / counts", type = "toggle" },
+		{ path = "actionBar.nameFont", label = "Name font", type = "font", enabledBy = "actionBar.showNames" },
+		{ header = "Colors" },
+		{ path = "actionBar.rangeColor", label = "Out of range", type = "color" },
+		{ path = "actionBar.manaColor", label = "Not enough mana", type = "color" },
+		{ path = "actionBar.unusableColor", label = "Unusable", type = "color" },
+	},
+})

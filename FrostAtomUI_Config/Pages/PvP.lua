@@ -1,0 +1,66 @@
+local _, ns = ...
+
+ns.RegisterPage({
+	key = "pvp",
+	name = "PvP",
+	order = 34,
+	schema = {
+		{ header = "Arena" },
+		{
+			path = "arena.countdown",
+			label = "Start countdown",
+			type = "toggle",
+			desc = "Large timer for the last 15 seconds before the gates open.",
+		},
+		{ path = "arena.countdownPoint", label = "Countdown position", type = "point", enabledBy = "arena.countdown" },
+		{ path = "arena.countdownFont", label = "Countdown font", type = "font", enabledBy = "arena.countdown" },
+		{
+			path = "arena.pillars",
+			label = "Ring of Valor pillar timer",
+			type = "toggle",
+			desc = "Icon above the chat frame counting down to the next pillar toggle.",
+		},
+		{
+			path = "arena.pillarsSize",
+			label = "Pillar timer size",
+			type = "number",
+			min = 20,
+			max = 64,
+			step = 1,
+			enabledBy = "arena.pillars",
+		},
+		{ header = "Battleground" },
+		{
+			path = "battleground.raidWarnings",
+			label = "System messages as raid warnings",
+			type = "toggle",
+			desc = "Show battleground and arena system messages in the raid warning frame.",
+		},
+		{ header = "Solo queue" },
+		{
+			path = "soloQueue.enabled",
+			label = "Minimap button",
+			type = "toggle",
+			desc = "Join, leave and enter the solo queue from a button on the minimap.",
+		},
+		{
+			path = "soloQueue.rangeFont",
+			label = "Search range font",
+			type = "font",
+			enabledBy = "soloQueue.enabled",
+		},
+		{ header = "World map" },
+		{
+			path = "worldMap.screenFraction",
+			label = "Full map screen height",
+			type = "number",
+			min = 0.5,
+			max = 1,
+			step = 0.05,
+			desc = "Fraction of the screen height the full-size map takes.",
+		},
+		{ path = "worldMap.showCoords", label = "Show coordinates", type = "toggle" },
+		{ path = "worldMap.coordFont", label = "Coordinates font", type = "font", enabledBy = "worldMap.showCoords" },
+		{ path = "worldMap.arrowSize", label = "Player arrow size", type = "number", min = 16, max = 64, step = 1 },
+	},
+})

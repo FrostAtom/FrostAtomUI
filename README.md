@@ -9,15 +9,15 @@ all in one addon, no configuration screens, ready to play right after install.
 ## Installation
 
 1. Download the latest version: **Code → Download ZIP** (or `git clone` this repository).
-2. Unpack the archive. You should end up with a folder that contains `FrostAtomUI.toc`.
-3. Rename the folder to **`FrostAtomUI`** if it has a different name (e.g. `FrostAtomUI-main`).
-4. Move it to your game's addon directory:
+2. Unpack the archive and open it. Inside are the `FrostAtomUI` and `FrostAtomUI_Config` folders.
+3. Move both folders to your game's addon directory:
 
    ```
    World of Warcraft\Interface\AddOns\FrostAtomUI\FrostAtomUI.toc
+   World of Warcraft\Interface\AddOns\FrostAtomUI_Config\FrostAtomUI_Config.toc
    ```
 
-5. Start the game (or type `/rl` if it is already running) and make sure **FrostAtom UI** is enabled
+4. Start the game (fully restart the client if it is already running — `/rl` does not pick up new addons) and make sure **FrostAtom UI** is enabled
    in the *AddOns* list on the character selection screen.
 
 > **Tip:** the addon replaces Blizzard's action bars, unit frames, nameplates, minimap, bags and chat.
@@ -29,7 +29,8 @@ all in one addon, no configuration screens, ready to play right after install.
 
 ### ⚔️ Unit frames
 - Player, pet, target (with combo points), focus, target-of-target, target-of-focus.
-- Party frames with pets; **arena frames** with pets, PvP trinket status and enemy cooldowns; boss frames.
+- Party frames (up to 3 members, 5v5 is not supported) with pets; **arena frames** with pets, PvP trinket status and enemy cooldowns; boss frames.
+- Party and arena frames get a gold border when targeted and a blue one when focused.
 - Health bars glide smoothly; lost health leaves a fading strip so you can see burst damage.
 - Debuffs you can dispel tint the health bar; buffs you can purge get a highlight frame.
 - Crowd-control icon ("lose control") on top of every frame, class icons, range fading for party members.
@@ -124,21 +125,18 @@ all in one addon, no configuration screens, ready to play right after install.
 | `/noduel` | Toggle automatic duel decline |
 | `/vr` | Toggle the button click animation (for video recording) |
 | `/cdtest` | Preview the cooldown tracker |
+| `/uftest` | Toggle unit frame test mode: every frame is shown with random data |
 | `/guid` | Print your target's GUID |
 | `/rl` | Reload the UI |
+| `/fui` | Open the settings window |
 
 ---
 
 ## Customizing
 
-There are no options panels. Positions and sizes live in one file — `Core/Config.lua` —
-open it in any text editor, change the numbers and `/rl`:
-
-```lua
-player = { "TOPLEFT", 150, -40 },   -- anchor point, x offset, y offset
-arena  = { "RIGHT", -150, 0 },
-bags   = { buttonSize = 34, spacing = 4, inventoryColumns = 10, ... },
-```
+Type `/fui` (or `/ui`, `/faui`, `/frostatomui`) to open the settings window — positions, sizes and
+other options apply immediately, no reload needed. The window lives in the separate `FrostAtomUI_Config`
+addon, which is only loaded when you open it. Defaults are listed in `FrostAtomUI/Core/Config.lua`.
 
 Your settings (`/pm`, `/noduel`, chat history, …) are saved per account in `WTF\Account\<name>\SavedVariables\FrostAtomUI.lua`.
 

@@ -1,0 +1,41 @@
+local _, ns = ...
+
+ns.RegisterPage({
+	key = "bags",
+	name = "Bags",
+	order = 50,
+	enable = "bags.enabled",
+	schema = {
+		{ path = "bags.enabled", label = "Enable", type = "toggle", reload = true, desc = "Replace Blizzard bags." },
+		{
+			path = "bags.autoOpen",
+			label = "Open at merchant / mail / bank",
+			type = "toggle",
+			desc = "Open the inventory when a merchant, mailbox, auction house, trade or bank window opens.",
+		},
+		{ header = "Positions" },
+		{ path = "bags.inventory", label = "Inventory", type = "point" },
+		{ path = "bags.bank", label = "Bank", type = "point" },
+		{ header = "Layout" },
+		{ path = "bags.buttonSize", label = "Button size", type = "number", min = 20, max = 50, step = 1 },
+		{ path = "bags.spacing", label = "Spacing", type = "number", min = 0, max = 12, step = 1 },
+		{ path = "bags.inventoryColumns", label = "Inventory columns", type = "number", min = 4, max = 24, step = 1 },
+		{ path = "bags.bankColumns", label = "Bank columns", type = "number", min = 4, max = 30, step = 1 },
+		{ path = "bags.backgroundAlpha", label = "Background alpha", type = "number", min = 0, max = 1, step = 0.05 },
+		{ header = "Items" },
+		{ path = "bags.showItemLevel", label = "Show item level", type = "toggle" },
+		{ path = "bags.highlightNewItems", label = "Highlight new items", type = "toggle" },
+		{
+			path = "bags.searchFadeAlpha",
+			label = "Search fade alpha",
+			type = "number",
+			min = 0,
+			max = 1,
+			step = 0.05,
+			desc = "Alpha of items that do not match the search text.",
+		},
+		{ header = "Text" },
+		{ path = "bags.countFont", label = "Stack count font", type = "font" },
+		{ path = "bags.levelFont", label = "Item level font", type = "font", enabledBy = "bags.showItemLevel" },
+	},
+})

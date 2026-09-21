@@ -20,7 +20,7 @@ read_globals = {
 	"GetScreenWidth", "GetScreenHeight", "GetCursorPosition", "GetMouseFocus",
 	"UIParent", "WorldFrame", "Minimap", "GameTooltip", "ItemRefTooltip",
 	"ShoppingTooltip1", "ShoppingTooltip2", "ShoppingTooltip3",
-	"RegisterStateDriver", "RegisterUnitWatch",
+	"RegisterStateDriver", "RegisterUnitWatch", "UnregisterUnitWatch",
 	"UnitClass", "UnitName", "UnitGUID", "UnitExists", "UnitIsUnit", "UnitIsPlayer",
 	"UnitIsConnected", "UnitIsDeadOrGhost", "UnitAffectingCombat", "UnitInRaid",
 	"UnitHealth", "UnitHealthMax", "UnitPower", "UnitPowerMax", "UnitPowerType",
@@ -51,7 +51,7 @@ read_globals = {
 	"CanMerchantRepair", "GetRepairAllCost", "RepairAllItems", "GetMoney", "GetContainerNumSlots",
 	"GetContainerItemLink", "GetContainerItemInfo", "UseContainerItem", "GetNumGuildMembers",
 	"GetGuildRosterInfo", "GetNumPartyMembers", "AcceptGroup", "IsInGuild", "GuildRoster",
-	"GetInventoryItemLink", "GetInventoryItemDurability", "RaidNotice_AddMessage", "IsAddOnLoaded",
+	"GetInventoryItemLink", "GetInventoryItemDurability", "RaidNotice_AddMessage", "IsAddOnLoaded", "LoadAddOn",
 	"GetContainerNumFreeSlots", "GetContainerItemID", "GetContainerItemCooldown", "GetContainerItemQuestInfo",
 	"GetItemQualityColor", "IsInventoryItemLocked", "ContainerIDToInventoryID", "BankButtonIDToInvSlotID",
 	"GetNumBankSlots", "GetBankSlotCost", "CursorHasItem", "PutItemInBag", "PutItemInBackpack",
@@ -67,6 +67,8 @@ read_globals = {
 	"ChatEdit_UpdateHeader", "ChatFrame_AddMessageEventFilter", "ChatFrame_RemoveMessageEventFilter",
 	"ChatTypeInfo", "SetChatColorNameByClass",
 	"StaticPopup_Show", "StaticPopup_Hide", "ToggleDropDownMenu", "UIDropDownMenu_Initialize",
+	"UIDropDownMenu_CreateInfo", "UIDropDownMenu_AddButton", "UIDropDownMenu_SetWidth",
+	"UIDropDownMenu_SetSelectedValue", "UIDropDownMenu_SetText", "YES", "NO",
 	"UnitPopup_ShowMenu", "FauxScrollFrame_Update", "FauxScrollFrame_OnVerticalScroll",
 	"FauxScrollFrame_GetOffset", "FauxScrollFrame_SetOffset",
 
@@ -87,7 +89,7 @@ read_globals = {
 
 -- Frames and globals the addon deliberately writes to.
 globals = {
-	"FrostAtomUIDB",
+	"FrostAtomUIDB", "FrostAtomUI", "FrostAtomUI_Config",
 	-- FrameXML tables the addon extends
 	"SlashCmdList", "StaticPopupDialogs", "UnitPopupButtons", "UnitPopupMenus",
 	"UIPARENT_MANAGED_FRAME_POSITIONS", "MultiCastActionBarFrame", "UISpecialFrames",
@@ -108,9 +110,17 @@ globals = {
 
 -- Blizzard frames are accessed as globals; anything in CamelCase that is not
 -- listed above is assumed to be one of them.
-files["Modules/**/*.lua"] = {
+files["FrostAtomUI/Modules/**/*.lua"] = {
 	ignore = {
 		"113/[A-Z][A-Za-z0-9]+", -- accessing undefined variable (frame globals)
 		"111/SLASH_FROSTATOMUI_.*", -- setting undefined variable (slash commands)
 	},
+}
+
+files["FrostAtomUI_Config/**/*.lua"] = {
+	ignore = {
+		"113/[A-Z][A-Za-z0-9]+", -- accessing undefined variable (frame globals)
+	},
+	read_globals = { "UIDropDownMenu_EnableDropDown", "UIDropDownMenu_DisableDropDown", "ReloadUI" },
+	globals = { "ColorPickerFrame" },
 }

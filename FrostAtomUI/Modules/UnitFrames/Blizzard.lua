@@ -1,0 +1,39 @@
+local _, ns = ...
+local UF = ns:GetModule("UnitFrames")
+
+local DestroyFrame = ns.DestroyFrame
+local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
+
+function UF:HideBlizzard()
+	for _, key in ipairs({ "SET_FOCUS", "CLEAR_FOCUS", "LOCK_FOCUS_FRAME", "UNLOCK_FOCUS_FRAME" }) do
+		UnitPopupButtons[key] = nil
+		for _, menu in pairs(UnitPopupMenus) do
+			ns.tDeleteItem(menu, key)
+		end
+	end
+
+	Arena_LoadUI = ns.noop
+
+	DestroyFrame(PlayerFrame, true)
+	DestroyFrame(TargetFrame, true)
+	DestroyFrame(FocusFrame, true)
+	DestroyFrame(BuffFrame, true)
+	DestroyFrame(ComboFrame, true)
+	DestroyFrame(CastingBarFrame)
+	DestroyFrame(ConsolidatedBuffs, true)
+	DestroyFrame(PartyMemberBackground)
+
+	for i = 1, MAX_BOSS_FRAMES do
+		DestroyFrame(_G["Boss" .. i .. "TargetFrame"], true)
+	end
+
+	for i = 1, MAX_PARTY_MEMBERS do
+		local frame = _G["PartyMemberFrame" .. i]
+		DestroyFrame(frame, true)
+		hooksecurefunc(frame, "Show", frame.Hide)
+		DestroyFrame(_G["PartyMemberFrame" .. i .. "PetFrame"], true)
+	end
+
+	ns:GetModule("CVars"):Pin("hidePartyInRaid", "1")
+	UIPARENT_MANAGED_FRAME_POSITIONS.CastingBarFrame = nil
+end

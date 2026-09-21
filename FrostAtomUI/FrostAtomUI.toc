@@ -1,0 +1,102 @@
+## Interface: 30300
+## Title: FrostAtom UI
+## Notes: Personal UI replacement: action bars, unit frames, nameplates, chat, minimap and PvP helpers.
+## Author: frostatom
+## Version: 1.2.0
+## SavedVariables: FrostAtomUIDB
+
+# Core: namespace, utilities, event dispatcher, saved variables, settings
+Core\Init.lua
+Core\Util.lua
+Core\Events.lua
+Core\Media.lua
+Core\DB.lua
+Core\CVars.lua
+Core\Config.lua
+
+# Shared widgets
+Modules\CooldownTimer.lua
+Modules\CooldownData.lua
+Modules\Talents.lua
+Modules\CooldownTracker.lua
+
+# Action bars
+Modules\ActionBar\ActionBar.lua
+Modules\ActionBar\ClickAnimation.lua
+Modules\ActionBar\ActionButton.lua
+Modules\ActionBar\PetBar.lua
+Modules\ActionBar\ShapeshiftBar.lua
+Modules\ActionBar\Binder.lua
+Modules\ActionBar\Blizzard.lua
+
+# Unit frames
+Modules\UnitFrames\UnitFrames.lua
+Modules\UnitFrames\Menu.lua
+Modules\UnitFrames\Elements\Health.lua
+Modules\UnitFrames\Elements\Power.lua
+Modules\UnitFrames\Elements\Name.lua
+Modules\UnitFrames\Elements\Combat.lua
+Modules\UnitFrames\Elements\ClassIcon.lua
+Modules\UnitFrames\Elements\Leader.lua
+Modules\UnitFrames\Elements\RaidIcon.lua
+Modules\UnitFrames\Elements\ComboPoints.lua
+Modules\UnitFrames\Elements\Range.lua
+Modules\UnitFrames\Elements\Highlight.lua
+Modules\UnitFrames\Elements\Trinket.lua
+Modules\UnitFrames\Elements\Cooldowns.lua
+Modules\UnitFrames\Elements\Dispel.lua
+Modules\UnitFrames\Elements\Status.lua
+Modules\UnitFrames\Elements\Auras.lua
+Modules\UnitFrames\Elements\Cast.lua
+Modules\UnitFrames\Elements\LoseControl.lua
+Modules\UnitFrames\Layout.lua
+Modules\UnitFrames\Test.lua
+Modules\UnitFrames\Blizzard.lua
+
+# Nameplates
+Modules\NamePlates\NamePlates.lua
+Modules\NamePlates\Totems.lua
+Modules\NamePlates\Auras.lua
+Modules\NamePlates\Healers.lua
+
+Modules\PlayerPlate.lua
+Modules\AuraTracker.lua
+Modules\Runes.lua
+Modules\Totems.lua
+Modules\TemporaryEnchant.lua
+Modules\ExperienceBar.lua
+Modules\Minimap.lua
+Modules\Bags.lua
+Modules\BagSort.lua
+Modules\CombatLogFix.lua
+
+# Chat
+Modules\Chat\Chat.lua
+Modules\Chat\WhisperBlock.lua
+Modules\Chat\History.lua
+Modules\Chat\Bubbles.lua
+Modules\Chat\ChannelColors.lua
+
+# Everything else
+Modules\Misc\Tweaks.lua
+Modules\Misc\Popups.lua
+Modules\Misc\Tooltips.lua
+Modules\Misc\WheelPaging.lua
+Modules\Misc\CursorTrail.lua
+Modules\Misc\LowHealthFlash.lua
+Modules\Misc\Arena.lua
+Modules\Misc\ArenaHistory.lua
+Modules\Misc\SoloQueue.lua
+Modules\Misc\Announcers.lua
+Modules\Misc\InterruptAnnounce.lua
+Modules\Misc\Battleground.lua
+Modules\Misc\Merchant.lua
+Modules\Misc\Equipment.lua
+Modules\Misc\ModelControls.lua
+Modules\Misc\CombatAlert.lua
+Modules\Misc\ShieldIndicator.lua
+Modules\Misc\Performance.lua
+Modules\Misc\WorldMap.lua
+
+# Must stay last: runs every module's Initialize
+Core\Bootstrap.lua
