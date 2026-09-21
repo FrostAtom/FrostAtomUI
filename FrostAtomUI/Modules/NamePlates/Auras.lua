@@ -7,6 +7,7 @@ local UnitExists = UnitExists
 local GetTime = GetTime
 local GetSpellInfo = GetSpellInfo
 local max = math.max
+local unpack = unpack
 
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
@@ -14,6 +15,7 @@ local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
 local config = ns.Config.namePlates
 local ICON_RATIO = 0.65
 local ICON_GAP = 2
+local ROW_GAP = 3
 local MAX_ICONS = 6
 local MAX_AURAS = 40
 local DURATION_BAR_HEIGHT = 2
@@ -40,8 +42,7 @@ row:SetFrameStrata("LOW")
 
 local icons = {}
 
-local CROP_Y = (0.86 - 0.86 * ICON_RATIO) / 2
-local TEXCOORD_TOP, TEXCOORD_BOTTOM = 0.07 + CROP_Y, 0.93 - CROP_Y
+local CROP_Y = (1 - ICON_RATIO) / 2
 
 local function layoutIcon(icon, index)
 	local size = config.auraSize
@@ -49,31 +50,28 @@ local function layoutIcon(icon, index)
 	icon:ClearAllPoints()
 	icon:SetPoint("LEFT", (index - 1) * (size + ICON_GAP), 0)
 	icon.timer:SetFont(ns.Media.font, config.auraFont.size, config.auraFont.outline)
+	icon.count:SetFont(ns.Media.font, config.auraFont.size, config.auraFont.outline)
 end
 
 local function createIcon(index)
 	local icon = CreateFrame("Frame", nil, row)
 
-	icon.texture = icon:CreateTexture(nil, "ARTWORK")
+	icon.texture = icon:CreateTexture(nil, "BORDER")
 	icon.texture:SetAllPoints()
-	icon.texture:SetTexCoord(0.07, 0.93, TEXCOORD_TOP, TEXCOORD_BOTTOM)
-
-	icon.border = icon:CreateTexture(nil, "BACKGROUND")
-	icon.border:SetTexture(0, 0, 0)
-	icon.border:SetPoint("TOPRIGHT", 1, 1)
-	icon.border:SetPoint("BOTTOMLEFT", -1, -1)
+	icon.texture:SetTexCoord(0, 1, CROP_Y, 1 - CROP_Y)
+	NamePlates.SkinIcon(icon, icon.texture)
 
 	icon.timer = icon:CreateFontString(nil, "OVERLAY")
 	icon.timer:SetPoint("CENTER")
-	layoutIcon(icon, index)
 
 	icon.bar = icon:CreateTexture(nil, "OVERLAY")
-	icon.bar:SetTexture(1, 0.85, 0.2)
+	icon.bar:SetTexture(unpack(ns.Config.unitFrames.castbarColor))
 	icon.bar:SetHeight(DURATION_BAR_HEIGHT)
-	icon.bar:SetPoint("BOTTOMLEFT")
+	icon.bar:SetPoint("BOTTOMLEFT", 1, 1)
 
-	icon.count = icon:CreateFontString(nil, "OVERLAY", "NumberFontNormalSmall")
-	icon.count:SetPoint("BOTTOMRIGHT", 1, 0)
+	icon.count = icon:CreateFontString(nil, "OVERLAY")
+	icon.count:SetPoint("BOTTOMRIGHT", -1, 1)
+	layoutIcon(icon, index)
 
 	icons[index] = icon
 	return icon
@@ -131,7 +129,7 @@ local function updateTimers()
 			local remain = icon.endTime - now
 			if remain > 0 then
 				SetTimerText(icon.timer, remain)
-				icon.bar:SetWidth(max(config.auraSize * remain / icon.duration, 0.1))
+				icon.bar:SetWidth(max((config.auraSize - 2) * remain / icon.duration, 0.1))
 			else
 				icon.endTime = nil
 				icon.timer:Hide()
@@ -145,7 +143,7 @@ CreateFrame("Frame"):SetScript("OnUpdate", function()
 	local plate = row.hasAuras and NamePlates:GetTargetPlate()
 	if plate and not plate.totem:IsShown() then
 		row:ClearAllPoints()
-		row:SetPoint("BOTTOM", plate.name, "TOP", 0, 4)
+		row:SetPoint("BOTTOM", plate.holder, "TOP", 0, ROW_GAP)
 		row:SetAlpha(1)
 		updateTimers()
 	else

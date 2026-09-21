@@ -11,6 +11,7 @@ local match = string.match
 local HEALING_CLASSES = { PRIEST = true, PALADIN = true, SHAMAN = true, DRUID = true }
 local HEALER_ICON = "Interface\\Icons\\Spell_Holy_FlashHeal"
 local POLL_INTERVAL = 10
+local ICON_GAP = 2
 local config = ns.Config.namePlates
 
 local plates = NamePlates.plates
@@ -21,8 +22,10 @@ local function updateIcon(icon, name)
 	if config.showHealers and healers[name] then
 		icon:SetSize(config.healerIconSize, config.healerIconSize)
 		icon:Show()
+		icon.border:Show()
 	else
 		icon:Hide()
+		icon.border:Hide()
 	end
 end
 
@@ -52,10 +55,10 @@ end
 NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = function(plate, name)
 	local icon = plateIcons[plate]
 	if not icon then
-		icon = plate:CreateTexture(nil, "OVERLAY")
-		icon:SetPoint("LEFT", plate.name, "RIGHT", 2, 0)
+		icon = plate:CreateTexture(nil, "BORDER")
+		icon:SetPoint("LEFT", plate.holder, "RIGHT", ICON_GAP, 0)
 		icon:SetTexture(HEALER_ICON)
-		icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+		NamePlates.SkinIcon(plate, icon)
 		plateIcons[plate] = icon
 	end
 	updateIcon(icon, name)

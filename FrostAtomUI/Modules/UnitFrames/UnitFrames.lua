@@ -13,9 +13,13 @@ local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
 local BORDER_INSET = 4
 local POWER_RATIO = 0.2
 local CASTBAR_GAP = 4
+local CASTBAR_ICON_GAP = 2
+local TARGET_AURAS_PER_ROW = 8
+local TARGET_AURA_ROWS = 2
 local config = ns.Config.unitFrames
 
 UF.BORDER_INSET = BORDER_INSET
+UF.CASTBAR_ICON_GAP = CASTBAR_ICON_GAP
 UF.backdrop = ns.CreateBackdrop(14, 3)
 
 UF.classColors = {}
@@ -58,9 +62,6 @@ function UF:AddElement(frame, name, ...)
 	return widget
 end
 
-local GRID_PADDING = 2
-local GRID_BG_ALPHA = 0.4
-
 function UF.SkinIcon(icon, texture)
 	texture:SetAllPoints()
 	icon.border = icon:CreateTexture(nil, "ARTWORK")
@@ -78,17 +79,13 @@ local function layoutGrid(grid, shown)
 		grid[i]:Hide()
 	end
 
-	local gap = grid.gap
-	local step = grid.size + gap
-	local rows = ceil(shown / grid.perRow)
-	grid:SetHeight(max(max(rows, grid.minRows) * step - gap, 2))
-
-	if shown > 0 then
-		local columns = min(shown, grid.perRow)
-		grid.bg:SetSize(columns * step - gap + GRID_PADDING * 2, rows * step - gap + GRID_PADDING * 2)
-		grid.bg:Show()
-	else
-		grid.bg:Hide()
+	local rows = max(ceil(shown / grid.perRow), grid.minRows)
+	grid:SetHeight(max(rows * (grid.size + grid.gap) - grid.gap, 1))
+	if grid.rows ~= rows then
+		grid.rows = rows
+		if grid.OnRowsChanged then
+			grid:OnRowsChanged(rows)
+		end
 	end
 end
 
@@ -132,19 +129,8 @@ function UF:CreateIconGrid(frame, options)
 	grid.minRows = options.minRows or 0
 	grid.Layout = layoutGrid
 	grid.SetIconSize = setGridIconSize
-	grid:SetSize(grid.perRow * (grid.size + grid.gap) - grid.gap, 2)
-
-	grid.bg = CreateFrame("Frame", nil, grid)
-	grid.bg:SetFrameLevel(max(grid:GetFrameLevel() - 1, 0))
-	grid.bg.texture = grid.bg:CreateTexture(nil, "BACKGROUND")
-	grid.bg.texture:SetAllPoints()
-	grid.bg.texture:SetTexture(0, 0, 0, GRID_BG_ALPHA)
-	grid.bg:SetPoint(
-		grid.anchor,
-		grid.anchor:find("RIGHT") and GRID_PADDING or -GRID_PADDING,
-		grid.anchor:find("BOTTOM") and -GRID_PADDING or GRID_PADDING
-	)
-	grid.bg:Hide()
+	grid.rows = 0
+	grid:SetSize(grid.perRow * (grid.size + grid.gap) - grid.gap, 1)
 
 	return grid
 end
@@ -380,16 +366,27 @@ function UF:CreateTarget(unit, width, height)
 	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
 	targetOfTarget:SetPoint("LEFT", frame, "RIGHT", 20)
 
+	local auraOptions = {
+		size = width / TARGET_AURAS_PER_ROW - 1,
+		width = width,
+		max = TARGET_AURAS_PER_ROW * TARGET_AURA_ROWS,
+	}
+	local debuffs = self:AddElement(frame, "debuffs", auraOptions)
+	debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP)
+
+	local buffs = self:AddElement(frame, "buffs", auraOptions)
+	buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP)
+	debuffs.OnRowsChanged = function(grid, rows)
+		buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP - (rows > 0 and grid:GetHeight() + CASTBAR_GAP or 0))
+	end
+
+	local gridHeight = TARGET_AURA_ROWS * (debuffs.size + debuffs.gap) - debuffs.gap
+	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2
 	local castbar = self:AddElement(frame, "castbar")
-	castbar:SetSize(width - height - CASTBAR_GAP, height)
-	castbar:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -CASTBAR_GAP)
+	castbar:SetHeight(height)
+	castbar:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", height + CASTBAR_ICON_GAP, -castbarOffset)
+	castbar:SetPoint("TOPRIGHT", targetOfTarget, "BOTTOMRIGHT", 0, -castbarOffset)
 	castbar.icon:SetSize(height, height)
-
-	local buffs = self:AddElement(frame, "buffs", { size = width / 8 - 1, width = width })
-	buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -(height + CASTBAR_GAP * 2))
-
-	local debuffs = self:AddElement(frame, "debuffs", { size = width / 8 - 1, width = width })
-	debuffs:SetPoint("TOPLEFT", buffs, "BOTTOMLEFT")
 
 	self:AddElement(frame, "losecontrol")
 

@@ -21,6 +21,18 @@ ns.RegisterPage({
 		{ path = "unitFrames.showArena", label = "Show arena frames", type = "toggle" },
 		{ path = "unitFrames.showBoss", label = "Show boss frames", type = "toggle" },
 		{
+			path = "unitFrames.showPartyCooldowns",
+			label = "Show party cooldowns",
+			type = "toggle",
+			enabledBy = "unitFrames.showParty",
+		},
+		{
+			path = "unitFrames.showArenaCooldowns",
+			label = "Show arena cooldowns",
+			type = "toggle",
+			enabledBy = "unitFrames.showArena",
+		},
+		{
 			label = "Test cooldowns",
 			type = "execute",
 			text = "Toggle",
@@ -31,7 +43,12 @@ ns.RegisterPage({
 		},
 		{ header = "Positions" },
 		{ path = "unitFrames.player", label = "Player", type = "point" },
-		{ path = "unitFrames.playerCastbar", label = "Player castbar", type = "point" },
+		{
+			path = "unitFrames.playerCastbar",
+			label = "Player castbar",
+			type = "point",
+			desc = "Relative to the bottom of the player plate.",
+		},
 		{ path = "unitFrames.party", label = "Party", type = "point", enabledBy = "unitFrames.showParty" },
 		{ path = "unitFrames.arena", label = "Arena", type = "point", enabledBy = "unitFrames.showArena" },
 		{
@@ -86,6 +103,7 @@ ns.RegisterPage({
 			min = 12,
 			max = 48,
 			step = 1,
+			enabledBy = "unitFrames.showPartyCooldowns",
 		},
 		{
 			path = "unitFrames.arenaCooldownSize",
@@ -94,6 +112,7 @@ ns.RegisterPage({
 			min = 12,
 			max = 48,
 			step = 1,
+			enabledBy = "unitFrames.showArenaCooldowns",
 		},
 		{ path = "arenaTrinket.size", label = "Arena trinket size", type = "number", min = 16, max = 60, step = 1 },
 		{ header = "Colors" },

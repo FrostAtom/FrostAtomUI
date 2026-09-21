@@ -11,22 +11,17 @@ local GetItemInfo = GetItemInfo
 local select = select
 
 local Misc = ns:GetModule("Misc")
+local UF = ns:GetModule("UnitFrames")
 
 local OFFHAND_SLOT = 17
+local GAP = 2
 
 local icon = CreateFrame("Frame", nil, UIParent)
-Misc:AnchorToConfig(icon, "shieldIndicator.point")
+icon:SetPoint("RIGHT", FrostAtomUIPlayerPlate, "LEFT", -GAP, 0)
 icon:Hide()
 
-local texture = icon:CreateTexture(nil, "ARTWORK")
-texture:SetAllPoints()
-texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
-local borderSize = ns.PixelPerfect(1)
-local border = icon:CreateTexture(nil, "BACKGROUND")
-border:SetTexture(0, 0, 0)
-border:SetPoint("TOPRIGHT", borderSize, borderSize)
-border:SetPoint("BOTTOMLEFT", -borderSize, -borderSize)
+local texture = icon:CreateTexture(nil, "BORDER")
+UF.SkinIcon(icon, texture)
 
 local function update()
 	local link = ns.Config.shieldIndicator.enabled and GetInventoryItemLink("player", OFFHAND_SLOT)

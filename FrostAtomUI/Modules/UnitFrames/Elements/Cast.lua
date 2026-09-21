@@ -40,6 +40,7 @@ local TEST_CHANNELS = {
 
 local config = ns.Config.unitFrames
 local BORDER_INSET = UF.BORDER_INSET
+local ICON_GAP = UF.CASTBAR_ICON_GAP
 
 local function setInterruptible(castbar, interruptible)
 	if interruptible or castbar.isPlayer then
@@ -219,9 +220,9 @@ local function create(frame, iconSide)
 
 	castbar.icon = castbar:CreateTexture(nil, "BORDER")
 	if iconSide == "RIGHT" then
-		castbar.icon:SetPoint("LEFT", castbar, "RIGHT", 2, 0)
+		castbar.icon:SetPoint("LEFT", castbar, "RIGHT", ICON_GAP, 0)
 	else
-		castbar.icon:SetPoint("RIGHT", castbar, "LEFT", -2, 0)
+		castbar.icon:SetPoint("RIGHT", castbar, "LEFT", -ICON_GAP, 0)
 	end
 	castbar.iconBorder = castbar:CreateTexture(nil, "ARTWORK")
 	castbar.iconBorder:SetTexture(ns.Media.buttonNormal)

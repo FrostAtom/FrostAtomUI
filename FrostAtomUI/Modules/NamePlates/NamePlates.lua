@@ -3,8 +3,12 @@ local _, ns = ...
 local CreateFrame = CreateFrame
 local WorldFrame = WorldFrame
 local UnitExists = UnitExists
+local GetCurrentResolution, GetScreenResolutions = GetCurrentResolution, GetScreenResolutions
 local select = select
 local pcall = pcall
+local unpack = unpack
+local tonumber = tonumber
+local floor = math.floor
 local format = string.format
 
 local NamePlates = ns:NewModule("NamePlates")
@@ -13,9 +17,13 @@ local NAMEPLATE_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-Flash"
 local CHAT_BUBBLE_TEXTURE = "Interface\\Tooltips\\ChatBubble-Background"
 
 local config = ns.Config.namePlates
-local NAME_OFFSET = 1
+local frameConfig = ns.Config.unitFrames
+local BACKDROP = ns.CreateBackdrop(8, 2)
+local BORDER_INSET = 3
+local TEXT_INSET = 3
+local CASTBAR_GAP = 3
+local ICON_GAP = 2
 local WHITE = { 1, 1, 1 }
-local ICON_TEXCOORD_LEFT, ICON_TEXCOORD_RIGHT, ICON_TEXCOORD_TOP, ICON_TEXCOORD_BOTTOM = 0.07, 0.93, 0.07, 0.93
 
 ns.CHAT_BUBBLE_CREATED = "FrostAtomUI_CHAT_BUBBLE_CREATED"
 
@@ -61,7 +69,6 @@ function PlateMixin:UpdateColors(r, g, b)
 	local healthbar = self.healthbar
 	healthbar:SetStatusBarColor(r, g, b)
 	healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
-	self.totem.bg:SetTexture(r, g, b)
 	healthbar.r, healthbar.g, healthbar.b = r, g, b
 
 	local nameColor = class and classColors[class] or WHITE
@@ -71,6 +78,33 @@ end
 
 function PlateMixin:IsTarget()
 	return UnitExists("target") and self:GetAlpha() == 1
+end
+
+local pixel = 1
+
+local function updatePixel()
+	local resolution = select(GetCurrentResolution(), GetScreenResolutions())
+	local height = resolution and tonumber(resolution:match("x(%d+)$"))
+	pixel = height and WorldFrame:GetHeight() / height or 1
+end
+
+local function snap(value)
+	return floor(value / pixel + 0.5) * pixel
+end
+
+function PlateMixin:SnapHolder()
+	local holder = self.holder
+	local left, top = self:GetLeft(), self:GetTop()
+	if not left then
+		return
+	end
+	local width = self:GetWidth()
+	local x = snap(left + (width - holder:GetWidth()) / 2) - left
+	local y = snap(top) - top
+	if x ~= self.snapX or y ~= self.snapY then
+		self.snapX, self.snapY = x, y
+		holder:SetPoint("TOPLEFT", self, "TOPLEFT", x, y)
+	end
 end
 
 function PlateMixin:OnUpdate()
@@ -85,35 +119,38 @@ function PlateMixin:OnUpdate()
 		return
 	end
 
-	local border = healthbar.border
+	self:SnapHolder()
+
 	local isTarget = self:IsTarget()
 	local threat = self.threat
 	local hasThreat = threat:IsShown()
-	if isTarget then
-		border:SetTexture(1, 1, 1)
-		border:SetAlpha(config.targetBorderAlpha)
-	elseif hasThreat then
-		border:SetTexture(1, 1, 1)
-		border:SetAlpha(0.4)
-	else
-		border:SetTexture(0, 0, 0)
-		border:SetAlpha(1)
-	end
-
+	local holder = self.holder
 	if hasThreat then
-		self.name:SetTextColor(threat:GetVertexColor())
+		local r, g, b = threat:GetVertexColor()
+		self.name:SetTextColor(r, g, b)
+		if not isTarget then
+			holder:SetBackdropBorderColor(r, g, b)
+		end
 	else
 		local nameColor = self.nameColor
 		self.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
+	end
+
+	local borderState = isTarget and "target" or hasThreat and "threat" or "normal"
+	if borderState ~= self.borderState then
+		self.borderState = borderState
+		if borderState ~= "threat" then
+			local color = isTarget and frameConfig.targetBorderColor or frameConfig.borderColor
+			holder:SetBackdropBorderColor(color[1], color[2], color[3])
+		end
 	end
 
 	local percent = healthbar.percent
 	if isTarget and config.showTargetPercent then
 		local _, max = healthbar:GetMinMaxValues()
 		percent:SetFormattedText("%d%%", max > 0 and healthbar:GetValue() / max * 100 or 0)
-		percent:Show()
 	else
-		percent:Hide()
+		percent:SetText("")
 	end
 end
 
@@ -126,23 +163,27 @@ function PlateMixin:OnShow()
 		totem:SetTexture(totemIcon)
 		totem:SetSize(config.totemIconSize, config.totemIconSize)
 		totem:Show()
-		totem.bg:Show()
-		self.name:Hide()
+		totem.border:Show()
+		self.holder:Hide()
 		self.healthbar:Hide()
 		self.raidicon:SetAlpha(0)
 	else
-		local healthbar = self.healthbar
+		local holder, healthbar = self.holder, self.healthbar
+		holder:SetSize(snap(config.barWidth + BORDER_INSET * 2), snap(config.barHeight + BORDER_INSET * 2))
+		self.snapX = nil
+		self:SnapHolder()
+		local inset = snap(BORDER_INSET)
 		healthbar:ClearAllPoints()
-		healthbar:SetSize(config.barWidth, config.barHeight)
-		healthbar:SetPoint("TOP", 0, -4)
+		healthbar:SetPoint("TOPLEFT", holder, inset, -inset)
+		healthbar:SetPoint("BOTTOMRIGHT", holder, -inset, inset)
 		self.raidicon:SetSize(config.raidIconSize, config.raidIconSize)
+		holder:Show()
 		healthbar:Show()
 		self:UpdateColors(healthbar:GetStatusBarColor())
 
 		totem:Hide()
-		totem.bg:Hide()
+		totem.border:Hide()
 		self.name:SetText(name)
-		self.name:Show()
 		self.raidicon:SetAlpha(1)
 	end
 
@@ -156,9 +197,12 @@ end
 local CastbarMixin = {}
 
 function CastbarMixin:OnUpdate()
+	local holder = self:GetParent().holder
+	local offset = CASTBAR_GAP + BORDER_INSET
 	self:ClearAllPoints()
-	self:SetPoint("TOP", self:GetParent().healthbar, "BOTTOM", 0, -3)
-	self:SetSize(config.barWidth, config.castbarHeight)
+	self:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", BORDER_INSET, -offset)
+	self:SetPoint("TOPRIGHT", holder, "BOTTOMRIGHT", -BORDER_INSET, -offset)
+	self:SetHeight(config.castbarHeight)
 
 	local icon = self.icon
 	icon:SetTexture(self.blizzardIcon:GetTexture())
@@ -184,54 +228,72 @@ function CastbarMixin:OnShow()
 	self:OnUpdate()
 end
 
-local function createBorder(parent, anchor, layer, sublevel)
-	local size = ns.PixelPerfect(1)
-	local border = parent:CreateTexture(nil, layer, nil, sublevel)
-	border:SetTexture(0, 0, 0)
-	border:SetPoint("TOPRIGHT", anchor, size, size)
-	border:SetPoint("BOTTOMLEFT", anchor, -size, -size)
+local function createHolder(parent, level)
+	local holder = CreateFrame("Frame", nil, parent)
+	holder:SetFrameLevel(level)
+	holder:SetBackdrop(BACKDROP)
+	holder:SetBackdropColor(unpack(frameConfig.backdropColor))
+	holder:SetBackdropBorderColor(unpack(frameConfig.borderColor))
+	return holder
+end
+
+function NamePlates.SkinIcon(parent, icon)
+	local border = parent:CreateTexture(nil, "ARTWORK")
+	border:SetTexture(ns.Media.buttonNormal)
+	border:SetAllPoints(icon)
+	icon.border = border
 	return border
 end
 
+local function createText(parent, font)
+	local text = parent:CreateFontString(nil, "OVERLAY")
+	text:SetFont(ns.Media.font, font.size, font.outline)
+	text:SetTextColor(unpack(frameConfig.textColor))
+	return text
+end
+
 local function setupHealthbar(plate, healthbar, blizzardBackground)
-	healthbar:SetFrameLevel(plate:GetFrameLevel())
+	local holder = createHolder(plate, plate:GetFrameLevel())
+	holder:SetPoint("TOPLEFT")
+	plate.holder = holder
+
+	healthbar:SetFrameLevel(plate:GetFrameLevel() + 1)
 	healthbar:SetStatusBarTexture(ns.Media.blank)
-	healthbar.border = createBorder(healthbar, healthbar, "BACKGROUND")
 
 	blizzardBackground:SetParent(healthbar)
 	blizzardBackground:SetDrawLayer("BORDER")
 	blizzardBackground:SetAllPoints(healthbar)
-	blizzardBackground:SetAlpha(0.9)
 	healthbar.bg = blizzardBackground
 
-	local percent = healthbar:CreateFontString(nil, "OVERLAY")
-	percent:SetFont(ns.Media.font, config.percentFont.size, config.percentFont.outline)
-	percent:SetPoint("LEFT", healthbar, "RIGHT", 3, 0)
-	percent:SetTextColor(1, 1, 1)
-	percent:Hide()
+	local percent = createText(healthbar, config.percentFont)
+	percent:SetPoint("RIGHT", -TEXT_INSET, 0)
 	healthbar.percent = percent
+
+	local name = createText(healthbar, config.nameFont)
+	name:SetPoint("LEFT", TEXT_INSET, 0)
+	name:SetPoint("RIGHT", percent, "LEFT", -ICON_GAP, 0)
+	name:SetJustifyH("LEFT")
+	name:SetWordWrap(false)
+	plate.name = name
 end
 
 local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	ns.Mixin(castbar, CastbarMixin)
-	castbar:SetFrameLevel(plate:GetFrameLevel())
+	castbar:SetFrameLevel(plate:GetFrameLevel() + 1)
 	castbar:SetStatusBarTexture(ns.Media.blank)
 
 	shield:SetTexture(nil)
 	castbar.shield = shield
 
-	createBorder(castbar, castbar, "BACKGROUND", -1)
+	local holder = createHolder(castbar, plate:GetFrameLevel())
+	holder:SetPoint("TOPLEFT", -BORDER_INSET, BORDER_INSET)
+	holder:SetPoint("BOTTOMRIGHT", BORDER_INSET, -BORDER_INSET)
+	castbar.holder = holder
 
-	local bg = castbar:CreateTexture(nil, "BACKGROUND")
-	bg:SetTexture(0.2, 0.2, 0.2)
-	bg:SetAllPoints()
-	bg:SetAlpha(0.9)
-
-	local icon = castbar:CreateTexture(nil, "ARTWORK")
+	local icon = castbar:CreateTexture(nil, "BORDER")
 	icon:SetSize(config.castbarIconSize, config.castbarIconSize)
-	icon:SetPoint("RIGHT", castbar, "LEFT", -3, 0)
-	icon:SetTexCoord(ICON_TEXCOORD_LEFT, ICON_TEXCOORD_RIGHT, ICON_TEXCOORD_TOP, ICON_TEXCOORD_BOTTOM)
-	createBorder(castbar, icon, "BORDER")
+	icon:SetPoint("RIGHT", holder, "LEFT", -ICON_GAP, 0)
+	NamePlates.SkinIcon(castbar, icon)
 	castbar.icon = icon
 	castbar.blizzardIcon = blizzardIcon
 	blizzardIcon:SetParent(trash)
@@ -241,16 +303,13 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 end
 
 local function setupTotemIcon(plate)
-	local totem = plate:CreateTexture(nil, "ARTWORK")
+	local totem = plate:CreateTexture(nil, "BORDER")
 	totem:SetSize(config.totemIconSize, config.totemIconSize)
 	totem:SetPoint("TOP")
-	totem:SetTexCoord(ICON_TEXCOORD_LEFT, ICON_TEXCOORD_RIGHT, ICON_TEXCOORD_TOP, ICON_TEXCOORD_BOTTOM)
 	totem:Hide()
 
-	local bg = plate:CreateTexture(nil, "BORDER")
-	bg:SetTexture(ns.Media.blank)
-	bg:SetAllPoints(totem)
-	totem.bg = bg
+	NamePlates.SkinIcon(plate, totem)
+	totem.border:Hide()
 
 	plate.totem = totem
 end
@@ -267,15 +326,11 @@ local function setupNamePlate(plate)
 	setupCastbar(plate, castbar, castIcon, castShield)
 	setupTotemIcon(plate)
 
-	local newName = plate:CreateFontString(nil, "ARTWORK")
-	newName:SetFont(ns.Media.font, config.nameFont.size, config.nameFont.outline)
-	newName:SetPoint("BOTTOM", healthbar, "TOP", 0, NAME_OFFSET)
-	newName:SetTextColor(1, 1, 1)
 	name:Hide()
 
 	raidIcon:SetSize(config.raidIconSize, config.raidIconSize)
 	raidIcon:ClearAllPoints()
-	raidIcon:SetPoint("RIGHT", healthbar, "LEFT", -15, 0)
+	raidIcon:SetPoint("RIGHT", plate.holder, "LEFT", -ICON_GAP, 0)
 
 	highlight:SetTexture(nil)
 	bossIcon:SetParent(trash)
@@ -286,7 +341,6 @@ local function setupNamePlate(plate)
 	plate.healthbar = healthbar
 	plate.castbar = castbar
 	plate.blizzardName = name
-	plate.name = newName
 	plate.level = level
 	plate.raidicon = raidIcon
 	plate.threat = threat
@@ -350,17 +404,33 @@ local function setupNewChildren(frame, ...)
 	return setupNewChildren(...)
 end
 
-function NamePlates:Initialize()
-	self:WatchConfig("namePlates", function()
-		for i = 1, #plates do
-			local plate = plates[i]
-			plate.name:SetFont(ns.Media.font, config.nameFont.size, config.nameFont.outline)
-			plate.healthbar.percent:SetFont(ns.Media.font, config.percentFont.size, config.percentFont.outline)
-			if plate:IsShown() then
-				plate:OnShow()
-			end
+local function applyStyle()
+	for i = 1, #plates do
+		local plate = plates[i]
+		local percent = plate.healthbar.percent
+		plate.name:SetFont(ns.Media.font, config.nameFont.size, config.nameFont.outline)
+		plate.name:SetTextColor(unpack(frameConfig.textColor))
+		percent:SetFont(ns.Media.font, config.percentFont.size, config.percentFont.outline)
+		percent:SetTextColor(unpack(frameConfig.textColor))
+		for _, holder in ipairs({ plate.holder, plate.castbar.holder }) do
+			holder:SetBackdropColor(unpack(frameConfig.backdropColor))
+			holder:SetBackdropBorderColor(unpack(frameConfig.borderColor))
 		end
+		plate.borderState = nil
+		if plate:IsShown() then
+			plate:OnShow()
+		end
+	end
+end
+
+function NamePlates:Initialize()
+	updatePixel()
+	self:RegisterEvent("DISPLAY_SIZE_CHANGED", function()
+		updatePixel()
+		applyStyle()
 	end)
+	self:WatchConfig("namePlates", applyStyle)
+	self:WatchConfig("unitFrames", applyStyle)
 end
 
 local knownChildren = 0

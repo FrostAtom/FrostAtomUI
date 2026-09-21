@@ -10,11 +10,14 @@ local unpack = unpack
 local PlayerPlate = ns:NewModule("PlayerPlate")
 local UF = ns:GetModule("UnitFrames")
 
-local TEXT_OFFSET = 4
+local TEXT_INSET = 2
 local FADE_SPEED = 2
+local BORDER_INSET = UF.BORDER_INSET
+local frameConfig = ns.Config.unitFrames
 
 local plate = CreateFrame("Frame", "FrostAtomUIPlayerPlate", UIParent)
 PlayerPlate:AnchorToConfig(plate, "playerPlate.point")
+plate:SetBackdrop(UF.backdrop)
 plate:Hide()
 
 local function createBar()
@@ -22,28 +25,20 @@ local function createBar()
 	bar:SetStatusBarTexture(ns.Media.blank)
 	ns.SmoothBar(bar)
 
-	local borderSize = ns.PixelPerfect(1)
-	local border = bar:CreateTexture(nil, "BACKGROUND")
-	border:SetTexture(0, 0, 0)
-	border:SetPoint("TOPRIGHT", borderSize, borderSize)
-	border:SetPoint("BOTTOMLEFT", -borderSize, -borderSize)
-
 	local bg = bar:CreateTexture(nil, "BORDER")
 	bg:SetTexture(ns.Media.blank)
 	bg:SetAllPoints()
-	bg:SetAlpha(0.9)
 	bar.bg = bg
 
 	local text = bar:CreateFontString(nil, "OVERLAY")
-	text:SetPoint("LEFT", bar, "RIGHT", TEXT_OFFSET, 0)
-	text:SetTextColor(1, 1, 1)
+	text:SetPoint("RIGHT", -TEXT_INSET, 0)
 	bar.text = text
 
 	return bar
 end
 
 local health = createBar()
-health:SetPoint("TOP")
+health:SetPoint("TOP", 0, -BORDER_INSET)
 
 local power = createBar()
 
@@ -117,15 +112,21 @@ end
 
 local function applyConfig()
 	local config = ns.Config.playerPlate
-	plate:SetSize(config.width, config.healthHeight + config.gap + config.powerHeight)
+	plate:SetSize(
+		config.width + BORDER_INSET * 2,
+		config.healthHeight + config.gap + config.powerHeight + BORDER_INSET * 2
+	)
+	UF.SetBackdropColors(plate)
 	health:SetSize(config.width, config.healthHeight)
 	power:SetSize(config.width, config.powerHeight)
 	power:ClearAllPoints()
 	power:SetPoint("TOP", health, "BOTTOM", 0, -config.gap)
 
 	local font = config.font
-	health.text:SetFont(ns.Media.font, font.size, font.outline)
-	power.text:SetFont(ns.Media.font, font.size, font.outline)
+	for _, bar in ipairs({ health, power }) do
+		bar.text:SetFont(ns.Media.font, font.size, font.outline)
+		bar.text:SetTextColor(unpack(frameConfig.textColor))
+	end
 	if config.showText then
 		health.text:Show()
 		power.text:Show()
@@ -151,6 +152,7 @@ end
 function PlayerPlate:Initialize()
 	applyConfig()
 	self:WatchConfig("playerPlate", applyConfig)
+	self:WatchConfig("unitFrames", applyConfig)
 
 	self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
 		if ns.Config.playerPlate.enabled then

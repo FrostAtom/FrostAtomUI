@@ -41,8 +41,7 @@ Section(schema, "Player plate", "playerPlate", {
 })
 
 Section(schema, "Shield indicator", "shieldIndicator", {
-	{ path = "enabled", label = "Enable", type = "toggle", desc = "Show the equipped shield icon." },
-	{ path = "point", label = "Position", type = "point" },
+	{ path = "enabled", label = "Enable", type = "toggle", desc = "Show the equipped shield icon left of the player plate." },
 	{ path = "size", label = "Icon size", type = "number", min = 12, max = 64, step = 1 },
 }, notClass("WARRIOR"))
 

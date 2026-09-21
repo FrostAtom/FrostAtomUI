@@ -70,13 +70,6 @@ ns.RegisterPage({
 		{ header = "Colors" },
 		{ path = "namePlates.castbarColor", label = "Castbar", type = "color" },
 		{ path = "namePlates.castbarLockedColor", label = "Castbar (not interruptible)", type = "color" },
-		{
-			path = "namePlates.targetBorderAlpha",
-			label = "Target border alpha",
-			type = "number",
-			min = 0,
-			max = 1,
-			step = 0.05,
-		},
+		{ description = "Backdrop, border and text colors follow the unit frame settings." },
 	},
 })

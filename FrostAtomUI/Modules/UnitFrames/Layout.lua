@@ -30,12 +30,16 @@ local function setGroupPoints(frames, position, spacing)
 	end
 end
 
+local function setCastbarPoint(position)
+	local point, x, y = unpack(position)
+	castbar:ClearAllPoints()
+	castbar:SetPoint(point, FrostAtomUIPlayerPlate, "BOTTOM", x, y)
+end
+
 local function applyPositions()
 	local config = ns.Config.unitFrames
 	setPoint(player, config.player)
-	local point, x, y = unpack(config.playerCastbar)
-	castbar:ClearAllPoints()
-	castbar:SetPoint(point, UIParent, point, x, y)
+	setCastbarPoint(config.playerCastbar)
 	setGroupPoints(party, config.party, config.groupSpacing)
 	setGroupPoints(arena, config.arena, config.groupSpacing)
 	setGroupPoints(bosses, config.boss, config.bossSpacing)
@@ -62,6 +66,17 @@ local function setGroupWatched(frames, watched)
 	end
 end
 
+local function setGroupCooldowns(frames, shown)
+	for i = 1, #frames do
+		local cooldowns = frames[i].cooldowns
+		if shown then
+			cooldowns:Show()
+		else
+			cooldowns:Hide()
+		end
+	end
+end
+
 local function applyVisibility()
 	local config = ns.Config.unitFrames
 	setGroupWatched(party, config.showParty)
@@ -69,6 +84,8 @@ local function applyVisibility()
 	setGroupWatched(arena, config.showArena)
 	setGroupWatched(arenaPets, config.showArena)
 	setGroupWatched(bosses, config.showBoss)
+	setGroupCooldowns(party, config.showPartyCooldowns)
+	setGroupCooldowns(arena, config.showArenaCooldowns)
 end
 
 local function createPlayer(self, config)
@@ -87,8 +104,7 @@ local function createPlayer(self, config)
 
 	castbar = self:AddElement(player, "castbar")
 	castbar:SetSize(config.playerCastbarWidth, config.playerCastbarHeight)
-	local point, x, y = unpack(config.playerCastbar)
-	castbar:SetPoint(point, UIParent, point, x, y)
+	setCastbarPoint(config.playerCastbar)
 	castbar.icon:SetSize(config.playerCastbarHeight, config.playerCastbarHeight)
 
 	local loseControl = self:AddElement(player, "losecontrol")
