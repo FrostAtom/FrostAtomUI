@@ -3,6 +3,7 @@ local ADDON_NAME, ns = ...
 local tremove = table.remove
 local floor, modf, min, abs = math.floor, math.modf, math.min, math.abs
 local select, ipairs, pairs, next = select, ipairs, pairs, next
+local strtrim = strtrim
 
 local function tContains(tbl, item)
 	for i = 1, #tbl do
@@ -120,6 +121,18 @@ local PRINT_PREFIX = "|cff177cbf[" .. ADDON_NAME .. "]|r: "
 
 function ns.Print(format, ...)
 	print(PRINT_PREFIX .. format:format(...))
+end
+
+function ns.ParseToggle(args, current)
+	local arg = strtrim(args or ""):lower()
+	if arg == "on" then
+		return true
+	elseif arg == "off" then
+		return false
+	elseif arg == "status" then
+		return current, true
+	end
+	return not current
 end
 
 function ns.TruncateUTF8(text, maxChars)

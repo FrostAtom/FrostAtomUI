@@ -6,12 +6,17 @@ local GetBattlefieldScore = GetBattlefieldScore
 local GetBattlefieldTeamInfo = GetBattlefieldTeamInfo
 local GetBattlefieldWinner = GetBattlefieldWinner
 local GetBattlefieldInstanceRunTime = GetBattlefieldInstanceRunTime
-local IsActiveBattlefieldArena = IsActiveBattlefieldArena
+local RequestBattlefieldScoreData = RequestBattlefieldScoreData
 local IsInInstance = IsInInstance
 local GetRealZoneText = GetRealZoneText
 local GetNumPartyMembers = GetNumPartyMembers
 local UnitName = UnitName
 local UnitGUID = UnitGUID
+local UnitExists = UnitExists
+local UnitIsPlayer = UnitIsPlayer
+local UnitClass = UnitClass
+local UnitRace = UnitRace
+local UnitBuff = UnitBuff
 local GameTooltip = GameTooltip
 local StaticPopup_Show = StaticPopup_Show
 local FauxScrollFrame_Update = FauxScrollFrame_Update
@@ -21,7 +26,7 @@ local FauxScrollFrame_SetOffset = FauxScrollFrame_SetOffset
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local UIParent = UIParent
 local time, date = time, date
-local floor = math.floor
+local floor, max = math.floor, math.max
 local tinsert, tremove = table.insert, table.remove
 local wipe, unpack, select = wipe, unpack, select
 local format = string.format
@@ -48,8 +53,11 @@ local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
 local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
 local WIN_COLOR = { 0.3, 1, 0.3 }
 local LOSS_COLOR = { 1, 0.3, 0.3 }
+local NO_GAME_COLOR = { 0.5, 0.5, 0.5 }
 local HEADER_COLOR = { 0.7, 0.7, 0.7 }
 local UNKNOWN = UNKNOWNOBJECT
+local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
+local SEPARATOR = "   |cff7f7f7f-|r   "
 
 local CLASS_ICONS = UF.CLASS_ICONS
 local ICON_TRIM = UF.ICON_TRIM
@@ -85,8 +93,6 @@ local DETAIL_COLUMNS = {
 	{ key = "deaths", title = "Deaths", width = 60, right = true },
 	{ key = "damage", title = "Damage", width = 80, right = true },
 	{ key = "healing", title = "Healing", width = 80, right = true },
-	{ key = "hk", title = "HK", width = 50, right = true },
-	{ key = "honor", title = "Honor", width = 60, right = true },
 }
 
 local function layoutColumns(columns, totalWidth)
@@ -108,7 +114,14 @@ layoutColumns(DETAIL_COLUMNS, CONTENT_WIDTH)
 local history
 local current
 local inArena = false
-local guids = {}
+local seen = {}
+local sightings = {}
+local unknowns = {}
+local teamNames = {}
+local soloQueued = false
+local soloQueue = false
+local preparing = false
+local startTime
 
 local frame
 local filter = "all"
@@ -119,28 +132,72 @@ local function stripRealm(name)
 	return name and name:match("^([^%-]+)") or name
 end
 
-local function collectGuid(unit)
-	local guid = UnitGUID(unit)
-	if guid then
-		guids[UnitName(unit)] = guid
+local function addPlayer(name, side)
+	local entry = seen[name]
+	if not entry then
+		entry = { name = name, team = side, kb = 0, deaths = 0, damage = 0, healing = 0 }
+		seen[name] = entry
+		sightings[#sightings + 1] = entry
+	end
+	return entry
+end
+
+local function collectUnit(unit, side)
+	if not UnitExists(unit) or not UnitIsPlayer(unit) then
+		return
+	end
+	local name = stripRealm(UnitName(unit))
+	if not name or name == UNKNOWN then
+		return
+	end
+	local entry = addPlayer(name, side)
+	entry.guid = UnitGUID(unit) or entry.guid
+	entry.class = select(2, UnitClass(unit)) or entry.class
+	entry.race = UnitRace(unit) or entry.race
+end
+
+local function collectParty()
+	collectUnit("player", 1)
+	for i = 1, GetNumPartyMembers() do
+		collectUnit("party" .. i, 1)
 	end
 end
 
-local function collectGuids()
-	collectGuid("player")
-	for i = 1, GetNumPartyMembers() do
-		collectGuid("party" .. i)
-	end
+local function collectArena()
 	for i = 1, MAX_TEAM do
-		collectGuid("arena" .. i)
+		collectUnit("arena" .. i, 2)
+	end
+end
+
+local function collectTeams()
+	for teamIndex = 0, 1 do
+		local name = GetBattlefieldTeamInfo(teamIndex)
+		if name and name ~= "" then
+			teamNames[teamIndex] = name
+		end
 	end
 end
 
 local function bracketOf(teamName, size)
-	if teamName and teamName:find("^Solo Team") then
+	if teamName then
+		if teamName:find("^Solo Team [1-2]$") then
+			return "solo"
+		end
+	elseif soloQueue then
 		return "solo"
 	end
 	return size .. "v" .. size
+end
+
+local function copyScore(to, from)
+	to.kb, to.deaths, to.damage, to.healing = from.kb, from.deaths, from.damage, from.healing
+end
+
+local function mergeScore(to, from)
+	to.kb = max(to.kb, from.kb)
+	to.deaths = max(to.deaths, from.deaths)
+	to.damage = max(to.damage, from.damage)
+	to.healing = max(to.healing, from.healing)
 end
 
 local refresh
@@ -155,33 +212,40 @@ local function snapshot()
 		return
 	end
 
-	collectGuids()
 	local playerName = UnitName("player")
 	local playerTeam
-	local scores = {}
 	for i = 1, numScores do
-		local name, kb, hk, deaths, honor, teamIndex, _, race, _, class, damage, healing = GetBattlefieldScore(i)
-		name = stripRealm(name) or UNKNOWN
-		if name == playerName then
+		local name, _, _, _, _, teamIndex = GetBattlefieldScore(i)
+		if stripRealm(name) == playerName then
 			playerTeam = teamIndex
+			break
 		end
-		local guid = guids[name]
-		scores[i] = {
-			name = name,
-			class = class,
-			race = race,
-			spec = guid and Talents:GetSpec(guid) or nil,
-			teamIndex = teamIndex,
-			kb = kb or 0,
-			hk = hk or 0,
-			deaths = deaths or 0,
-			honor = honor or 0,
-			damage = damage or 0,
-			healing = healing or 0,
-		}
 	end
 	if not playerTeam then
 		return
+	end
+
+	collectParty()
+	collectArena()
+	wipe(unknowns)
+	for i = 1, #sightings do
+		sightings[i].scored = nil
+	end
+	for i = 1, numScores do
+		local name, kb, _, deaths, _, teamIndex, _, race, _, class, damage, healing = GetBattlefieldScore(i)
+		name = stripRealm(name)
+		local side = teamIndex == playerTeam and 1 or 2
+		local score = { kb = kb or 0, deaths = deaths or 0, damage = damage or 0, healing = healing or 0 }
+		if name and name ~= UNKNOWN then
+			local entry = addPlayer(name, side)
+			entry.class = entry.class or class
+			entry.race = entry.race or race
+			entry.scored = true
+			mergeScore(entry, score)
+		else
+			score.name, score.team = UNKNOWN, side
+			unknowns[#unknowns + 1] = score
+		end
 	end
 
 	local record = current
@@ -194,14 +258,18 @@ local function snapshot()
 		end
 	end
 	record.map = GetRealZoneText()
-	record.duration = floor(GetBattlefieldInstanceRunTime() / 1000)
-	record.rated = select(2, IsActiveBattlefieldArena()) and true or false
+	if not record.duration then
+		local runTime = floor(GetBattlefieldInstanceRunTime() / 1000)
+		record.duration = runTime > 0 and runTime or startTime and time() - startTime or 0
+	end
 	record.win = winner == playerTeam
 
-	local players, size = {}, 0
 	for side = 1, 2 do
 		local teamIndex = side == 1 and playerTeam or 1 - playerTeam
 		local name, lost, gained, mmr = GetBattlefieldTeamInfo(teamIndex)
+		if not name or name == "" then
+			name = teamNames[teamIndex]
+		end
 		lost, gained = lost or 0, gained or 0
 		record[side == 1 and "team" or "enemy"] = {
 			name = name,
@@ -210,20 +278,35 @@ local function snapshot()
 			change = gained - lost,
 			mmr = mmr or 0,
 		}
-		for i = 1, numScores do
-			local score = scores[i]
-			if score.teamIndex == teamIndex then
-				score.teamIndex = nil
-				score.team = side
-				players[#players + 1] = score
-				if side == 1 then
-					size = size + 1
+	end
+
+	local players, counts = {}, { 0, 0 }
+	for i = 1, #sightings do
+		local entry = sightings[i]
+		entry.spec = entry.guid and Talents:GetSpec(entry.guid) or entry.spec
+		if not entry.scored then
+			for j = 1, #unknowns do
+				if unknowns[j].team == entry.team then
+					mergeScore(entry, tremove(unknowns, j))
+					break
 				end
 			end
 		end
+		counts[entry.team] = counts[entry.team] + 1
+		local player = { name = entry.name, class = entry.class, race = entry.race, spec = entry.spec, team = entry.team }
+		copyScore(player, entry)
+		players[#players + 1] = player
+	end
+	for i = 1, #unknowns do
+		local unknown = unknowns[i]
+		local side = unknown.team
+		if counts[side] < counts[3 - side] then
+			counts[side] = counts[side] + 1
+			players[#players + 1] = unknown
+		end
 	end
 	record.players = players
-	record.bracket = bracketOf(record.team.name, size)
+	record.bracket = bracketOf(record.team.name, max(counts[1], counts[2]))
 
 	refresh()
 end
@@ -236,28 +319,62 @@ end)
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	inArena = select(2, IsInInstance()) == "arena"
 	current = nil
-	wipe(guids)
+	preparing = false
+	startTime = nil
+	wipe(seen)
+	wipe(sightings)
+	wipe(teamNames)
 	if inArena then
-		collectGuids()
+		soloQueue = soloQueued
+		soloQueued = false
+		collectParty()
+		collectArena()
+		RequestBattlefieldScoreData()
 	end
+end)
+
+Misc:RegisterEvent(ns.SOLOQ_SEARCHING, function()
+	soloQueued = true
 end)
 
 Misc:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
 	if inArena then
-		collectGuids()
+		collectParty()
 	end
 end)
 
-local function onUnitChanged(_, unit)
+Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", function(_, unit)
 	if inArena and unit:find("^arena%d$") then
-		collectGuid(unit)
+		collectUnit(unit, 2)
 	end
-end
-Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", onUnitChanged)
-Misc:RegisterEvent("UNIT_NAME_UPDATE", onUnitChanged)
+end)
+
+Misc:RegisterEvent("UNIT_NAME_UPDATE", function(_, unit)
+	if not inArena then
+		return
+	end
+	if unit:find("^arena%d$") then
+		collectUnit(unit, 2)
+	elseif unit == "player" or unit:find("^party%d$") then
+		collectUnit(unit, 1)
+	end
+end)
+
+Misc:RegisterEvent("UNIT_AURA", function(_, unit)
+	if unit ~= "player" or not inArena or startTime then
+		return
+	end
+	if UnitBuff("player", ARENA_PREPARATION) then
+		preparing = true
+	elseif preparing then
+		startTime = time()
+		RequestBattlefieldScoreData()
+	end
+end)
 
 local function onScoreUpdate()
 	if inArena then
+		collectTeams()
 		snapshot()
 	end
 end
@@ -285,7 +402,14 @@ local function coloredName(player)
 	return hex .. player.name .. "|r"
 end
 
-local function resultColor(win)
+local function played(record)
+	return record.team.mmr > 0
+end
+
+local function resultColor(record, win)
+	if not played(record) then
+		return unpack(NO_GAME_COLOR)
+	end
 	return unpack(win and WIN_COLOR or LOSS_COLOR)
 end
 
@@ -312,11 +436,14 @@ end
 
 local function teamLabel(record, side)
 	local team = side == 1 and record.team or record.enemy
-	local text = format("%s  |cffffffff%d|r", team.name or UNKNOWN, team.mmr)
-	if record.rated then
-		text = text .. "  " .. formatChange(team.change)
+	local name = team.name
+	if not name or name == "" then
+		name = side == 1 and "Team" or "Enemy"
 	end
-	return text
+	if not played(record) then
+		return name
+	end
+	return format("%s  |cffffffff%d|r  %s", name, team.mmr, formatChange(team.change))
 end
 
 local function setPlayerIcon(icon, player)
@@ -414,13 +541,14 @@ local function fillListRow(row, record)
 	cells.bracket:SetText(bracketLabel(record))
 	cells.map:SetText(mapLabel(record))
 	cells.duration:SetText(formatDuration(record.duration))
-	if record.rated then
+	if played(record) then
 		cells.result:SetFormattedText("%s %+d", record.win and "Win" or "Loss", record.team.change)
+		cells.mmr:SetText(record.team.mmr)
 	else
-		cells.result:SetText(record.win and "Win" or "Loss")
+		cells.result:SetText("No game")
+		cells.mmr:SetText("")
 	end
-	cells.result:SetTextColor(resultColor(record.win))
-	cells.mmr:SetText(record.team.mmr)
+	cells.result:SetTextColor(resultColor(record, record.win))
 	fillIcons(row.icons[1], record, 1)
 	fillIcons(row.icons[2], record, 2)
 	cells.names:SetText(teamNames(record, 2))
@@ -511,8 +639,6 @@ local function fillDetailRow(row, player)
 	cells.deaths:SetText(player.deaths)
 	cells.damage:SetText(ns.FormatValue(player.damage))
 	cells.healing:SetText(ns.FormatValue(player.healing))
-	cells.hk:SetText(player.hk)
-	cells.honor:SetText(player.honor)
 end
 
 local function refreshDetail()
@@ -524,15 +650,12 @@ local function refreshDetail()
 	end
 	detail:Show()
 
-	local title = format(
-		"%s   |cff7f7f7f·|r   %s   |cff7f7f7f·|r   %s   |cff7f7f7f·|r   %s",
-		mapLabel(record),
-		bracketLabel(record),
-		date("%d.%m.%Y %H:%M", record.time),
-		formatDuration(record.duration)
-	)
-	if not record.rated then
-		title = title .. "   |cff7f7f7f·|r   Skirmish"
+	local title = mapLabel(record)
+		.. SEPARATOR .. bracketLabel(record)
+		.. SEPARATOR .. date("%d.%m.%Y %H:%M", record.time)
+		.. SEPARATOR .. formatDuration(record.duration)
+	if not played(record) then
+		title = title .. SEPARATOR .. "No game"
 	end
 	detail.title:SetText(title)
 
@@ -543,7 +666,7 @@ local function refreshDetail()
 		local header = detail.teamHeaders[side]
 		header:SetPoint("TOPLEFT", 4, y)
 		header:SetText(teamLabel(record, side))
-		header:SetTextColor(resultColor(record.win == (side == 1)))
+		header:SetTextColor(resultColor(record, record.win == (side == 1)))
 		y = y - DETAIL_ROW_HEIGHT
 
 		for i = 1, #players do
@@ -588,17 +711,17 @@ local function refreshList()
 end
 
 local function refreshStats()
-	local wins, change = 0, 0
+	local total, wins, change = 0, 0, 0
 	for i = 1, #filtered do
 		local record = filtered[i]
-		if record.win then
-			wins = wins + 1
-		end
-		if record.rated then
+		if played(record) then
+			total = total + 1
+			if record.win then
+				wins = wins + 1
+			end
 			change = change + record.team.change
 		end
 	end
-	local total = #filtered
 	local losses = total - wins
 	if total == 0 then
 		frame.stats:SetText("")

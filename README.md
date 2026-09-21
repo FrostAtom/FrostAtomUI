@@ -120,6 +120,8 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 | A friend or guild mate invites you | Invite is accepted automatically |
 | You interrupt a spell | Announced to your group (toggle with `/ia`) |
 | Someone challenges you to a duel | Declined automatically if `/noduel` is on |
+| Someone invites you to a group | Declined silently if `/noparty` is on |
+| Someone opens a trade with you | Declined silently if `/notrade` is on |
 | Deleting a good item | The `DELETE` confirmation is typed for you |
 | Entering / leaving combat | `+ combat` / `- combat` flashes on screen |
 | Health drops below 33% | Screen edges pulse red |
@@ -156,19 +158,23 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 | Command | Description |
 |---|---|
 | `/bind`, `/b` | Keybinding mode for action buttons |
-| `/pm` | Toggle blocking whispers from strangers (friends still get through; blocked messages are shown when you turn it off) |
+| `/nodm [message]` | Toggle blocking whispers from strangers (friends still get through; blocked messages are shown when you turn it off). `/nodm <message>` sets the auto-reply and turns blocking on |
 | `/copy` | Open a window to copy text from the current chat tab |
 | `/history`, `/ah` | Toggle the arena history window |
 | `/clear`, `/clearall` | Clear the current / all chat tabs |
 | `/gr <text>` | Send a message to raid, party or say — whichever is active |
 | `/ia` | Toggle interrupt announcements to the group |
 | `/noduel` | Toggle automatic duel decline |
+| `/noparty` | Toggle automatic group invite decline |
+| `/notrade` | Toggle automatic trade decline |
 | `/vr` | Toggle the button click animation (for video recording) |
 | `/cdtest` | Preview the cooldown tracker |
 | `/uftest` | Toggle unit frame test mode: every frame is shown with random data |
 | `/guid` | Print your target's GUID |
 | `/rl` | Reload the UI |
 | `/fui` | Open the settings window |
+
+Every `/no…` command also takes `on`, `off` or `status`.
 
 ---
 
@@ -183,7 +189,7 @@ addon, which is only loaded when you open it. Defaults are listed in `FrostAtomU
 The settings window is **WIP**: not everything is exposed yet and new options are added regularly.
 If something you need is missing, ask in [Discord](https://discord.gg/HSD3gCYw8Q).
 
-Your settings (`/pm`, `/noduel`, chat history, …) are saved per account in `WTF\Account\<name>\SavedVariables\FrostAtomUI.lua`.
+Your settings (`/nodm`, `/noduel`, chat history, …) are saved per account in `WTF\Account\<name>\SavedVariables\FrostAtomUI.lua`.
 
 ---
 

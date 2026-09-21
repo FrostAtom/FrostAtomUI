@@ -246,6 +246,8 @@ ns.Defaults = {
 
 	popups = {
 		declineDuels = false,
+		declineInvites = false,
+		declineTrades = false,
 		autoRelease = true,
 		declineTradeInCombat = true,
 		fillDeleteConfirm = true,

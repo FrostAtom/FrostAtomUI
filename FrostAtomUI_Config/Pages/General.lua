@@ -98,6 +98,18 @@ schema[#schema + 1] = {
 	desc = "Toggle with /noduel.",
 }
 schema[#schema + 1] = {
+	path = "popups.declineInvites",
+	label = "Decline party invites",
+	type = "toggle",
+	desc = "Toggle with /noparty.",
+}
+schema[#schema + 1] = {
+	path = "popups.declineTrades",
+	label = "Decline trades",
+	type = "toggle",
+	desc = "Toggle with /notrade.",
+}
+schema[#schema + 1] = {
 	path = "popups.fillDeleteConfirm",
 	label = 'Fill in "DELETE" confirmation',
 	type = "toggle",
