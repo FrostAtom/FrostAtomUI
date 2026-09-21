@@ -41,6 +41,24 @@ local function titleLine(tooltip, index)
 	return _G[tooltip:GetName() .. "TextLeft" .. (index or 1)]
 end
 
+local function setRightText(tooltip, index, text)
+	local right = _G[tooltip:GetName() .. "TextRight" .. index]
+	if right then
+		right:SetText(text)
+		right:SetTextColor(0.6, 0.6, 0.6)
+		right:Show()
+	end
+end
+
+local function findLine(tooltip, pattern)
+	for i = 2, tooltip:NumLines() do
+		local text = titleLine(tooltip, i):GetText()
+		if text and text:find(pattern) then
+			return i
+		end
+	end
+end
+
 local function onTooltipSetSpell(tooltip)
 	local _, _, spellId = tooltip:GetSpell()
 	if not spellId or not config.enabled then
@@ -67,7 +85,7 @@ local function onTooltipSetItem(tooltip)
 	if not link or not config.enabled then
 		return
 	end
-	local knownName, _, _, itemLevel = GetItemInfo(link)
+	local knownName, _, _, itemLevel, _, _, _, _, equipLoc = GetItemInfo(link)
 	if not knownName then
 		return
 	end
@@ -77,23 +95,25 @@ local function onTooltipSetItem(tooltip)
 		local text = title and title:GetText()
 		if text and text:find(itemName, 1, true) then
 			title:SetFormattedText(TITLE_ICON, GetItemIcon(link), text)
+			if config.showItemLevel and equipLoc ~= "" and itemLevel then
+				setRightText(tooltip, i, "ilvl " .. itemLevel)
+			end
 			break
 		end
 	end
 
-	local itemId = config.showIds and link:match("|Hitem:(%d+):")
-	if config.showItemLevel and itemLevel then
-		tooltip:AddDoubleLine(itemId and labeled("ID", itemId) or " ", labeled("ilvl", itemLevel))
-	elseif itemId then
-		tooltip:AddLine(labeled("ID", itemId))
-	end
-
-	if config.showItemCount then
+	if config.showItemCount and equipLoc == "" then
 		local inBags = GetItemCount(link)
 		local inBank = GetItemCount(link, true) - inBags
-		if inBags > 0 or inBank > 0 then
-			tooltip:AddDoubleLine(labeled("Bags", inBags), inBank > 0 and labeled("Bank", inBank))
+		if inBank > 0 then
+			tooltip:AddLine(("|cff3366ffBags|r: |cffffffff%d|r  |cff3366ffBank|r: |cffffffff%d|r"):format(inBags, inBank))
+		elseif inBags > 0 then
+			tooltip:AddLine(labeled("Bags", inBags))
 		end
+	end
+
+	if config.showIds then
+		tooltip:AddLine(labeled("ID", link:match("|Hitem:(%d+):")))
 	end
 
 	tooltip:Show()
@@ -147,7 +167,14 @@ local itemLevels = {}
 local inspectGuid, inspectUnit, inspectTime, inspectRetries
 
 local function addItemLevel(tooltip, average)
-	tooltip:AddLine(("|cff3366ffilvl|r: |cffffffff%.1f|r"):format(average))
+	local _, _, _, hex = ns.AverageItemLevelColor(average)
+	local text = ("ilvl %s%.1f|r"):format(hex, average)
+	local line = findLine(tooltip, "^" .. LEVEL .. " ")
+	if line then
+		setRightText(tooltip, line, text)
+	else
+		tooltip:AddLine(text, 0.6, 0.6, 0.6)
+	end
 end
 
 local inspectRetry = CreateFrame("Frame")
@@ -247,11 +274,16 @@ local function onTooltipSetUnit(tooltip)
 	end
 	local isPlayer = UnitIsPlayer(unit)
 	if isPlayer then
-		local guild, rank = GetGuildInfo(unit)
+		local guild = GetGuildInfo(unit)
 		local second = titleLine(tooltip, 2)
 		local secondText = guild and second and second:GetText()
 		if secondText and secondText:find(guild, 1, true) then
-			second:SetFormattedText("<|cff00ff10%s|r> |cffaaaaaa%s|r", guild, rank or "")
+			second:SetFormattedText("<|cff00ff10%s|r>", guild)
+		end
+		local levelIndex = findLine(tooltip, "^" .. LEVEL .. " ")
+		if levelIndex then
+			local levelLine = titleLine(tooltip, levelIndex)
+			levelLine:SetText((levelLine:GetText():gsub(" %(" .. PLAYER .. "%)$", "")))
 		end
 		if config.showItemLevel then
 			unitItemLevel(tooltip, unit)

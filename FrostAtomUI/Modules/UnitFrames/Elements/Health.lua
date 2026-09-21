@@ -60,7 +60,11 @@ local function setAlive(health, setValue, current, max, class)
 	end
 	health:SetStatusBarColor(r, g, b)
 	health.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
-	health.text:SetText(FormatValue(current))
+	if health:GetParent().hovered and not health.compact then
+		health.text:SetFormattedText("%s / %s", FormatValue(current), FormatValue(max))
+	else
+		health.text:SetText(FormatValue(current))
+	end
 end
 
 local function update(frame)

@@ -3,7 +3,6 @@ local _, ns = ...
 local CreateFrame = CreateFrame
 local GetFramerate = GetFramerate
 local GetNetStats = GetNetStats
-local ColorGradient = ns.ColorGradient
 
 local UPDATE_INTERVAL = 1
 local UNIT_GAP, UNIT_LIFT = 3, 1
@@ -28,9 +27,19 @@ end
 local fpsValue, fpsLabel = createReadout("fps")
 local latencyValue, latencyLabel = createReadout("ms")
 
-local function qualityColor(value, worst, best)
-	local r, g, b = ColorGradient((value - worst) / (best - worst), 1, 0.35, 0.35, 1, 0.8, 0.25, 1, 1, 1)
-	return r, g, b
+local RED = { 1, 0.3, 0.3 }
+local ORANGE = { 1, 0.6, 0.2 }
+local YELLOW = { 1, 0.9, 0.3 }
+local GREEN = { 0.4, 1, 0.4 }
+
+local function tierColor(value, red, orange, yellow, higherIsBetter)
+	local color
+	if higherIsBetter then
+		color = value < red and RED or value < orange and ORANGE or value < yellow and YELLOW or GREEN
+	else
+		color = value >= red and RED or value >= orange and ORANGE or value >= yellow and YELLOW or GREEN
+	end
+	return color[1], color[2], color[3]
 end
 
 local untilNextTick = 0
@@ -44,11 +53,11 @@ local function onUpdate(_, elapsed)
 	local config = ns.Config.performance
 	local fps = GetFramerate()
 	fpsValue:SetFormattedText("%d", fps + 0.5)
-	fpsValue:SetTextColor(qualityColor(fps, config.fpsWorst, config.fpsBest))
+	fpsValue:SetTextColor(tierColor(fps + 0.5, config.fpsRed, config.fpsOrange, config.fpsYellow, true))
 
 	local _, _, latency = GetNetStats()
 	latencyValue:SetFormattedText("%d", latency)
-	latencyValue:SetTextColor(qualityColor(latency, config.latencyWorst, config.latencyBest))
+	latencyValue:SetTextColor(tierColor(latency, config.latencyRed, config.latencyOrange, config.latencyYellow))
 end
 
 local function applyConfig()

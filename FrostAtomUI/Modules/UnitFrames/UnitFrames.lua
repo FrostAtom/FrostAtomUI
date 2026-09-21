@@ -17,6 +17,7 @@ local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
 local TARGET_AURAS_PER_ROW = 8
 local TARGET_AURA_ROWS = 2
+local HOVER_ALPHA = 0.08
 local config = ns.Config.unitFrames
 
 UF.BORDER_INSET = BORDER_INSET
@@ -197,6 +198,38 @@ local function capitalize(text)
 	return (text:gsub("^%l", string.upper))
 end
 
+local function setHovered(frame, hovered)
+	frame.hovered = hovered
+	if hovered then
+		frame.hover:Show()
+	else
+		frame.hover:Hide()
+	end
+	if UF.testing then
+		for _, key in ipairs({ "health", "power" }) do
+			if frame[key] then
+				elements[key].test(frame)
+			end
+		end
+	elseif frame:IsShown() then
+		for _, key in ipairs({ "health", "power" }) do
+			if frame[key] then
+				elements[key].update(frame)
+			end
+		end
+	end
+end
+
+local function onEnter(frame)
+	setHovered(frame, true)
+	UnitFrame_OnEnter(frame)
+end
+
+local function onLeave(frame)
+	setHovered(frame, false)
+	UnitFrame_OnLeave(frame)
+end
+
 function UF:CreateBase(unit)
 	local frame = CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), UIParent, "SecureUnitButtonTemplate")
 	ns.Mixin(frame, ns.EventMixin, UnitFrameMixin)
@@ -221,8 +254,20 @@ function UF:CreateBase(unit)
 		end
 	end
 
-	frame:SetScript("OnEnter", UnitFrame_OnEnter)
-	frame:SetScript("OnLeave", UnitFrame_OnLeave)
+	local hover = CreateFrame("Frame", nil, frame)
+	hover:SetFrameLevel(frame:GetFrameLevel() + 2)
+	hover:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
+	hover:SetPoint("BOTTOMRIGHT", -BORDER_INSET, BORDER_INSET)
+	hover.texture = hover:CreateTexture(nil, "OVERLAY")
+	hover.texture:SetAllPoints()
+	hover.texture:SetTexture(ns.Media.blank)
+	hover.texture:SetBlendMode("ADD")
+	hover.texture:SetVertexColor(1, 1, 1, HOVER_ALPHA)
+	hover:Hide()
+	frame.hover = hover
+
+	frame:SetScript("OnEnter", onEnter)
+	frame:SetScript("OnLeave", onLeave)
 	frame:SetScript("OnShow", frame.UpdateAll)
 	frame:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateAll")
 	RegisterUnitWatch(frame)
@@ -253,9 +298,7 @@ function UF:ApplyColors()
 			local text = element and (element.text or (key == "name" and element))
 			if text then
 				text:SetTextColor(unpack(config.textColor))
-				if key ~= "power" then
-					text:SetFont(ns.Media.font, config.textFont.size, config.textFont.outline)
-				end
+				text:SetFont(ns.Media.font, config.textFont.size, config.textFont.outline)
 			end
 		end
 		local castbar = frame.castbar
@@ -334,6 +377,7 @@ function UF:CreateSquare(unit, size)
 	health:SetPoint("TOPRIGHT", -BORDER_INSET, -BORDER_INSET)
 	health:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET)
 	health.text:SetPoint("CENTER")
+	health.compact = true
 
 	return frame
 end

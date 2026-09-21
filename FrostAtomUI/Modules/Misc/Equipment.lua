@@ -41,6 +41,19 @@ local function itemLevelColor(difference)
 	return ColorGradient(pi / -difference, 1, 0.1, 0.1, 1, 1, 0.1, 0.1, 1, 0.1)
 end
 
+local QUALITY_THRESHOLDS = { { 264, 5 }, { 245, 4 }, { 220, 3 }, { 200, 2 }, { 0, 1 } }
+
+local function averageQualityColor(average)
+	for i = 1, #QUALITY_THRESHOLDS do
+		local entry = QUALITY_THRESHOLDS[i]
+		if average >= entry[1] then
+			local color = ITEM_QUALITY_COLORS[entry[2]]
+			return color.r, color.g, color.b, color.hex
+		end
+	end
+end
+ns.AverageItemLevelColor = averageQualityColor
+
 local function slotItemLevel(unit, slot)
 	local link = GetInventoryItemLink(unit, slot)
 	if not link then
@@ -83,7 +96,12 @@ local function updatePage(page)
 			text:SetText("")
 		end
 	end
-	page.averageText:SetText(config.showItemLevels and count > 0 and ("%.1f"):format(average) or "")
+	if config.showItemLevels and count > 0 then
+		page.averageText:SetFormattedText("%.1f", average)
+		page.averageText:SetTextColor(averageQualityColor(average))
+	else
+		page.averageText:SetText("")
+	end
 
 	if missing and page.retries < MAX_RETRIES then
 		page.retries = page.retries + 1
@@ -114,7 +132,6 @@ local function createPage(getUnit, modelFrame, slotPrefix, anchor)
 	local averageText = overlay:CreateFontString(nil, "OVERLAY")
 	averageText:SetFont(ns.Media.fontBold, 14, "OUTLINE")
 	averageText:SetPoint("BOTTOMRIGHT")
-	averageText:SetTextColor(1, 0.9, 0.8)
 	page.averageText = averageText
 
 	local retry = CreateFrame("Frame")
@@ -136,7 +153,7 @@ end
 
 local character = createPage(function()
 	return "player"
-end, CharacterModelFrame, "Character", { PlayerStatFrameRightDropDown, "TOPRIGHT", -18, -2 })
+end, CharacterModelFrame, "Character", { CharacterModelFrame, "BOTTOMRIGHT", -6, 27 })
 
 PaperDollFrame:HookScript("OnShow", function()
 	updatePage(character)
@@ -151,7 +168,7 @@ end)
 ns:OnAddonLoaded("Blizzard_InspectUI", function()
 	local inspect = createPage(function()
 		return InspectFrame.unit
-	end, InspectModelFrame, "Inspect", { InspectModelFrame, "BOTTOMRIGHT", -4, 4 })
+	end, InspectModelFrame, "Inspect", { InspectModelFrame, "BOTTOMRIGHT", -2, -14 })
 
 	hooksecurefunc("InspectPaperDollItemSlotButton_Update", function()
 		if InspectFrame:IsShown() then

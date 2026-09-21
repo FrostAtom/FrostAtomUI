@@ -25,9 +25,14 @@ ns.RegisterPage({
 			path = "tooltip.showItemLevel",
 			label = "Item level",
 			type = "toggle",
-			desc = "On items and inspected players.",
+			desc = "On gear and inspected players, next to the name.",
 		},
-		{ path = "tooltip.showItemCount", label = "Item count in bags / bank", type = "toggle" },
+		{
+			path = "tooltip.showItemCount",
+			label = "Item count in bags / bank",
+			type = "toggle",
+			desc = "Consumables and other non-equippable items only.",
+		},
 		{ path = "tooltip.showTargetedBy", label = "Targeted by group members", type = "toggle" },
 	},
 })

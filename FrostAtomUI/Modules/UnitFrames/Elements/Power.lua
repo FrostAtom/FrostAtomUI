@@ -10,8 +10,7 @@ local unpack = unpack
 
 local FormatValue = ns.FormatValue
 local powerColors = UF.powerColors
-
-local POWER_FONT_SIZE = 9
+local config = ns.Config.unitFrames
 
 local MAX_POWER_EVENTS = {
 	"UNIT_MAXMANA",
@@ -29,7 +28,11 @@ local function setPower(power, setValue, current, max, powerType)
 	local r, g, b = unpack(powerColors[powerType])
 	power:SetStatusBarColor(r, g, b)
 	power.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
-	power.text:SetText(FormatValue(current))
+	if power:GetParent().hovered and max > 0 then
+		power.text:SetFormattedText("%s / %s", FormatValue(current), FormatValue(max))
+	else
+		power.text:SetText(nil)
+	end
 end
 
 local function update(frame)
@@ -79,7 +82,7 @@ local function create(frame)
 	power.bg:SetTexture(ns.Media.blank)
 
 	power.text = power:CreateFontString(nil, "OVERLAY")
-	power.text:SetFont(ns.Media.font, POWER_FONT_SIZE, "OUTLINE")
+	power.text:SetFont(ns.Media.font, config.textFont.size, config.textFont.outline)
 	power.text:SetTextColor(unpack(UF.textColor))
 
 	power:SetScript("OnUpdate", onUpdate)

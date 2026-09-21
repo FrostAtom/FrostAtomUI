@@ -316,10 +316,12 @@ ns.Defaults = {
 		point = { "TOPLEFT", 12, -10 },
 		valueFont = { size = 16, outline = "OUTLINE" },
 		unitFont = { size = 11, outline = "OUTLINE" },
-		fpsWorst = 15,
-		fpsBest = 45,
-		latencyWorst = 300,
-		latencyBest = 70,
+		fpsRed = 50,
+		fpsOrange = 60,
+		fpsYellow = 90,
+		latencyYellow = 50,
+		latencyOrange = 100,
+		latencyRed = 200,
 	},
 
 	tooltip = {
