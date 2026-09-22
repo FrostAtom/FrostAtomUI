@@ -22,6 +22,11 @@ local function text(path, label, desc)
 	return { path = path, label = label, type = "string", width = 260, maxLetters = 120, desc = desc }
 end
 
+local HEALTH_COLOR_VALUES = {
+	{ "class", "Class color" },
+	{ "health", "Health percent" },
+}
+
 local RIGHT_CLICK_VALUES = {
 	{ "menu", "Unit menu" },
 	{ "focus", "Set focus" },
@@ -326,10 +331,12 @@ ns.RegisterPage({
 		},
 		{ header = "Colors" },
 		{
-			path = "unitFrames.classColorHealth",
-			label = "Class colored health",
-			type = "toggle",
-			desc = "Health bars of players take their class color instead of the green-to-red gradient.",
+			path = "unitFrames.healthColorMode",
+			label = "Health bar color",
+			type = "select",
+			values = HEALTH_COLOR_VALUES,
+			desc = "Class color for players (everything else keeps the health gradient), or a color mixed "
+				.. "from the current health percent for every unit.",
 		},
 		{ path = "unitFrames.textColor", label = "Text", type = "color" },
 		{ path = "unitFrames.backdropColor", label = "Backdrop", type = "color", alpha = true },

@@ -66,7 +66,9 @@ end
 
 local function applyFrameConfig()
 	for i = 1, NUM_CHAT_WINDOWS do
-		_G["ChatFrame" .. i]:SetTimeVisible(config.fadeTime)
+		local chatFrame = _G["ChatFrame" .. i]
+		chatFrame:SetFading(config.fadeMessages)
+		chatFrame:SetTimeVisible(config.fadeTime)
 	end
 	for i = 1, #chatBackdrops do
 		chatBackdrops[i]:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
@@ -868,6 +870,7 @@ end
 local function skinChatFrame(name)
 	local chatFrame = _G[name]
 	chatFrame:SetScript("OnUpdate", nil)
+	chatFrame:SetFading(config.fadeMessages)
 	chatFrame:SetTimeVisible(config.fadeTime)
 	chatFrame:SetShadowOffset(0, 0)
 	chatFrame:SetClampRectInsets(-7, -7, -7, -31)

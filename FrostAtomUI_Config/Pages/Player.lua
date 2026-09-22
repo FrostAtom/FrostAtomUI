@@ -3,6 +3,12 @@ local _, ns = ...
 local ui = FrostAtomUI
 local Section = ns.Section
 
+local HEALTH_COLOR_VALUES = {
+	{ "class", "Class color" },
+	{ "health", "Health percent" },
+	{ "custom", "Fixed color" },
+}
+
 local function notClass(class)
 	return ui.PLAYER_CLASS ~= class
 end
@@ -47,18 +53,19 @@ Section(schema, "Player plate", "playerPlate", {
 	},
 	{ path = "font", label = "Font", type = "font" },
 	{
-		path = "classColorHealth",
-		label = "Class colored health",
-		type = "toggle",
-		desc = "Health bar in your class color instead of a fixed color.",
+		path = "healthColorMode",
+		label = "Health bar color",
+		type = "select",
+		values = HEALTH_COLOR_VALUES,
+		desc = "Your class color, a color mixed from the current health percent, or a fixed color.",
 	},
 	{
 		path = "healthColor",
 		label = "Health color",
 		type = "color",
-		desc = "Used when class coloring is off.",
+		desc = "Used with the fixed color mode.",
 		disabled = function()
-			return ui:GetConfig("playerPlate.classColorHealth")
+			return ui:GetConfig("playerPlate.healthColorMode") ~= "custom"
 		end,
 	},
 })

@@ -202,6 +202,48 @@ fadeRunner:SetScript("OnUpdate", function(_, elapsed)
 	end
 end)
 
+local HEALTH_HUE_LOW, HEALTH_HUE_HIGH = 0, 110
+local HEALTH_SATURATION = 0.5
+local HEALTH_LIGHTNESS = 0.6
+local HEALTH_STEPS = 100
+
+local healthColors = {}
+
+local function hueChannel(p, q, t)
+	if t < 0 then
+		t = t + 1
+	elseif t > 1 then
+		t = t - 1
+	end
+	if t < 1 / 6 then
+		return p + (q - p) * 6 * t
+	elseif t < 0.5 then
+		return q
+	elseif t < 2 / 3 then
+		return p + (q - p) * (2 / 3 - t) * 6
+	end
+	return p
+end
+
+function ns.HealthColor(percent)
+	if percent ~= percent or percent < 0 then
+		percent = 0
+	elseif percent > 1 then
+		percent = 1
+	end
+
+	local step = floor(percent * HEALTH_STEPS + 0.5)
+	local color = healthColors[step]
+	if not color then
+		local hue = (HEALTH_HUE_LOW + (HEALTH_HUE_HIGH - HEALTH_HUE_LOW) * step / HEALTH_STEPS) / 360
+		local q = HEALTH_LIGHTNESS + HEALTH_SATURATION - HEALTH_LIGHTNESS * HEALTH_SATURATION
+		local p = 2 * HEALTH_LIGHTNESS - q
+		color = { hueChannel(p, q, hue + 1 / 3), hueChannel(p, q, hue), hueChannel(p, q, hue - 1 / 3) }
+		healthColors[step] = color
+	end
+	return color[1], color[2], color[3]
+end
+
 function ns.PixelPerfect(size)
 	return size * (2 - UIParent:GetEffectiveScale())
 end

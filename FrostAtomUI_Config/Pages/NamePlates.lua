@@ -1,5 +1,10 @@
 local _, ns = ...
 
+local HEALTH_COLOR_VALUES = {
+	{ "class", "Class color" },
+	{ "health", "Health percent" },
+}
+
 ns.RegisterPage({
 	key = "nameplates",
 	name = "Nameplates",
@@ -22,10 +27,12 @@ ns.RegisterPage({
 		},
 		{ path = "namePlates.showRaidIcon", label = "Show raid icon", type = "toggle" },
 		{
-			path = "namePlates.classColorHealth",
-			label = "Class colored health",
-			type = "toggle",
-			desc = "Enemy players' health bars in class color instead of red.",
+			path = "namePlates.healthColorMode",
+			label = "Health bar color",
+			type = "select",
+			values = HEALTH_COLOR_VALUES,
+			desc = "Class color for enemy players (everything else keeps its reaction color), or a color "
+				.. "mixed from the current health percent for every plate.",
 		},
 		{
 			path = "namePlates.targetBorder",

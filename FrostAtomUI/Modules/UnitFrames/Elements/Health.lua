@@ -8,12 +8,12 @@ local UnitGUID = UnitGUID
 local UnitIsPlayer = UnitIsPlayer
 local UnitClass = UnitClass
 
-local ColorGradient = ns.ColorGradient
+local HealthColor = ns.HealthColor
 local classColors = UF.classBarColors
 local config = ns.Config.unitFrames
 
-local GRADIENT = { 0.8, 0.2, 0.2, 0.65, 0.63, 0.35, 0.33, 0.59, 0.33 }
-local DEAD_BG_R, DEAD_BG_G, DEAD_BG_B = GRADIENT[1] * 0.3, GRADIENT[2] * 0.3, GRADIENT[3] * 0.3
+local DEAD_R, DEAD_G, DEAD_B = HealthColor(0)
+local DEAD_BG_R, DEAD_BG_G, DEAD_BG_B = DEAD_R * 0.3, DEAD_G * 0.3, DEAD_B * 0.3
 
 local CUTAWAY_FADE_SPEED = 2.5
 
@@ -54,7 +54,7 @@ local function setAlive(health, setValue, current, max, class)
 	end
 	health.lastCurrent = current
 
-	local classColor = class and config.classColorHealth and classColors[class]
+	local classColor = class and config.healthColorMode == "class" and classColors[class]
 	if classColor then
 		if health.colorClass ~= class then
 			health.colorClass = class
@@ -62,7 +62,7 @@ local function setAlive(health, setValue, current, max, class)
 		end
 	else
 		health.colorClass = nil
-		setColor(health, ColorGradient(current / max, unpack(GRADIENT)))
+		setColor(health, HealthColor(max > 0 and current / max or 0))
 	end
 	local frame = health:GetParent()
 	UF.UpdateText(frame, health.text, "right")

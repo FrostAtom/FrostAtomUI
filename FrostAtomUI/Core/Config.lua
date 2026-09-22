@@ -34,6 +34,8 @@ ns.Defaults = {
 		showShapeshiftHotkeys = false,
 		showNames = true,
 		clickAnimation = true,
+		dragButton = "RightButton",
+		dragModifier = "alt",
 		hotkeyFont = { size = 9, outline = "OUTLINE" },
 		nameFont = { size = 9, outline = "OUTLINE" },
 		rangeColor = { 1, 0, 0 },
@@ -75,7 +77,7 @@ ns.Defaults = {
 		playerCastbarWidth = 240,
 		playerCastbarHeight = 34,
 		playerAuraSize = 34,
-		classColorHealth = true,
+		healthColorMode = "class",
 		textColor = { 1, 1, 1 },
 		backdropColor = { 0, 0, 0, 0.6 },
 		borderColor = { 1, 1, 1 },
@@ -140,6 +142,7 @@ ns.Defaults = {
 		height = 153,
 		mouseover = false,
 		fadeAlpha = 0.1,
+		fadeMessages = true,
 		fadeTime = 30,
 		backgroundAlpha = 0.6,
 		copyWindowWidth = 520,
@@ -167,7 +170,7 @@ ns.Defaults = {
 		showTargetPercent = true,
 		showName = true,
 		showRaidIcon = true,
-		classColorHealth = true,
+		healthColorMode = "class",
 		targetBorder = true,
 		castbarGap = 3,
 		nameFont = { size = 9, outline = "OUTLINE" },
@@ -198,7 +201,7 @@ ns.Defaults = {
 		gap = 0,
 		showText = true,
 		font = { size = 10, outline = "OUTLINE" },
-		classColorHealth = true,
+		healthColorMode = "class",
 		healthColor = { 0, 0.8, 0 },
 		alwaysShow = false,
 		fadeTime = 0.5,
@@ -869,12 +872,28 @@ function ns:ImportProfile(text)
 	return true
 end
 
+local HEALTH_COLOR_SECTIONS = { unitFrames = "health", namePlates = "health", playerPlate = "custom" }
+
+local function migrate(profile)
+	for name, fallback in pairs(HEALTH_COLOR_SECTIONS) do
+		local section = profile[name]
+		if section and section.classColorHealth ~= nil then
+			section.healthColorMode = section.healthColorMode
+				or (section.classColorHealth and "class" or fallback)
+			section.classColorHealth = nil
+		end
+	end
+end
+
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 	db.profiles = db.profiles or {}
 	db.charProfile = db.charProfile or {}
 	if db.config then
 		db.profiles[DEFAULT_PROFILE] = db.profiles[DEFAULT_PROFILE] or db.config
 		db.config = nil
+	end
+	for _, profile in pairs(db.profiles) do
+		migrate(profile)
 	end
 	activate(db.charProfile[charKey()] or DEFAULT_PROFILE)
 	applyGeneral()

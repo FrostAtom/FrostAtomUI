@@ -190,6 +190,7 @@ function ActionBar:StyleButtons()
 	for page = 1, NUM_BARS do
 		for _, button in ipairs(self.bars[page].buttons) do
 			self:StyleHotkey(button.hotkey)
+			button:RegisterForDrag(config.dragButton)
 			button:UpdateColors()
 			ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
 			if config.showNames then

@@ -128,6 +128,12 @@ local schema = {
 		enabledBy = "chat.lockFrames",
 	},
 	{
+		path = "chat.fadeMessages",
+		label = "Fade out messages",
+		type = "toggle",
+		desc = "Off keeps every line visible until it scrolls out of the window.",
+	},
+	{
 		path = "chat.fadeTime",
 		label = "Fade after (seconds)",
 		type = "number",
@@ -135,6 +141,7 @@ local schema = {
 		max = 600,
 		step = 5,
 		desc = "Lines fade out after this many seconds of inactivity.",
+		enabledBy = "chat.fadeMessages",
 	},
 	{ path = "chat.backgroundAlpha", label = "Background alpha", type = "number", min = 0, max = 1, step = 0.05 },
 	{

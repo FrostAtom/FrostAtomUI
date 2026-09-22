@@ -14,7 +14,6 @@ local IsCurrentAction = IsCurrentAction
 local IsAutoRepeatAction = IsAutoRepeatAction
 local IsConsumableAction = IsConsumableAction
 local IsStackableAction = IsStackableAction
-local IsAltKeyDown = IsAltKeyDown
 local InCombatLockdown = InCombatLockdown
 local PickupAction = PickupAction
 local PlaceAction = PlaceAction
@@ -29,6 +28,12 @@ local WHITE = { 1, 1, 1 }
 local BUTTON_NAME = ADDON_NAME .. "ActionButton%d"
 local BINDING_NAME = "CLICK " .. BUTTON_NAME .. ":LeftButton"
 local RANGE_CHECK_INTERVAL = 0.1
+
+local DRAG_MODIFIERS = {
+	shift = IsShiftKeyDown,
+	ctrl = IsControlKeyDown,
+	alt = IsAltKeyDown,
+}
 
 local ACTION_EVENTS = {
 	UPDATE_BINDINGS = "UpdateBindings",
@@ -201,7 +206,8 @@ function ActionButtonMixin:OnAttributeChanged(attribute, value)
 end
 
 function ActionButtonMixin:OnDragStart()
-	if IsAltKeyDown() and not InCombatLockdown() then
+	local modifier = DRAG_MODIFIERS[config.dragModifier]
+	if (not modifier or modifier()) and not InCombatLockdown() then
 		PickupAction(self.action)
 	end
 end
@@ -256,7 +262,7 @@ function ActionBar:CreateActionButton(action, parent)
 	ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
 
 	button:RegisterForClicks("LeftButtonDown")
-	button:RegisterForDrag("RightButton")
+	button:RegisterForDrag(config.dragButton)
 	button:SetScript("OnDragStart", button.OnDragStart)
 	button:SetScript("OnReceiveDrag", button.OnReceiveDrag)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)

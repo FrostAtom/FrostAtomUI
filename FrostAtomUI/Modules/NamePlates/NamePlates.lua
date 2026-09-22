@@ -44,9 +44,28 @@ for class, color in pairs(RAID_CLASS_COLORS) do
 	classKeys[colorKey(color.r, color.g, color.b)] = class
 end
 
+function PlateMixin:ApplyBarColor(force)
+	local healthbar = self.healthbar
+	local r, g, b = self.barR, self.barG, self.barB
+	if config.healthColorMode == "health" then
+		local _, max = healthbar:GetMinMaxValues()
+		r, g, b = ns.HealthColor(max > 0 and healthbar:GetValue() / max or 0)
+	end
+
+	if not force and r == healthbar.setR and g == healthbar.setG and b == healthbar.setB then
+		return
+	end
+	healthbar:SetStatusBarColor(r, g, b)
+	healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
+	healthbar.setR, healthbar.setG, healthbar.setB = r, g, b
+	healthbar.r, healthbar.g, healthbar.b = healthbar:GetStatusBarColor()
+end
+
 function PlateMixin:UpdateColors(r, g, b)
+	self.rawR, self.rawG, self.rawB = r, g, b
+
 	local class = classKeys[colorKey(r, g, b)]
-	if class and config.classColorHealth then
+	if class and config.healthColorMode == "class" then
 		local barColor = classBarColors[class]
 		r, g, b = barColor[1], barColor[2], barColor[3]
 	elseif class or g + b == 0 then
@@ -59,16 +78,21 @@ function PlateMixin:UpdateColors(r, g, b)
 		r, g, b = 0.65, 0.63, 0.35
 	end
 
-	local healthbar = self.healthbar
-	healthbar:SetStatusBarColor(r, g, b)
-	if r ~= healthbar.r or g ~= healthbar.g or b ~= healthbar.b then
-		healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
-		healthbar.r, healthbar.g, healthbar.b = r, g, b
-	end
+	self.barR, self.barG, self.barB = r, g, b
+	self:ApplyBarColor(true)
 
 	local nameColor = class and classColors[class] or WHITE
 	self.nameColor = nameColor
 	self:SetNameColor(nameColor[1], nameColor[2], nameColor[3])
+end
+
+function PlateMixin:RefreshColors()
+	local healthbar = self.healthbar
+	local r, g, b = healthbar:GetStatusBarColor()
+	if self.rawR and r == healthbar.r and g == healthbar.g and b == healthbar.b then
+		r, g, b = self.rawR, self.rawG, self.rawB
+	end
+	self:UpdateColors(r, g, b)
 end
 
 function PlateMixin:SetNameColor(r, g, b)
@@ -115,6 +139,8 @@ function PlateMixin:OnUpdate()
 	local r, g, b = healthbar:GetStatusBarColor()
 	if r ~= healthbar.r or g ~= healthbar.g or b ~= healthbar.b then
 		self:UpdateColors(r, g, b)
+	elseif config.healthColorMode == "health" then
+		self:ApplyBarColor()
 	end
 
 	if self.totem:IsShown() then
@@ -186,7 +212,7 @@ function PlateMixin:OnShow()
 		self.raidicon:SetSize(config.raidIconSize, config.raidIconSize)
 		holder:Show()
 		healthbar:Show()
-		self:UpdateColors(healthbar:GetStatusBarColor())
+		self:RefreshColors()
 
 		totem:Hide()
 		totem.border:Hide()
@@ -443,6 +469,7 @@ local function applyStyle()
 		styleHolder(plate.castbar.holder)
 		plate.borderState = nil
 		plate.nameR = nil
+		plate:RefreshColors()
 		if plate:IsShown() then
 			plate:OnShow()
 		end

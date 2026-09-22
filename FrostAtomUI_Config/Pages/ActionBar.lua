@@ -1,5 +1,18 @@
 local _, ns = ...
 
+local DRAG_BUTTON_VALUES = {
+	{ "LeftButton", "Left button" },
+	{ "RightButton", "Right button" },
+	{ "MiddleButton", "Middle button" },
+}
+
+local DRAG_MODIFIER_VALUES = {
+	{ "none", "No modifier" },
+	{ "shift", "Shift" },
+	{ "ctrl", "Ctrl" },
+	{ "alt", "Alt" },
+}
+
 local schema = {
 	{
 		path = "actionBar.enabled",
@@ -14,6 +27,21 @@ local schema = {
 		label = "Click animation",
 		type = "toggle",
 		desc = "Star burst on a pressed button. Toggle with /vr.",
+	},
+	{
+		path = "actionBar.dragButton",
+		label = "Drag spells with",
+		type = "select",
+		values = DRAG_BUTTON_VALUES,
+		desc = "Mouse button that picks a spell up from a bar button. Dropping always works with any button.",
+	},
+	{
+		path = "actionBar.dragModifier",
+		label = "Drag modifier",
+		type = "select",
+		values = DRAG_MODIFIER_VALUES,
+		desc = "Key to hold while dragging a spell off a bar. Without a modifier a spell can be dragged away "
+			.. "by accident.",
 	},
 	{ header = "Micro menu and bags" },
 	{ path = "actionBar.microMenu", label = "Micro menu position", type = "point" },

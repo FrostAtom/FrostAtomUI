@@ -43,6 +43,9 @@ all in one addon, ready to play right after install.
 - Party frames (up to 3 members, 5v5 is not supported) with pets; **arena frames** with pets, PvP trinket status and enemy cooldowns; boss frames.
 - Party and arena frames get a gold border when targeted and a blue one when focused.
 - Health bars glide smoothly; lost health leaves a fading strip so you can see burst damage.
+- Health bar color of your choice: class color, or one mixed from the current health percent
+  (red through amber to green, same softness at every percent) — separately for unit frames,
+  nameplates and the player plate.
 - Debuffs you can dispel tint the health bar; buffs you can purge get a highlight frame.
 - Crowd-control icon ("lose control") on top of every frame, class icons, range fading for party members.
 - Right-click menu on every frame (whisper, invite, focus, inspect, …).
@@ -80,6 +83,8 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 - 5 bars, pet bar and stance bar with a compact look.
 - **Keybinding mode:** type `/bind`, hover a button and press a key. `Esc` closes it.
 - Click flash on button presses (`/vr` turns it off for video recording).
+- Spells are picked up from a bar with the mouse button and modifier you choose
+  (Alt + right button by default), so nothing gets dragged away by accident.
 
 ### 💬 Chat
 
@@ -88,6 +93,7 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 - Compact channel names (`[P]`, `[R]`, `[BG]`, `[W from]`), timestamps, class-colored names.
 - Clickable **URLs** — click to copy.
 - The last 100 lines come back after a reload; hover a link to see its tooltip.
+- Messages fade out after a time you set, or never — with fading off every line stays until it scrolls away.
 - Type `/wt ` (or `/tt `) and press Space to whisper your current target; `/gr ` to switch to the
   group channel (raid / party / say, whichever applies).
 - Arena queue spam ("Number of groups in queue…", rating searches) is folded into short one-liners,

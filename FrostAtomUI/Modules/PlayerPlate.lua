@@ -44,11 +44,25 @@ local function setBarColor(bar, r, g, b)
 	bar.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
 end
 
+local function healthColor()
+	local config = ns.Config.playerPlate
+	if config.healthColorMode == "class" then
+		return unpack(UF.classBarColors[ns.PLAYER_CLASS])
+	elseif config.healthColorMode == "health" then
+		local max = UnitHealthMax("player")
+		return ns.HealthColor(max > 0 and UnitHealth("player") / max or 0)
+	end
+	return unpack(config.healthColor)
+end
+
 local function updateHealth()
 	local current, max = UnitHealth("player"), UnitHealthMax("player")
 	health:SetMinMaxValues(0, max)
 	health:SetValue(current)
 	health.text:SetFormattedText("%d%%", max > 0 and current / max * 100 or 0)
+	if ns.Config.playerPlate.healthColorMode == "health" then
+		setBarColor(health, healthColor())
+	end
 end
 
 local function updatePower()
@@ -133,8 +147,7 @@ local function applyConfig()
 		power.text:Hide()
 	end
 
-	local color = config.classColorHealth and UF.classBarColors[ns.PLAYER_CLASS] or config.healthColor
-	setBarColor(health, unpack(color))
+	setBarColor(health, healthColor())
 
 	if isWanted() then
 		show()
