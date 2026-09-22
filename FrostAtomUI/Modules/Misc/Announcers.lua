@@ -13,7 +13,6 @@ if ns.PLAYER_CLASS == "PALADIN" then
 
 	local AURA_MASTERY = GetSpellInfo(31821)
 	local CONCENTRATION_AURA = GetSpellInfo(19746)
-	local ANNOUNCEMENT = "<<< AURA MASTERY >>>"
 
 	local function groupChannel()
 		local inRaid = UnitInRaid("player")
@@ -25,7 +24,12 @@ if ns.PLAYER_CLASS == "PALADIN" then
 	end
 
 	Misc:RegisterEvent("COMBAT_TEXT_UPDATE", function(_, messageType, spellName)
-		if messageType ~= "SPELL_AURA_START" or spellName ~= AURA_MASTERY or not ns.Config.announce.auraMastery then
+		local config = ns.Config.announce
+		if
+			messageType ~= "SPELL_AURA_START"
+			or spellName ~= AURA_MASTERY
+			or not (config.enabled and config.auraMastery)
+		then
 			return
 		end
 		if not UnitBuff("player", CONCENTRATION_AURA) then
@@ -33,9 +37,10 @@ if ns.PLAYER_CLASS == "PALADIN" then
 		end
 
 		local channel = groupChannel()
-		if channel then
-			SendChatMessage(ANNOUNCEMENT, channel)
-			SendChatMessage(ANNOUNCEMENT, channel)
+		local message = config.auraMasteryMessage
+		if channel and message ~= "" then
+			SendChatMessage(message, channel)
+			SendChatMessage(message, channel)
 		end
 	end)
 end
@@ -162,7 +167,7 @@ Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
 	ratingReported = true
 
 	local config = ns.Config.announce
-	if not config.arenaResult then
+	if not (config.enabled and config.arenaResult) then
 		return
 	end
 

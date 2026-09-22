@@ -15,9 +15,8 @@ local find, match, gsub, format, lower, sub =
 local tconcat = table.concat
 
 local Chat = ns:NewModule("Chat")
+Chat.configKey = "chat"
 local config = ns.Config.chat
-
-ns:GetModule("CVars"):Pin("chatStyle", "classic")
 
 local STICKY_TYPES = {
 	"SAY",
@@ -33,6 +32,17 @@ local STICKY_TYPES = {
 	"CHANNEL",
 	"EMOTE",
 }
+
+local blizzardSticky = {}
+
+local function applySticky()
+	for i = 1, #STICKY_TYPES do
+		local info = ChatTypeInfo[STICKY_TYPES[i]]
+		if info then
+			info.sticky = config.stickyChannels and 1 or blizzardSticky[STICKY_TYPES[i]]
+		end
+	end
+end
 
 local function applyClassColors()
 	for chatType, info in pairs(ChatTypeInfo) do
@@ -99,21 +109,27 @@ local function lockChatFrames()
 end
 
 function Chat:Initialize()
+	ns:GetModule("CVars"):Pin("chatStyle", "classic")
+	self:HookMessages()
 	if config.skin then
 		self:Skin()
 	end
-	lockChatFrames()
+	if config.lockFrames then
+		lockChatFrames()
+	end
 	applyClassColors()
 	applyFrameConfig()
 	for i = 1, #STICKY_TYPES do
 		local info = ChatTypeInfo[STICKY_TYPES[i]]
 		if info then
-			info.sticky = 1
+			blizzardSticky[STICKY_TYPES[i]] = info.sticky
 		end
 	end
+	applySticky()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", applyClassColors)
 	self:WatchConfig("chat", applyClassColors)
 	self:WatchConfig("chat", applyFrameConfig)
+	self:WatchConfig("chat.stickyChannels", applySticky)
 	self:RegisterMover(ChatFrame1, "chat.point", "Chat")
 end
 
@@ -149,15 +165,11 @@ SlashCmdList.FROSTATOMUI_CLEARALL = function()
 end
 SLASH_FROSTATOMUI_CLEARALL1 = "/clearall"
 
-CombatLog_LoadUI = ns.noop
-Blizzard_CombatLog_Update_QuickButtons = ns.noop
-ChatConfigFrame:SetScript("OnShow", nil)
-
-Chat:RegisterEvent("UI_ERROR_MESSAGE", function(_, message)
+local function onErrorMessage(_, message)
 	if find(message, "^You must wait .- before speaking again.$") then
 		SendSystemMessage(message)
 	end
-end)
+end
 
 local function switchChatType(editBox, chatType, tellTarget)
 	editBox:SetAttribute("tellTarget", tellTarget)
@@ -168,7 +180,7 @@ local function switchChatType(editBox, chatType, tellTarget)
 	ChatEdit_UpdateHeader(editBox)
 end
 
-hooksecurefunc("ChatEdit_OnSpacePressed", function(editBox)
+local function onSpacePressed(editBox)
 	local text = lower(editBox:GetText())
 
 	if text == "/gr " then
@@ -189,7 +201,7 @@ hooksecurefunc("ChatEdit_OnSpacePressed", function(editBox)
 	end
 
 	switchChatType(editBox, "WHISPER", name)
-end)
+end
 
 local SYSTEM_SPAM = {
 	"^|cffff0000%[BG Queue Announcer%]:|r",
@@ -327,7 +339,7 @@ local function filterQueueSpam(message)
 	end
 end
 
-ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message, ...)
+local function filterSystem(_, _, message, ...)
 	if (config.filterSystemSpam and matchesAny(message, SYSTEM_SPAM)) or isArenaSpam(message) then
 		return true
 	end
@@ -338,15 +350,15 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message, ...)
 	elseif newMessage then
 		return false, newMessage, ...
 	end
-end)
+end
 
-ChatFrame_AddMessageEventFilter("CHAT_MSG_BG_SYSTEM_NEUTRAL", function(_, _, message)
+local function filterBgSystem(_, _, message)
 	return isArenaSpam(message)
-end)
+end
 
-ChatFrame_AddMessageEventFilter("CHAT_MSG_TARGETICONS", function()
+local function filterTargetIcons()
 	return wasInArena and config.filterArenaSpam
-end)
+end
 
 local CHANNEL_GETS = {
 	CHAT_GUILD_GET = "|Hchannel:GUILD|h[G]|h %s:\32",
@@ -368,18 +380,14 @@ local CHANNEL_GETS = {
 }
 
 local blizzardGets = {}
-for key, value in pairs(CHANNEL_GETS) do
-	blizzardGets[key] = _G[key]
-	_G[key] = value
-end
 
-Chat:WatchConfig("chat.shortChannelNames", function()
+local function applyChannelGets()
 	for key, value in pairs(CHANNEL_GETS) do
 		_G[key] = config.shortChannelNames and value or blizzardGets[key]
 	end
-end)
+end
 
-local TIMESTAMP_FORMAT = "|cff7f7f7f%H:%M|r "
+local TIMESTAMP_COLOR = "|cff7f7f7f"
 
 local function shortenChannelName(text)
 	if not config.shortChannelNames then
@@ -492,8 +500,9 @@ StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
 	end,
 }
 
-local blizzardSetItemRef = SetItemRef
-function SetItemRef(link, ...)
+local blizzardSetItemRef
+
+local function setItemRef(link, ...)
 	local url = match(link, "^url:(.+)$")
 	if not url then
 		return blizzardSetItemRef(link, ...)
@@ -506,7 +515,7 @@ function SetItemRef(link, ...)
 	end
 end
 
-local MAX_LINES = 1000
+local maxLines = 1000
 
 Chat.lines = {}
 local rawAddMessage = {}
@@ -515,13 +524,13 @@ local function storeLine(chatFrame, text, r, g, b)
 	local lines = Chat.lines[chatFrame]
 	local count = lines.count
 	local slot
-	if count < MAX_LINES then
+	if count < maxLines then
 		count = count + 1
 		lines.count = count
 		slot = count
 	else
 		slot = lines.head
-		lines.head = slot % MAX_LINES + 1
+		lines.head = slot % maxLines + 1
 	end
 	local line = lines[slot]
 	if not line then
@@ -537,7 +546,7 @@ end
 
 function Chat.GetLine(chatFrame, index)
 	local lines = Chat.lines[chatFrame]
-	return lines[(lines.head + index - 2) % MAX_LINES + 1]
+	return lines[(lines.head + index - 2) % maxLines + 1]
 end
 
 function Chat.AddStoredLine(chatFrame, text, r, g, b)
@@ -554,7 +563,7 @@ local function hookAddMessage(chatFrame)
 		if type(text) == "string" then
 			text = linkUrls(stripRealm(shortenChannelName(text)))
 			if config.timestamps then
-				text = date(TIMESTAMP_FORMAT) .. text
+				text = TIMESTAMP_COLOR .. date(config.timestampFormat) .. "|r " .. text
 			end
 			storeLine(self, text, r, g, b)
 		end
@@ -651,7 +660,7 @@ local function setupEditBox(name, chatFrame)
 	editBox.backdrop = backdrop
 end
 
-hooksecurefunc("ChatEdit_UpdateHeader", function(editBox)
+local function onUpdateHeader(editBox)
 	local backdrop = editBox.backdrop
 	if not backdrop then
 		return
@@ -669,13 +678,12 @@ hooksecurefunc("ChatEdit_UpdateHeader", function(editBox)
 	else
 		backdrop:SetBackdropBorderColor(1, 1, 1)
 	end
-end)
+end
 
 local function skinChatFrame(name)
 	local chatFrame = _G[name]
 	chatFrame:SetScript("OnUpdate", nil)
 	chatFrame:SetTimeVisible(config.fadeTime)
-	chatFrame:SetMaxLines(MAX_LINES)
 	chatFrame:SetShadowOffset(0, 0)
 	chatFrame:SetClampRectInsets(-7, -7, -7, -31)
 
@@ -698,13 +706,37 @@ local function skinChatFrame(name)
 	addBackdrop(chatFrame, 6)
 end
 
-for i = 1, NUM_CHAT_WINDOWS do
-	local chatFrame = _G["ChatFrame" .. i]
-	hookAddMessage(chatFrame)
-	chatFrame:EnableMouseWheel(true)
-	chatFrame:SetScript("OnMouseWheel", onMouseWheel)
-	chatFrame:SetScript("OnHyperlinkEnter", onHyperlinkEnter)
-	chatFrame:SetScript("OnHyperlinkLeave", onHyperlinkLeave)
+function Chat:HookMessages()
+	CombatLog_LoadUI = ns.noop
+	Blizzard_CombatLog_Update_QuickButtons = ns.noop
+	ChatConfigFrame:SetScript("OnShow", nil)
+	self:RegisterEvent("UI_ERROR_MESSAGE", onErrorMessage)
+	hooksecurefunc("ChatEdit_OnSpacePressed", onSpacePressed)
+	hooksecurefunc("ChatEdit_UpdateHeader", onUpdateHeader)
+
+	for key in pairs(CHANNEL_GETS) do
+		blizzardGets[key] = _G[key]
+	end
+	applyChannelGets()
+	self:WatchConfig("chat.shortChannelNames", applyChannelGets)
+
+	ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", filterSystem)
+	ChatFrame_AddMessageEventFilter("CHAT_MSG_BG_SYSTEM_NEUTRAL", filterBgSystem)
+	ChatFrame_AddMessageEventFilter("CHAT_MSG_TARGETICONS", filterTargetIcons)
+
+	blizzardSetItemRef = SetItemRef
+	SetItemRef = setItemRef
+
+	maxLines = config.maxLines
+	for i = 1, NUM_CHAT_WINDOWS do
+		local chatFrame = _G["ChatFrame" .. i]
+		chatFrame:SetMaxLines(maxLines)
+		hookAddMessage(chatFrame)
+		chatFrame:EnableMouseWheel(true)
+		chatFrame:SetScript("OnMouseWheel", onMouseWheel)
+		chatFrame:SetScript("OnHyperlinkEnter", onHyperlinkEnter)
+		chatFrame:SetScript("OnHyperlinkLeave", onHyperlinkLeave)
+	end
 end
 
 function Chat:Skin()

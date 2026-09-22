@@ -202,6 +202,9 @@ function ActionBar:StyleButtons()
 	for i = 1, #self.petButtons do
 		self:StyleHotkey(self.petButtons[i].hotkey)
 	end
+	for i = 1, #self.shapeshiftButtons do
+		self:StyleShapeshiftHotkey(self.shapeshiftButtons[i].hotkey)
+	end
 end
 
 function ActionBar:Layout(path)

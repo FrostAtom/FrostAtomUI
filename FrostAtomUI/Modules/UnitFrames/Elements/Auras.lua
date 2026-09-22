@@ -212,12 +212,17 @@ local function testContainer(container, spells)
 	container:Layout(shown)
 end
 
+local function setLimit(container, limit)
+	container.limit = min(limit or MAX_AURAS, MAX_AURAS)
+end
+
 local function createContainer(frame, options, filter, isDebuff)
 	local container = UF:CreateIconGrid(frame, options)
 	container.unit = frame.unit
 	container.filter = filter
 	container.isDebuff = isDebuff
-	container.limit = min(container.max or MAX_AURAS, MAX_AURAS)
+	container.SetLimit = setLimit
+	setLimit(container, container.max)
 	return container
 end
 

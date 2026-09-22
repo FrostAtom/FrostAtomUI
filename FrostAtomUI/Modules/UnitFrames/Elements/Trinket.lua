@@ -24,11 +24,15 @@ for spellId, cooldown in pairs(TRINKET_SPELLS) do
 end
 
 local function update(frame)
-	frame.trinket:Show()
+	if ns.Config.arenaTrinket.enabled then
+		frame.trinket:Show()
+	else
+		frame.trinket:Hide()
+	end
 end
 
 local function test(frame)
-	frame.trinket:Show()
+	update(frame)
 	if random(3) == 1 then
 		frame.trinket.cooldown:SetCooldown(0, 0)
 	else

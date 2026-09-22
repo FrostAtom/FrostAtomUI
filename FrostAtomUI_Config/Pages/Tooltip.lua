@@ -33,6 +33,17 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = "Consumables and other non-equippable items only.",
 		},
-		{ path = "tooltip.showTargetedBy", label = "Targeted by group members", type = "toggle" },
+		{
+			path = "tooltip.showTargetedBy",
+			label = "Targeted by group members",
+			type = "toggle",
+			desc = "List party or raid members targeting the unit.",
+		},
+		{
+			path = "tooltip.labelColor",
+			label = "Label color",
+			type = "color",
+			desc = "Color of the ID and bag count labels.",
+		},
 	},
 })

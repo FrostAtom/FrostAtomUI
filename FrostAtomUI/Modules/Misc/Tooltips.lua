@@ -30,8 +30,18 @@ local config = ns.Config.tooltip
 local TOOLTIPS = { ItemRefTooltip, GameTooltip, ShoppingTooltip1, ShoppingTooltip2, ShoppingTooltip3 }
 local TITLE_ICON = "|T%s:20:20:0:0:64:64:5:59:5:59:20|t %s"
 
+local labelHex
+
+local function applyLabelColor()
+	local color = config.labelColor
+	labelHex = ("|cff%02x%02x%02x"):format(color[1] * 255, color[2] * 255, color[3] * 255)
+end
+
+applyLabelColor()
+Misc:WatchConfig("tooltip.labelColor", applyLabelColor)
+
 local function labeled(label, value)
-	return ("|cff3366ff%s|r: |cffffffff%d|r"):format(label, value)
+	return ("%s%s|r: |cffffffff%d|r"):format(labelHex, label, value)
 end
 
 local function lineCache(side)
@@ -124,7 +134,7 @@ local function onTooltipSetItem(tooltip)
 		local inBags = GetItemCount(link)
 		local inBank = GetItemCount(link, true) - inBags
 		if inBank > 0 then
-			tooltip:AddLine(("|cff3366ffBags|r: |cffffffff%d|r  |cff3366ffBank|r: |cffffffff%d|r"):format(inBags, inBank))
+			tooltip:AddLine(labeled("Bags", inBags) .. "  " .. labeled("Bank", inBank))
 		elseif inBags > 0 then
 			tooltip:AddLine(labeled("Bags", inBags))
 		end
@@ -311,7 +321,16 @@ local function onTooltipSetUnit(tooltip)
 		local Version = ns.Version
 		local userVersion, userBuild = Version.GetUser(UnitName(unit))
 		if userVersion then
-			tooltip:AddDoubleLine("|cff177cbfFrostAtom UI|r", Version.Label(userVersion, userBuild), nil, nil, nil, 1, 1, 1)
+			tooltip:AddDoubleLine(
+				"|cff177cbfFrostAtom UI|r",
+				Version.Label(userVersion, userBuild),
+				nil,
+				nil,
+				nil,
+				1,
+				1,
+				1
+			)
 		else
 			Version.Probe(unit)
 		end

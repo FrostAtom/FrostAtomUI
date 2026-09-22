@@ -2,8 +2,6 @@ local _, ns = ...
 
 local Misc = ns:GetModule("Misc")
 
-local FADE_SPEED = 2
-
 local alert = CreateFrame("Frame", nil, UIParent)
 alert:SetSize(200, 30)
 Misc:AnchorToConfig(alert, "combatAlert.point")
@@ -19,7 +17,7 @@ alert:SetScript("OnUpdate", function(self, elapsed)
 		return
 	end
 
-	local alpha = self:GetAlpha() - elapsed * FADE_SPEED
+	local alpha = self:GetAlpha() - elapsed / ns.Config.combatAlert.fadeTime
 	if alpha > 0 then
 		self:SetAlpha(alpha)
 	else

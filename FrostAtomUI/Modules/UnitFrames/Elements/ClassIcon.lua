@@ -8,6 +8,7 @@ local UnitExists = UnitExists
 local SetPortraitTexture = SetPortraitTexture
 
 local Talents = ns:GetModule("Talents")
+local config = ns.Config.unitFrames
 
 local CLASS_ICONS = "Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes"
 local TRIM = 0.07
@@ -47,6 +48,16 @@ UF.classCoords = classCoords
 UF.specIcons = SPEC_ICONS
 
 local function setIcon(frame, icon, class, spec)
+	icon:Show()
+	if not config.showClassIcon then
+		icon.texture:Hide()
+		icon.border:Hide()
+		frame:SetContentInset(0)
+		return
+	end
+	icon.texture:Show()
+	icon.border:Show()
+
 	local coords = class and classCoords[class]
 	local specIcon = coords and spec and SPEC_ICONS[class] and SPEC_ICONS[class][spec]
 	if specIcon then
@@ -60,7 +71,6 @@ local function setIcon(frame, icon, class, spec)
 		icon.texture:SetTexCoord(0, 1, 0, 1)
 	end
 
-	icon:Show()
 	frame:SetContentInset(UF.ClassIconInset(icon:GetWidth()))
 end
 

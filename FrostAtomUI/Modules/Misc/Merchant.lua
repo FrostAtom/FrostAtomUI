@@ -58,10 +58,10 @@ local function repair()
 end
 
 Misc:RegisterEvent("MERCHANT_SHOW", function()
-	if IsShiftKeyDown() then
+	local config = ns.Config.merchant
+	if not config.enabled or (config.shiftToSkip and IsShiftKeyDown()) then
 		return
 	end
-	local config = ns.Config.merchant
 	if config.sellGreys then
 		sellGreys()
 	end

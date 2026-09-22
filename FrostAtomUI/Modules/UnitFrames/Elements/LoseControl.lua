@@ -7,6 +7,7 @@ local random = math.random
 
 local Auras = ns.Auras
 local CooldownTimer = ns:GetModule("CooldownTimer")
+local config = ns.Config.unitFrames
 
 -- stylua: ignore
 local CC_SPELL_IDS = {
@@ -59,7 +60,7 @@ local function update(frame)
 		end
 	end
 
-	if longest then
+	if longest and config.showLoseControl then
 		show(loseControl, longest.icon, longest.expires - longest.duration, longest.duration)
 	else
 		hide(loseControl)
@@ -68,7 +69,7 @@ end
 
 local function test(frame)
 	local loseControl = frame.losecontrol
-	if random(3) ~= 1 then
+	if not config.showLoseControl or random(3) ~= 1 then
 		hide(loseControl)
 		return
 	end

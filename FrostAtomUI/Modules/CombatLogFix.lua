@@ -33,15 +33,17 @@ function CombatLogFix:COMBAT_LOG_EVENT_UNFILTERED()
 end
 
 function CombatLogFix:PLAYER_ENTERING_WORLD()
-	if IsInInstance() then
+	if ns.Config.combatLogFix.enabled and IsInInstance() then
 		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 		self:RegisterEvent("UNIT_SPELLCAST_SENT")
 	else
 		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 		self:UnregisterEvent("UNIT_SPELLCAST_SENT")
+		watchdog:Hide()
 	end
 end
 
 function CombatLogFix:Initialize()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
+	self:WatchConfig("combatLogFix", self.PLAYER_ENTERING_WORLD)
 end

@@ -1,21 +1,21 @@
 local _, ns = ...
 
 local GetCursorPosition = GetCursorPosition
+local InCombatLockdown = InCombatLockdown
 
 local Misc = ns:GetModule("Misc")
+
+local TRAIL_SCALE = 0.0018
+local SHINE_SCALE = 0.01
 
 local trail = CreateFrame("Model")
 trail:SetAllPoints()
 trail:SetFrameStrata("FULLSCREEN_DIALOG")
 trail:SetModel("spells\\lightningboltivus_missile.mdx")
-trail:SetModelScale(0.0018)
-trail:SetAlpha(0.6)
 
 local shine = CreateFrame("Model", nil, trail)
 shine:SetAllPoints()
 shine:SetModel("spells\\manafunnel_impact_chest.mdx")
-shine:SetModelScale(0.01)
-shine:SetAlpha(0.5)
 
 local screenDiagonal = (GetScreenWidth() ^ 2 + GetScreenHeight() ^ 2) ^ 0.5
 local lastX, lastY
@@ -33,7 +33,12 @@ shine:SetScript("OnUpdate", function(self)
 end)
 
 local function applyConfig()
-	if ns.Config.cursorTrail.enabled then
+	local config = ns.Config.cursorTrail
+	trail:SetModelScale(TRAIL_SCALE * config.scale)
+	trail:SetAlpha(config.trailAlpha)
+	shine:SetModelScale(SHINE_SCALE * config.scale)
+	shine:SetAlpha(config.shineAlpha)
+	if config.enabled and not (config.hideInCombat and InCombatLockdown()) then
 		lastX, lastY = nil, nil
 		trail:Show()
 	else
@@ -43,3 +48,5 @@ end
 
 applyConfig()
 Misc:WatchConfig("cursorTrail", applyConfig)
+Misc:RegisterEvent("PLAYER_REGEN_DISABLED", applyConfig)
+Misc:RegisterEvent("PLAYER_REGEN_ENABLED", applyConfig)

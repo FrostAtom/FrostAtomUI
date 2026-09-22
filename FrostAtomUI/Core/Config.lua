@@ -25,7 +25,9 @@ ns.Defaults = {
 		microMenu = { "BOTTOMRIGHT", -2, 2 },
 		bagButton = { "BOTTOMRIGHT", -256, 5 },
 		showHotkeys = true,
+		showShapeshiftHotkeys = false,
 		showNames = true,
+		clickAnimation = true,
 		hotkeyFont = { size = 9, outline = "OUTLINE" },
 		nameFont = { size = 9, outline = "OUTLINE" },
 		rangeColor = { 1, 0, 0 },
@@ -74,9 +76,36 @@ ns.Defaults = {
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
 		textFont = { size = 10, outline = "OUTLINE" },
 		castbarFont = { size = 12, outline = "OUTLINE" },
+		showClassIcon = true,
+		showLeaderIcon = true,
+		showCombatIcon = true,
+		showRestingIcon = true,
+		showPvpIcon = true,
+		showRaidIcon = true,
+		showPet = true,
+		showLoseControl = true,
+		loseControlPoint = { "CENTER", 0, 0 },
+		loseControlSize = 32,
+		rightClick = "menu",
+		hoverHighlight = true,
+		hoverAlpha = 0.08,
+		healthCutaway = true,
+		healthCutawayColor = { 1, 0.9, 0.8, 0.6 },
+		powerRatio = 0.2,
+		gridGap = 6,
+		groupDebuffSize = 32,
+		groupDebuffMax = 12,
+		partyBuffSize = 19,
+		partyBuffMax = 18,
+		raidIconSize = 16,
+		comboPointSize = 8,
+		comboPointColor = { 1, 0.2, 0.2 },
+		comboPointPartialColor = { 1, 0.8, 0.2 },
+		cooldownGlowColor = { 1, 0.85, 0.3 },
 	},
 
 	chat = {
+		enabled = true,
 		skin = true,
 		timestamps = true,
 		urlLinks = true,
@@ -85,14 +114,29 @@ ns.Defaults = {
 		classColorNames = true,
 		filterSystemSpam = true,
 		filterArenaSpam = true,
+		lockFrames = true,
+		stickyChannels = true,
+		timestampFormat = "%H:%M",
+		maxLines = 1000,
+		savedHistoryLines = 100,
+		savedCommands = 50,
 		point = { "BOTTOMLEFT", 12, 36 },
 		width = 400,
 		height = 153,
 		fadeTime = 30,
 		backgroundAlpha = 0.6,
+		copyWindowWidth = 520,
+		copyWindowHeight = 380,
 		bubbleFont = { size = 12, outline = "" },
 		bubbleAlpha = 0.75,
 		bubbleMaxWidth = 300,
+		bubblePadding = 6,
+		bubbleBorderAlpha = 0.9,
+		whisperBlock = {
+			enabled = false,
+			reply = "",
+			friendsBypass = true,
+		},
 	},
 
 	namePlates = {
@@ -104,15 +148,27 @@ ns.Defaults = {
 		totemIconSize = 24,
 		raidIconSize = 22,
 		showTargetPercent = true,
+		showName = true,
+		showRaidIcon = true,
+		classColorHealth = true,
+		targetBorder = true,
+		castbarGap = 3,
 		nameFont = { size = 9, outline = "OUTLINE" },
 		percentFont = { size = 9, outline = "OUTLINE" },
 		castbarColor = { 0.75, 0.4, 0 },
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
 		showAuras = true,
+		showAuraTimer = true,
+		showAuraCount = true,
+		ownDebuffs = true,
 		auraSize = 20,
+		auraGap = 2,
+		auraRowGap = 3,
+		maxAuraIcons = 6,
 		auraFont = { size = 10, outline = "OUTLINE" },
 		showHealers = true,
 		healerIconSize = 16,
+		healerThreshold = 2,
 	},
 
 	playerPlate = {
@@ -127,9 +183,11 @@ ns.Defaults = {
 		classColorHealth = true,
 		healthColor = { 0, 0.8, 0 },
 		alwaysShow = false,
+		fadeTime = 0.5,
 	},
 	shieldIndicator = {
 		enabled = true,
+		point = { "CENTER", -98, -120 },
 		size = 34,
 	},
 
@@ -225,16 +283,23 @@ ns.Defaults = {
 	lowHealthFlash = {
 		enabled = true,
 		threshold = 0.33,
+		pulseSpeed = 1.2,
 	},
 
 	cursorTrail = {
 		enabled = true,
+		hideInCombat = false,
+		scale = 1,
+		trailAlpha = 0.6,
+		shineAlpha = 0.5,
 	},
 
 	announce = {
+		enabled = true,
 		interrupts = true,
 		interruptMessage = "Interrupted %s's %s",
 		auraMastery = true,
+		auraMasteryMessage = "<<< AURA MASTERY >>>",
 		arenaResult = true,
 		arenaResultToParty = true,
 	},
@@ -242,25 +307,47 @@ ns.Defaults = {
 	dispelHighlightAlpha = 0.5,
 
 	equipment = {
+		enabled = true,
 		showItemLevels = true,
 		durabilityWarning = true,
 		durabilityThreshold = 0.2,
+		slotFont = { size = 11, outline = "OUTLINE" },
+		averageFont = { size = 14, outline = "OUTLINE" },
+		qualityThresholds = { uncommon = 200, rare = 220, epic = 245, legendary = 264 },
 	},
 
 	merchant = {
+		enabled = true,
 		sellGreys = true,
 		autoRepair = true,
+		shiftToSkip = true,
 	},
 
 	wheelPaging = {
 		enabled = true,
 	},
 
+	modelControls = {
+		enabled = true,
+		rotateSpeed = 0.01,
+		zoomStep = 0.4,
+	},
+
+	combatLogFix = {
+		enabled = true,
+	},
+
 	tweaks = {
+		enabled = true,
 		hideErrors = true,
+		scriptErrors = true,
+		hideGroundClutter = true,
+		cameraDistanceMax = 50,
+		worldStatePoint = { "BOTTOMLEFT", 52, 289 },
 	},
 
 	popups = {
+		enabled = true,
 		declineDuels = false,
 		declineInvites = false,
 		declineTrades = false,
@@ -281,36 +368,53 @@ ns.Defaults = {
 		backgroundAlpha = 0.6,
 	},
 
-	arenaTrinket = { size = 30 },
+	arenaTrinket = { enabled = true, size = 30 },
 
 	arena = {
+		enabled = true,
 		countdown = true,
 		countdownPoint = { "CENTER", 0, 180 },
 		countdownFont = { size = 24, outline = "OUTLINE" },
+		countdownColor = { 1, 1, 1 },
+		countdownUrgentColor = { 1, 0, 0 },
 		pillars = true,
 		pillarsSize = 36,
+		pillarsFirstToggle = 45,
+		pillarsPeriod = 25,
 	},
 
 	battleground = {
+		enabled = true,
 		raidWarnings = true,
 	},
 
 	soloQueue = {
 		enabled = true,
+		buttonSize = 20,
+		buttonInset = 3,
+		glowColor = { 0.3, 1, 0.3 },
 		rangeFont = { size = 12, outline = "OUTLINE" },
+		teamSearchColor = { 1, 1, 1 },
+		opponentSearchColor = { 1, 0.85, 0.3 },
 	},
 
 	worldMap = {
+		enabled = true,
 		screenFraction = 0.8,
 		showCoords = true,
 		coordFont = { size = 12, outline = "OUTLINE" },
 		arrowSize = 36,
+		zoomStep = 0.2,
+		maxZoom = 4,
 	},
 
 	arenaHistory = {
 		enabled = true,
 		point = { "CENTER", 0, 40 },
 		maxGames = 1000,
+		listFont = { size = 12, outline = "" },
+		winColor = { 0.3, 1, 0.3 },
+		lossColor = { 1, 0.3, 0.3 },
 	},
 
 	combatAlert = {
@@ -318,6 +422,7 @@ ns.Defaults = {
 		point = { "CENTER", 0, 150 },
 		font = { size = 22, outline = "OUTLINE" },
 		duration = 1,
+		fadeTime = 0.5,
 		enterText = "+ combat",
 		leaveText = "- combat",
 		enterColor = { 1, 0.3, 0.3 },
@@ -327,6 +432,8 @@ ns.Defaults = {
 	performance = {
 		enabled = true,
 		point = { "TOPLEFT", 12, -10 },
+		showFps = true,
+		showLatency = true,
 		valueFont = { size = 16, outline = "OUTLINE" },
 		unitFont = { size = 11, outline = "OUTLINE" },
 		fpsRed = 50,
@@ -345,6 +452,7 @@ ns.Defaults = {
 		showItemLevel = true,
 		showItemCount = true,
 		showTargetedBy = true,
+		labelColor = { 0.2, 0.4, 1 },
 	},
 
 	minimap = {
@@ -352,7 +460,13 @@ ns.Defaults = {
 		point = { "TOPRIGHT", -15, -15 },
 		size = 140,
 		showClock = true,
+		clock24h = true,
+		clockPoint = { "BOTTOM", 0, 4 },
 		clockFont = { size = 12, outline = "OUTLINE" },
+		showZoneText = false,
+		zoneFont = { size = 11, outline = "OUTLINE" },
+		showTracking = false,
+		iconSize = 18,
 		borderColor = { 1, 1, 1 },
 	},
 
@@ -360,6 +474,7 @@ ns.Defaults = {
 		enabled = true,
 		buttonSize = 34,
 		spacing = 4,
+		padding = 8,
 		inventoryColumns = 10,
 		bankColumns = 16,
 		inventory = { "BOTTOMRIGHT", -6, 42 },
@@ -367,7 +482,9 @@ ns.Defaults = {
 		backgroundAlpha = 0.6,
 		showItemLevel = true,
 		highlightNewItems = true,
+		questItemColor = { 1, 0.8, 0 },
 		autoOpen = true,
+		playSounds = true,
 		searchFadeAlpha = 0.25,
 		countFont = { size = 12, outline = "OUTLINE" },
 		levelFont = { size = 10, outline = "OUTLINE" },
@@ -501,7 +618,10 @@ end
 
 function ns:IsDefaultConfig(path)
 	local store, key = walk(saved, path)
-	return not store or store[key] == nil
+	if not store or store[key] == nil then
+		return true
+	end
+	return type(store[key]) == "table" and next(store[key]) == nil
 end
 
 local function applyGeneral()

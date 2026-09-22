@@ -27,6 +27,7 @@ local function showCutaway(health, from, to, max)
 	local cutaway = health.cutaway
 	cutaway:SetPoint("TOPLEFT", health, "TOPLEFT", width * to / max, 0)
 	cutaway:SetPoint("BOTTOMRIGHT", health, "BOTTOMLEFT", width * from / max, 0)
+	cutaway:SetVertexColor(unpack(config.healthCutawayColor))
 	cutaway:SetAlpha(1)
 	cutaway:Show()
 end
@@ -49,7 +50,7 @@ local function setAlive(health, setValue, current, max, class)
 	health:SetMinMaxValues(0, max)
 	setValue(health, current)
 
-	if health.lastCurrent and current < health.lastCurrent then
+	if config.healthCutaway and health.lastCurrent and current < health.lastCurrent then
 		showCutaway(health, health.lastCurrent, current, max)
 	end
 	health.lastCurrent = current
@@ -143,7 +144,6 @@ local function create(frame)
 
 	health.cutaway = health:CreateTexture(nil, "ARTWORK", nil, 1)
 	health.cutaway:SetTexture(ns.Media.blank)
-	health.cutaway:SetVertexColor(1, 0.9, 0.8, 0.6)
 	health.cutaway:Hide()
 
 	health.text = health:CreateFontString(nil, "OVERLAY")

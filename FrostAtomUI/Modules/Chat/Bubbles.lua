@@ -8,9 +8,7 @@ local min = math.min
 local Chat = ns:GetModule("Chat")
 
 local config = ns.Config.chat
-local PADDING = 6
 local BORDER_SIZE = 1
-local BORDER_ALPHA = 0.9
 
 local function iconTagToTexture(tag)
 	local index = ICON_TAG_LIST[lower(sub(tag, 2, -2))]
@@ -25,15 +23,16 @@ local function onBubbleShow(bubble)
 	end
 
 	local r, g, b = text:GetTextColor()
-	bubble.border:SetVertexColor(r, g, b, BORDER_ALPHA)
+	bubble.border:SetVertexColor(r, g, b, config.bubbleBorderAlpha)
 
 	local font = ChatFrame1:GetFont()
 	text:SetFont(font, config.bubbleFont.size, config.bubbleFont.outline)
 	text:SetTextColor(r, g, b)
 	bubble.background:SetTexture(0, 0, 0, config.bubbleAlpha)
+	local padding = config.bubblePadding
 	bubble.background:SetSize(
-		min(text:GetStringWidth(), config.bubbleMaxWidth) + PADDING * 2,
-		text:GetStringHeight() + PADDING * 2
+		min(text:GetStringWidth(), config.bubbleMaxWidth) + padding * 2,
+		text:GetStringHeight() + padding * 2
 	)
 end
 
@@ -75,4 +74,6 @@ local function setupBubble(_, bubble)
 	bubble:SetScript("OnShow", onBubbleShow)
 end
 
-Chat:RegisterEvent(ns.CHAT_BUBBLE_CREATED, setupBubble)
+Chat:OnInitialize(function(self)
+	self:RegisterEvent(ns.CHAT_BUBBLE_CREATED, setupBubble)
+end)

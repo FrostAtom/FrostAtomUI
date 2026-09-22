@@ -2,9 +2,9 @@ local _, ns = ...
 
 local GetCursorPosition = GetCursorPosition
 
-local ROTATE_SPEED = 0.01
+local Misc = ns:GetModule("Misc")
+
 local PAN_SPEED = 0.01
-local ZOOM_STEP = 0.4
 
 local function onMouseDown(model, button)
 	model.dragButton = button
@@ -26,7 +26,7 @@ local function onUpdate(model)
 	model.dragX, model.dragY = x, y
 
 	if button == "LeftButton" then
-		model:SetFacing(model:GetFacing() + dx * ROTATE_SPEED)
+		model:SetFacing(model:GetFacing() + dx * ns.Config.modelControls.rotateSpeed)
 	elseif button == "RightButton" then
 		model.panY = model.panY + dx * PAN_SPEED
 		model.panZ = model.panZ + dy * PAN_SPEED
@@ -35,7 +35,7 @@ local function onUpdate(model)
 end
 
 local function onMouseWheel(model, delta)
-	model.zoom = model.zoom + delta * ZOOM_STEP
+	model.zoom = model.zoom + delta * ns.Config.modelControls.zoomStep
 	model:SetPosition(model.zoom, model.panY, model.panZ)
 end
 
@@ -58,9 +58,14 @@ local function setupModel(model, rotateLeft, rotateRight)
 	ns.DestroyFrame(rotateRight)
 end
 
-setupModel(CharacterModelFrame, CharacterModelFrameRotateLeftButton, CharacterModelFrameRotateRightButton)
-setupModel(DressUpModel, DressUpModelRotateLeftButton, DressUpModelRotateRightButton)
+Misc:OnInitialize(function()
+	if not ns.Config.modelControls.enabled then
+		return
+	end
+	setupModel(CharacterModelFrame, CharacterModelFrameRotateLeftButton, CharacterModelFrameRotateRightButton)
+	setupModel(DressUpModel, DressUpModelRotateLeftButton, DressUpModelRotateRightButton)
 
-ns:OnAddonLoaded("Blizzard_InspectUI", function()
-	setupModel(InspectModelFrame, InspectModelRotateLeftButton, InspectModelRotateRightButton)
+	ns:OnAddonLoaded("Blizzard_InspectUI", function()
+		setupModel(InspectModelFrame, InspectModelRotateLeftButton, InspectModelRotateRightButton)
+	end)
 end)

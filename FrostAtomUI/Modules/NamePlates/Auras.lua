@@ -12,9 +12,6 @@ local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
 
 local config = ns.Config.namePlates
 local ICON_RATIO = 0.65
-local ICON_GAP = 2
-local ROW_GAP = 3
-local MAX_ICONS = 6
 local DURATION_BAR_HEIGHT = 2
 local TIMER_INTERVAL = 0.1
 
@@ -47,7 +44,7 @@ local function layoutIcon(icon, index)
 	local size = config.auraSize
 	icon:SetSize(size, size * ICON_RATIO)
 	icon:ClearAllPoints()
-	icon:SetPoint("LEFT", (index - 1) * (size + ICON_GAP), 0)
+	icon:SetPoint("LEFT", (index - 1) * (size + config.auraGap), 0)
 	ns.SetFont(icon.timer, config.auraFont.size, config.auraFont.outline)
 	ns.SetFont(icon.count, config.auraFont.size, config.auraFont.outline)
 end
@@ -86,32 +83,38 @@ local function updateAuras()
 	end
 
 	local auras, count = Auras.Get("target", "HARMFUL")
+	local ownDebuffs, showTimer, showCount = config.ownDebuffs, config.showAuraTimer, config.showAuraCount
+	local maxIcons = config.maxAuraIcons
 	local shown = 0
 	for i = 1, count do
 		local aura = auras[i]
 		local name = aura.name
-		if ccSpellNames[name] or (ownSpellNames[name] and aura.caster == "player") then
+		if ccSpellNames[name] or (ownDebuffs and ownSpellNames[name] and aura.caster == "player") then
 			shown = shown + 1
 			local icon = icons[shown] or createIcon(shown)
 			icon.texture:SetTexture(aura.icon)
 			local duration = aura.duration
 			if duration and duration > 0 then
 				icon.duration, icon.endTime = duration, aura.expires
-				icon.timer:Show()
+				if showTimer then
+					icon.timer:Show()
+				else
+					icon.timer:Hide()
+				end
 				icon.bar:Show()
 			else
 				icon.endTime = nil
 				icon.timer:Hide()
 				icon.bar:Hide()
 			end
-			if aura.count > 1 then
+			if showCount and aura.count > 1 then
 				icon.count:SetFormattedText("%d", aura.count)
 			else
 				icon.count:SetText("")
 			end
 			icon:Show()
 
-			if shown == MAX_ICONS then
+			if shown == maxIcons then
 				break
 			end
 		end
@@ -126,7 +129,8 @@ local function updateAuras()
 		row:Hide()
 		return
 	end
-	row:SetSize(shown * (config.auraSize + ICON_GAP) - ICON_GAP, config.auraSize * ICON_RATIO)
+	local gap = config.auraGap
+	row:SetSize(shown * (config.auraSize + gap) - gap, config.auraSize * ICON_RATIO)
 	row.nextTick = 0
 end
 
@@ -152,7 +156,7 @@ local anchoredPlate
 local function anchorRow(plate)
 	if plate ~= anchoredPlate then
 		anchoredPlate = plate
-		row:SetPoint("BOTTOM", plate.holder, "TOP", 0, ROW_GAP)
+		row:SetPoint("BOTTOM", plate.holder, "TOP", 0, config.auraRowGap)
 	end
 	row:Show()
 end
@@ -184,5 +188,6 @@ NamePlates:WatchConfig("namePlates", function()
 	for i = 1, #icons do
 		layoutIcon(icons[i], i)
 	end
+	anchoredPlate = nil
 	updateAuras()
 end)

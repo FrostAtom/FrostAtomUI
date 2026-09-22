@@ -6,8 +6,10 @@ local UnitIsPVP = UnitIsPVP
 local UnitIsPVPFreeForAll = UnitIsPVPFreeForAll
 local UnitFactionGroup = UnitFactionGroup
 
+local config = ns.Config.unitFrames
+
 local function updateResting(frame)
-	if IsResting() then
+	if config.showRestingIcon and IsResting() then
 		frame.resting:Show()
 	else
 		frame.resting:Hide()
@@ -15,7 +17,7 @@ local function updateResting(frame)
 end
 
 local function testResting(frame)
-	if math.random(2) == 1 then
+	if config.showRestingIcon and math.random(2) == 1 then
 		frame.resting:Show()
 	else
 		frame.resting:Hide()
@@ -40,7 +42,7 @@ local PVP_TEXTURE = "Interface\\TargetingFrame\\UI-PVP-%s"
 local PVP_VARIANTS = { "Alliance", "Horde", "FFA", false }
 
 local function setPvp(pvp, variant)
-	if variant then
+	if variant and config.showPvpIcon then
 		pvp:SetTexture(PVP_TEXTURE:format(variant))
 		pvp:Show()
 	else

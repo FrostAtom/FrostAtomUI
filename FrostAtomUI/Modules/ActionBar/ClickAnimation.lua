@@ -4,9 +4,9 @@ local tremove = table.remove
 
 local ActionBar = ns:GetModule("ActionBar")
 
+local config = ns.Config.actionBar
 local PREALLOCATED = 20
 local pool = {}
-local disabled = false
 
 local function onFinished(animGroup)
 	pool[#pool + 1] = animGroup:GetParent():GetParent()
@@ -50,7 +50,7 @@ local function createAnimationFrame()
 end
 
 function ActionBar.PlayClickAnimation(button)
-	if disabled then
+	if not config.clickAnimation then
 		return
 	end
 
@@ -65,12 +65,15 @@ for i = 1, PREALLOCATED do
 end
 
 ActionBar:RegisterEvent(ns.DB_LOADED, function(_, db)
-	disabled = db.video_record
+	if db.video_record ~= nil then
+		ns:SetConfig("actionBar.clickAnimation", not db.video_record)
+		db.video_record = nil
+	end
 end)
 
 SlashCmdList.FROSTATOMUI_VIDEORECORD = function()
-	disabled = not disabled
-	ns:SaveVariable("video_record", disabled)
-	ns.Print("video record mode %s", disabled and "enabled" or "disabled")
+	local enabled = not config.clickAnimation
+	ns:SetConfig("actionBar.clickAnimation", enabled)
+	ns.Print("click animation %s", enabled and "enabled" or "disabled")
 end
 SLASH_FROSTATOMUI_VIDEORECORD1 = "/vr"

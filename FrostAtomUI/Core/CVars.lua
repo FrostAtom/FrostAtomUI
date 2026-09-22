@@ -1,6 +1,6 @@
 local _, ns = ...
 
-local SetCVar = SetCVar
+local SetCVar, GetCVarDefault = SetCVar, GetCVarDefault
 
 local CVars = ns:NewModule("CVars")
 
@@ -14,6 +14,14 @@ function CVars:Pin(name, value, updateEvent)
 	if updateEvent then
 		eventToCVar[updateEvent] = name
 	end
+end
+
+function CVars:Unpin(name)
+	if not pinnedValues[name] then
+		return
+	end
+	pinnedValues[name] = nil
+	SetCVar(name, GetCVarDefault(name))
 end
 
 function CVars:CVAR_UPDATE(name, newValue)

@@ -4,9 +4,11 @@ local UF = ns:GetModule("UnitFrames")
 local UnitAffectingCombat = UnitAffectingCombat
 local UnitIsConnected = UnitIsConnected
 
+local config = ns.Config.unitFrames
+
 local function update(frame)
 	local unit = frame.unit
-	if UnitIsConnected(unit) and UnitAffectingCombat(unit) then
+	if config.showCombatIcon and UnitIsConnected(unit) and UnitAffectingCombat(unit) then
 		frame.combat:Show()
 	else
 		frame.combat:Hide()
@@ -14,7 +16,7 @@ local function update(frame)
 end
 
 local function test(frame)
-	if math.random(2) == 1 then
+	if config.showCombatIcon and math.random(2) == 1 then
 		frame.combat:Show()
 	else
 		frame.combat:Hide()

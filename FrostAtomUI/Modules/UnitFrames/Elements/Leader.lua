@@ -4,6 +4,8 @@ local UF = ns:GetModule("UnitFrames")
 local GetPartyLeaderIndex = GetPartyLeaderIndex
 local IsPartyLeader = IsPartyLeader
 
+local config = ns.Config.unitFrames
+
 local function update(frame)
 	local leader = frame.leader
 
@@ -14,7 +16,7 @@ local function update(frame)
 		isLeader = IsPartyLeader()
 	end
 
-	if isLeader then
+	if isLeader and config.showLeaderIcon then
 		leader:Show()
 	else
 		leader:Hide()
@@ -22,7 +24,7 @@ local function update(frame)
 end
 
 local function test(frame)
-	if frame.test.leader then
+	if frame.test.leader and config.showLeaderIcon then
 		frame.leader:Show()
 	else
 		frame.leader:Hide()

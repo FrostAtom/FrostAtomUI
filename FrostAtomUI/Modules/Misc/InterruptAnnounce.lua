@@ -36,7 +36,8 @@ local function onCombatLogEvent(_, _, event, sourceGUID, _, _, _, destName, _, _
 end
 
 local function applyConfig()
-	if ns.Config.announce.interrupts then
+	local config = ns.Config.announce
+	if config.enabled and config.interrupts then
 		Misc:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
 	else
 		Misc:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
@@ -50,10 +51,7 @@ Misc:WatchConfig("announce", applyConfig)
 
 Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
 	if db.InterruptAnnounce ~= nil then
-		db.config = db.config or {}
-		db.config.announce = db.config.announce or {}
-		db.config.announce.interrupts = db.InterruptAnnounce
-		ns.Config.announce.interrupts = db.InterruptAnnounce
+		ns:SetConfig("announce.interrupts", db.InterruptAnnounce and true or false)
 		db.InterruptAnnounce = nil
 	end
 end)

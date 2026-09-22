@@ -53,15 +53,22 @@ local function makeData(frame)
 	return data
 end
 
-local function startTest(frame)
-	UnregisterUnitWatch(frame)
-	frame:Show()
-	frame.test = makeData(frame)
-	for name, element in pairs(UF.elements) do
+function UF:RunTest(frame)
+	if not frame.test then
+		return
+	end
+	for name, element in pairs(self.elements) do
 		if frame[name] and element.test then
 			element.test(frame)
 		end
 	end
+end
+
+local function startTest(frame)
+	UnregisterUnitWatch(frame)
+	frame:Show()
+	frame.test = makeData(frame)
+	UF:RunTest(frame)
 end
 
 local function stopTest(frame)

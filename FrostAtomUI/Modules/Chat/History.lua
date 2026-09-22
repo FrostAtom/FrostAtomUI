@@ -5,17 +5,15 @@ local tconcat, tinsert, tremove = table.concat, table.insert, table.remove
 local max = math.max
 
 local Chat = ns:GetModule("Chat")
+local config = ns.Config.chat
 
-local SAVED_LINES = 100
-local SAVED_COMMANDS = 50
 local DIVIDER = "|cff7f7f7f" .. ("-"):rep(60) .. "|r"
 
 local COPY_FRAME_NAME = "FrostAtomUICopyChat"
-local COPY_WIDTH, COPY_HEIGHT = 520, 380
 
 local commandHistory = {}
 
-Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
+local function restoreHistory(db)
 	local saved = db.chat_history
 	if saved and #saved > 0 then
 		for i = 1, #saved do
@@ -31,19 +29,19 @@ Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
 	for i = #commandHistory, 1, -1 do
 		ChatFrame1EditBox:AddHistoryLine(commandHistory[i])
 	end
-end)
+end
 
-Chat:RegisterEvent("PLAYER_LOGOUT", function()
+local function saveHistory()
 	local count = Chat.NumLines(ChatFrame1)
 	local saved = {}
-	for i = max(1, count - SAVED_LINES + 1), count do
+	for i = max(1, count - config.savedHistoryLines + 1), count do
 		local line = Chat.GetLine(ChatFrame1, i)
 		if line[1] ~= DIVIDER then
 			saved[#saved + 1] = { line[1], line[2], line[3], line[4] }
 		end
 	end
 	ns:SaveVariable("chat_history", saved)
-end)
+end
 
 local function editBoxCommand(editBox)
 	local text = editBox:GetText()
@@ -61,7 +59,7 @@ local function editBoxCommand(editBox)
 	return header .. " " .. text
 end
 
-hooksecurefunc(ChatFrame1EditBox, "AddHistoryLine", function(editBox)
+local function onHistoryLine(editBox)
 	local command = editBoxCommand(editBox)
 	if not command then
 		return
@@ -69,10 +67,10 @@ hooksecurefunc(ChatFrame1EditBox, "AddHistoryLine", function(editBox)
 
 	ns.tDeleteItem(commandHistory, command)
 	tinsert(commandHistory, 1, command)
-	while #commandHistory > SAVED_COMMANDS do
+	while #commandHistory > config.savedCommands do
 		tremove(commandHistory)
 	end
-end)
+end
 
 local function plainText(text)
 	text = gsub(text, "|T.-|t", "")
@@ -83,9 +81,15 @@ end
 
 local copyFrame
 
+local function applyCopySize()
+	if copyFrame then
+		copyFrame:SetSize(config.copyWindowWidth, config.copyWindowHeight)
+		copyFrame.editBox:SetWidth(config.copyWindowWidth - 40)
+	end
+end
+
 local function createCopyFrame()
 	local frame = CreateFrame("Frame", COPY_FRAME_NAME, UIParent)
-	frame:SetSize(COPY_WIDTH, COPY_HEIGHT)
 	frame:SetPoint("CENTER")
 	frame:SetFrameStrata("DIALOG")
 	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
@@ -108,7 +112,6 @@ local function createCopyFrame()
 	editBox:SetMultiLine(true)
 	editBox:SetAutoFocus(false)
 	editBox:SetFontObject(ChatFontNormal)
-	editBox:SetWidth(COPY_WIDTH - 40)
 	editBox:SetScript("OnEscapePressed", function()
 		frame:Hide()
 	end)
@@ -120,10 +123,15 @@ local function createCopyFrame()
 
 	frame.scroll = scroll
 	frame.editBox = editBox
+	copyFrame = frame
+	applyCopySize()
 	return frame
 end
 
 local function copyChatFrame(chatFrame)
+	if not Chat.lines[chatFrame] then
+		return
+	end
 	copyFrame = copyFrame or createCopyFrame()
 
 	local text = {}
@@ -160,16 +168,23 @@ local function onCopyButtonClick(self)
 	copyChatFrame(self:GetParent())
 end
 
-for i = 1, NUM_CHAT_WINDOWS do
-	local chatFrame = _G["ChatFrame" .. i]
-	local copyButton = CreateFrame("Button", nil, chatFrame)
-	copyButton:SetSize(16, 16)
-	copyButton:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", 4, 4)
-	copyButton:SetFrameLevel(chatFrame:GetFrameLevel() + 5)
-	copyButton:SetNormalTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
-	copyButton:SetHighlightTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
-	copyButton:SetAlpha(0.4)
-	copyButton:SetScript("OnEnter", onCopyButtonEnter)
-	copyButton:SetScript("OnLeave", onCopyButtonLeave)
-	copyButton:SetScript("OnClick", onCopyButtonClick)
-end
+Chat:OnInitialize(function(self)
+	restoreHistory(ns.db)
+	self:RegisterEvent("PLAYER_LOGOUT", saveHistory)
+	self:WatchConfig("chat", applyCopySize)
+	hooksecurefunc(ChatFrame1EditBox, "AddHistoryLine", onHistoryLine)
+
+	for i = 1, NUM_CHAT_WINDOWS do
+		local chatFrame = _G["ChatFrame" .. i]
+		local copyButton = CreateFrame("Button", nil, chatFrame)
+		copyButton:SetSize(16, 16)
+		copyButton:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", 4, 4)
+		copyButton:SetFrameLevel(chatFrame:GetFrameLevel() + 5)
+		copyButton:SetNormalTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
+		copyButton:SetHighlightTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
+		copyButton:SetAlpha(0.4)
+		copyButton:SetScript("OnEnter", onCopyButtonEnter)
+		copyButton:SetScript("OnLeave", onCopyButtonLeave)
+		copyButton:SetScript("OnClick", onCopyButtonClick)
+	end
+end)

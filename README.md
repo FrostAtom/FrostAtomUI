@@ -172,7 +172,7 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 | `/uftest` | Toggle unit frame test mode: every frame is shown with random data |
 | `/guid` | Print your target's GUID |
 | `/rl` | Reload the UI |
-| `/fui` | Open the settings window |
+| `/fui [page or text]` | Open the settings window; `/fui chat` jumps to a page, any other text searches the settings |
 
 Every `/no…` command also takes `on`, `off` or `status`.
 

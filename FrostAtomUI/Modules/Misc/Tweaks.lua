@@ -2,14 +2,6 @@ local _, ns = ...
 
 local Misc = ns:NewModule("Misc")
 
-local CVars = ns:GetModule("CVars")
-CVars:Pin("showItemLevel", "0", "SHOW_ITEM_LEVEL")
-CVars:Pin("groundEffectDist", "0")
-CVars:Pin("showTutorials", "0")
-CVars:Pin("scriptErrors", "1")
-CVars:Pin("cameraDistanceMax", "50")
-CVars:Pin("cameraDistanceMaxFactor", "1")
-
 local function applyErrors()
 	if ns.Config.tweaks.hideErrors then
 		UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
@@ -18,11 +10,57 @@ local function applyErrors()
 	end
 end
 
-applyErrors()
-Misc:WatchConfig("tweaks.hideErrors", applyErrors)
+local function applyScriptErrors()
+	ns:GetModule("CVars"):Pin("scriptErrors", ns.Config.tweaks.scriptErrors and "1" or "0")
+end
 
-WorldStateAlwaysUpFrame:ClearAllPoints()
-WorldStateAlwaysUpFrame:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 40, 100)
+local function applyGroundClutter()
+	local CVars = ns:GetModule("CVars")
+	if ns.Config.tweaks.hideGroundClutter then
+		CVars:Pin("groundEffectDist", "0")
+	else
+		CVars:Unpin("groundEffectDist")
+	end
+end
+
+local function applyCameraDistance()
+	ns:GetModule("CVars"):Pin("cameraDistanceMax", tostring(ns.Config.tweaks.cameraDistanceMax))
+end
+
+local function onPopupClick(self)
+	if self.value == "SPECTATE" then
+		SendChatMessage(".spec pla " .. UIDROPDOWNMENU_INIT_MENU.name)
+	end
+end
+
+Misc:OnInitialize(function(self)
+	if not ns.Config.tweaks.enabled then
+		return
+	end
+
+	local CVars = ns:GetModule("CVars")
+	CVars:Pin("showItemLevel", "0", "SHOW_ITEM_LEVEL")
+	CVars:Pin("showTutorials", "0")
+	CVars:Pin("cameraDistanceMaxFactor", "1")
+
+	applyScriptErrors()
+	applyGroundClutter()
+	applyCameraDistance()
+	applyErrors()
+	self:WatchConfig("tweaks.scriptErrors", applyScriptErrors)
+	self:WatchConfig("tweaks.hideGroundClutter", applyGroundClutter)
+	self:WatchConfig("tweaks.cameraDistanceMax", applyCameraDistance)
+	self:WatchConfig("tweaks.hideErrors", applyErrors)
+
+	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", nil, "World state")
+	ns.Movers.Register(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", nil, { size = { 200, 30 } })
+
+	UnitPopupButtons.SPECTATE = { text = "Spectate", dist = 0 }
+	for _, menu in ipairs({ "FRIEND", "TEAM", "BN_FRIEND" }) do
+		tinsert(UnitPopupMenus[menu], #UnitPopupMenus[menu] - 1, "SPECTATE")
+	end
+	hooksecurefunc("UnitPopup_OnClick", onPopupClick)
+end)
 
 SLASH_RELOAD2 = "/rl"
 
@@ -60,17 +98,6 @@ SLASH_FROSTATOMUI_CONFIG1 = "/fui"
 SLASH_FROSTATOMUI_CONFIG2 = "/frostatomui"
 SLASH_FROSTATOMUI_CONFIG3 = "/faui"
 SLASH_FROSTATOMUI_CONFIG4 = "/ui"
-
-UnitPopupButtons.SPECTATE = { text = "Spectate", dist = 0 }
-for _, menu in ipairs({ "FRIEND", "TEAM", "BN_FRIEND" }) do
-	tinsert(UnitPopupMenus[menu], #UnitPopupMenus[menu] - 1, "SPECTATE")
-end
-
-hooksecurefunc("UnitPopup_OnClick", function(self)
-	if self.value == "SPECTATE" then
-		SendChatMessage(".spec pla " .. UIDROPDOWNMENU_INIT_MENU.name)
-	end
-end)
 
 local FOCUS_BUTTON_NAME = "FrostAtomUIFocusButton"
 local FOCUS_COMMAND = "CLICK " .. FOCUS_BUTTON_NAME .. ":LeftButton"

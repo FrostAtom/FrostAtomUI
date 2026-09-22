@@ -10,14 +10,32 @@ local GetNumPartyMembers, GetNumRaidMembers = GetNumPartyMembers, GetNumRaidMemb
 local Misc = ns:GetModule("Misc")
 
 local DECLINES = {
-	declineDuels = { event = "DUEL_REQUESTED", decline = function() CancelDuel() end, message = ERR_DUEL_CANCELLED },
-	declineInvites = { event = "PARTY_INVITE_REQUEST", decline = function() DeclineGroup() end },
-	declineTrades = { event = "TRADE_REQUEST", decline = function() CancelTrade() end, message = ERR_TRADE_CANCELLED },
+	declineDuels = {
+		event = "DUEL_REQUESTED",
+		decline = function()
+			CancelDuel()
+		end,
+		message = ERR_DUEL_CANCELLED,
+	},
+	declineInvites = {
+		event = "PARTY_INVITE_REQUEST",
+		decline = function()
+			DeclineGroup()
+		end,
+	},
+	declineTrades = {
+		event = "TRADE_REQUEST",
+		decline = function()
+			CancelTrade()
+		end,
+		message = ERR_TRADE_CANCELLED,
+	},
 }
 
 local function applyDecline(key)
 	local decline = DECLINES[key]
-	if ns.Config.popups[key] then
+	local config = ns.Config.popups
+	if config.enabled and config[key] then
 		UIParent:UnregisterEvent(decline.event)
 		Misc:RegisterEvent(decline.event, decline.decline)
 	else
@@ -27,8 +45,12 @@ local function applyDecline(key)
 end
 
 local function isDeclinedMessage(message)
+	local config = ns.Config.popups
+	if not config.enabled then
+		return false
+	end
 	for key, decline in pairs(DECLINES) do
-		if decline.message == message and ns.Config.popups[key] then
+		if decline.message == message and config[key] then
 			return true
 		end
 	end
@@ -55,6 +77,9 @@ end
 
 hooksecurefunc("StaticPopup_Show", function(which)
 	local config = ns.Config.popups
+	if not config.enabled then
+		return
+	end
 	if which == "DEATH" then
 		local _, instanceType = IsInInstance()
 		if config.autoRelease and instanceType == "pvp" then
@@ -93,7 +118,10 @@ end)
 
 Misc:RegisterEvent("PARTY_INVITE_REQUEST", function(_, leader)
 	local config = ns.Config.popups
-	if not config.autoAcceptInvites or config.declineInvites or GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0 then
+	if not (config.enabled and config.autoAcceptInvites) or config.declineInvites then
+		return
+	end
+	if GetNumPartyMembers() > 0 or GetNumRaidMembers() > 0 then
 		return
 	end
 	if isFriendOrGuildMate(leader) then
@@ -103,17 +131,18 @@ Misc:RegisterEvent("PARTY_INVITE_REQUEST", function(_, leader)
 	end
 end)
 
-Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
-	if db.NoDuel ~= nil then
-		db.config = db.config or {}
-		db.config.popups = db.config.popups or {}
-		db.config.popups.declineDuels = db.NoDuel
-		ns.Config.popups.declineDuels = db.NoDuel
-		db.NoDuel = nil
-	end
+local function applyDeclines()
 	for key in pairs(DECLINES) do
 		applyDecline(key)
 	end
+end
+
+Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
+	if db.NoDuel ~= nil then
+		ns:SetConfig("popups.declineDuels", db.NoDuel and true or false)
+		db.NoDuel = nil
+	end
+	applyDeclines()
 end)
 
 local function toggleDecline(key, label, args)
@@ -124,11 +153,7 @@ local function toggleDecline(key, label, args)
 	ns.Print("%s %s", label, enabled and "enabled" or "disabled")
 end
 
-for key in pairs(DECLINES) do
-	Misc:WatchConfig("popups." .. key, function()
-		applyDecline(key)
-	end)
-end
+Misc:WatchConfig("popups", applyDeclines)
 
 SlashCmdList.FROSTATOMUI_NODUEL = function(args)
 	toggleDecline("declineDuels", "NoDuel", args)

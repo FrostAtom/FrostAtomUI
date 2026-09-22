@@ -48,8 +48,6 @@ local ICON_SIZE = 16
 local ICON_GAP = 1
 local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
 local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
-local WIN_COLOR = { 0.3, 1, 0.3 }
-local LOSS_COLOR = { 1, 0.3, 0.3 }
 local NO_GAME_COLOR = { 0.5, 0.5, 0.5 }
 local HEADER_COLOR = { 0.7, 0.7, 0.7 }
 local UNKNOWN = UNKNOWNOBJECT
@@ -290,7 +288,8 @@ local function snapshot()
 			end
 		end
 		counts[entry.team] = counts[entry.team] + 1
-		local player = { name = entry.name, class = entry.class, race = entry.race, spec = entry.spec, team = entry.team }
+		local player =
+			{ name = entry.name, class = entry.class, race = entry.race, spec = entry.spec, team = entry.team }
 		copyScore(player, entry)
 		players[#players + 1] = player
 	end
@@ -407,7 +406,8 @@ local function resultColor(record, win)
 	if not played(record) then
 		return unpack(NO_GAME_COLOR)
 	end
-	return unpack(win and WIN_COLOR or LOSS_COLOR)
+	local config = ns.Config.arenaHistory
+	return unpack(win and config.winColor or config.lossColor)
 end
 
 local function formatDuration(seconds)
@@ -459,13 +459,21 @@ local function setPlayerIcon(icon, player)
 	end
 end
 
+local listCells = {}
+
+local function setListFont(cell)
+	local font = ns.Config.arenaHistory.listFont
+	ns.SetFont(cell, font.size, font.outline)
+end
+
 local function createCells(row, columns, height)
 	local cells = {}
 	for i = 1, #columns do
 		local column = columns[i]
 		if not column.icons then
 			local cell = row:CreateFontString(nil, "OVERLAY")
-			ns.SetFont(cell, 12)
+			setListFont(cell)
+			listCells[#listCells + 1] = cell
 			cell:SetPoint("LEFT", column.x + 4, 0)
 			cell:SetSize(column.width - 8, height)
 			cell:SetJustifyH(column.right and "RIGHT" or "LEFT")
@@ -648,9 +656,12 @@ local function refreshDetail()
 	detail:Show()
 
 	local title = mapLabel(record)
-		.. SEPARATOR .. bracketLabel(record)
-		.. SEPARATOR .. date("%d.%m.%Y %H:%M", record.time)
-		.. SEPARATOR .. formatDuration(record.duration)
+		.. SEPARATOR
+		.. bracketLabel(record)
+		.. SEPARATOR
+		.. date("%d.%m.%Y %H:%M", record.time)
+		.. SEPARATOR
+		.. formatDuration(record.duration)
 	if not played(record) then
 		title = title .. SEPARATOR .. "No game"
 	end
@@ -950,6 +961,13 @@ StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_DELETE = {
 	whileDead = 1,
 	hideOnEscape = 1,
 }
+
+Misc:WatchConfig("arenaHistory", function()
+	for i = 1, #listCells do
+		setListFont(listCells[i])
+	end
+	refresh()
+end)
 
 SlashCmdList.FROSTATOMUI_ARENA_HISTORY = function()
 	if not history then

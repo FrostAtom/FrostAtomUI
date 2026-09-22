@@ -43,7 +43,6 @@ Bags.configKey = "bags"
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local config = ns.Config.bags
-local PADDING = 8
 local ROW_GAP = 6
 local HEADER_HEIGHT = 20
 local BAG_BUTTON_SIZE = 20
@@ -190,7 +189,7 @@ function ItemMixin:Update()
 		local _, _, itemQuality, itemLevel, _, _, _, _, equipLoc = GetItemInfo(link)
 		quality = itemQuality or quality
 		if GetContainerItemQuestInfo(bag, slot) then
-			r, g, b = 1, 0.8, 0
+			r, g, b = unpack(config.questItemColor)
 		elseif quality and quality >= 0 then
 			r, g, b = GetItemQualityColor(quality)
 		else
@@ -378,7 +377,6 @@ function ContainerMixin:CreateBagButton(bag, index)
 	ns.Mixin(button, BagSlotMixin)
 	button.bag = bag
 	button:SetSize(BAG_BUTTON_SIZE, BAG_BUTTON_SIZE)
-	button:SetPoint("BOTTOMLEFT", PADDING + (index - 1) * (BAG_BUTTON_SIZE + 2), PADDING)
 	button:SetNormalTexture(ns.Media.buttonNormal)
 	button:GetNormalTexture():SetAllPoints()
 	button:SetHighlightTexture(ns.Media.buttonHighlight)
@@ -474,12 +472,33 @@ function ContainerMixin:UpdateInfo()
 	self:UpdateCurrencies()
 end
 
+function ContainerMixin:LayoutChrome()
+	local padding = config.padding
+	self.close:ClearAllPoints()
+	self.close:SetPoint("TOPRIGHT", -padding, -padding - (HEADER_HEIGHT - GLYPH_SIZE) / 2)
+	self.search:ClearAllPoints()
+	self.search:SetPoint("TOPLEFT", padding, -padding)
+	self.search:SetPoint("RIGHT", self.sortButton, "LEFT", -ROW_GAP, 0)
+	self.itemArea:ClearAllPoints()
+	self.itemArea:SetPoint("TOPLEFT", padding, -(padding + HEADER_HEIGHT + ROW_GAP))
+	self.moneyText:ClearAllPoints()
+	self.moneyText:SetPoint("RIGHT", self, "BOTTOMRIGHT", -padding, padding + FOOTER_HEIGHT / 2)
+	local bagButtons = self.bagButtons
+	for i = 1, #bagButtons do
+		bagButtons[i]:ClearAllPoints()
+		bagButtons[i]:SetPoint("BOTTOMLEFT", padding + (i - 1) * (BAG_BUTTON_SIZE + 2), padding)
+	end
+end
+
 function ContainerMixin:Layout()
 	local buttonSize = config.buttonSize
+	local padding = config.padding
 	local step = buttonSize + config.spacing
 	local columns = config[self.columnsKey]
 	local bags, buttons, holders = self.bags, self.buttons, self.holders
 	local index = 0
+
+	self:LayoutChrome()
 
 	for i = 1, #bags do
 		local bag = bags[i]
@@ -512,7 +531,7 @@ function ContainerMixin:Layout()
 	local width = columns * step - config.spacing
 	local height = rows * step - config.spacing
 	self.itemArea:SetSize(width, height)
-	self:SetSize(width + PADDING * 2, height + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + PADDING * 2)
+	self:SetSize(width + padding * 2, height + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + padding * 2)
 	self:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 	self:UpdateInfo()
 end
@@ -550,7 +569,9 @@ function ContainerMixin:Toggle()
 end
 
 local function onShow(self)
-	PlaySound("igBackPackOpen")
+	if config.playSounds then
+		PlaySound("igBackPackOpen")
+	end
 	self:Layout()
 	if self == inventory then
 		MainMenuBarBackpackButton:SetChecked(true)
@@ -558,7 +579,9 @@ local function onShow(self)
 end
 
 local function onHide(self)
-	PlaySound("igBackPackClose")
+	if config.playSounds then
+		PlaySound("igBackPackClose")
+	end
 	if self == bank then
 		if atBank then
 			CloseBankFrame()
@@ -697,8 +720,9 @@ local function createContainer(key, title, bags, columnsKey)
 				slots = slots + bagSize(bags[i])
 			end
 			local rows = ceil(slots / columns)
-			return columns * step - config.spacing + PADDING * 2,
-				rows * step - config.spacing + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + PADDING * 2
+			local padding = config.padding
+			return columns * step - config.spacing + padding * 2,
+				rows * step - config.spacing + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + padding * 2
 		end,
 	})
 	frame:SetScript("OnShow", onShow)
@@ -706,21 +730,15 @@ local function createContainer(key, title, bags, columnsKey)
 	tinsert(UISpecialFrames, frame:GetName())
 
 	local close = createGlyphButton(frame, CLOSE_ICON, nil, onCloseClick)
-	close:SetPoint("TOPRIGHT", -PADDING, -PADDING - (HEADER_HEIGHT - GLYPH_SIZE) / 2)
 	frame.close = close
 
 	local sortButton = createGlyphButton(frame, SORT_ICON, SORT_ICON_CROP, onSortClick)
 	sortButton:SetPoint("RIGHT", close, "LEFT", -ROW_GAP, 0)
 	frame.sortButton = sortButton
 
-	local search = createSearchBox(frame, title)
-	search:SetPoint("TOPLEFT", PADDING, -PADDING)
-	search:SetPoint("RIGHT", sortButton, "LEFT", -ROW_GAP, 0)
-	frame.search = search
-
-	local itemArea = CreateFrame("Frame", nil, frame)
-	itemArea:SetPoint("TOPLEFT", PADDING, -(PADDING + HEADER_HEIGHT + ROW_GAP))
-	frame.itemArea = itemArea
+	frame.search = createSearchBox(frame, title)
+	frame.itemArea = CreateFrame("Frame", nil, frame)
+	local itemArea = frame.itemArea
 
 	local holders = {}
 	frame.holders = holders
@@ -740,8 +758,8 @@ local function createContainer(key, title, bags, columnsKey)
 
 	frame.moneyText = frame:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(frame.moneyText, 11, "OUTLINE")
-	frame.moneyText:SetPoint("RIGHT", frame, "BOTTOMRIGHT", -PADDING, PADDING + FOOTER_HEIGHT / 2)
 
+	frame:LayoutChrome()
 	frames[#frames + 1] = frame
 
 	return frame

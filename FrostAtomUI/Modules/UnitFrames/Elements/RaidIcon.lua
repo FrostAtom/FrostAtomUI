@@ -4,31 +4,30 @@ local UF = ns:GetModule("UnitFrames")
 local GetRaidTargetIndex = GetRaidTargetIndex
 local SetRaidTargetIconTexture = SetRaidTargetIconTexture
 
-local function update(frame)
-	local icon = frame.raidicon
-	local index = GetRaidTargetIndex(frame.unit)
-	if index then
+local config = ns.Config.unitFrames
+
+local function setIcon(icon, index)
+	if index and config.showRaidIcon then
 		SetRaidTargetIconTexture(icon, index)
+		icon:SetSize(config.raidIconSize, config.raidIconSize)
 		icon:Show()
 	else
 		icon:Hide()
 	end
 end
 
+local function update(frame)
+	setIcon(frame.raidicon, GetRaidTargetIndex(frame.unit))
+end
+
 local function test(frame)
-	local icon = frame.raidicon
-	if math.random(3) == 1 then
-		SetRaidTargetIconTexture(icon, math.random(8))
-		icon:Show()
-	else
-		icon:Hide()
-	end
+	setIcon(frame.raidicon, math.random(3) == 1 and math.random(8) or nil)
 end
 
 local function create(frame)
 	local icon = frame:CreateTexture(nil, "OVERLAY")
 	icon:SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons")
-	icon:SetSize(16, 16)
+	icon:SetSize(config.raidIconSize, config.raidIconSize)
 	icon:Hide()
 
 	frame:RegisterEvent("RAID_TARGET_UPDATE", update)

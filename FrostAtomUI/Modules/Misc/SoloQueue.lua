@@ -15,19 +15,14 @@ local MAX_BATTLEFIELD_QUEUES = MAX_BATTLEFIELD_QUEUES or 2
 local Misc = ns:GetModule("Misc")
 
 local JOIN_COMMAND = ".soloq join"
-local BUTTON_SIZE = 20
-local BUTTON_INSET = 3
 local RANGE_OFFSET = 8
 local PULSE_PERIOD = 1.6
 local PULSE_MIN_ALPHA = 0.35
 local TOOLTIP_REFRESH_INTERVAL = 0.5
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 2.2
-local GLOW_COLOR = { 0.3, 1, 0.3 }
 local QUEUE_ICON = "Interface\\GossipFrame\\BattleMasterGossipIcon"
 local LEAVE_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
-local TEAM_SEARCH_COLOR = { 1, 1, 1 }
-local OPPONENT_SEARCH_COLOR = { 1, 0.85, 0.3 }
 
 local STATES = {
 	join = { icon = QUEUE_ICON, tooltip = "Join solo queue" },
@@ -38,8 +33,6 @@ local STATES = {
 
 local button = CreateFrame("Button", nil, Minimap)
 button:Hide()
-button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
-button:SetPoint("BOTTOMRIGHT", -BUTTON_INSET, BUTTON_INSET)
 button:RegisterForClicks("LeftButtonUp")
 
 button.icon = button:CreateTexture(nil, "BORDER")
@@ -51,16 +44,13 @@ button.highlight:SetBlendMode("ADD")
 
 button.glow = button:CreateTexture(nil, "OVERLAY")
 button.glow:SetPoint("CENTER")
-button.glow:SetSize(BUTTON_SIZE * GLOW_SCALE, BUTTON_SIZE * GLOW_SCALE)
 button.glow:SetTexture(GLOW_TEXTURE)
 button.glow:SetBlendMode("ADD")
-button.glow:SetVertexColor(unpack(GLOW_COLOR))
 
 local range = button:CreateFontString(nil, "OVERLAY")
 range:Hide()
-range:SetPoint("TOPRIGHT", Minimap, "BOTTOMRIGHT", -BUTTON_INSET, -RANGE_OFFSET)
 
-local searchRange
+local searchRange, opponentSearch
 
 local function queueTime(index)
 	local seconds = floor(GetBattlefieldTimeWaited(index) / 1000)
@@ -95,7 +85,9 @@ end
 
 local function refreshRange()
 	if button.state == "queued" and searchRange then
+		local config = ns.Config.soloQueue
 		range:SetText(searchRange)
+		range:SetTextColor(unpack(opponentSearch and config.opponentSearchColor or config.teamSearchColor))
 		range:Show()
 	else
 		range:Hide()
@@ -189,8 +181,17 @@ button:SetScript("OnClick", function(self)
 end)
 
 local function applyConfig()
-	local font = ns.Config.soloQueue.rangeFont
+	local config = ns.Config.soloQueue
+	local font = config.rangeFont
+	local size, inset = config.buttonSize, config.buttonInset
 	ns.SetFont(range, font.size, font.outline, true)
+	button:SetSize(size, size)
+	button:ClearAllPoints()
+	button:SetPoint("BOTTOMRIGHT", -inset, inset)
+	button.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
+	button.glow:SetVertexColor(unpack(config.glowColor))
+	range:ClearAllPoints()
+	range:SetPoint("TOPRIGHT", Minimap, "BOTTOMRIGHT", -inset, -RANGE_OFFSET)
 	update()
 end
 
@@ -201,6 +202,6 @@ Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", update)
 
 Misc:RegisterEvent(ns.SOLOQ_SEARCHING, function(_, low, high, teamRating)
 	searchRange = ("%d-%d"):format(low, high)
-	range:SetTextColor(unpack(teamRating and OPPONENT_SEARCH_COLOR or TEAM_SEARCH_COLOR))
+	opponentSearch = teamRating and true or false
 	refreshRange()
 end)

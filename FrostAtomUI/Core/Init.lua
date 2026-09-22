@@ -25,6 +25,15 @@ function ns:NewModule(name)
 	return module
 end
 
+function ns.ModulePrototype:OnInitialize(handler)
+	local handlers = self.initializers
+	if not handlers then
+		handlers = {}
+		self.initializers = handlers
+	end
+	handlers[#handlers + 1] = handler
+end
+
 function ns:GetModule(name)
 	return assert(modules[name], ("module [%s] is not loaded"):format(tostring(name)))
 end

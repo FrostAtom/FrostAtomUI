@@ -41,11 +41,12 @@ end
 
 local function updateHealers()
 	local ownFaction = UnitFactionGroup("player") == "Horde" and 0 or 1
+	local threshold = config.healerThreshold
 	wipe(healers)
 
 	for i = 1, GetNumBattlefieldScores() do
 		local name, _, _, _, _, faction, _, _, _, class, damage, healing = GetBattlefieldScore(i)
-		if name and faction ~= ownFaction and HEALING_CLASSES[class] and healing > damage * 2 then
+		if name and faction ~= ownFaction and HEALING_CLASSES[class] and healing > damage * threshold then
 			healers[match(name, "^[^%-]+")] = true
 		end
 	end
@@ -75,7 +76,7 @@ poller:SetScript("OnUpdate", function(self, elapsed)
 	end
 end)
 
-NamePlates:WatchConfig("namePlates", refreshIcons)
+NamePlates:WatchConfig("namePlates", updateHealers)
 NamePlates:RegisterEvent("UPDATE_BATTLEFIELD_SCORE", updateHealers)
 NamePlates:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	local _, instanceType = IsInInstance()

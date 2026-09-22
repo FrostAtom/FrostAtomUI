@@ -9,7 +9,6 @@ local PlayerPlate = ns:NewModule("PlayerPlate")
 local UF = ns:GetModule("UnitFrames")
 
 local TEXT_INSET = 2
-local FADE_SPEED = 2
 local BORDER_INSET = UF.BORDER_INSET
 local frameConfig = ns.Config.unitFrames
 
@@ -89,7 +88,8 @@ plate:SetScript("OnUpdate", function(self, elapsed)
 		return
 	end
 
-	local alpha = self:GetAlpha() - elapsed * FADE_SPEED
+	local fadeTime = ns.Config.playerPlate.fadeTime
+	local alpha = fadeTime > 0 and self:GetAlpha() - elapsed / fadeTime or 0
 	if alpha > 0 then
 		self:SetAlpha(alpha)
 	else

@@ -5,9 +5,8 @@ local MAX_PARTY_FRAMES = 3
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
-local GRID_GAP = 6
-local GROUP_DEBUFF_SIZE = 32
-local GROUP_BUFF_SIZE = 19
+local LOSE_CONTROL_FONT_SCALE = 0.32
+local RESIZE_KEYS = { powerRatio = true, groupDebuffSize = true, partyBuffSize = true }
 
 local ARENA_COOLDOWN_SKIP = {
 	[42292] = true, -- PvP Trinket
@@ -54,9 +53,16 @@ local function applySizes()
 	for i = 1, #party do
 		party[i].cooldowns:SetIconSize(config.partyCooldownSize)
 	end
+	local trinketConfig = ns.Config.arenaTrinket
 	for i = 1, #arena do
 		arena[i].cooldowns:SetIconSize(config.arenaCooldownSize)
-		arena[i].trinket:SetIconSize(ns.Config.arenaTrinket.size)
+		local trinket = arena[i].trinket
+		trinket:SetIconSize(trinketConfig.size)
+		if trinketConfig.enabled then
+			trinket:Show()
+		else
+			trinket:Hide()
+		end
 	end
 	castbar:SetSize(config.playerCastbarWidth, config.playerCastbarHeight)
 	castbar.icon:SetSize(config.playerCastbarHeight, config.playerCastbarHeight)
@@ -66,18 +72,37 @@ local function applySizes()
 end
 
 local function resizeGroupFrame(frame, groupPet, width, height)
+	local config = ns.Config.unitFrames
 	frame:SetFrameSize(width, height)
-	frame.debuffs:SetLayout(width, GROUP_DEBUFF_SIZE)
+	frame.debuffs:SetLayout(width, config.groupDebuffSize)
 	if frame.buffs then
-		frame.buffs:SetLayout(width, GROUP_BUFF_SIZE)
+		frame.buffs:SetLayout(width, config.partyBuffSize)
 	end
 	frame.castbar:SetSize(width * 0.8, height)
 	frame.castbar.icon:SetSize(height, height)
 	groupPet:SetFrameSize(height, height)
 end
 
+local function anchorGroupGrids(frame)
+	local gap = ns.Config.unitFrames.gridGap
+	local debuffs, cooldowns, buffs = frame.debuffs, frame.cooldowns, frame.buffs
+	debuffs:ClearAllPoints()
+	cooldowns:ClearAllPoints()
+	if frame.iconSide == "LEFT" then
+		debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -gap)
+		cooldowns:SetPoint("TOPLEFT", debuffs, "TOPRIGHT", gap, 0)
+	else
+		debuffs:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -gap)
+		cooldowns:SetPoint("TOPRIGHT", debuffs, "TOPLEFT", -gap, 0)
+	end
+	if buffs then
+		buffs:ClearAllPoints()
+		buffs:SetPoint("TOPLEFT", debuffs, "BOTTOMLEFT", 0, -gap)
+	end
+end
+
 local function applyFrameSizes(self, path)
-	if path and not (path:find("Width$") or path:find("Height$")) then
+	if path and not (path:find("Width$") or path:find("Height$") or RESIZE_KEYS[path:match("[^.]+$")]) then
 		return
 	end
 	local config = ns.Config.unitFrames
@@ -118,13 +143,35 @@ end
 
 local function applyVisibility()
 	local config = ns.Config.unitFrames
+	pet:SetWatched(config.showPet)
 	setGroupWatched(party, config.showParty)
-	setGroupWatched(partyPets, config.showParty)
+	setGroupWatched(partyPets, config.showParty and config.showPet)
 	setGroupWatched(arena, config.showArena)
-	setGroupWatched(arenaPets, config.showArena)
+	setGroupWatched(arenaPets, config.showArena and config.showPet)
 	setGroupWatched(bosses, config.showBoss)
 	setGroupCooldowns(party, config.showPartyCooldowns)
 	setGroupCooldowns(arena, config.showArenaCooldowns)
+end
+
+local function setLoseControlSize(loseControl, size)
+	loseControl:SetSize(size, size)
+	ns.SetFont(loseControl.timer, size * LOSE_CONTROL_FONT_SCALE, "OUTLINE")
+end
+
+local function applyElements()
+	local config = ns.Config.unitFrames
+	setLoseControlSize(player.losecontrol, config.loseControlSize)
+	setPoint(player.losecontrol, config.loseControlPoint)
+	target.combopoints:SetPointSize(config.comboPointSize)
+	for i = 1, #party do
+		anchorGroupGrids(party[i])
+		party[i].debuffs:SetLimit(config.groupDebuffMax)
+		party[i].buffs:SetLimit(config.partyBuffMax)
+	end
+	for i = 1, #arena do
+		anchorGroupGrids(arena[i])
+		arena[i].debuffs:SetLimit(config.groupDebuffMax)
+	end
 end
 
 local function targetMoverOptions(frame)
@@ -157,9 +204,8 @@ local function createPlayer(self, config)
 	castbar.icon:SetSize(config.playerCastbarHeight, config.playerCastbarHeight)
 
 	local loseControl = self:AddElement(player, "losecontrol")
-	loseControl:ClearAllPoints()
-	loseControl:SetSize(32, 32)
-	loseControl:SetPoint("CENTER", UIParent)
+	setLoseControlSize(loseControl, config.loseControlSize)
+	setPoint(loseControl, config.loseControlPoint)
 
 	local raidIcon = self:AddElement(player, "raidicon")
 	raidIcon:SetPoint("BOTTOM", player, "TOP", 0, -4)
@@ -185,7 +231,7 @@ local function createTargets(self, player, config)
 	target:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
 	targetOfTarget:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
 
-	local combo = self:AddElement(target, "combopoints", { size = 8, gap = 2 })
+	local combo = self:AddElement(target, "combopoints", { gap = 2 })
 	combo:SetPoint("BOTTOMLEFT", target, "TOPLEFT", 2, 2)
 
 	local focusTarget
@@ -210,8 +256,8 @@ end
 local function createParty(self, config)
 	local point, x, y = unpack(config.party)
 	local width, height = config.partyWidth, config.partyHeight
-	local debuffOptions = { size = GROUP_DEBUFF_SIZE, width = width, max = 12, minRows = 1 }
-	local buffOptions = { size = GROUP_BUFF_SIZE, width = width, max = 18 }
+	local debuffOptions = { size = config.groupDebuffSize, width = width, max = config.groupDebuffMax, minRows = 1 }
+	local buffOptions = { size = config.partyBuffSize, width = width, max = config.partyBuffMax }
 
 	for i = 1, MAX_PARTY_FRAMES do
 		local unit = "party" .. i
@@ -226,14 +272,10 @@ local function createParty(self, config)
 		local raidIcon = self:AddElement(frame, "raidicon")
 		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
 
-		local debuffs = self:AddElement(frame, "debuffs", debuffOptions)
-		debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -GRID_GAP)
-
-		local cooldowns = self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
-		cooldowns:SetPoint("TOPLEFT", debuffs, "TOPRIGHT", GRID_GAP, 0)
-
-		local buffs = self:AddElement(frame, "buffs", buffOptions)
-		buffs:SetPoint("TOPLEFT", debuffs, "BOTTOMLEFT", 0, -GRID_GAP)
+		self:AddElement(frame, "debuffs", debuffOptions)
+		self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
+		self:AddElement(frame, "buffs", buffOptions)
+		anchorGroupGrids(frame)
 
 		self:CreateSideCastbar(frame, "RIGHT", width * 0.8, height)
 
@@ -254,15 +296,20 @@ local function createArena(self, config)
 	local point, x, y = unpack(config.arena)
 	local trinketSize = ns.Config.arenaTrinket.size
 	local width, height = config.arenaWidth, config.arenaHeight
-	local debuffOptions = { size = GROUP_DEBUFF_SIZE, width = width, max = 12, minRows = 1, anchor = "TOPRIGHT" }
+	local debuffOptions = {
+		size = config.groupDebuffSize,
+		width = width,
+		max = config.groupDebuffMax,
+		minRows = 1,
+		anchor = "TOPRIGHT",
+	}
 
 	for i = 1, MAX_ARENA_OPPONENTS do
 		local frame = self:CreateRectangle("arena" .. i, width, height, "RIGHT")
 		arena[i] = frame
 		frame:SetPoint(point, x, y - (i - 1) * config.groupSpacing)
 
-		local debuffs = self:AddElement(frame, "debuffs", debuffOptions)
-		debuffs:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -GRID_GAP)
+		self:AddElement(frame, "debuffs", debuffOptions)
 
 		self:CreateSideCastbar(frame, "LEFT", width * 0.8, height)
 
@@ -281,12 +328,12 @@ local function createArena(self, config)
 		local trinket = self:AddElement(frame, "trinket", { size = trinketSize })
 		trinket:SetPoint("LEFT", pet, "RIGHT", 2, 0)
 
-		local cooldowns = self:AddElement(
+		self:AddElement(
 			frame,
 			"cooldowns",
 			{ size = config.arenaCooldownSize, skip = ARENA_COOLDOWN_SKIP, anchor = "TOPRIGHT" }
 		)
-		cooldowns:SetPoint("TOPRIGHT", debuffs, "TOPLEFT", -GRID_GAP, 0)
+		anchorGroupGrids(frame)
 	end
 end
 
@@ -335,11 +382,19 @@ function UF:Initialize()
 	self:RegisterMover(party[1], "unitFrames.party", "Party", { secure = true })
 	self:RegisterMover(arena[1], "unitFrames.arena", "Arena", { secure = true })
 	self:RegisterMover(bosses[1], "unitFrames.boss", "Boss", { secure = true })
+	self:RegisterMover(player.losecontrol, "unitFrames.loseControlPoint", "Lose control", {
+		size = function()
+			local size = ns.Config.unitFrames.loseControlSize
+			return size, size
+		end,
+	})
 
 	self:WatchConfig("unitFrames", applyPositions, true)
 	self:WatchConfig("unitFrames", applyVisibility, true)
 	self:WatchConfig("unitFrames", applySizes)
 	self:WatchConfig("unitFrames", applyFrameSizes, true)
+	self:WatchConfig("unitFrames", applyElements)
+	self:WatchConfig("unitFrames.rightClick", self.ApplyClicks, true)
 	self:WatchConfig("unitFrames", self.ApplyColors)
 	self:WatchConfig("arenaTrinket", applySizes)
 end

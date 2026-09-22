@@ -40,16 +40,20 @@ local function itemLevelColor(difference)
 	return ColorGradient(pi / -difference, 1, 0.1, 0.1, 1, 1, 0.1, 0.1, 1, 0.1)
 end
 
-local QUALITY_THRESHOLDS = { { 264, 5 }, { 245, 4 }, { 220, 3 }, { 200, 2 }, { 0, 1 } }
+local QUALITY_TIERS = { { "legendary", 5 }, { "epic", 4 }, { "rare", 3 }, { "uncommon", 2 } }
 
 local function averageQualityColor(average)
-	for i = 1, #QUALITY_THRESHOLDS do
-		local entry = QUALITY_THRESHOLDS[i]
-		if average >= entry[1] then
-			local color = ITEM_QUALITY_COLORS[entry[2]]
-			return color.r, color.g, color.b, color.hex
+	local thresholds = ns.Config.equipment.qualityThresholds
+	local quality = 1
+	for i = 1, #QUALITY_TIERS do
+		local tier = QUALITY_TIERS[i]
+		if average >= thresholds[tier[1]] then
+			quality = tier[2]
+			break
 		end
 	end
+	local color = ITEM_QUALITY_COLORS[quality]
+	return color.r, color.g, color.b, color.hex
 end
 ns.AverageItemLevelColor = averageQualityColor
 
@@ -86,16 +90,17 @@ local function updatePage(page)
 	end
 
 	local config = ns.Config.equipment
+	local show = config.enabled and config.showItemLevels
 	local average, count, missing = averageItemLevel(unit, page.slotTexts)
 	for _, text in pairs(page.slotTexts) do
-		if text.itemLevel and config.showItemLevels then
+		if text.itemLevel and show then
 			text:SetText(text.itemLevel)
 			text:SetTextColor(itemLevelColor(text.itemLevel - average))
 		else
 			text:SetText("")
 		end
 	end
-	if config.showItemLevels and count > 0 then
+	if show and count > 0 then
 		page.averageText:SetFormattedText("%.1f", average)
 		page.averageText:SetTextColor(averageQualityColor(average))
 	else
@@ -110,14 +115,25 @@ local function updatePage(page)
 	end
 end
 
+local pages = {}
+
+local function applyFonts(page)
+	local config = ns.Config.equipment
+	local slotFont, averageFont = config.slotFont, config.averageFont
+	for _, text in pairs(page.slotTexts) do
+		ns.SetFont(text, slotFont.size, slotFont.outline)
+	end
+	ns.SetFont(page.averageText, averageFont.size, averageFont.outline, true)
+end
+
 local function createPage(getUnit, modelFrame, slotPrefix, anchor)
 	local page = { getUnit = getUnit, slotTexts = {}, retries = 0 }
+	pages[#pages + 1] = page
 
 	for slot, suffix in pairs(SLOT_NAMES) do
 		local button = _G[slotPrefix .. suffix]
 		if button then
 			local text = button:CreateFontString(nil, "OVERLAY")
-			ns.SetFont(text, 11, "OUTLINE")
 			text:SetPoint("BOTTOM", 0, 1)
 			page.slotTexts[slot] = text
 		end
@@ -129,9 +145,9 @@ local function createPage(getUnit, modelFrame, slotPrefix, anchor)
 	overlay:SetFrameLevel(modelFrame:GetFrameLevel() + 1)
 
 	local averageText = overlay:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(averageText, 14, "OUTLINE", true)
 	averageText:SetPoint("BOTTOMRIGHT")
 	page.averageText = averageText
+	applyFonts(page)
 
 	local retry = CreateFrame("Frame")
 	retry:Hide()
@@ -195,7 +211,7 @@ end
 local function checkDurability()
 	local config = ns.Config.equipment
 	local lowest = lowestDurability()
-	if config.durabilityWarning and lowest < config.durabilityThreshold then
+	if config.enabled and config.durabilityWarning and lowest < config.durabilityThreshold then
 		if not warned then
 			warned = true
 			ns.Print("|cffff0000durability %d%%|r - repair soon", lowest * 100)
@@ -207,3 +223,13 @@ end
 
 Misc:RegisterEvent("UPDATE_INVENTORY_DURABILITY", checkDurability)
 Misc:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", checkDurability)
+
+Misc:WatchConfig("equipment", function()
+	for i = 1, #pages do
+		applyFonts(pages[i])
+	end
+	if PaperDollFrame:IsShown() then
+		updatePage(character)
+	end
+	checkDurability()
+end)

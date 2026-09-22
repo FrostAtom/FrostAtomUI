@@ -12,13 +12,12 @@ local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
 local BORDER_INSET = 4
 local CLASS_ICON_INSET = 2
 local CLASS_ICON_GAP = 2
-local POWER_RATIO = 0.2
 local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
 local TARGET_AURAS_PER_ROW = 8
 local TARGET_AURA_ROWS = 2
 local TARGET_OF_TARGET_GAP = 0
-local HOVER_ALPHA = 0.08
+local RIGHT_CLICK_ACTIONS = { menu = "menu", focus = "focus" }
 local config = ns.Config.unitFrames
 
 UF.BORDER_INSET = BORDER_INSET
@@ -216,7 +215,7 @@ local HOVER_ELEMENTS = { "health", "power" }
 
 local function setHovered(frame, hovered)
 	frame.hovered = hovered
-	if hovered then
+	if hovered and config.hoverHighlight then
 		frame.hover:Show()
 	else
 		frame.hover:Hide()
@@ -258,7 +257,7 @@ function UF:CreateBase(unit)
 	if unit:find("^arena%d$") then
 		frame:SetAttribute("*type2", "focus")
 	else
-		frame:SetAttribute("*type2", "menu")
+		frame:SetAttribute("*type2", RIGHT_CLICK_ACTIONS[config.rightClick])
 		if unit == "focus" then
 			frame:SetAttribute("*type3", "macro")
 			frame:SetAttribute("macrotext", "/clearfocus")
@@ -275,7 +274,7 @@ function UF:CreateBase(unit)
 	hover.texture:SetAllPoints()
 	hover.texture:SetTexture(ns.Media.blank)
 	hover.texture:SetBlendMode("ADD")
-	hover.texture:SetVertexColor(1, 1, 1, HOVER_ALPHA)
+	hover.texture:SetVertexColor(1, 1, 1, config.hoverAlpha)
 	hover:Hide()
 	frame.hover = hover
 
@@ -323,7 +322,22 @@ function UF:ApplyColors()
 			ns.SetFont(castbar.timer, config.castbarFont.size, config.castbarFont.outline)
 			ns.SetFont(castbar.name, config.castbarFont.size, config.castbarFont.outline)
 		end
-		frame:UpdateAll()
+		frame.hover.texture:SetVertexColor(1, 1, 1, config.hoverAlpha)
+		if self.testing then
+			self:RunTest(frame)
+		else
+			frame:UpdateAll()
+		end
+	end
+end
+
+function UF:ApplyClicks()
+	local action = RIGHT_CLICK_ACTIONS[config.rightClick]
+	for i = 1, #self.frames do
+		local frame = self.frames[i]
+		if not frame.unit:find("^arena%d$") then
+			frame:SetAttribute("*type2", action)
+		end
 	end
 end
 
@@ -335,7 +349,7 @@ function UnitFrameMixin:SetContentInset(inset)
 		right = right - inset
 	end
 	self.health:SetPoint("TOPRIGHT", right, -BORDER_INSET)
-	self.health:SetPoint("BOTTOMLEFT", left, BORDER_INSET + self.innerHeight * POWER_RATIO)
+	self.health:SetPoint("BOTTOMLEFT", left, BORDER_INSET + self.innerHeight * config.powerRatio)
 	self.power:SetPoint("BOTTOMLEFT", left, BORDER_INSET)
 end
 
@@ -349,7 +363,7 @@ function UnitFrameMixin:SetFrameSize(width, height)
 	if icon then
 		local size = height - CLASS_ICON_INSET * 2
 		icon:SetSize(size, size)
-		self:SetContentInset(icon:IsShown() and UF.ClassIconInset(size) or 0)
+		self:SetContentInset(icon:IsShown() and config.showClassIcon and UF.ClassIconInset(size) or 0)
 	else
 		self:SetContentInset(0)
 	end
@@ -376,7 +390,11 @@ function UF:CreateRectangle(unit, width, height, iconSide)
 
 	if iconSide then
 		local icon = self:AddElement(frame, "classicon", height - CLASS_ICON_INSET * 2)
-		icon:SetPoint("TOP" .. iconSide, iconSide == "LEFT" and CLASS_ICON_INSET or -CLASS_ICON_INSET, -CLASS_ICON_INSET)
+		icon:SetPoint(
+			"TOP" .. iconSide,
+			iconSide == "LEFT" and CLASS_ICON_INSET or -CLASS_ICON_INSET,
+			-CLASS_ICON_INSET
+		)
 	end
 
 	local name = self:AddElement(frame, "name")
@@ -457,7 +475,13 @@ function UF:CreateTarget(unit, width, height)
 	local buffs = self:AddElement(frame, "buffs", auraOptions)
 	buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP)
 	debuffs.OnRowsChanged = function(grid, rows)
-		buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP - (rows > 0 and grid:GetHeight() + CASTBAR_GAP or 0))
+		buffs:SetPoint(
+			"TOPLEFT",
+			frame,
+			"BOTTOMLEFT",
+			0,
+			-CASTBAR_GAP - (rows > 0 and grid:GetHeight() + CASTBAR_GAP or 0)
+		)
 	end
 
 	self:AddElement(frame, "castbar")

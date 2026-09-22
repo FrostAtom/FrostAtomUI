@@ -22,10 +22,6 @@ local function sameColor(info, color)
 end
 
 local function restoreColors()
-	if not savedColors then
-		return
-	end
-
 	local list = { GetChannelList() }
 	for i = 1, #list, 2 do
 		local chatType = "CHANNEL" .. list[i]
@@ -37,22 +33,20 @@ local function restoreColors()
 	end
 end
 
-Chat:RegisterEvent("UPDATE_CHAT_COLOR", function(_, chatType, r, g, b)
-	if not savedColors then
-		return
-	end
-
+local function onColorChanged(_, chatType, r, g, b)
 	local index = match(chatType, "^CHANNEL(%d+)$")
 	local name = index and channelName(tonumber(index), GetChannelList())
 	if name then
 		savedColors[name] = { r = r, g = g, b = b }
 	end
-end)
+end
 
-Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
+Chat:OnInitialize(function(self)
+	local db = ns.db
 	savedColors = db.channel_colors or {}
 	db.channel_colors = savedColors
-end)
 
-Chat:RegisterEvent("PLAYER_ENTERING_WORLD", restoreColors)
-Chat:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE", restoreColors)
+	self:RegisterEvent("UPDATE_CHAT_COLOR", onColorChanged)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", restoreColors)
+	self:RegisterEvent("CHAT_MSG_CHANNEL_NOTICE", restoreColors)
+end)

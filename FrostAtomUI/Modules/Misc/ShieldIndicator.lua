@@ -12,10 +12,9 @@ local Misc = ns:GetModule("Misc")
 local UF = ns:GetModule("UnitFrames")
 
 local OFFHAND_SLOT = 17
-local GAP = 2
 
 local icon = CreateFrame("Frame", nil, UIParent)
-icon:SetPoint("RIGHT", FrostAtomUIPlayerPlate, "LEFT", -GAP, 0)
+Misc:AnchorToConfig(icon, "shieldIndicator.point", nil, "Shield indicator")
 icon:Hide()
 
 local texture = icon:CreateTexture(nil, "BORDER")

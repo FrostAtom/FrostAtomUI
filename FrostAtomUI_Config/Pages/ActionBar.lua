@@ -9,6 +9,12 @@ local schema = {
 		desc = "Replace Blizzard action bars.",
 	},
 	{ path = "actionBar.gap", label = "Button spacing", type = "number", min = 0, max = 12, step = 1 },
+	{
+		path = "actionBar.clickAnimation",
+		label = "Click animation",
+		type = "toggle",
+		desc = "Star burst on a pressed button. Toggle with /vr.",
+	},
 	{ path = "actionBar.microMenu", label = "Micro menu position", type = "point" },
 	{ path = "actionBar.bagButton", label = "Bag button position", type = "point" },
 }
@@ -31,6 +37,7 @@ local function bar(header, key, hasToggle, hasCount)
 			max = 12,
 			step = 1,
 			enabledBy = enabledBy,
+			desc = "Number of slots shown on the bar.",
 		}
 	end
 	schema[#schema + 1] = {
@@ -41,6 +48,7 @@ local function bar(header, key, hasToggle, hasCount)
 		max = 12,
 		step = 1,
 		enabledBy = enabledBy,
+		desc = "Buttons per row.",
 	}
 	schema[#schema + 1] = {
 		path = prefix .. ".buttonSize",
@@ -63,15 +71,42 @@ bar("Pet bar", "pet", false, false)
 
 schema[#schema + 1] = { header = "Text" }
 schema[#schema + 1] = { path = "actionBar.showHotkeys", label = "Show hotkeys", type = "toggle" }
+schema[#schema + 1] = {
+	path = "actionBar.showShapeshiftHotkeys",
+	label = "Stance bar hotkeys",
+	type = "toggle",
+	enabledBy = "actionBar.showHotkeys",
+	desc = "Also show key bindings on stance / form buttons.",
+}
 schema[#schema + 1] =
 	{ path = "actionBar.hotkeyFont", label = "Hotkey font", type = "font", enabledBy = "actionBar.showHotkeys" }
-schema[#schema + 1] = { path = "actionBar.showNames", label = "Show macro names / counts", type = "toggle" }
+schema[#schema + 1] = {
+	path = "actionBar.showNames",
+	label = "Show macro names / counts",
+	type = "toggle",
+	desc = "Macro name or item count at the bottom of the button.",
+}
 schema[#schema + 1] =
 	{ path = "actionBar.nameFont", label = "Name font", type = "font", enabledBy = "actionBar.showNames" }
 schema[#schema + 1] = { header = "Colors" }
-schema[#schema + 1] = { path = "actionBar.rangeColor", label = "Out of range", type = "color" }
-schema[#schema + 1] = { path = "actionBar.manaColor", label = "Not enough mana", type = "color" }
-schema[#schema + 1] = { path = "actionBar.unusableColor", label = "Unusable", type = "color" }
+schema[#schema + 1] = {
+	path = "actionBar.rangeColor",
+	label = "Out of range",
+	type = "color",
+	desc = "Icon tint when the target is out of range.",
+}
+schema[#schema + 1] = {
+	path = "actionBar.manaColor",
+	label = "Not enough mana",
+	type = "color",
+	desc = "Icon tint when the ability cannot be afforded.",
+}
+schema[#schema + 1] = {
+	path = "actionBar.unusableColor",
+	label = "Unusable",
+	type = "color",
+	desc = "Icon tint when the ability cannot be used for any other reason.",
+}
 
 ns.RegisterPage({
 	key = "actionbar",

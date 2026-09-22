@@ -16,11 +16,16 @@ local REPLY_COOLDOWN = 0.25
 local MAX_STORED_MESSAGES = 200
 local TIME_FORMAT = "%m/%d/%y %H:%M:%S"
 
+local config = ns.Config.chat.whisperBlock
 local blocked = false
-local blockedMessages
-local reply
+local blockedMessages = {}
 local whitelist = {}
 local lastReplyTime, lastMessageText = 0
+
+local function replyText()
+	local reply = config.reply
+	return reply ~= "" and reply or nil
+end
 
 local function isFriend(name)
 	for i = 1, GetNumFriends() do
@@ -37,17 +42,18 @@ end
 
 local function printStatus()
 	if blocked then
-		ns.Print("NoDM |cffff0000enabled|r, reply: %s", reply or "none (set with /nodm <message>)")
+		ns.Print("NoDM |cffff0000enabled|r, reply: %s", replyText() or "none (set with /nodm <message>)")
 	else
 		ns.Print("NoDM |cff00ff00disabled|r")
 	end
 end
 
 local function onWhisper(_, _, message, sender)
-	if isFriend(sender) or whitelist[sender] then
+	if (config.friendsBypass and isFriend(sender)) or whitelist[sender] then
 		return
 	end
 
+	local reply = replyText()
 	local now = GetTime()
 	if reply and now - lastReplyTime > REPLY_COOLDOWN then
 		lastReplyTime = now
@@ -67,7 +73,7 @@ local function onWhisper(_, _, message, sender)
 end
 
 local function onWhisperSent(_, _, message, target)
-	if message == reply then
+	if message == replyText() then
 		return true
 	end
 
@@ -85,32 +91,51 @@ local function onWhisperSent(_, _, message, target)
 	whitelist[target] = true
 end
 
-local function setBlocked(state)
-	blocked = state
-	if state then
+local function applyConfig()
+	if config.enabled == blocked then
+		return
+	end
+	blocked = config.enabled
+	if blocked then
 		ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", onWhisper)
 		ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", onWhisperSent)
+		wipe(whitelist)
 	else
 		ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", onWhisper)
 		ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER_INFORM", onWhisperSent)
+		for i = 1, #blockedMessages do
+			printMessage(blockedMessages[i])
+		end
+		wipe(blockedMessages)
 	end
 	printStatus()
 end
 
 Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
-	blockedMessages = db.pm_messages or {}
-	db.pm_messages = blockedMessages
-	reply = db.pm_reply
+	if db.pm_blocked ~= nil then
+		ns:SetConfig("chat.whisperBlock.enabled", db.pm_blocked and true or false)
+		db.pm_blocked = nil
+	end
+	if db.pm_reply ~= nil then
+		ns:SetConfig("chat.whisperBlock.reply", db.pm_reply)
+		db.pm_reply = nil
+	end
+end)
 
+Chat:OnInitialize(function(self)
+	local db = ns.db
+	blockedMessages = db.pm_messages or blockedMessages
+	db.pm_messages = blockedMessages
 	for i = #blockedMessages, 1, -1 do
 		if type(blockedMessages[i]) ~= "table" then
 			tremove(blockedMessages, i)
 		end
 	end
 
-	if db.pm_blocked then
-		setBlocked(true)
+	if config.enabled then
+		applyConfig()
 	end
+	self:WatchConfig("chat.whisperBlock", applyConfig)
 end)
 
 SlashCmdList.FROSTATOMUI_NODM = function(args)
@@ -120,8 +145,7 @@ SlashCmdList.FROSTATOMUI_NODM = function(args)
 	if args == "" or lower == "on" or lower == "off" or lower == "status" then
 		state, status = ns.ParseToggle(args, blocked)
 	else
-		reply = args
-		ns:SaveVariable("pm_reply", reply)
+		ns:SetConfig("chat.whisperBlock.reply", args)
 		state = true
 	end
 
@@ -129,14 +153,6 @@ SlashCmdList.FROSTATOMUI_NODM = function(args)
 		printStatus()
 		return
 	end
-
-	setBlocked(state)
-	ns:SaveVariable("pm_blocked", blocked)
-
-	for i = 1, #blockedMessages do
-		printMessage(blockedMessages[i])
-	end
-	wipe(blockedMessages)
-	wipe(whitelist)
+	ns:SetConfig("chat.whisperBlock.enabled", state)
 end
 SLASH_FROSTATOMUI_NODM1 = "/nodm"

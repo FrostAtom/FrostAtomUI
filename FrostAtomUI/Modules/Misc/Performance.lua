@@ -2,6 +2,7 @@ local _, ns = ...
 
 local GetFramerate = GetFramerate
 local GetNetStats = GetNetStats
+local max = math.max
 
 local UPDATE_INTERVAL = 1
 local UNIT_GAP, UNIT_LIFT = 3, 1
@@ -51,13 +52,25 @@ local function onUpdate(_, elapsed)
 	untilNextTick = UPDATE_INTERVAL
 
 	local config = ns.Config.performance
-	local fps = GetFramerate()
-	fpsValue:SetFormattedText("%d", fps + 0.5)
-	fpsValue:SetTextColor(tierColor(fps + 0.5, config.fpsRed, config.fpsOrange, config.fpsYellow, true))
+	if config.showFps then
+		local fps = GetFramerate()
+		fpsValue:SetFormattedText("%d", fps + 0.5)
+		fpsValue:SetTextColor(tierColor(fps + 0.5, config.fpsRed, config.fpsOrange, config.fpsYellow, true))
+	end
 
-	local _, _, latency = GetNetStats()
-	latencyValue:SetFormattedText("%d", latency)
-	latencyValue:SetTextColor(tierColor(latency, config.latencyRed, config.latencyOrange, config.latencyYellow))
+	if config.showLatency then
+		local _, _, latency = GetNetStats()
+		latencyValue:SetFormattedText("%d", latency)
+		latencyValue:SetTextColor(tierColor(latency, config.latencyRed, config.latencyOrange, config.latencyYellow))
+	end
+end
+
+local function setShown(region, shown)
+	if shown then
+		region:Show()
+	else
+		region:Hide()
+	end
 end
 
 local function applyConfig()
@@ -69,20 +82,28 @@ local function applyConfig()
 	ns.SetFont(latencyLabel, unitFont.size, unitFont.outline, true)
 	fpsLabel:SetText(fpsLabel.unit)
 	latencyLabel:SetText(latencyLabel.unit)
+	setShown(fpsValue, config.showFps)
+	setShown(fpsLabel, config.showFps)
+	setShown(latencyValue, config.showLatency)
+	setShown(latencyLabel, config.showLatency)
 
 	local lineHeight = valueFont.size + 2
 	fpsValue:SetText("888")
 	local fpsColumn = fpsValue:GetStringWidth()
 	latencyValue:SetText("8888")
 	local latencyColumn = latencyValue:GetStringWidth()
-	local fpsWidth = fpsColumn + UNIT_GAP + fpsLabel:GetStringWidth()
+	local fpsWidth = config.showFps and fpsColumn + UNIT_GAP + fpsLabel:GetStringWidth() or 0
+	local latencyWidth = config.showLatency and latencyColumn + UNIT_GAP + latencyLabel:GetStringWidth() or 0
+	if fpsWidth > 0 and latencyWidth > 0 then
+		fpsWidth = fpsWidth + GROUP_GAP
+	end
 	fpsValue:ClearAllPoints()
 	fpsValue:SetPoint("TOPRIGHT", frame, "TOPLEFT", fpsColumn, 0)
 	latencyValue:ClearAllPoints()
-	latencyValue:SetPoint("TOPRIGHT", frame, "TOPLEFT", fpsWidth + GROUP_GAP + latencyColumn, 0)
-	frame:SetSize(fpsWidth + GROUP_GAP + latencyColumn + UNIT_GAP + latencyLabel:GetStringWidth(), lineHeight)
+	latencyValue:SetPoint("TOPRIGHT", frame, "TOPLEFT", fpsWidth + latencyColumn, 0)
+	frame:SetSize(max(fpsWidth + latencyWidth, 1), lineHeight)
 
-	if config.enabled then
+	if config.enabled and (config.showFps or config.showLatency) then
 		untilNextTick = 0
 		frame:SetScript("OnUpdate", onUpdate)
 		frame:Show()

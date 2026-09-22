@@ -10,11 +10,20 @@ local SpellTexture = ns.SpellTexture
 
 local CooldownTracker = ns:GetModule("CooldownTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
+local config = ns.Config.unitFrames
 
 local EXPIRY_CHECK_INTERVAL = 0.5
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 1.75
-local GLOW_COLOR = { 1, 0.85, 0.3 }
+
+local function showGlow(icon, shown)
+	if shown then
+		icon.glow:SetVertexColor(unpack(config.cooldownGlowColor))
+		icon.glow:Show()
+	else
+		icon.glow:Hide()
+	end
+end
 
 local function onIconEnter(icon)
 	GameTooltip:SetOwner(icon, "ANCHOR_BOTTOMRIGHT")
@@ -54,7 +63,6 @@ local function createIcon(container, index)
 	icon.glow:SetSize(container.size * GLOW_SCALE, container.size * GLOW_SCALE)
 	icon.glow:SetTexture(GLOW_TEXTURE)
 	icon.glow:SetBlendMode("ADD")
-	icon.glow:SetVertexColor(unpack(GLOW_COLOR))
 	icon.glow:Hide()
 
 	icon.OnResize = onIconResize
@@ -109,11 +117,7 @@ function refresh(container)
 				icon.start = nil
 				icon.cooldown:SetCooldown(0, 0)
 			end
-			if highlighted then
-				icon.glow:Show()
-			else
-				icon.glow:Hide()
-			end
+			showGlow(icon, highlighted)
 			icon:Show()
 		end
 	end
@@ -146,11 +150,7 @@ local function test(frame)
 			icon.texture:SetTexture(SpellTexture(id))
 			icon.start = nil
 			icon.cooldown:SetCooldown(now - random(0, cooldown - 5), cooldown)
-			if random(5) == 1 then
-				icon.glow:Show()
-			else
-				icon.glow:Hide()
-			end
+			showGlow(icon, random(5) == 1)
 			icon:Show()
 		end
 	end

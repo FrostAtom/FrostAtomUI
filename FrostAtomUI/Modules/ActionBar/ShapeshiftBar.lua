@@ -6,6 +6,7 @@ local GetShapeshiftForm = GetShapeshiftForm
 local GetShapeshiftFormInfo = GetShapeshiftFormInfo
 local GetShapeshiftFormCooldown = GetShapeshiftFormCooldown
 local GetSpellInfo = GetSpellInfo
+local GetBindingKey = GetBindingKey
 local InCombatLockdown = InCombatLockdown
 local GameTooltip = GameTooltip
 local NUM_SHAPESHIFT_SLOTS = NUM_SHAPESHIFT_SLOTS
@@ -13,6 +14,7 @@ local NUM_SHAPESHIFT_SLOTS = NUM_SHAPESHIFT_SLOTS
 local ActionBar = ns:GetModule("ActionBar")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
+local config = ns.Config.actionBar
 local PLACEHOLDER_TEXTURE = "Interface\\Icons\\Spell_Nature_WispSplode"
 
 local buttons = ActionBar.shapeshiftButtons
@@ -23,6 +25,29 @@ local function setTooltip(button)
 		GameTooltip:SetShapeshift(id)
 	else
 		GameTooltip:Hide()
+	end
+end
+
+local function updateHotkey(button)
+	local key = GetBindingKey(button.bindingName)
+	if key then
+		button.hotkey:SetText(ActionBar.AbbreviateKey(key))
+		button.hotkey:Show()
+	else
+		button.hotkey:Hide()
+	end
+end
+
+function ActionBar:StyleShapeshiftHotkey(hotkey)
+	self:StyleHotkey(hotkey)
+	if not config.showShapeshiftHotkeys then
+		hotkey:SetAlpha(0)
+	end
+end
+
+function ActionBar:UpdateShapeshiftHotkeys()
+	for i = 1, NUM_SHAPESHIFT_SLOTS do
+		updateHotkey(buttons[i])
 	end
 end
 
@@ -97,8 +122,16 @@ function ActionBar:SetupShapeshiftButton(button)
 	CooldownTimer:Attach(button.cooldown)
 	self:AttachTooltip(button, setTooltip)
 
-	_G[name .. "HotKey"]:Hide()
 	_G[name .. "Count"]:Hide()
+
+	button.bindingName = "SHAPESHIFTBUTTON" .. button:GetID()
+	button.hotkey = _G[name .. "HotKey"]
+	button.hotkey:ClearAllPoints()
+	button.hotkey:SetPoint("TOPRIGHT")
+	button.hotkey:SetJustifyH("LEFT")
+	button.hotkey:SetJustifyV("BOTTOM")
+	self:StyleShapeshiftHotkey(button.hotkey)
+	updateHotkey(button)
 
 	buttons[button:GetID()] = button
 	return button
@@ -113,6 +146,7 @@ function ActionBar:InitializeShapeshiftBar(parent)
 	self:RegisterEvent("UPDATE_SHAPESHIFT_USABLE", "UpdateShapeshiftBar")
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", "UpdateShapeshiftBar")
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORMS", "UpdateShapeshiftVisibility")
+	self:RegisterEvent("UPDATE_BINDINGS", "UpdateShapeshiftHotkeys")
 	self:UpdateShapeshiftBar()
 
 	ns.DestroyFrame(ShapeshiftBarFrame)

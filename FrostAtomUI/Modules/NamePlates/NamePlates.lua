@@ -15,7 +15,6 @@ local frameConfig = ns.Config.unitFrames
 local BACKDROP = ns.CreateBackdrop(8, 2)
 local BORDER_INSET = 3
 local TEXT_INSET = 3
-local CASTBAR_GAP = 3
 local ICON_GAP = 2
 local WHITE = { 1, 1, 1 }
 
@@ -47,10 +46,10 @@ end
 
 function PlateMixin:UpdateColors(r, g, b)
 	local class = classKeys[colorKey(r, g, b)]
-	if class then
+	if class and config.classColorHealth then
 		local barColor = classBarColors[class]
 		r, g, b = barColor[1], barColor[2], barColor[3]
-	elseif g + b == 0 then
+	elseif class or g + b == 0 then
 		r, g, b = 0.69, 0.31, 0.31
 	elseif r + b == 0 then
 		r, g, b = 0.33, 0.59, 0.33
@@ -143,7 +142,7 @@ function PlateMixin:OnUpdate()
 	if borderState ~= self.borderState then
 		self.borderState = borderState
 		if borderState ~= "threat" then
-			local color = isTarget and frameConfig.targetBorderColor or frameConfig.borderColor
+			local color = isTarget and config.targetBorder and frameConfig.targetBorderColor or frameConfig.borderColor
 			holder:SetBackdropBorderColor(color[1], color[2], color[3])
 		end
 	end
@@ -192,7 +191,12 @@ function PlateMixin:OnShow()
 		totem:Hide()
 		totem.border:Hide()
 		self.name:SetText(name)
-		self.raidicon:SetAlpha(1)
+		if config.showName then
+			self.name:Show()
+		else
+			self.name:Hide()
+		end
+		self.raidicon:SetAlpha(config.showRaidIcon and 1 or 0)
 	end
 
 	self.level:Hide()
@@ -206,7 +210,7 @@ local CastbarMixin = {}
 
 function CastbarMixin:Layout()
 	local holder = self:GetParent().holder
-	local offset = CASTBAR_GAP + BORDER_INSET
+	local offset = config.castbarGap + BORDER_INSET
 	self:ClearAllPoints()
 	self:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", BORDER_INSET, -offset)
 	self:SetPoint("TOPRIGHT", holder, "BOTTOMRIGHT", -BORDER_INSET, -offset)

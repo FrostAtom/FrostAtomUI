@@ -39,7 +39,18 @@ local schema = {
 Section(schema, "Arena history", "arenaHistory", {
 	{ path = "enabled", label = "Record games", type = "toggle", desc = "Save arena scoreboards. Open with /history." },
 	{ path = "point", label = "Window position", type = "point" },
-	{ path = "maxGames", label = "Games to keep", type = "number", min = 50, max = 5000, step = 50 },
+	{
+		path = "maxGames",
+		label = "Games to keep",
+		type = "number",
+		min = 50,
+		max = 5000,
+		step = 50,
+		desc = "Oldest games are dropped past this count.",
+	},
+	{ path = "listFont", label = "List font", type = "font", desc = "Rows of the game list and match details." },
+	{ path = "winColor", label = "Win color", type = "color" },
+	{ path = "lossColor", label = "Loss color", type = "color" },
 	{
 		label = "History window",
 		type = "execute",
@@ -50,38 +61,87 @@ Section(schema, "Arena history", "arenaHistory", {
 	},
 })
 
-schema[#schema + 1] = { header = "Equipment" }
-schema[#schema + 1] = {
-	path = "equipment.showItemLevels",
-	label = "Item levels on character / inspect",
-	type = "toggle",
-	desc = "Per-slot item level and the average on the paper doll.",
-}
-schema[#schema + 1] = { path = "equipment.durabilityWarning", label = "Durability warning", type = "toggle" }
-schema[#schema + 1] = {
-	path = "equipment.durabilityThreshold",
-	label = "Warn below",
-	type = "number",
-	min = 0.05,
-	max = 0.9,
-	step = 0.05,
-	enabledBy = "equipment.durabilityWarning",
-	desc = "Warn when any equipped item drops below this durability.",
-}
+Section(schema, "Equipment", "equipment", {
+	{ path = "enabled", label = "Enable", type = "toggle", desc = "Item level display and durability warnings." },
+	{
+		path = "showItemLevels",
+		label = "Item levels on character / inspect",
+		type = "toggle",
+		desc = "Per-slot item level and the average on the paper doll.",
+	},
+	{ path = "slotFont", label = "Slot item level font", type = "font", enabledBy = "equipment.showItemLevels" },
+	{ path = "averageFont", label = "Average item level font", type = "font", enabledBy = "equipment.showItemLevels" },
+	{
+		path = "qualityThresholds.uncommon",
+		label = "Average: green from",
+		type = "number",
+		min = 1,
+		max = 400,
+		step = 1,
+		enabledBy = "equipment.showItemLevels",
+		desc = "Average item level colored by quality tier. Grey below this value.",
+	},
+	{
+		path = "qualityThresholds.rare",
+		label = "Average: blue from",
+		type = "number",
+		min = 1,
+		max = 400,
+		step = 1,
+		enabledBy = "equipment.showItemLevels",
+	},
+	{
+		path = "qualityThresholds.epic",
+		label = "Average: purple from",
+		type = "number",
+		min = 1,
+		max = 400,
+		step = 1,
+		enabledBy = "equipment.showItemLevels",
+	},
+	{
+		path = "qualityThresholds.legendary",
+		label = "Average: orange from",
+		type = "number",
+		min = 1,
+		max = 400,
+		step = 1,
+		enabledBy = "equipment.showItemLevels",
+	},
+	{
+		path = "durabilityWarning",
+		label = "Durability warning",
+		type = "toggle",
+		desc = "Print a chat warning when gear durability gets low.",
+	},
+	{
+		path = "durabilityThreshold",
+		label = "Warn below",
+		type = "number",
+		min = 0.05,
+		max = 0.9,
+		step = 0.05,
+		enabledBy = "equipment.durabilityWarning",
+		desc = "Warn when any equipped item drops below this durability.",
+	},
+})
 
-schema[#schema + 1] = { header = "Merchant" }
-schema[#schema + 1] = {
-	path = "merchant.sellGreys",
-	label = "Sell grey items",
-	type = "toggle",
-	desc = "Hold Shift while opening a merchant to skip.",
-}
-schema[#schema + 1] = {
-	path = "merchant.autoRepair",
-	label = "Auto repair",
-	type = "toggle",
-	desc = "Hold Shift while opening a merchant to skip.",
-}
+Section(schema, "Merchant", "merchant", {
+	{ path = "enabled", label = "Enable", type = "toggle", desc = "Automatic actions when a merchant window opens." },
+	{
+		path = "sellGreys",
+		label = "Sell grey items",
+		type = "toggle",
+		desc = "Sell every poor quality item in your bags.",
+	},
+	{ path = "autoRepair", label = "Auto repair", type = "toggle", desc = "Repair all gear when you can afford it." },
+	{
+		path = "shiftToSkip",
+		label = "Hold Shift to skip",
+		type = "toggle",
+		desc = "Do nothing when the merchant window is opened with Shift held.",
+	},
+})
 
 schema[#schema + 1] = { header = "Interface" }
 schema[#schema + 1] = {
@@ -90,52 +150,134 @@ schema[#schema + 1] = {
 	type = "toggle",
 	desc = "Scroll pages in the merchant, spellbook, mailbox, auction house and calendar with the mouse wheel.",
 }
-schema[#schema + 1] = {
-	path = "tweaks.hideErrors",
-	label = "Hide red error messages",
-	type = "toggle",
-	desc = '"Not enough mana", "Out of range" and similar messages at the top of the screen.',
-}
 
-schema[#schema + 1] = { header = "Popups" }
-schema[#schema + 1] = {
-	path = "popups.autoAcceptInvites",
-	label = "Auto accept invites from friends / guild",
-	type = "toggle",
-}
-schema[#schema + 1] = {
-	path = "popups.autoRelease",
-	label = "Auto release in battlegrounds",
-	type = "toggle",
-}
-schema[#schema + 1] = {
-	path = "popups.declineTradeInCombat",
-	label = "Decline trades in combat",
-	type = "toggle",
-}
-schema[#schema + 1] = {
-	path = "popups.declineDuels",
-	label = "Decline duels",
-	type = "toggle",
-	desc = "Toggle with /noduel.",
-}
-schema[#schema + 1] = {
-	path = "popups.declineInvites",
-	label = "Decline party invites",
-	type = "toggle",
-	desc = "Toggle with /noparty.",
-}
-schema[#schema + 1] = {
-	path = "popups.declineTrades",
-	label = "Decline trades",
-	type = "toggle",
-	desc = "Toggle with /notrade.",
-}
-schema[#schema + 1] = {
-	path = "popups.fillDeleteConfirm",
-	label = 'Fill in "DELETE" confirmation',
-	type = "toggle",
-}
+Section(schema, "Tweaks", "tweaks", {
+	{
+		path = "enabled",
+		label = "Enable",
+		type = "toggle",
+		reload = true,
+		desc = "Pinned CVars (no tutorials, ground clutter, camera distance, script errors), "
+			.. "world state frame position and the Spectate entry in friend menus.",
+	},
+	{
+		path = "hideErrors",
+		label = "Hide red error messages",
+		type = "toggle",
+		desc = '"Not enough mana", "Out of range" and similar messages at the top of the screen.',
+	},
+	{
+		path = "scriptErrors",
+		label = "Show Lua errors",
+		type = "toggle",
+		desc = "Pop up addon script errors instead of silently ignoring them.",
+	},
+	{
+		path = "hideGroundClutter",
+		label = "Hide ground clutter",
+		type = "toggle",
+		desc = "Grass and other ground decorations. Turning it off restores the game default.",
+	},
+	{
+		path = "cameraDistanceMax",
+		label = "Max camera distance",
+		type = "number",
+		min = 10,
+		max = 50,
+		step = 1,
+		desc = "How far the camera can zoom out.",
+	},
+	{
+		path = "worldStatePoint",
+		label = "World state position",
+		type = "point",
+		desc = "Battleground score / flag status frame.",
+	},
+})
+
+Section(schema, "Character model", "modelControls", {
+	{
+		path = "enabled",
+		label = "Enable",
+		type = "toggle",
+		reload = true,
+		desc = "Drag to rotate, right-drag to pan and mouse wheel to zoom the character, inspect and dressing room models. "
+			.. "Removes the rotate buttons.",
+	},
+	{
+		path = "rotateSpeed",
+		label = "Rotate speed",
+		type = "number",
+		min = 0.002,
+		max = 0.05,
+		step = 0.002,
+		desc = "Radians per pixel of mouse movement.",
+	},
+	{
+		path = "zoomStep",
+		label = "Zoom step",
+		type = "number",
+		min = 0.1,
+		max = 1,
+		step = 0.05,
+		desc = "Distance change per mouse wheel notch.",
+	},
+})
+
+Section(schema, "Combat log", "combatLogFix", {
+	{
+		path = "enabled",
+		label = "Fix stalled combat log",
+		type = "toggle",
+		desc = "Clear the combat log when it stops delivering events inside instances. WoW Circle only.",
+	},
+}, not GetCVar("realmlist"):lower():find("circle"))
+
+Section(schema, "Popups", "popups", {
+	{ path = "enabled", label = "Enable", type = "toggle", desc = "Automatic handling of popup dialogs." },
+	{
+		path = "autoAcceptInvites",
+		label = "Auto accept invites from friends / guild",
+		type = "toggle",
+		desc = "Only while not already in a group.",
+	},
+	{
+		path = "autoRelease",
+		label = "Auto release in battlegrounds",
+		type = "toggle",
+		desc = "Release spirit immediately on death in a battleground.",
+	},
+	{
+		path = "declineTradeInCombat",
+		label = "Decline trades in combat",
+		type = "toggle",
+		desc = "Close incoming trade windows while in combat.",
+	},
+	{
+		path = "declineDuels",
+		label = "Decline duels",
+		type = "toggle",
+		desc = "Toggle with /noduel.",
+	},
+	{
+		path = "declineInvites",
+		label = "Decline party invites",
+		type = "toggle",
+		desc = "Toggle with /noparty.",
+	},
+	{
+		path = "declineTrades",
+		label = "Decline trades",
+		type = "toggle",
+		desc = "Toggle with /notrade.",
+	},
+	{
+		path = "fillDeleteConfirm",
+		label = 'Fill in "DELETE" confirmation',
+		type = "toggle",
+		desc = "Pre-type the confirmation word when deleting good items.",
+	},
+})
 
 ns.RegisterPage({
 	key = "general",

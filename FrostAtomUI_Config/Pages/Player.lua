@@ -22,6 +22,18 @@ Section(schema, "Player plate", "playerPlate", {
 		type = "toggle",
 		desc = "Keep visible out of combat at full health.",
 	},
+	{
+		path = "fadeTime",
+		label = "Fade out time",
+		type = "number",
+		min = 0,
+		max = 3,
+		step = 0.1,
+		desc = "Seconds to fade out after leaving combat at full health. 0 hides instantly.",
+		disabled = function()
+			return ui:GetConfig("playerPlate.alwaysShow")
+		end,
+	},
 	{ path = "point", label = "Position", type = "point" },
 	{ path = "width", label = "Width", type = "number", min = 60, max = 400, step = 1 },
 	{ path = "healthHeight", label = "Health bar height", type = "number", min = 3, max = 40, step = 1 },
@@ -41,7 +53,13 @@ Section(schema, "Player plate", "playerPlate", {
 })
 
 Section(schema, "Shield indicator", "shieldIndicator", {
-	{ path = "enabled", label = "Enable", type = "toggle", desc = "Show the equipped shield icon left of the player plate." },
+	{
+		path = "enabled",
+		label = "Enable",
+		type = "toggle",
+		desc = "Show the equipped shield icon next to the player plate.",
+	},
+	{ path = "point", label = "Position", type = "point" },
 	{ path = "size", label = "Icon size", type = "number", min = 12, max = 64, step = 1 },
 }, notClass("WARRIOR"))
 

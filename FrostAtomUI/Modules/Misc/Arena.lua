@@ -23,17 +23,17 @@ countdown:SetScript("OnUpdate", function(self, elapsed)
 		self:Hide()
 	elseif self.remain <= 3 then
 		self.text:SetFormattedText("%.1f", self.remain)
-		self.text:SetTextColor(1, 0, 0)
+		self.text:SetTextColor(unpack(ns.Config.arena.countdownUrgentColor))
 	else
 		self.text:SetText(ceil(self.remain))
-		self.text:SetTextColor(1, 1, 1)
+		self.text:SetTextColor(unpack(ns.Config.arena.countdownColor))
 	end
 end)
 
 countdown:SetScript("OnEvent", function(self, event, message)
 	if event == "PLAYER_ENTERING_WORLD" then
 		self:Hide()
-	elseif ns.Config.arena.countdown and message:find(COUNTDOWN_MESSAGE, 1, true) then
+	elseif ns.Config.arena.enabled and ns.Config.arena.countdown and message:find(COUNTDOWN_MESSAGE, 1, true) then
 		self.remain = COUNTDOWN_SECONDS
 		self:Show()
 	end
@@ -43,8 +43,6 @@ countdown:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 local RING_OF_VALOR = "The Ring of Valor"
 local BATTLE_BEGUN_MESSAGE = "The Arena battle has begun!"
-local FIRST_TOGGLE = 45
-local TOGGLE_PERIOD = 25
 local TICK_INTERVAL = 0.05
 
 local pillars = CreateFrame("StatusBar", nil, UIParent)
@@ -70,7 +68,7 @@ local function onUpdateToggling(self, elapsed)
 	self.untilTick = self.untilTick - elapsed
 	if self.untilTick < 0 then
 		self.untilTick = TICK_INTERVAL
-		self:SetValue((GetTime() - self.firstToggleAt) % TOGGLE_PERIOD)
+		self:SetValue((GetTime() - self.firstToggleAt) % self.period)
 	end
 end
 
@@ -83,26 +81,31 @@ local function onUpdateWaiting(self, elapsed)
 
 	local now = GetTime()
 	if now < self.firstToggleAt then
-		self:SetValue(FIRST_TOGGLE - (self.firstToggleAt - now))
+		self:SetValue(self.firstToggle - (self.firstToggleAt - now))
 	else
-		self:SetMinMaxValues(0, TOGGLE_PERIOD)
+		self:SetMinMaxValues(0, self.period)
 		self:SetScript("OnUpdate", onUpdateToggling)
 		onUpdateToggling(self, 0)
 	end
 end
 
 pillars:SetScript("OnShow", function(self)
-	self.firstToggleAt = GetTime() + FIRST_TOGGLE
+	local config = ns.Config.arena
+	self.firstToggle, self.period = config.pillarsFirstToggle, config.pillarsPeriod
+	self.firstToggleAt = GetTime() + self.firstToggle
 	self.untilTick = 0
-	self:SetMinMaxValues(0, FIRST_TOGGLE)
+	self:SetMinMaxValues(0, self.firstToggle)
 	self:SetScript("OnUpdate", onUpdateWaiting)
 end)
 
 pillars:SetScript("OnEvent", function(self, event, message)
 	if event == "PLAYER_ENTERING_WORLD" then
 		self:Hide()
-	elseif ns.Config.arena.pillars and message == BATTLE_BEGUN_MESSAGE and GetZoneText() == RING_OF_VALOR then
-		self:Show()
+	elseif message == BATTLE_BEGUN_MESSAGE and GetZoneText() == RING_OF_VALOR then
+		local config = ns.Config.arena
+		if config.enabled and config.pillars then
+			self:Show()
+		end
 	end
 end)
 pillars:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
@@ -113,6 +116,12 @@ local function applyConfig()
 	local font = config.countdownFont
 	ns.SetFont(countdown.text, font.size, font.outline, true)
 	pillars:SetSize(config.pillarsSize, config.pillarsSize)
+	if not (config.enabled and config.countdown) then
+		countdown:Hide()
+	end
+	if not (config.enabled and config.pillars) then
+		pillars:Hide()
+	end
 end
 
 applyConfig()

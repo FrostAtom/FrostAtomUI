@@ -10,6 +10,8 @@ local WIDTH, HEIGHT = 720, 580
 local PADDING = 12
 local NAV_WIDTH = 150
 local NAV_BUTTON_HEIGHT = 24
+local SEARCH_HEIGHT = 30
+local SEARCH_DELAY = 0.2
 local TITLE_HEIGHT = 32
 local ROW_HEIGHT = 30
 local HEADER_HEIGHT = 26
@@ -29,10 +31,16 @@ ns.OUTLINES = OUTLINES
 local pages = {}
 local frame
 local currentPage
+local lastNavPage
 local refreshing = false
 local widgetCount = 0
 
+local searchPage = { key = "search", name = "Search", schema = {}, noReset = true }
+
 function ns.RegisterPage(page)
+	for _, entry in ipairs(page.schema) do
+		entry.page = page
+	end
 	tinsert(pages, page)
 	sort(pages, function(a, b)
 		return a.order < b.order
@@ -50,7 +58,11 @@ function ns.Section(schema, header, prefix, entries, hidden)
 			entry.path = prefix .. "." .. entry.path
 		end
 		if entry.path ~= enable then
-			entry.enabledBy = enable
+			if entry.enabledBy then
+				entry.enabledBy = { enable, entry.enabledBy }
+			else
+				entry.enabledBy = enable
+			end
 		end
 		schema[#schema + 1] = entry
 	end
@@ -669,7 +681,8 @@ local function expandList(schema, entry)
 		local item = items[index]
 		local prefix = entry.path .. "." .. index .. "."
 		local label, icon = entry.describe(item)
-		schema[#schema + 1] = { type = "listItem", label = label, icon = icon, list = entry, index = index }
+		schema[#schema + 1] =
+			{ type = "listItem", label = label, icon = icon, list = entry, index = index, page = entry.page }
 		for _, field in ipairs(entry.fields) do
 			local sub = {}
 			for key, value in pairs(field) do
@@ -677,6 +690,7 @@ local function expandList(schema, entry)
 			end
 			sub.path = prefix .. field.key
 			sub.enabledBy = entry.enabledBy
+			sub.page = entry.page
 			schema[#schema + 1] = sub
 		end
 	end
@@ -732,14 +746,28 @@ function ns.Confirm(text, action)
 	StaticPopup_Show("FROSTATOMUI_CONFIG_CONFIRM", text)
 end
 
-local function isEntryEnabled(page, entry)
+local function isEnabledBy(enabledBy)
+	if type(enabledBy) == "table" then
+		for i = 1, #enabledBy do
+			if not ui:GetConfig(enabledBy[i]) then
+				return false
+			end
+		end
+		return true
+	end
+	return ui:GetConfig(enabledBy) and true or false
+end
+
+local function isEntryEnabled(entry)
 	if entry.disabled and entry.disabled() then
 		return false
 	end
-	if entry.enabledBy and not ui:GetConfig(entry.enabledBy) then
+	if entry.enabledBy and not isEnabledBy(entry.enabledBy) then
 		return false
 	end
-	if page.enable and entry.path ~= page.enable and not ui:GetConfig(page.enable) then
+	local page = entry.page
+	local enable = page and page.enable
+	if enable and entry.path ~= enable and not ui:GetConfig(enable) then
 		return false
 	end
 	return true
@@ -762,7 +790,7 @@ local function refreshPage(page)
 	refreshing = true
 	for _, row in ipairs(page.rows) do
 		row.Refresh()
-		local enabled = isEntryEnabled(page, row.entry)
+		local enabled = isEntryEnabled(row.entry)
 		row:SetEnabled(enabled)
 		setEnabledAlpha(row.label, enabled)
 	end
@@ -804,13 +832,12 @@ local function resetPage(page)
 	end
 end
 
-local function selectPage(page)
-	if currentPage == page then
-		return
-	end
+local function showPage(page)
 	if currentPage then
 		currentPage.content:Hide()
-		currentPage.button:UnlockHighlight()
+		if currentPage.button then
+			currentPage.button:UnlockHighlight()
+		end
 	end
 	currentPage = page
 	if not page.content then
@@ -819,7 +846,10 @@ local function selectPage(page)
 	frame.scroll:SetScrollChild(page.content)
 	frame.scroll:SetVerticalScroll(0)
 	page.content:Show()
-	page.button:LockHighlight()
+	if page.button then
+		page.button:LockHighlight()
+		lastNavPage = page
+	end
 	frame.title:SetText(page.name)
 	if page.noReset then
 		frame.resetPageButton:Hide()
@@ -829,10 +859,118 @@ local function selectPage(page)
 	refreshPage(page)
 end
 
+local function selectPage(page)
+	if currentPage ~= page then
+		showPage(page)
+	end
+end
+
+local function matchesQuery(entry, query)
+	local label = entry.label
+	if not label then
+		return false
+	end
+	if label:lower():find(query, 1, true) then
+		return true
+	end
+	local desc = entry.desc
+	return desc and desc:lower():find(query, 1, true) and true or false
+end
+
+local function collectSearch(query)
+	local schema = {}
+	local count = 0
+	for _, page in ipairs(pages) do
+		local header, headerAdded
+		for _, entry in ipairs(page.schema) do
+			if entry.header then
+				header, headerAdded = entry.header, false
+			elseif not entry.hidden and matchesQuery(entry, query) then
+				if not headerAdded then
+					headerAdded = true
+					schema[#schema + 1] = { header = header and (page.name .. " / " .. header) or page.name }
+				end
+				schema[#schema + 1] = entry
+				count = count + 1
+			end
+		end
+	end
+	return schema, count
+end
+
+local function runSearch()
+	local query = frame.searchBox:GetText():trim():lower()
+	if query == "" then
+		if currentPage == searchPage then
+			showPage(lastNavPage or pages[1])
+		end
+		return
+	end
+	if searchPage.query == query then
+		selectPage(searchPage)
+		return
+	end
+	local schema, count = collectSearch(query)
+	if searchPage.content then
+		searchPage.content:Hide()
+	end
+	if currentPage == searchPage then
+		currentPage = nil
+	end
+	searchPage.query = query
+	searchPage.schema = schema
+	searchPage.content = nil
+	searchPage.rows = nil
+	searchPage.name = count > 0 and ("Search: %d result%s"):format(count, count == 1 and "" or "s")
+		or "Search: no results"
+	showPage(searchPage)
+end
+
+local function scheduleSearch()
+	local token = (frame.searchToken or 0) + 1
+	frame.searchToken = token
+	ui.After(SEARCH_DELAY, function()
+		if frame.searchToken == token then
+			runSearch()
+		end
+	end)
+end
+
+local function createSearchBox()
+	local box = createEditBox(frame.nav, NAV_WIDTH - 18)
+	box:SetPoint("TOPLEFT", 6, -2)
+	box:SetMaxLetters(40)
+	box.OnCommit = function() end
+	box:SetScript("OnTextChanged", function(self)
+		if self:GetText() == "" then
+			self.placeholder:Show()
+		else
+			self.placeholder:Hide()
+		end
+		scheduleSearch()
+	end)
+	box:SetScript("OnEnterPressed", function(self)
+		self:ClearFocus()
+		runSearch()
+	end)
+	box:SetScript("OnEscapePressed", function(self)
+		self:ClearFocus()
+		self:SetText("")
+	end)
+
+	local placeholder = box:CreateFontString(nil, "OVERLAY")
+	ui.SetFont(placeholder, 12)
+	placeholder:SetTextColor(0.5, 0.5, 0.5)
+	placeholder:SetPoint("LEFT", 6, 0)
+	placeholder:SetText("Search settings...")
+	box.placeholder = placeholder
+	frame.searchBox = box
+end
+
 local function createNavButton(page, index)
 	local button = CreateFrame("Button", nil, frame.nav)
 	button:SetHeight(NAV_BUTTON_HEIGHT)
-	button:SetPoint("TOPLEFT", 0, -(index - 1) * NAV_BUTTON_HEIGHT)
+	button:SetPoint("TOPLEFT", 0, -SEARCH_HEIGHT - (index - 1) * NAV_BUTTON_HEIGHT)
 	button:SetPoint("RIGHT")
 	button:SetHighlightTexture(ui.Media.blank)
 	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
@@ -844,6 +982,7 @@ local function createNavButton(page, index)
 	text:SetText(page.name)
 
 	button:SetScript("OnClick", function()
+		frame.searchBox:SetText("")
 		selectPage(page)
 	end)
 	page.button = button
@@ -937,6 +1076,7 @@ local function createFrame()
 	scroll:SetPoint("BOTTOMRIGHT", -PADDING - 18, PADDING)
 	frame.scroll = scroll
 
+	createSearchBox()
 	for i, page in ipairs(pages) do
 		createNavButton(page, i)
 	end
@@ -960,11 +1100,16 @@ function ns.Toggle(pageKey)
 	if pageKey then
 		for _, page in ipairs(pages) do
 			if page.key == pageKey then
+				frame.searchBox:SetText("")
 				selectPage(page)
 				frame:Show()
 				return
 			end
 		end
+		frame.searchBox:SetText(pageKey)
+		runSearch()
+		frame:Show()
+		return
 	end
 	if frame:IsShown() then
 		frame:Hide()
