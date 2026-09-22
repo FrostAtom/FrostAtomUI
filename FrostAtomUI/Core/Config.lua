@@ -308,6 +308,13 @@ ns.Defaults = {
 		pulseSpeed = 1.2,
 	},
 
+	queuePopFlash = {
+		enabled = true,
+		color = { 0.1, 1, 0.2 },
+		intensity = 0.7,
+		pulseSpeed = 1.5,
+	},
+
 	cursorTrail = {
 		enabled = true,
 		hideInCombat = false,

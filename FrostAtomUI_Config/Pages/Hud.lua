@@ -123,6 +123,34 @@ Section(schema, L["Low health flash"], "lowHealthFlash", {
 	},
 })
 
+Section(schema, L["Queue pop flash"], "queuePopFlash", {
+	{
+		path = "enabled",
+		label = L["Enable"],
+		type = "toggle",
+		desc = L["Flash the whole screen when an arena, battleground or dungeon invite appears."],
+	},
+	{ path = "color", label = L["Color"], type = "color" },
+	{
+		path = "intensity",
+		label = L["Brightness"],
+		type = "number",
+		min = 0.1,
+		max = 1,
+		step = 0.05,
+		desc = L["Peak opacity of the flash; it ramps up to this over the first 15 seconds."],
+	},
+	{
+		path = "pulseSpeed",
+		label = L["Pulse speed"],
+		type = "number",
+		min = 0.2,
+		max = 5,
+		step = 0.1,
+		desc = L["Flashes per second."],
+	},
+})
+
 Section(schema, L["Cursor trail"], "cursorTrail", {
 	{
 		path = "enabled",

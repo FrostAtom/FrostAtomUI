@@ -13,6 +13,8 @@ local UnitIsPlayer = UnitIsPlayer
 local UnitIsUnit = UnitIsUnit
 local UnitFactionGroup = UnitFactionGroup
 local UnitIsConnected = UnitIsConnected
+local UnitIsEnemy = UnitIsEnemy
+local UnitCanAttack = UnitCanAttack
 local GetTime = GetTime
 
 local Misc = ns:GetModule("Misc")
@@ -75,6 +77,31 @@ local function queueAnnounce()
 	end
 end
 
+local function isGroupMember(name)
+	if GetNumRaidMembers() > 0 then
+		for i = 1, GetNumRaidMembers() do
+			if UnitName("raid" .. i) == name then
+				return true
+			end
+		end
+	else
+		for i = 1, GetNumPartyMembers() do
+			if UnitName("party" .. i) == name then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function isTalkable(name)
+	local _, instanceType = IsInInstance()
+	if instanceType == "arena" or instanceType == "pvp" then
+		return isGroupMember(name)
+	end
+	return true
+end
+
 function Version.Probe(unit)
 	if not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") or not UnitIsConnected(unit) then
 		return
@@ -82,8 +109,11 @@ function Version.Probe(unit)
 	if UnitFactionGroup(unit) ~= playerFaction then
 		return
 	end
+	if UnitIsEnemy("player", unit) or UnitCanAttack("player", unit) then
+		return
+	end
 	local name = UnitName(unit)
-	if not name or users[name] then
+	if not name or users[name] or not isTalkable(name) then
 		return
 	end
 	local now = GetTime()
@@ -126,7 +156,7 @@ Misc:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, message, channel, sende
 	if theirBuild > build then
 		reportNewer(theirVersion, theirBuild)
 	end
-	if kind == "Q" and channel == "WHISPER" then
+	if kind == "Q" and channel == "WHISPER" and isTalkable(sender) then
 		SendAddonMessage(PREFIX, "V:" .. payload, "WHISPER", sender)
 	end
 
