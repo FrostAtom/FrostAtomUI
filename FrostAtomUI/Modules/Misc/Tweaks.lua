@@ -137,6 +137,67 @@ focusButton:RegisterForClicks("AnyDown")
 focusButton:SetAttribute("type", "macro")
 focusButton:SetAttribute("macrotext", "/focus mouseover")
 
+local CAMERA_SNAP_SPEED = 10000
+local CAMERA_SNAP_HOLD = 0.05
+local CAMERA_SNAP_TAIL = 0.05
+local CAMERA_SNAP_MIN_FRAMES = 3
+
+BINDING_NAME_FROSTATOMUI_CAMERA_CLOSE = "Close camera distance"
+BINDING_NAME_FROSTATOMUI_CAMERA_MEDIUM = "Medium camera distance"
+BINDING_NAME_FROSTATOMUI_CAMERA_FAR = "Far camera distance"
+
+local snapFrame = CreateFrame("Frame")
+local snapMax, snapFactor, snapDistance, snapTime, snapFrames, snapStopFrames
+
+local function finishSnap(self, elapsed)
+	snapTime = snapTime + elapsed
+	snapFrames = snapFrames + 1
+	SetCVar("cameraDistanceMax", snapDistance)
+
+	if not snapStopFrames then
+		if snapTime < CAMERA_SNAP_HOLD or snapFrames < CAMERA_SNAP_MIN_FRAMES then
+			MoveViewInStart(CAMERA_SNAP_SPEED)
+			MoveViewOutStart(CAMERA_SNAP_SPEED)
+		else
+			MoveViewInStop()
+			MoveViewOutStop()
+			snapStopFrames = snapFrames
+		end
+		return
+	end
+
+	if snapTime < CAMERA_SNAP_HOLD + CAMERA_SNAP_TAIL or snapFrames < snapStopFrames + CAMERA_SNAP_MIN_FRAMES then
+		return
+	end
+
+	self:SetScript("OnUpdate", nil)
+	SetCVar("cameraDistanceMaxFactor", snapFactor)
+	SetCVar("cameraDistanceMax", snapMax)
+	snapTime = nil
+end
+
+function FrostAtomUI_SetCameraDistance(preset)
+	local distance = ns.Config.tweaks["cameraDistance" .. preset]
+	if not distance then
+		return
+	end
+
+	if not snapTime then
+		snapMax = GetCVar("cameraDistanceMax")
+		snapFactor = GetCVar("cameraDistanceMaxFactor")
+	end
+	snapTime = 0
+	snapFrames = 0
+	snapStopFrames = nil
+	snapDistance = tostring(distance)
+
+	SetCVar("cameraDistanceMaxFactor", "1")
+	SetCVar("cameraDistanceMax", snapDistance)
+	MoveViewInStart(CAMERA_SNAP_SPEED)
+	MoveViewOutStart(CAMERA_SNAP_SPEED)
+	snapFrame:SetScript("OnUpdate", finishSnap)
+end
+
 Misc:RegisterEvent("UPDATE_BINDINGS", function(self)
 	self:UnregisterEvent("UPDATE_BINDINGS")
 

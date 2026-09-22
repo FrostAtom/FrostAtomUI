@@ -113,7 +113,7 @@ local function onTooltipSetItem(tooltip)
 	if not link or not config.enabled then
 		return
 	end
-	local knownName, _, _, itemLevel, _, _, _, _, equipLoc = GetItemInfo(link)
+	local knownName, _, quality, itemLevel, _, _, _, _, equipLoc = GetItemInfo(link)
 	if not knownName then
 		return
 	end
@@ -124,7 +124,8 @@ local function onTooltipSetItem(tooltip)
 		if text and text:find(itemName, 1, true) then
 			title:SetFormattedText(TITLE_ICON, GetItemIcon(link), text)
 			if config.showItemLevel and equipLoc ~= "" and itemLevel then
-				setRightText(tooltip, i, "ilvl " .. itemLevel)
+				local color = quality and ITEM_QUALITY_COLORS[quality]
+				setRightText(tooltip, i, ("ilvl %s%d|r"):format(color and color.hex or "|cffffffff", itemLevel))
 			end
 			break
 		end

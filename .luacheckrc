@@ -106,6 +106,8 @@ globals = {
 	"CHAT_FRAME_TAB_NORMAL_MOUSEOVER_ALPHA", "CHAT_FRAME_TAB_NORMAL_NOMOUSE_ALPHA",
 	-- slash commands and key bindings
 	"SLASH_RELOAD2", "BINDING_HEADER_FROSTATOMUI",
+	"BINDING_NAME_FROSTATOMUI_CAMERA_CLOSE", "BINDING_NAME_FROSTATOMUI_CAMERA_MEDIUM",
+	"BINDING_NAME_FROSTATOMUI_CAMERA_FAR", "FrostAtomUI_SetCameraDistance",
 }
 
 -- Blizzard frames are accessed as globals; anything in CamelCase that is not

@@ -364,6 +364,9 @@ ns.Defaults = {
 		scriptErrors = true,
 		hideGroundClutter = true,
 		cameraDistanceMax = 50,
+		cameraDistanceClose = 10,
+		cameraDistanceMedium = 25,
+		cameraDistanceFar = 50,
 		worldStatePoint = { "BOTTOMLEFT", 52, 289 },
 	},
 

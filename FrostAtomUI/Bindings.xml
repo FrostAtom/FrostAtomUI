@@ -2,4 +2,13 @@
 	<!-- Listed under "FrostAtomUI" in the Key Bindings window; the labels are
 	     BINDING_HEADER_/BINDING_NAME_ globals in Modules/Misc/Tweaks.lua. -->
 	<Binding name="CLICK FrostAtomUIFocusButton:LeftButton" header="FROSTATOMUI" />
+	<Binding name="FROSTATOMUI_CAMERA_CLOSE">
+		FrostAtomUI_SetCameraDistance("Close")
+	</Binding>
+	<Binding name="FROSTATOMUI_CAMERA_MEDIUM">
+		FrostAtomUI_SetCameraDistance("Medium")
+	</Binding>
+	<Binding name="FROSTATOMUI_CAMERA_FAR">
+		FrostAtomUI_SetCameraDistance("Far")
+	</Binding>
 </Bindings>
