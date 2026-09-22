@@ -1,8 +1,8 @@
-## Interface: 30300
+﻿## Interface: 30300
 ## Title: FrostAtom UI Config
 ## Notes: Settings panel for FrostAtom UI, loaded on demand by /fui.
 ## Author: frostatom
-## Version: 1.2.0
+## Version: 1.3.0
 ## Dependencies: FrostAtomUI
 ## LoadOnDemand: 1
 
@@ -19,3 +19,4 @@ Pages\Hud.lua
 Pages\PvP.lua
 Pages\ExperienceBar.lua
 Pages\Bags.lua
+Pages\Profiles.lua

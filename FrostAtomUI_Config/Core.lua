@@ -104,6 +104,7 @@ local function createButton(parent, text, width, height)
 	button.text:SetText(text)
 	return button
 end
+ns.CreateButton = createButton
 
 local function createEditBox(parent, width, numeric)
 	local box = CreateFrame("EditBox", nextName(), parent, "InputBoxTemplate")
@@ -191,11 +192,18 @@ local function createRow(parent, entry)
 end
 
 local function get(entry)
+	if entry.get then
+		return entry.get()
+	end
 	return ui:GetConfig(entry.path)
 end
 
 local function set(entry, value)
 	if get(entry) == value then
+		return
+	end
+	if entry.set then
+		entry.set(value)
 		return
 	end
 	ui:SetConfig(entry.path, value)
@@ -353,7 +361,11 @@ function creators.select(parent, entry)
 	dropdown:SetPoint("LEFT", CONTROL_X - 20, -2)
 
 	row.Refresh = function()
-		dropdown:Select(get(entry))
+		local value = get(entry)
+		dropdown:Select(value)
+		if value == nil then
+			UIDropDownMenu_SetText(dropdown, entry.placeholder or "")
+		end
 	end
 	row.SetEnabled = function(_, enabled)
 		dropdown:SetEnabled(enabled)
@@ -809,6 +821,11 @@ local function selectPage(page)
 	page.content:Show()
 	page.button:LockHighlight()
 	frame.title:SetText(page.name)
+	if page.noReset then
+		frame.resetPageButton:Hide()
+	else
+		frame.resetPageButton:Show()
+	end
 	refreshPage(page)
 end
 
@@ -901,6 +918,7 @@ local function createFrame()
 
 	local resetPageButton = createButton(frame, "Reset page", 100)
 	resetPageButton:SetPoint("TOPRIGHT", -PADDING - 26, -PADDING - 1)
+	frame.resetPageButton = resetPageButton
 
 	local reloadButton = createButton(frame, "Reload UI", 90)
 	reloadButton:SetPoint("RIGHT", resetPageButton, "LEFT", -8, 0)
@@ -924,11 +942,13 @@ local function createFrame()
 	end
 
 	local watcher = ui.Mixin({}, ui.EventMixin)
-	watcher:RegisterEvent(ui.CONFIG_CHANGED, function()
+	local function refreshShown()
 		if frame:IsShown() then
 			refreshPage(currentPage)
 		end
-	end)
+	end
+	watcher:RegisterEvent(ui.CONFIG_CHANGED, refreshShown)
+	watcher:RegisterEvent(ui.PROFILES_CHANGED, refreshShown)
 
 	selectPage(pages[1])
 end

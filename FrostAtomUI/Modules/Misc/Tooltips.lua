@@ -308,6 +308,13 @@ local function onTooltipSetUnit(tooltip)
 		if config.showItemLevel then
 			unitItemLevel(tooltip, unit)
 		end
+		local Version = ns.Version
+		local userVersion, userBuild = Version.GetUser(UnitName(unit))
+		if userVersion then
+			tooltip:AddDoubleLine("|cff177cbfFrostAtom UI|r", Version.Label(userVersion, userBuild), nil, nil, nil, 1, 1, 1)
+		else
+			Version.Probe(unit)
+		end
 	end
 
 	local target = unit .. "target"

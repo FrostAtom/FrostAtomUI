@@ -1,6 +1,7 @@
-local _, ns = ...
+﻿local _, ns = ...
 
 local InCombatLockdown, SetCVar = InCombatLockdown, SetCVar
+local sort, concat, strchar = table.sort, table.concat, string.char
 
 ns.Defaults = {
 	general = {
@@ -396,8 +397,14 @@ end
 
 ns.Config = copy(ns.Defaults)
 ns.CONFIG_CHANGED = "FrostAtomUI_CONFIG_CHANGED"
+ns.PROFILES_CHANGED = "FrostAtomUI_PROFILES_CHANGED"
+
+local DEFAULT_PROFILE = "Default"
+local EXPORT_PREFIX = "FAUI1:"
 
 local Config = ns:NewModule("Config")
+local saved = {}
+local activeProfile = DEFAULT_PROFILE
 
 local function walk(root, path, create)
 	local node = root
@@ -443,11 +450,11 @@ function ns:SetConfig(path, value)
 	local listPath = path:match("^(.-)%.%d+%.") or path:match("^(.-)%.%d+$")
 	if listPath then
 		local listNode, listKey = walk(ns.Config, listPath)
-		local saved, savedKey = walk(ns.db.config, listPath, true)
-		assign(saved, savedKey, listNode[listKey])
+		local store, storeKey = walk(saved, listPath, true)
+		assign(store, storeKey, listNode[listKey])
 	else
-		local saved, savedKey = walk(ns.db.config, path, true)
-		assign(saved, savedKey, value)
+		local store, storeKey = walk(saved, path, true)
+		assign(store, storeKey, value)
 	end
 	ns:Fire(ns.CONFIG_CHANGED, path)
 end
@@ -469,7 +476,7 @@ end
 
 function ns:ResetConfig(path)
 	if not path then
-		wipe(ns.db.config)
+		wipe(saved)
 		reset(ns.Config, ns.Defaults)
 		ns:Fire(ns.CONFIG_CHANGED)
 		return
@@ -481,20 +488,20 @@ function ns:ResetConfig(path)
 	local listPath = path:match("^(.-)%.%d+%.") or path:match("^(.-)%.%d+$")
 	if listPath then
 		local listNode, listKey = walk(ns.Config, listPath)
-		local saved, savedKey = walk(ns.db.config, listPath, true)
-		assign(saved, savedKey, listNode[listKey])
+		local store, storeKey = walk(saved, listPath, true)
+		assign(store, storeKey, listNode[listKey])
 	else
-		local saved, savedKey = walk(ns.db.config, path)
-		if saved then
-			saved[savedKey] = nil
+		local store, storeKey = walk(saved, path)
+		if store then
+			store[storeKey] = nil
 		end
 	end
 	ns:Fire(ns.CONFIG_CHANGED, path)
 end
 
 function ns:IsDefaultConfig(path)
-	local saved, key = walk(ns.db.config, path)
-	return not saved or saved[key] == nil
+	local store, key = walk(saved, path)
+	return not store or store[key] == nil
 end
 
 local function applyGeneral()
@@ -506,9 +513,227 @@ local function applyGeneral()
 	end
 end
 
+local function prune(target, defaults)
+	for key, value in pairs(target) do
+		local default = defaults[key]
+		if default == nil then
+			target[key] = nil
+		elseif type(value) == "table" and type(default) == "table" and default[1] == nil and value[1] == nil then
+			prune(value, default)
+		end
+	end
+end
+
+local function charKey()
+	return UnitName("player") .. " - " .. GetRealmName()
+end
+
+local function activate(name)
+	local profiles = ns.db.profiles
+	profiles[name] = profiles[name] or {}
+	saved = profiles[name]
+	prune(saved, ns.Defaults)
+	activeProfile = name
+	ns.db.charProfile[charKey()] = name
+	reset(ns.Config, ns.Defaults)
+	merge(ns.Config, saved)
+end
+
+function ns:GetActiveProfile()
+	return activeProfile
+end
+
+function ns:GetProfileNames()
+	local names = {}
+	for name in pairs(ns.db.profiles) do
+		names[#names + 1] = name
+	end
+	sort(names)
+	return names
+end
+
+function ns:SetProfile(name)
+	name = name and name:trim()
+	if not name or name == "" or name == activeProfile then
+		return
+	end
+	activate(name)
+	ns:Fire(ns.PROFILES_CHANGED)
+	ns:Fire(ns.CONFIG_CHANGED)
+end
+
+function ns:CopyProfile(source)
+	local profile = ns.db.profiles[source]
+	if not profile or source == activeProfile then
+		return
+	end
+	wipe(saved)
+	merge(saved, profile)
+	reset(ns.Config, ns.Defaults)
+	merge(ns.Config, saved)
+	ns:Fire(ns.CONFIG_CHANGED)
+end
+
+function ns:DeleteProfile(name)
+	if name == activeProfile or not ns.db.profiles[name] then
+		return
+	end
+	ns.db.profiles[name] = nil
+	for char, profile in pairs(ns.db.charProfile) do
+		if profile == name then
+			ns.db.charProfile[char] = nil
+		end
+	end
+	ns:Fire(ns.PROFILES_CHANGED)
+end
+
+local function serialize(value, out)
+	local kind = type(value)
+	if kind == "table" then
+		out[#out + 1] = "{"
+		local count = #value
+		for i = 1, count do
+			serialize(value[i], out)
+			out[#out + 1] = ","
+		end
+		for key, item in pairs(value) do
+			if not (type(key) == "number" and key >= 1 and key <= count and key % 1 == 0) then
+				out[#out + 1] = "["
+				serialize(key, out)
+				out[#out + 1] = "]="
+				serialize(item, out)
+				out[#out + 1] = ","
+			end
+		end
+		out[#out + 1] = "}"
+	elseif kind == "string" then
+		out[#out + 1] = ("%q"):format(value)
+	elseif kind == "number" or kind == "boolean" then
+		out[#out + 1] = tostring(value)
+	else
+		error("cannot serialize " .. kind)
+	end
+end
+
+local ESCAPES = { n = "\n", r = "\r", t = "\t", ["\n"] = "\n" }
+
+local function unescape(body)
+	local out, i = {}, 1
+	while i <= #body do
+		local char = body:sub(i, i)
+		if char == "\\" then
+			local digits = body:match("^%d%d?%d?", i + 1)
+			if digits then
+				out[#out + 1] = strchar(tonumber(digits))
+				i = i + 1 + #digits
+			else
+				local next = body:sub(i + 1, i + 1)
+				out[#out + 1] = ESCAPES[next] or next
+				i = i + 2
+			end
+		else
+			out[#out + 1] = char
+			i = i + 1
+		end
+	end
+	return concat(out)
+end
+
+local parseValue
+
+local function parseTable(text, pos)
+	local result, index = {}, 1
+	pos = pos + 1
+	while true do
+		local char = text:sub(pos, pos)
+		if char == "}" then
+			return result, pos + 1
+		elseif char == "" then
+			return nil
+		end
+		local key, value
+		if char == "[" then
+			key, pos = parseValue(text, pos + 1)
+			if not key or text:sub(pos, pos) ~= "]" or text:sub(pos + 1, pos + 1) ~= "=" then
+				return nil
+			end
+			pos = pos + 2
+		else
+			key, index = index, index + 1
+		end
+		value, pos = parseValue(text, pos)
+		if value == nil then
+			return nil
+		end
+		result[key] = value
+		if text:sub(pos, pos) == "," then
+			pos = pos + 1
+		end
+	end
+end
+
+function parseValue(text, pos)
+	local char = text:sub(pos, pos)
+	if char == "{" then
+		return parseTable(text, pos)
+	elseif char == '"' then
+		local stop = pos
+		repeat
+			stop = text:find('"', stop + 1, true)
+			if not stop then
+				return nil
+			end
+			local backslashes = #text:sub(pos + 1, stop - 1):match("\\*$")
+		until backslashes % 2 == 0
+		return unescape(text:sub(pos + 1, stop - 1)), stop + 1
+	elseif text:sub(pos, pos + 3) == "true" then
+		return true, pos + 4
+	elseif text:sub(pos, pos + 4) == "false" then
+		return false, pos + 5
+	end
+	local number = text:match("^-?%d+%.?%d*[eE]?[-+]?%d*", pos)
+	if number and number ~= "" and tonumber(number) then
+		return tonumber(number), pos + #number
+	end
+	return nil
+end
+
+function ns:ExportProfile()
+	local out = {}
+	serialize(saved, out)
+	return EXPORT_PREFIX .. ns.Encode(concat(out))
+end
+
+function ns:ImportProfile(text)
+	text = text and text:trim()
+	if not text or text:sub(1, #EXPORT_PREFIX) ~= EXPORT_PREFIX then
+		return false, "not a FrostAtom UI profile string"
+	end
+	local body, err = ns.Decode(text:sub(#EXPORT_PREFIX + 1))
+	if not body then
+		return false, err
+	end
+	local data, pos = parseValue(body, 1)
+	if type(data) ~= "table" or pos ~= #body + 1 then
+		return false, "malformed profile string"
+	end
+	prune(data, ns.Defaults)
+	wipe(saved)
+	merge(saved, data)
+	reset(ns.Config, ns.Defaults)
+	merge(ns.Config, saved)
+	ns:Fire(ns.CONFIG_CHANGED)
+	return true
+end
+
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
-	db.config = db.config or {}
-	merge(ns.Config, db.config)
+	db.profiles = db.profiles or {}
+	db.charProfile = db.charProfile or {}
+	if db.config then
+		db.profiles[DEFAULT_PROFILE] = db.profiles[DEFAULT_PROFILE] or db.config
+		db.config = nil
+	end
+	activate(db.charProfile[charKey()] or DEFAULT_PROFILE)
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)
 end)

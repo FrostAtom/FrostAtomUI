@@ -1,8 +1,9 @@
-## Interface: 30300
+﻿## Interface: 30300
 ## Title: FrostAtom UI
 ## Notes: Personal UI replacement: action bars, unit frames, nameplates, chat, minimap and PvP helpers.
 ## Author: frostatom
-## Version: 1.2.0
+## Version: 1.3.0
+## X-Build: 2026-09-22
 ## SavedVariables: FrostAtomUIDB
 
 # Core: namespace, utilities, event dispatcher, saved variables, settings
@@ -12,6 +13,7 @@ Core\Events.lua
 Core\Scheduler.lua
 Core\Auras.lua
 Core\Media.lua
+Core\Encode.lua
 Core\DB.lua
 Core\CVars.lua
 Core\Config.lua
@@ -83,6 +85,7 @@ Modules\Chat\ChannelColors.lua
 # Everything else
 Modules\Misc\Tweaks.lua
 Modules\Misc\Popups.lua
+Modules\Misc\Version.lua
 Modules\Misc\Tooltips.lua
 Modules\Misc\WheelPaging.lua
 Modules\Misc\CursorTrail.lua
