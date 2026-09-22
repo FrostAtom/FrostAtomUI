@@ -385,6 +385,46 @@ function creators.select(parent, entry)
 	return row
 end
 
+function creators.multiselect(parent, entry)
+	local row = createRow(parent, entry)
+	local checks = {}
+	local x = CONTROL_X - 4
+	for i, option in ipairs(entry.values) do
+		local check = CreateFrame("CheckButton", nextName(), row, "UICheckButtonTemplate")
+		check:SetSize(24, 24)
+		check:SetPoint("LEFT", x, 0)
+		local label = check:CreateFontString(nil, "OVERLAY")
+		ui.SetFont(label, 12)
+		label:SetTextColor(0.85, 0.85, 0.85)
+		label:SetPoint("LEFT", check, "RIGHT", 0, 0)
+		label:SetText(option[2])
+		check.label = label
+		check:SetScript("OnClick", function(self)
+			ui:SetConfig(entry.path .. "." .. option[1], self:GetChecked() and true or false)
+		end)
+		checks[i] = check
+		x = x + 24 + label:GetStringWidth() + 10
+	end
+
+	row.Refresh = function()
+		local value = get(entry)
+		for i, check in ipairs(checks) do
+			check:SetChecked(value[entry.values[i][1]])
+		end
+	end
+	row.SetEnabled = function(_, enabled)
+		for _, check in ipairs(checks) do
+			if enabled then
+				check:Enable()
+			else
+				check:Disable()
+			end
+			setEnabledAlpha(check.label, enabled)
+		end
+	end
+	return row
+end
+
 function creators.font(parent, entry)
 	local row = createRow(parent, entry)
 	local sizeEntry = { path = entry.path .. ".size", min = 6, max = 32, step = 1 }
@@ -758,11 +798,23 @@ local function isEnabledBy(enabledBy)
 	return ui:GetConfig(enabledBy) and true or false
 end
 
+local function isEnabledByAny(paths)
+	for i = 1, #paths do
+		if ui:GetConfig(paths[i]) then
+			return true
+		end
+	end
+	return false
+end
+
 local function isEntryEnabled(entry)
 	if entry.disabled and entry.disabled() then
 		return false
 	end
 	if entry.enabledBy and not isEnabledBy(entry.enabledBy) then
+		return false
+	end
+	if entry.enabledByAny and not isEnabledByAny(entry.enabledByAny) then
 		return false
 	end
 	local page = entry.page

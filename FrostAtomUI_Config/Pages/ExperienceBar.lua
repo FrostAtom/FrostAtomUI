@@ -6,11 +6,17 @@ ns.RegisterPage({
 	order = 40,
 	enable = "experienceBar.enabled",
 	schema = {
-		{ path = "experienceBar.enabled", label = "Enable", type = "toggle" },
+		{
+			path = "experienceBar.enabled",
+			label = "Enable",
+			type = "toggle",
+			desc = "Thin experience bar; hidden at max level unless a reputation is watched.",
+		},
 		{
 			path = "experienceBar.showReputation",
 			label = "Show watched reputation at max level",
 			type = "toggle",
+			desc = "Track the reputation selected in the Reputation window instead of experience.",
 		},
 		{ header = "Layout" },
 		{ path = "experienceBar.point", label = "Position", type = "point" },
@@ -18,7 +24,13 @@ ns.RegisterPage({
 		{ path = "experienceBar.height", label = "Height", type = "number", min = 2, max = 30, step = 1 },
 		{ header = "Colors" },
 		{ path = "experienceBar.xpColor", label = "Experience", type = "color" },
-		{ path = "experienceBar.restedColor", label = "Rested", type = "color", alpha = true },
+		{
+			path = "experienceBar.restedColor",
+			label = "Rested",
+			type = "color",
+			alpha = true,
+			desc = "Overlay showing how far the rested bonus reaches.",
+		},
 		{
 			path = "experienceBar.backgroundAlpha",
 			label = "Background alpha",

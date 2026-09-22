@@ -44,6 +44,7 @@ ns.RegisterPage({
 			label = "Label color",
 			type = "color",
 			desc = "Color of the ID and bag count labels.",
+			enabledByAny = { "tooltip.showIds", "tooltip.showItemCount" },
 		},
 	},
 })

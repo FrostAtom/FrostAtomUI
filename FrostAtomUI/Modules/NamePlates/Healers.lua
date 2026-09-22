@@ -8,7 +8,6 @@ local GetBattlefieldScore = GetBattlefieldScore
 local UnitFactionGroup = UnitFactionGroup
 local match = string.match
 
-local HEALING_CLASSES = { PRIEST = true, PALADIN = true, SHAMAN = true, DRUID = true }
 local HEALER_ICON = "Interface\\Icons\\Spell_Holy_FlashHeal"
 local POLL_INTERVAL = 10
 local ICON_GAP = 2
@@ -42,11 +41,12 @@ end
 local function updateHealers()
 	local ownFaction = UnitFactionGroup("player") == "Horde" and 0 or 1
 	local threshold = config.healerThreshold
+	local classes = config.healerClasses
 	wipe(healers)
 
 	for i = 1, GetNumBattlefieldScores() do
 		local name, _, _, _, _, faction, _, _, _, class, damage, healing = GetBattlefieldScore(i)
-		if name and faction ~= ownFaction and HEALING_CLASSES[class] and healing > damage * threshold then
+		if name and faction ~= ownFaction and classes[class] and healing > damage * threshold then
 			healers[match(name, "^[^%-]+")] = true
 		end
 	end

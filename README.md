@@ -8,8 +8,7 @@ all in one addon, ready to play right after install.
 
 *Unit frame and cooldown test modes (`/uftest`, `/cdtest`) — every frame filled with random data.*
 
-> The project is under active development and the settings window is still **work in progress** —
-> some options are missing or may move around between versions.
+> The project is under active development — options may move around between versions.
 > Questions, ideas and bug reports: **[Discord](https://discord.gg/HSD3gCYw8Q)**.
 
 ---
@@ -182,14 +181,20 @@ Every `/no…` command also takes `on`, `off` or `status`.
 
 ![Settings window](docs/screenshots/settings.png)
 
-Type `/fui` (or `/ui`, `/faui`, `/frostatomui`) to open the settings window — positions, sizes and
-other options apply immediately, no reload needed. The window lives in the separate `FrostAtomUI_Config`
-addon, which is only loaded when you open it. Defaults are listed in `FrostAtomUI/Core/Config.lua`.
+Type `/fui` (or `/ui`, `/faui`, `/frostatomui`) to open the settings window. Every module has an
+**Enable** toggle and its own page with sizes, positions, fonts, colors and visibility options; almost
+everything applies immediately, the few options that need a reload say so and offer to reload right away.
 
-The settings window is **WIP**: not everything is exposed yet and new options are added regularly.
-If something you need is missing, ask in [Discord](https://discord.gg/HSD3gCYw8Q).
+- **Search** box above the page list, or `/fui <text>` — finds options by name or description.
+- **Unlock frames** (or `/fui unlock`) — drag any frame where you want it, right-click to reset.
+- **Reset page** / **Reset all** — back to defaults with a confirmation.
+- **Profiles** page — per-character profiles, copy, reset, and export/import as a text string to share with friends.
 
-Your settings (`/nodm`, `/noduel`, chat history, …) are saved per account in `WTF\Account\<name>\SavedVariables\FrostAtomUI.lua`.
+The window lives in the separate `FrostAtomUI_Config` addon, which is only loaded when you open it.
+Defaults are listed in `FrostAtomUI/Core/Config.lua`. If something you need is missing, ask in
+[Discord](https://discord.gg/HSD3gCYw8Q).
+
+Your profiles, chat history and arena history are saved per account in `WTF\Account\<name>\SavedVariables\FrostAtomUI.lua`.
 
 ---
 

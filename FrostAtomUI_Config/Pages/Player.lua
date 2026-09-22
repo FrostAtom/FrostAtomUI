@@ -39,13 +39,24 @@ Section(schema, "Player plate", "playerPlate", {
 	{ path = "healthHeight", label = "Health bar height", type = "number", min = 3, max = 40, step = 1 },
 	{ path = "powerHeight", label = "Power bar height", type = "number", min = 2, max = 40, step = 1 },
 	{ path = "gap", label = "Bar spacing", type = "number", min = 0, max = 20, step = 1 },
-	{ path = "showText", label = "Show values", type = "toggle" },
+	{
+		path = "showText",
+		label = "Show values",
+		type = "toggle",
+		desc = "Current health and power numbers on the bars.",
+	},
 	{ path = "font", label = "Font", type = "font" },
-	{ path = "classColorHealth", label = "Class colored health", type = "toggle" },
+	{
+		path = "classColorHealth",
+		label = "Class colored health",
+		type = "toggle",
+		desc = "Health bar in your class color instead of a fixed color.",
+	},
 	{
 		path = "healthColor",
 		label = "Health color",
 		type = "color",
+		desc = "Used when class coloring is off.",
 		disabled = function()
 			return ui:GetConfig("playerPlate.classColorHealth")
 		end,
@@ -78,8 +89,8 @@ Section(schema, "Runes", "runes", {
 	{ path = "bloodColor", label = "Blood", type = "color" },
 	{ path = "unholyColor", label = "Unholy", type = "color" },
 	{ path = "frostColor", label = "Frost", type = "color" },
-	{ path = "deathColor", label = "Death", type = "color" },
-	{ path = "emptyColor", label = "Empty", type = "color" },
+	{ path = "deathColor", label = "Death", type = "color", desc = "Runes converted to death runes." },
+	{ path = "emptyColor", label = "Empty", type = "color", desc = "Runes on cooldown." },
 }, notClass("DEATHKNIGHT"))
 
 Section(schema, "Totems", "totems", {
@@ -124,8 +135,9 @@ Section(schema, "Aura tracker", "auraTracker", {
 				label = "Unit",
 				type = "select",
 				values = { { "player", "Player" }, { "target", "Target" }, { "focus", "Focus" } },
+				desc = "Whose auras to scan for this spell.",
 			},
-			{ key = "debuff", label = "Debuff", type = "toggle" },
+			{ key = "debuff", label = "Debuff", type = "toggle", desc = "Look for a debuff instead of a buff." },
 			{ key = "isMine", label = "Only mine", type = "toggle", desc = "Only auras applied by you." },
 			{ key = "size", label = "Size", type = "number", min = 16, max = 80, step = 1 },
 			{ key = "point", label = "Position", type = "point" },

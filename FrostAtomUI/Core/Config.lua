@@ -169,6 +169,7 @@ ns.Defaults = {
 		showHealers = true,
 		healerIconSize = 16,
 		healerThreshold = 2,
+		healerClasses = { PRIEST = true, PALADIN = true, SHAMAN = true, DRUID = true },
 	},
 
 	playerPlate = {
