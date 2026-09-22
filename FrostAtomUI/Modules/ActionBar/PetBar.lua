@@ -66,18 +66,16 @@ function ActionBar:UpdatePetBar()
 			button.icon:SetTexture(texture)
 			button.icon:SetDesaturated(not GetPetActionSlotUsable(i))
 
-			if isToken then
-				if isActive then
-					self:SetButtonColors(button, 1, 1, 0.8, 0)
-				else
-					self:SetButtonColors(button, 0.4, 0.4, 0.4, 0.4)
-				end
+			self:SetButtonChecked(button, isActive)
+			if isToken and not isActive then
+				self:SetButtonColors(button, 0.4)
 			else
-				self:SetButtonColors(button, 1, 1, 1, 1)
+				self:SetButtonColors(button, 1)
 			end
 		else
 			button.icon:SetTexture(Media.emptySlot)
 			button.icon:SetDesaturated(nil)
+			self:SetButtonChecked(button, false)
 		end
 	end
 

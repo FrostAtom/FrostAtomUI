@@ -46,14 +46,11 @@ function ActionBar:UpdateShapeshiftBar()
 
 		CooldownFrame_SetTimer(button.cooldown, GetShapeshiftFormCooldown(i))
 
+		self:SetButtonChecked(button, currentForm == i)
 		if isCastable and (isActive or currentForm == 0) then
-			if currentForm == i then
-				self:SetButtonColors(button, 1, 1, 0.8, 0)
-			else
-				self:SetButtonColors(button, 1, 1, 1, 1)
-			end
+			self:SetButtonColors(button, 1)
 		else
-			self:SetButtonColors(button, 0.4, 0.4, 0.4, 0.4)
+			self:SetButtonColors(button, 0.4)
 		end
 	end
 end

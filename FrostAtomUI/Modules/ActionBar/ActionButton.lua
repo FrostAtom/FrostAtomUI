@@ -72,15 +72,7 @@ local ActionButtonMixin = {}
 
 local function applyColors(button, r, g, b)
 	button.icon:SetVertexColor(r, g, b)
-
-	local border = button:GetNormalTexture()
-	if button.checked then
-		border:SetVertexColor(1, 0.8, 0)
-	elseif button.equipped then
-		border:SetVertexColor(0.2, 0.8, 0.2)
-	else
-		border:SetVertexColor(r, g, b)
-	end
+	button:GetNormalTexture():SetVertexColor(r, g, b)
 end
 
 function ActionButtonMixin:UpdateColors()
@@ -103,13 +95,11 @@ function ActionButtonMixin:UpdateUsable()
 end
 
 function ActionButtonMixin:UpdateEquipped()
-	self.equipped = IsEquippedAction(self.action)
-	self:UpdateColors()
+	ActionBar:SetButtonEquipped(self, IsEquippedAction(self.action))
 end
 
 function ActionButtonMixin:UpdateState()
-	self.checked = IsCurrentAction(self.action) or IsAutoRepeatAction(self.action)
-	self:UpdateColors()
+	ActionBar:SetButtonChecked(self, IsCurrentAction(self.action) or IsAutoRepeatAction(self.action))
 end
 
 function ActionButtonMixin:UpdateStateForUnit(unit)
@@ -168,8 +158,6 @@ function ActionButtonMixin:Update()
 		self:SetScript("OnUpdate", self.OnUpdate)
 
 		self.usable, self.notEnoughMana = IsUsableAction(action)
-		self.equipped = IsEquippedAction(action)
-		self.checked = IsCurrentAction(action) or IsAutoRepeatAction(action)
 		self.outOfRange = IsActionInRange(action) == 0
 		self.rangeTimer = 0
 		self.hasAction = true
@@ -180,11 +168,13 @@ function ActionButtonMixin:Update()
 		self:SetScript("OnUpdate", nil)
 
 		self.usable = true
-		self.notEnoughMana, self.equipped, self.checked, self.outOfRange = nil, nil, nil, nil
+		self.notEnoughMana, self.outOfRange = nil, nil
 		self.hasAction = false
 	end
 
 	self:UpdateColors()
+	self:UpdateEquipped()
+	self:UpdateState()
 	self:UpdateBindings()
 	self:UpdateIcon()
 	self:UpdateCooldown()
@@ -265,7 +255,7 @@ function ActionBar:CreateActionButton(action, parent)
 
 	button.name = button:CreateFontString(nil, "ARTWORK")
 	button.name:SetPoint("BOTTOM", 0, 2)
-	button.name:SetFont(Media.font, config.nameFont.size, config.nameFont.outline)
+	ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
 
 	button:RegisterForClicks("LeftButtonDown")
 	button:RegisterForDrag("RightButton")

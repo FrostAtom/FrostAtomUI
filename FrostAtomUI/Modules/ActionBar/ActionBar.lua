@@ -3,7 +3,10 @@ local _, ns = ...
 local CreateFrame = CreateFrame
 local RegisterStateDriver = RegisterStateDriver
 local GameTooltip = GameTooltip
-local floor = math.floor
+local GetNumShapeshiftForms = GetNumShapeshiftForms
+local InCombatLockdown = InCombatLockdown
+local unpack, ipairs, tonumber = unpack, ipairs, tonumber
+local max, min, ceil = math.max, math.min, math.ceil
 
 local Media = ns.Media
 local ActionBar = ns:NewModule("ActionBar")
@@ -11,8 +14,8 @@ ActionBar.configKey = "actionBar"
 
 local config = ns.Config.actionBar
 local BUTTONS_PER_BAR = 12
-local SIDE_BAR_GAP = 12
 local NUM_BARS = 5
+local BAR_KEYS = { "bar1", "bar2", "bar3", "bar4", "bar5", "stance", "pet" }
 
 ActionBar.bars = {}
 ActionBar.petButtons = {}
@@ -23,15 +26,44 @@ function ActionBar:StyleButton(button)
 	button:GetNormalTexture():SetAllPoints()
 	button:SetHighlightTexture(Media.buttonHighlight)
 	button:HookScript("OnClick", self.PlayClickAnimation)
+
+	button.checkedTexture = button:CreateTexture(nil, "OVERLAY")
+	button.checkedTexture:SetTexture("Interface\\Buttons\\CheckButtonHilight")
+	button.checkedTexture:SetBlendMode("ADD")
+	button.checkedTexture:SetAllPoints()
+	button.checkedTexture:Hide()
+
+	button.equippedTexture = button:CreateTexture(nil, "OVERLAY")
+	button.equippedTexture:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+	button.equippedTexture:SetBlendMode("ADD")
+	button.equippedTexture:SetVertexColor(0, 1, 0, 0.35)
+	button.equippedTexture:SetPoint("CENTER")
+	button.equippedTexture:Hide()
 end
 
-function ActionBar:SetButtonColors(button, iconShade, borderR, borderG, borderB)
-	button.icon:SetVertexColor(iconShade, iconShade, iconShade)
-	button:GetNormalTexture():SetVertexColor(borderR, borderG, borderB)
+function ActionBar:SetButtonColors(button, shade)
+	button.icon:SetVertexColor(shade, shade, shade)
+	button:GetNormalTexture():SetVertexColor(shade, shade, shade)
+end
+
+function ActionBar:SetButtonChecked(button, checked)
+	if checked then
+		button.checkedTexture:Show()
+	else
+		button.checkedTexture:Hide()
+	end
+end
+
+function ActionBar:SetButtonEquipped(button, equipped)
+	if equipped then
+		button.equippedTexture:Show()
+	else
+		button.equippedTexture:Hide()
+	end
 end
 
 function ActionBar:StyleHotkey(hotkey)
-	hotkey:SetFont(Media.font, config.hotkeyFont.size, config.hotkeyFont.outline)
+	ns.SetFont(hotkey, config.hotkeyFont.size, config.hotkeyFont.outline)
 	if config.showHotkeys then
 		hotkey:SetAlpha(1)
 	else
@@ -71,19 +103,10 @@ function ActionBar:AttachTooltip(button, setTooltip)
 	button:SetScript("OnLeave", onTooltipLeave)
 end
 
-local function rowPoint(i, slot)
-	return "BOTTOM", slot / 2 + (i - 7) * slot, 0
-end
-
-local function squarePoint(i, slot)
-	local row = floor((i - 1) / 4)
-	return "BOTTOM", slot / 2 + (i % 4 - 2) * slot, row * slot
-end
-
-function ActionBar:CreateBar(page, pointFunc, onButtonCreated)
+function ActionBar:CreateBar(page, onButtonCreated)
 	local bar = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
-	bar.pointFunc = pointFunc
 	bar.buttons = {}
+	bar.limited = true
 	local firstAction = (page - 1) * BUTTONS_PER_BAR
 
 	for i = 1, BUTTONS_PER_BAR do
@@ -119,86 +142,125 @@ local function setupPagedButton(button, index)
 	button:SetAttribute("_childupdate-page", PAGE_CHANGED_SNIPPET)
 end
 
-local function layoutSmallBar(buttons, size, gap)
+local function layoutBar(bar, barConfig, count)
+	local size, gap = barConfig.buttonSize, config.gap
+	local slot = size + gap
+	local columns = max(min(barConfig.columns, count), 1)
+	local rows = max(ceil(count / columns), 1)
+	local buttons = bar.buttons
+
 	for i = 1, #buttons do
 		local button = buttons[i]
-		button:SetSize(size, size)
-		button:ClearAllPoints()
-		button:SetPoint("BOTTOM", (i - 1) * (size + gap), 0)
+		if i <= count then
+			button:SetSize(size, size)
+			button.equippedTexture:SetSize(size * 62 / 36, size * 62 / 36)
+			button:ClearAllPoints()
+			button:SetPoint(ns.GridPoint("BOTTOMLEFT", i, columns, slot))
+			if bar.limited then
+				button:Show()
+			end
+		elseif bar.limited then
+			button:Hide()
+		end
+	end
+
+	bar:SetSize(columns * slot - gap, rows * slot - gap)
+	bar:ClearAllPoints()
+	bar:SetPoint(unpack(barConfig.point))
+	if barConfig.enabled ~= nil then
+		if barConfig.enabled then
+			bar:Show()
+		else
+			bar:Hide()
+		end
 	end
 end
 
-function ActionBar:Layout()
-	local size, gap = config.buttonSize, config.gap
-	local slot = size + gap
-	local bars = self.bars
+function ActionBar:LayoutBar(key)
+	local barConfig = config[key]
+	if key == "pet" then
+		layoutBar(self.petBar, barConfig, #self.petButtons)
+	elseif key == "stance" then
+		layoutBar(self.stanceBar, barConfig, GetNumShapeshiftForms())
+	else
+		local bar = self.bars[tonumber(key:match("%d+"))]
+		layoutBar(bar, barConfig, barConfig.buttons)
+	end
+end
 
+function ActionBar:StyleButtons()
 	for page = 1, NUM_BARS do
-		local bar = bars[page]
-		for i, button in ipairs(bar.buttons) do
-			button:SetSize(size, size)
-			button:ClearAllPoints()
-			button:SetPoint(bar.pointFunc(i, slot))
+		for _, button in ipairs(self.bars[page].buttons) do
 			self:StyleHotkey(button.hotkey)
 			button:UpdateColors()
-			button.name:SetFont(Media.font, config.nameFont.size, config.nameFont.outline)
+			ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
 			if config.showNames then
 				button.name:Show()
 			else
 				button.name:Hide()
 			end
 		end
-		bar:ClearAllPoints()
-		if page > 1 then
-			if config["showBar" .. page] then
-				bar:Show()
-			else
-				bar:Hide()
-			end
-		end
 	end
-
-	bars[1]:SetPoint("BOTTOM", 0, config.bottomOffset)
-	bars[2]:SetPoint("BOTTOM", bars[1], 0, slot)
-	bars[3]:SetPoint("BOTTOM", bars[2], 0, slot)
-	bars[4]:SetPoint("BOTTOM", bars[1], -slot * 8 - SIDE_BAR_GAP, 0)
-	bars[5]:SetPoint("BOTTOM", bars[1], slot * 8 + SIDE_BAR_GAP, 0)
-
-	self.shapeshiftAnchor:ClearAllPoints()
-	self.shapeshiftAnchor:SetPoint("BOTTOM", bars[3], -slot * 5, slot)
-	self.petAnchor:ClearAllPoints()
-	self.petAnchor:SetPoint("BOTTOM", bars[3], -slot * 2, slot)
-
-	layoutSmallBar(self.petButtons, config.smallButtonSize, gap)
-	layoutSmallBar(self.shapeshiftButtons, config.smallButtonSize, gap)
 	for i = 1, #self.petButtons do
 		self:StyleHotkey(self.petButtons[i].hotkey)
 	end
 end
 
-local function createSmallBarAnchor()
-	local frame = CreateFrame("Frame", nil, UIParent)
-	frame:SetSize(2, 2)
-	return frame
+function ActionBar:Layout(path)
+	local key = path and path:match("^actionBar%.(%w+)%.")
+	if key and config[key] then
+		self:LayoutBar(key)
+		return
+	end
+	for _, barKey in ipairs(BAR_KEYS) do
+		self:LayoutBar(barKey)
+	end
+	self:StyleButtons()
+end
+
+local function createSmallBar(buttons)
+	local bar = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
+	bar.buttons = buttons
+	return bar
 end
 
 function ActionBar:Initialize()
 	self:HideBlizzard()
 
-	local bar1 = self:CreateBar(1, rowPoint, setupPagedButton)
+	local bar1 = self:CreateBar(1, setupPagedButton)
 	bar1:SetAttribute("_onstate-page", [[ control:ChildUpdate("page", newstate) ]])
 	RegisterStateDriver(bar1, "page", PAGE_DRIVER_CONDITION)
 
-	self:CreateBar(2, rowPoint)
-	self:CreateBar(3, rowPoint)
-	self:CreateBar(4, squarePoint)
-	self:CreateBar(5, squarePoint)
+	for page = 2, NUM_BARS do
+		self:CreateBar(page)
+	end
 
-	self.shapeshiftAnchor = createSmallBarAnchor()
-	self.petAnchor = createSmallBarAnchor()
-	self:InitializeShapeshiftBar(self.shapeshiftAnchor)
-	self:InitializePetBar(self.petAnchor)
+	self.stanceBar = createSmallBar(self.shapeshiftButtons)
+	self.petBar = createSmallBar(self.petButtons)
+	self:InitializeShapeshiftBar(self.stanceBar)
+	self:InitializePetBar(self.petBar)
 
 	self:Layout()
 	self:WatchConfig("actionBar", self.Layout, true)
+
+	local function layoutStance()
+		if InCombatLockdown() then
+			self:RegisterEvent("PLAYER_REGEN_ENABLED", layoutStance)
+			return
+		end
+		self:UnregisterEvent("PLAYER_REGEN_ENABLED", layoutStance)
+		self:LayoutBar("stance")
+	end
+	self:RegisterEvent("UPDATE_SHAPESHIFT_FORMS", layoutStance)
+
+	for page = 1, NUM_BARS do
+		self:RegisterMover(
+			self.bars[page],
+			"actionBar.bar" .. page .. ".point",
+			"Action bar " .. page,
+			{ secure = true }
+		)
+	end
+	self:RegisterMover(self.stanceBar, "actionBar.stance.point", "Stance bar", { secure = true })
+	self:RegisterMover(self.petBar, "actionBar.pet.point", "Pet bar", { secure = true })
 end
