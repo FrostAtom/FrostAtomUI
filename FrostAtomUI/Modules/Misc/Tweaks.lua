@@ -41,13 +41,20 @@ end
 SLASH_FROSTATOMUI_GUID1 = "/guid"
 
 SlashCmdList.FROSTATOMUI_CONFIG = function(text)
+	local command = text and text:trim():lower()
+	if command == "unlock" or command == "move" then
+		ns.Movers.Unlock()
+		return
+	elseif command == "lock" then
+		ns.Movers.Lock()
+		return
+	end
 	local loaded, reason = LoadAddOn("FrostAtomUI_Config")
 	if not loaded then
 		ns.Print("cannot load FrostAtomUI_Config: %s", _G["ADDON_" .. reason] or reason)
 		return
 	end
-	local page = text and text:trim():lower()
-	FrostAtomUI_Config.Toggle(page ~= "" and page or nil)
+	FrostAtomUI_Config.Toggle(command ~= "" and command or nil)
 end
 SLASH_FROSTATOMUI_CONFIG1 = "/fui"
 SLASH_FROSTATOMUI_CONFIG2 = "/frostatomui"

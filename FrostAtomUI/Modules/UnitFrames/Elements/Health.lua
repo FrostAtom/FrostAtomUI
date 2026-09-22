@@ -1,14 +1,12 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
 local UnitIsConnected = UnitIsConnected
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 local UnitGUID = UnitGUID
 local UnitIsPlayer = UnitIsPlayer
 local UnitClass = UnitClass
-local unpack = unpack
 
 local FormatValue = ns.FormatValue
 local ColorGradient = ns.ColorGradient
@@ -27,16 +25,21 @@ local function showCutaway(health, from, to, max)
 	end
 
 	local cutaway = health.cutaway
-	cutaway:ClearAllPoints()
 	cutaway:SetPoint("TOPLEFT", health, "TOPLEFT", width * to / max, 0)
 	cutaway:SetPoint("BOTTOMRIGHT", health, "BOTTOMLEFT", width * from / max, 0)
 	cutaway:SetAlpha(1)
 	cutaway:Show()
 end
 
+local function setColor(health, r, g, b)
+	health:SetStatusBarColor(r, g, b)
+	health.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
+end
+
 local function setDead(health, setValue)
 	health:SetMinMaxValues(0, 1)
 	setValue(health, 0)
+	health.colorClass = nil
 	health.bg:SetVertexColor(DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
 	health.text:SetText("RIP")
 	health.lastCurrent = nil
@@ -51,15 +54,16 @@ local function setAlive(health, setValue, current, max, class)
 	end
 	health.lastCurrent = current
 
-	local r, g, b
 	local classColor = class and config.classColorHealth and classColors[class]
 	if classColor then
-		r, g, b = unpack(classColor)
+		if health.colorClass ~= class then
+			health.colorClass = class
+			setColor(health, classColor[1], classColor[2], classColor[3])
+		end
 	else
-		r, g, b = ColorGradient(current / max, unpack(GRADIENT))
+		health.colorClass = nil
+		setColor(health, ColorGradient(current / max, unpack(GRADIENT)))
 	end
-	health:SetStatusBarColor(r, g, b)
-	health.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
 	if health:GetParent().hovered and not health.compact then
 		health.text:SetFormattedText("%s / %s", FormatValue(current), FormatValue(max))
 	else
@@ -76,6 +80,7 @@ local function update(frame)
 	if guid ~= health.guid then
 		health.guid = guid
 		health.lastCurrent = nil
+		health.colorClass = nil
 		setValue = health.SnapValue
 		health.cutaway:Hide()
 	end
@@ -83,6 +88,7 @@ local function update(frame)
 	if not UnitIsConnected(unit) then
 		health:SetMinMaxValues(0, 1)
 		setValue(health, 0)
+		health.colorClass = nil
 		health.bg:SetVertexColor(frame:GetBackdropColor())
 		health.text:SetText("offline")
 		health.lastCurrent = nil
@@ -127,7 +133,7 @@ end
 local function create(frame)
 	local health = CreateFrame("StatusBar", nil, frame)
 	health:SetFrameLevel(frame:GetFrameLevel())
-	health:SetStatusBarTexture(ns.Media.blank)
+	ns.SkinStatusBar(health)
 	health.unit = frame.unit
 	ns.SmoothBar(health)
 
@@ -141,7 +147,7 @@ local function create(frame)
 	health.cutaway:Hide()
 
 	health.text = health:CreateFontString(nil, "OVERLAY")
-	health.text:SetFont(ns.Media.font, config.textFont.size, config.textFont.outline)
+	ns.SetFont(health.text, config.textFont.size, config.textFont.outline)
 	health.text:SetTextColor(unpack(UF.textColor))
 
 	health:SetScript("OnUpdate", onUpdate)

@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local tremove = table.remove
 
 local ActionBar = ns:GetModule("ActionBar")

@@ -9,10 +9,13 @@
 Core\Init.lua
 Core\Util.lua
 Core\Events.lua
+Core\Scheduler.lua
+Core\Auras.lua
 Core\Media.lua
 Core\DB.lua
 Core\CVars.lua
 Core\Config.lua
+Core\Movers.lua
 
 # Shared widgets
 Modules\CooldownTimer.lua

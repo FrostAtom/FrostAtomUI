@@ -1,12 +1,12 @@
 local _, ns = ...
 
-local tContains, tDeleteItem = ns.tContains, ns.tDeleteItem
 local IsAddOnLoaded = IsAddOnLoaded
-local pairs, next, type = pairs, next, type
 
 local eventFrame = CreateFrame("Frame")
 
 local callbacks = {}
+local unitCallbacks = {}
+local registrations = {}
 
 local function resolveHandler(owner, event, handler)
 	handler = handler or event
@@ -18,6 +18,116 @@ local function resolveHandler(owner, event, handler)
 	return handler
 end
 
+local function retain(event)
+	local count = registrations[event] or 0
+	if count == 0 then
+		eventFrame:RegisterEvent(event)
+	end
+	registrations[event] = count + 1
+end
+
+local function release(event)
+	local count = registrations[event] - 1
+	registrations[event] = count
+	if count == 0 then
+		eventFrame:UnregisterEvent(event)
+	end
+end
+
+local function newList()
+	return { firing = 0, dirty = false }
+end
+
+local function findRecord(list, owner, handler)
+	for i = 1, #list do
+		local record = list[i]
+		if record.owner == owner and record.handler == handler and not record.removed then
+			return record, i
+		end
+	end
+end
+
+local function findRecordForOwner(list, owner)
+	for i = 1, #list do
+		local record = list[i]
+		if record.owner == owner and not record.removed then
+			return record
+		end
+	end
+end
+
+local function compact(list)
+	local n = 0
+	for i = 1, #list do
+		local record = list[i]
+		list[i] = nil
+		if not record.removed then
+			n = n + 1
+			list[n] = record
+		end
+	end
+	list.dirty = false
+end
+
+local function addRecord(list, owner, handler)
+	if findRecord(list, owner, handler) then
+		return false
+	end
+	list[#list + 1] = { owner = owner, handler = handler }
+	return true
+end
+
+local function removeRecord(list, owner, handler)
+	local record, index = findRecord(list, owner, handler)
+	if not record then
+		return false
+	end
+	record.removed = true
+	if list.firing == 0 then
+		table.remove(list, index)
+	else
+		list.dirty = true
+	end
+	return true
+end
+
+local function removeOwner(list, owner)
+	local removed = 0
+	for i = 1, #list do
+		local record = list[i]
+		if record.owner == owner and not record.removed then
+			record.removed = true
+			removed = removed + 1
+		end
+	end
+	if removed > 0 then
+		if list.firing == 0 then
+			compact(list)
+		else
+			list.dirty = true
+		end
+	end
+	return removed
+end
+
+local function fireList(list, ...)
+	local n = #list
+	if n == 0 then
+		return
+	end
+	list.firing = list.firing + 1
+	for i = 1, n do
+		local record = list[i]
+		if not record.removed then
+			record.handler(record.owner, ...)
+		end
+	end
+	list.firing = list.firing - 1
+	if list.dirty and list.firing == 0 then
+		compact(list)
+	end
+end
+
 local EventMixin = {}
 ns.EventMixin = EventMixin
 
@@ -25,91 +135,120 @@ function EventMixin:RegisterEvent(event, handler)
 	assert(type(event) == "string", "event name must be a string")
 	handler = resolveHandler(self, event, handler)
 
-	local owners = callbacks[event]
-	if not owners then
-		owners = {}
-		callbacks[event] = owners
-		eventFrame:RegisterEvent(event)
+	local list = callbacks[event]
+	if not list then
+		list = newList()
+		callbacks[event] = list
 	end
-
-	local handlers = owners[self]
-	if not handlers then
-		owners[self] = { handler }
-	elseif not tContains(handlers, handler) then
-		handlers[#handlers + 1] = handler
+	if addRecord(list, self, handler) then
+		retain(event)
 	end
 end
 
 function EventMixin:UnregisterEvent(event, handler)
-	local owners = callbacks[event]
-	local handlers = owners and owners[self]
-	if not handlers then
+	local list = callbacks[event]
+	if not list then
 		return
 	end
-
+	local removed
 	if handler then
-		tDeleteItem(handlers, resolveHandler(self, event, handler))
+		removed = removeRecord(list, self, resolveHandler(self, event, handler)) and 1 or 0
+	else
+		removed = removeOwner(list, self)
 	end
+	for _ = 1, removed do
+		release(event)
+	end
+end
 
-	if not handler or #handlers == 0 then
-		owners[self] = nil
-		if not next(owners) then
-			callbacks[event] = nil
-			eventFrame:UnregisterEvent(event)
+function EventMixin:RegisterUnitEvent(event, unit, handler)
+	assert(type(event) == "string", "event name must be a string")
+	assert(type(unit) == "string", "unit must be a string")
+	handler = resolveHandler(self, event, handler)
+
+	local byUnit = unitCallbacks[event]
+	if not byUnit then
+		byUnit = {}
+		unitCallbacks[event] = byUnit
+	end
+	local list = byUnit[unit]
+	if not list then
+		list = newList()
+		byUnit[unit] = list
+	end
+	if addRecord(list, self, handler) then
+		retain(event)
+	end
+end
+
+function EventMixin:UnregisterUnitEvent(event, unit, handler)
+	local byUnit = unitCallbacks[event]
+	if not byUnit then
+		return
+	end
+	local removed = 0
+	if unit then
+		local list = byUnit[unit]
+		if list then
+			if handler then
+				removed = removeRecord(list, self, resolveHandler(self, event, handler)) and 1 or 0
+			else
+				removed = removeOwner(list, self)
+			end
 		end
+	else
+		for _, list in pairs(byUnit) do
+			removed = removed + removeOwner(list, self)
+		end
+	end
+	for _ = 1, removed do
+		release(event)
 	end
 end
 
 function EventMixin:UnregisterAllEvents()
-	for event, owners in pairs(callbacks) do
-		if owners[self] then
-			self:UnregisterEvent(event)
+	for event, list in pairs(callbacks) do
+		for _ = 1, removeOwner(list, self) do
+			release(event)
+		end
+	end
+	for event, byUnit in pairs(unitCallbacks) do
+		for _, list in pairs(byUnit) do
+			for _ = 1, removeOwner(list, self) do
+				release(event)
+			end
 		end
 	end
 end
 
 function EventMixin:IsEventRegistered(event)
-	local owners = callbacks[event]
-	return owners ~= nil and owners[self] ~= nil
+	local list = callbacks[event]
+	if list and findRecordForOwner(list, self) then
+		return true
+	end
+	local byUnit = unitCallbacks[event]
+	if byUnit then
+		for _, unitList in pairs(byUnit) do
+			if findRecordForOwner(unitList, self) then
+				return true
+			end
+		end
+	end
+	return false
 end
 
-local fireDepth = 0
-local fireScratch = {}
-
 function ns:Fire(event, ...)
-	local owners = callbacks[event]
-	if not owners then
-		return
+	local list = callbacks[event]
+	if list then
+		fireList(list, ...)
 	end
-
-	fireDepth = fireDepth + 1
-	local list = fireScratch[fireDepth]
-	if not list then
-		list = {}
-		fireScratch[fireDepth] = list
-	end
-
-	local n = 0
-	for owner, handlers in pairs(owners) do
-		for i = 1, #handlers do
-			list[n + 1] = owner
-			list[n + 2] = handlers[i]
-			n = n + 2
+	local byUnit = unitCallbacks[event]
+	if byUnit then
+		local unitList = byUnit[(...)]
+		if unitList then
+			fireList(unitList, ...)
 		end
 	end
-
-	for i = 1, n, 2 do
-		local owner, handler = list[i], list[i + 1]
-		local handlers = owners[owner]
-		if handlers and tContains(handlers, handler) then
-			handler(owner, ...)
-		end
-	end
-
-	for i = 1, n do
-		list[i] = nil
-	end
-	fireDepth = fireDepth - 1
 end
 
 eventFrame:SetScript("OnEvent", function(_, event, ...)

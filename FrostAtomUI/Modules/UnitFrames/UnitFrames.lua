@@ -1,6 +1,5 @@
 local ADDON_NAME, ns = ...
 
-local CreateFrame = CreateFrame
 local RegisterUnitWatch, UnregisterUnitWatch = RegisterUnitWatch, UnregisterUnitWatch
 local UnitFrame_OnEnter = UnitFrame_OnEnter
 local UnitFrame_OnLeave = UnitFrame_OnLeave
@@ -12,15 +11,18 @@ UF.configKey = "unitFrames"
 local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
 local BORDER_INSET = 4
 local CLASS_ICON_INSET = 2
+local CLASS_ICON_GAP = 2
 local POWER_RATIO = 0.2
 local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
 local TARGET_AURAS_PER_ROW = 8
 local TARGET_AURA_ROWS = 2
+local TARGET_OF_TARGET_GAP = 0
 local HOVER_ALPHA = 0.08
 local config = ns.Config.unitFrames
 
 UF.BORDER_INSET = BORDER_INSET
+UF.TARGET_OF_TARGET_GAP = TARGET_OF_TARGET_GAP
 UF.CLASS_ICON_INSET = CLASS_ICON_INSET
 UF.CASTBAR_ICON_GAP = CASTBAR_ICON_GAP
 UF.backdrop = ns.CreateBackdrop(14, 3)
@@ -115,6 +117,12 @@ local function setGridIconSize(grid, size)
 	layoutGrid(grid, shown)
 end
 
+local function setGridLayout(grid, width, size)
+	grid.perRow = max(floor((width + grid.gap) / (size + grid.gap)), 1)
+	grid.size = nil
+	setGridIconSize(grid, (width + grid.gap) / grid.perRow - grid.gap)
+end
+
 function UF:CreateIconGrid(frame, options)
 	options = options or {}
 
@@ -132,6 +140,7 @@ function UF:CreateIconGrid(frame, options)
 	grid.minRows = options.minRows or 0
 	grid.Layout = layoutGrid
 	grid.SetIconSize = setGridIconSize
+	grid.SetLayout = setGridLayout
 	grid.rows = 0
 	grid:SetSize(grid.perRow * (grid.size + grid.gap) - grid.gap, 1)
 
@@ -157,10 +166,14 @@ function UnitFrameMixin:UpdateAll()
 	end
 end
 
+function UnitFrameMixin:QueueUpdate()
+	ns.Defer(self, self.UpdateAll)
+end
+
 local eventWrappers = setmetatable({}, {
 	__index = function(self, handler)
 		local wrapper = function(frame, ...)
-			if not UF.testing then
+			if frame.watched and not UF.testing then
 				handler(frame, ...)
 			end
 		end
@@ -171,8 +184,8 @@ local eventWrappers = setmetatable({}, {
 
 local unitEventWrappers = setmetatable({}, {
 	__index = function(self, handler)
-		local wrapper = function(frame, unit, ...)
-			if unit == frame.unit and not UF.testing then
+		local wrapper = function(frame, _, ...)
+			if frame.watched and not UF.testing then
 				handler(frame, ...)
 			end
 		end
@@ -182,6 +195,7 @@ local unitEventWrappers = setmetatable({}, {
 })
 
 local RegisterEvent = ns.EventMixin.RegisterEvent
+local RegisterUnitEvent = ns.EventMixin.RegisterUnitEvent
 
 function UnitFrameMixin:RegisterEvent(event, handler)
 	if type(handler) == "function" then
@@ -191,12 +205,14 @@ function UnitFrameMixin:RegisterEvent(event, handler)
 end
 
 function UnitFrameMixin:RegisterUnitEvent(event, handler)
-	RegisterEvent(self, event, unitEventWrappers[handler])
+	RegisterUnitEvent(self, event, self.unit, unitEventWrappers[handler])
 end
 
 local function capitalize(text)
 	return (text:gsub("^%l", string.upper))
 end
+
+local HOVER_ELEMENTS = { "health", "power" }
 
 local function setHovered(frame, hovered)
 	frame.hovered = hovered
@@ -205,17 +221,14 @@ local function setHovered(frame, hovered)
 	else
 		frame.hover:Hide()
 	end
-	if UF.testing then
-		for _, key in ipairs({ "health", "power" }) do
-			if frame[key] then
-				elements[key].test(frame)
-			end
-		end
-	elseif frame:IsShown() then
-		for _, key in ipairs({ "health", "power" }) do
-			if frame[key] then
-				elements[key].update(frame)
-			end
+	local method = UF.testing and "test" or frame:IsShown() and "update"
+	if not method then
+		return
+	end
+	for i = 1, #HOVER_ELEMENTS do
+		local key = HOVER_ELEMENTS[i]
+		if frame[key] then
+			elements[key][method](frame)
 		end
 	end
 end
@@ -269,7 +282,7 @@ function UF:CreateBase(unit)
 	frame:SetScript("OnEnter", onEnter)
 	frame:SetScript("OnLeave", onLeave)
 	frame:SetScript("OnShow", frame.UpdateAll)
-	frame:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateAll")
+	frame:RegisterEvent("PLAYER_ENTERING_WORLD", "QueueUpdate")
 	RegisterUnitWatch(frame)
 	frame.watched = true
 
@@ -289,23 +302,26 @@ function UnitFrameMixin:SetWatched(watched)
 	end
 end
 
+local TEXT_ELEMENTS = { "health", "power", "name" }
+
 function UF:ApplyColors()
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
 		UF.SetBackdropColors(frame)
-		for _, key in ipairs({ "health", "power", "name" }) do
+		for j = 1, #TEXT_ELEMENTS do
+			local key = TEXT_ELEMENTS[j]
 			local element = frame[key]
 			local text = element and (element.text or (key == "name" and element))
 			if text then
 				text:SetTextColor(unpack(config.textColor))
-				text:SetFont(ns.Media.font, config.textFont.size, config.textFont.outline)
+				ns.SetFont(text, config.textFont.size, config.textFont.outline)
 			end
 		end
 		local castbar = frame.castbar
 		if castbar then
 			UF.SetBackdropColors(castbar)
-			castbar.timer:SetFont(ns.Media.font, config.castbarFont.size, config.castbarFont.outline)
-			castbar.name:SetFont(ns.Media.font, config.castbarFont.size, config.castbarFont.outline)
+			ns.SetFont(castbar.timer, config.castbarFont.size, config.castbarFont.outline)
+			ns.SetFont(castbar.name, config.castbarFont.size, config.castbarFont.outline)
 		end
 		frame:UpdateAll()
 	end
@@ -321,6 +337,26 @@ function UnitFrameMixin:SetContentInset(inset)
 	self.health:SetPoint("TOPRIGHT", right, -BORDER_INSET)
 	self.health:SetPoint("BOTTOMLEFT", left, BORDER_INSET + self.innerHeight * POWER_RATIO)
 	self.power:SetPoint("BOTTOMLEFT", left, BORDER_INSET)
+end
+
+function UnitFrameMixin:SetFrameSize(width, height)
+	self:SetSize(width, height)
+	self.innerHeight = height - BORDER_INSET * 2
+	if not self.power then
+		return
+	end
+	local icon = self.classicon
+	if icon then
+		local size = height - CLASS_ICON_INSET * 2
+		icon:SetSize(size, size)
+		self:SetContentInset(icon:IsShown() and UF.ClassIconInset(size) or 0)
+	else
+		self:SetContentInset(0)
+	end
+end
+
+function UF.ClassIconInset(size)
+	return size + CLASS_ICON_GAP + CLASS_ICON_INSET - BORDER_INSET
 end
 
 function UF:CreateRectangle(unit, width, height, iconSide)
@@ -382,23 +418,21 @@ function UF:CreateSquare(unit, size)
 	return frame
 end
 
-local function onOwnerUnitChanged(self, owner)
-	if self.ownerUnit == owner then
-		self:UpdateAll()
-	end
+local function onOwnerUnitChanged(self)
+	self:QueueUpdate()
 end
 
 function UF:CreatePet(unit, size)
 	local frame = self:CreateSquare(unit, size)
 	frame.ownerUnit = unit == "pet" and "player" or unit:gsub("pet(%d)$", "%1")
-	frame:RegisterEvent("UNIT_PET", onOwnerUnitChanged)
+	RegisterUnitEvent(frame, "UNIT_PET", frame.ownerUnit, onOwnerUnitChanged)
 	return frame
 end
 
 function UF:CreateTargetOfTarget(unit, size)
 	local frame = self:CreateSquare(unit, size)
 	frame.ownerUnit = unit:match("^(.+)target$")
-	frame:RegisterEvent("UNIT_TARGET", onOwnerUnitChanged)
+	RegisterUnitEvent(frame, "UNIT_TARGET", frame.ownerUnit, onOwnerUnitChanged)
 
 	local name = self:AddElement(frame, "name", 3)
 	name:SetPoint("TOP", 0, -BORDER_INSET)
@@ -410,7 +444,7 @@ function UF:CreateTarget(unit, width, height)
 	local frame = self:CreateRectangle(unit, width, height, "RIGHT")
 
 	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
-	targetOfTarget:SetPoint("LEFT", frame, "RIGHT", 20)
+	targetOfTarget:SetPoint("LEFT", frame, "RIGHT", TARGET_OF_TARGET_GAP, 0)
 
 	local auraOptions = {
 		size = width / TARGET_AURAS_PER_ROW - 1,
@@ -426,15 +460,28 @@ function UF:CreateTarget(unit, width, height)
 		buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP - (rows > 0 and grid:GetHeight() + CASTBAR_GAP or 0))
 	end
 
-	local gridHeight = TARGET_AURA_ROWS * (debuffs.size + debuffs.gap) - debuffs.gap
-	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2
-	local castbar = self:AddElement(frame, "castbar")
-	castbar:SetHeight(height)
-	castbar:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", height + CASTBAR_ICON_GAP, -castbarOffset)
-	castbar:SetPoint("TOPRIGHT", targetOfTarget, "BOTTOMRIGHT", 0, -castbarOffset)
-	castbar.icon:SetSize(height, height)
-
+	self:AddElement(frame, "castbar")
 	self:AddElement(frame, "losecontrol")
+	frame.targetOfTarget = targetOfTarget
+	self:ResizeTarget(frame, width, height)
 
 	return frame, targetOfTarget
+end
+
+function UF:ResizeTarget(frame, width, height)
+	frame:SetFrameSize(width, height)
+	frame.targetOfTarget:SetFrameSize(height, height)
+	frame.debuffs:SetLayout(width, width / TARGET_AURAS_PER_ROW - 1)
+	frame.buffs:SetLayout(width, width / TARGET_AURAS_PER_ROW - 1)
+
+	local debuffs = frame.debuffs
+	debuffs:OnRowsChanged(debuffs.rows)
+	local gridHeight = TARGET_AURA_ROWS * (debuffs.size + debuffs.gap) - debuffs.gap
+	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2
+	local castbar = frame.castbar
+	castbar:SetHeight(height)
+	castbar:ClearAllPoints()
+	castbar:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", height + CASTBAR_ICON_GAP, -castbarOffset)
+	castbar:SetPoint("TOPRIGHT", frame.targetOfTarget, "BOTTOMRIGHT", 0, -castbarOffset)
+	castbar.icon:SetSize(height, height)
 end

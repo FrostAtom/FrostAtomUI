@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetTotemInfo = GetTotemInfo
 
 local Totems = ns:NewModule("Totems")
@@ -65,7 +64,7 @@ local function applyConfig()
 		button:SetSize(size, size)
 		button:ClearAllPoints()
 		button:SetPoint("LEFT", (slot - 1) * (size + gap), 0)
-		button.cooldown.timer:SetFont(ns.Media.font, font.size, font.outline)
+		ns.SetFont(button.cooldown.timer, font.size, font.outline)
 	end
 	if config.enabled then
 		holder:Show()

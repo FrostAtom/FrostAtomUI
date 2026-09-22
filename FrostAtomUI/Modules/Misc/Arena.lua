@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetTime = GetTime
 local GetZoneText = GetZoneText
 local ceil = math.ceil
@@ -112,7 +111,7 @@ pillars:RegisterEvent("PLAYER_ENTERING_WORLD")
 local function applyConfig()
 	local config = ns.Config.arena
 	local font = config.countdownFont
-	countdown.text:SetFont(ns.Media.fontBold, font.size, font.outline)
+	ns.SetFont(countdown.text, font.size, font.outline, true)
 	pillars:SetSize(config.pillarsSize, config.pillarsSize)
 end
 

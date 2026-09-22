@@ -7,7 +7,6 @@ local SendChatMessage = SendChatMessage
 local ChatFrame_AddMessageEventFilter = ChatFrame_AddMessageEventFilter
 local ChatFrame_RemoveMessageEventFilter = ChatFrame_RemoveMessageEventFilter
 local date = date
-local type = type
 local strtrim = strtrim
 local tremove = table.remove
 

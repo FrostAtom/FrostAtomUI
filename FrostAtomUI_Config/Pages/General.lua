@@ -2,7 +2,29 @@ local _, ns = ...
 
 local Section = ns.Section
 
+local ui = FrostAtomUI
+
 local schema = {
+	{ header = "Appearance" },
+	{ path = "general.font", label = "Font", type = "select", values = ui.Media.fonts },
+	{ path = "general.fontBold", label = "Bold font", type = "select", values = ui.Media.fonts },
+	{ path = "general.statusbar", label = "Status bar texture", type = "select", values = ui.Media.statusbars },
+	{
+		path = "general.useUiScale",
+		label = "Override UI scale",
+		type = "toggle",
+		desc = "Apply the scale below instead of the game's own setting. Turning it off keeps the last applied value.",
+	},
+	{
+		path = "general.uiScale",
+		label = "UI scale",
+		type = "number",
+		min = 0.64,
+		max = 1,
+		step = 0.01,
+		enabledBy = "general.useUiScale",
+	},
+	{ header = "Unit frames" },
 	{
 		path = "dispelHighlightAlpha",
 		label = "Dispel highlight alpha",

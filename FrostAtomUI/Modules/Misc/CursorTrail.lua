@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetCursorPosition = GetCursorPosition
 
 local Misc = ns:GetModule("Misc")

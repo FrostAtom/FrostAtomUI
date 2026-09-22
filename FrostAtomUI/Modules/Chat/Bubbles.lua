@@ -2,7 +2,6 @@ local _, ns = ...
 
 local ICON_TAG_LIST = ICON_TAG_LIST
 local ICON_LIST = ICON_LIST
-local select = select
 local find, gsub, sub, lower = string.find, string.gsub, string.sub, string.lower
 local min = math.min
 

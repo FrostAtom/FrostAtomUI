@@ -1,13 +1,13 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
-local UnitAura = UnitAura
 local CancelUnitBuff = CancelUnitBuff
 local GameTooltip = GameTooltip
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
 local min, random = math.min, math.random
+
+local Auras = ns.Auras
 
 local MAX_AURAS = 40
 local COUNT_FONT_SCALE = 0.45
@@ -67,17 +67,22 @@ local TEST_DEBUFFS = {
 }
 local TEST_DEBUFF_TYPES = { "Magic", "Curse", "Poison", "Disease", false }
 
-local function onIconUpdate(icon)
+local hoveredIcon
+
+local function refreshTooltip(icon)
 	GameTooltip:SetUnitAura(icon.unit, icon:GetID(), icon.filter)
 end
 
 local function onIconEnter(icon)
+	hoveredIcon = icon
 	GameTooltip:SetOwner(icon, "ANCHOR_BOTTOMRIGHT")
-	icon:SetScript("OnUpdate", onIconUpdate)
+	refreshTooltip(icon)
 end
 
 local function onIconLeave(icon)
-	icon:SetScript("OnUpdate", nil)
+	if hoveredIcon == icon then
+		hoveredIcon = nil
+	end
 	GameTooltip:Hide()
 end
 
@@ -86,7 +91,7 @@ local function onIconClick(icon)
 end
 
 local function onIconResize(icon, size)
-	icon.count:SetFont(ns.Media.font, size * COUNT_FONT_SCALE, "OUTLINE")
+	ns.SetFont(icon.count, size * COUNT_FONT_SCALE, "OUTLINE")
 end
 
 local function createIcon(container, index)
@@ -149,38 +154,41 @@ local function setIcon(icon, texture, count, debuffType, duration, endTime, stea
 	end
 
 	if duration and duration > 0 then
-		icon.cooldown:SetCooldown(endTime - duration, duration)
+		local start = endTime - duration
+		if start ~= icon.start or duration ~= icon.duration then
+			icon.start, icon.duration = start, duration
+			icon.cooldown:SetCooldown(start, duration)
+		end
 	else
+		icon.start = nil
 		icon.cooldown:Hide()
 	end
 
 	if count and count > 1 then
-		icon.count:SetText(count)
+		icon.count:SetFormattedText("%d", count)
 		icon.count:Show()
 	else
 		icon.count:Hide()
 	end
 
 	icon:Show()
+	if icon == hoveredIcon then
+		refreshTooltip(icon)
+	end
 end
 
 local function updateContainer(container)
-	local unit, filter = container.unit, container.filter
+	local auras, count = Auras.Get(container.unit, container.filter)
 
-	local shown = 0
-	for i = 1, container.limit do
-		local name, _, texture, count, debuffType, duration, endTime, _, stealable = UnitAura(unit, i, filter)
-		if not name then
-			break
-		end
-
+	local shown = min(count, container.limit)
+	for i = 1, shown do
+		local aura = auras[i]
 		local icon = container[i]
 		if not icon then
 			icon = createIcon(container, i)
 			container[i] = icon
 		end
-		setIcon(icon, texture, count, debuffType, duration, endTime, stealable)
-		shown = i
+		setIcon(icon, aura.icon, aura.count, aura.debuffType, aura.duration, aura.expires, aura.stealable)
 	end
 
 	container:Layout(shown)

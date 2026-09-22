@@ -1,15 +1,9 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local WorldFrame = WorldFrame
 local UnitExists = UnitExists
 local GetCurrentResolution, GetScreenResolutions = GetCurrentResolution, GetScreenResolutions
-local select = select
-local pcall = pcall
-local unpack = unpack
-local tonumber = tonumber
 local floor = math.floor
-local format = string.format
 
 local NamePlates = ns:NewModule("NamePlates")
 
@@ -45,7 +39,7 @@ local UF = ns:GetModule("UnitFrames")
 local classColors, classBarColors = UF.classColors, UF.classBarColors
 local classKeys = {}
 local function colorKey(r, g, b)
-	return format("%d,%d,%d", r * 100 + 0.5, g * 100 + 0.5, b * 100 + 0.5)
+	return floor(r * 100 + 0.5) * 10000 + floor(g * 100 + 0.5) * 100 + floor(b * 100 + 0.5)
 end
 for class, color in pairs(RAID_CLASS_COLORS) do
 	classKeys[colorKey(color.r, color.g, color.b)] = class
@@ -68,12 +62,21 @@ function PlateMixin:UpdateColors(r, g, b)
 
 	local healthbar = self.healthbar
 	healthbar:SetStatusBarColor(r, g, b)
-	healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
-	healthbar.r, healthbar.g, healthbar.b = r, g, b
+	if r ~= healthbar.r or g ~= healthbar.g or b ~= healthbar.b then
+		healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
+		healthbar.r, healthbar.g, healthbar.b = r, g, b
+	end
 
 	local nameColor = class and classColors[class] or WHITE
 	self.nameColor = nameColor
-	self.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
+	self:SetNameColor(nameColor[1], nameColor[2], nameColor[3])
+end
+
+function PlateMixin:SetNameColor(r, g, b)
+	if r ~= self.nameR or g ~= self.nameG or b ~= self.nameB then
+		self.nameR, self.nameG, self.nameB = r, g, b
+		self.name:SetTextColor(r, g, b)
+	end
 end
 
 function PlateMixin:IsTarget()
@@ -127,13 +130,13 @@ function PlateMixin:OnUpdate()
 	local holder = self.holder
 	if hasThreat then
 		local r, g, b = threat:GetVertexColor()
-		self.name:SetTextColor(r, g, b)
+		self:SetNameColor(r, g, b)
 		if not isTarget then
 			holder:SetBackdropBorderColor(r, g, b)
 		end
 	else
 		local nameColor = self.nameColor
-		self.name:SetTextColor(nameColor[1], nameColor[2], nameColor[3])
+		self:SetNameColor(nameColor[1], nameColor[2], nameColor[3])
 	end
 
 	local borderState = isTarget and "target" or hasThreat and "threat" or "normal"
@@ -148,8 +151,13 @@ function PlateMixin:OnUpdate()
 	local percent = healthbar.percent
 	if isTarget and config.showTargetPercent then
 		local _, max = healthbar:GetMinMaxValues()
-		percent:SetFormattedText("%d%%", max > 0 and healthbar:GetValue() / max * 100 or 0)
-	else
+		local value = max > 0 and floor(healthbar:GetValue() / max * 100) or 0
+		if value ~= percent.value then
+			percent.value = value
+			percent:SetFormattedText("%d%%", value)
+		end
+	elseif percent.value then
+		percent.value = nil
 		percent:SetText("")
 	end
 end
@@ -196,27 +204,36 @@ end
 
 local CastbarMixin = {}
 
-function CastbarMixin:OnUpdate()
+function CastbarMixin:Layout()
 	local holder = self:GetParent().holder
 	local offset = CASTBAR_GAP + BORDER_INSET
 	self:ClearAllPoints()
 	self:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", BORDER_INSET, -offset)
 	self:SetPoint("TOPRIGHT", holder, "BOTTOMRIGHT", -BORDER_INSET, -offset)
 	self:SetHeight(config.castbarHeight)
+	self.icon:SetSize(config.castbarIconSize, config.castbarIconSize)
+end
 
-	local icon = self.icon
-	icon:SetTexture(self.blizzardIcon:GetTexture())
-	icon:SetSize(config.castbarIconSize, config.castbarIconSize)
-
+function CastbarMixin:UpdateLock()
+	local locked = self.shield:IsShown()
+	if locked == self.locked then
+		return
+	end
+	self.locked = locked
 	local color
-	if self.shield:IsShown() then
+	if locked then
 		color = config.castbarLockedColor
-		icon:SetDesaturated(1)
+		self.icon:SetDesaturated(1)
 	else
 		color = config.castbarColor
-		icon:SetDesaturated(nil)
+		self.icon:SetDesaturated(nil)
 	end
 	self:SetStatusBarColor(color[1], color[2], color[3])
+end
+
+function CastbarMixin:OnUpdate()
+	self.icon:SetTexture(self.blizzardIcon:GetTexture())
+	self:UpdateLock()
 end
 
 function CastbarMixin:OnShow()
@@ -225,15 +242,21 @@ function CastbarMixin:OnShow()
 		return
 	end
 
+	self:Layout()
+	self.locked = nil
 	self:OnUpdate()
+end
+
+local function styleHolder(holder)
+	holder:SetBackdropColor(unpack(frameConfig.backdropColor))
+	holder:SetBackdropBorderColor(unpack(frameConfig.borderColor))
 end
 
 local function createHolder(parent, level)
 	local holder = CreateFrame("Frame", nil, parent)
 	holder:SetFrameLevel(level)
 	holder:SetBackdrop(BACKDROP)
-	holder:SetBackdropColor(unpack(frameConfig.backdropColor))
-	holder:SetBackdropBorderColor(unpack(frameConfig.borderColor))
+	styleHolder(holder)
 	return holder
 end
 
@@ -247,7 +270,7 @@ end
 
 local function createText(parent, font)
 	local text = parent:CreateFontString(nil, "OVERLAY")
-	text:SetFont(ns.Media.font, font.size, font.outline)
+	ns.SetFont(text, font.size, font.outline)
 	text:SetTextColor(unpack(frameConfig.textColor))
 	return text
 end
@@ -258,7 +281,7 @@ local function setupHealthbar(plate, healthbar, blizzardBackground)
 	plate.holder = holder
 
 	healthbar:SetFrameLevel(plate:GetFrameLevel() + 1)
-	healthbar:SetStatusBarTexture(ns.Media.blank)
+	ns.SkinStatusBar(healthbar)
 
 	blizzardBackground:SetParent(healthbar)
 	blizzardBackground:SetDrawLayer("BORDER")
@@ -280,7 +303,7 @@ end
 local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	ns.Mixin(castbar, CastbarMixin)
 	castbar:SetFrameLevel(plate:GetFrameLevel() + 1)
-	castbar:SetStatusBarTexture(ns.Media.blank)
+	ns.SkinStatusBar(castbar)
 
 	shield:SetTexture(nil)
 	castbar.shield = shield
@@ -408,17 +431,20 @@ local function applyStyle()
 	for i = 1, #plates do
 		local plate = plates[i]
 		local percent = plate.healthbar.percent
-		plate.name:SetFont(ns.Media.font, config.nameFont.size, config.nameFont.outline)
+		ns.SetFont(plate.name, config.nameFont.size, config.nameFont.outline)
 		plate.name:SetTextColor(unpack(frameConfig.textColor))
-		percent:SetFont(ns.Media.font, config.percentFont.size, config.percentFont.outline)
+		ns.SetFont(percent, config.percentFont.size, config.percentFont.outline)
 		percent:SetTextColor(unpack(frameConfig.textColor))
-		for _, holder in ipairs({ plate.holder, plate.castbar.holder }) do
-			holder:SetBackdropColor(unpack(frameConfig.backdropColor))
-			holder:SetBackdropBorderColor(unpack(frameConfig.borderColor))
-		end
+		styleHolder(plate.holder)
+		styleHolder(plate.castbar.holder)
 		plate.borderState = nil
+		plate.nameR = nil
 		if plate:IsShown() then
 			plate:OnShow()
+		end
+		local castbar = plate.castbar
+		if castbar:IsShown() then
+			castbar:OnShow()
 		end
 	end
 end

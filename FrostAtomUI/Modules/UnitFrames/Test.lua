@@ -4,7 +4,6 @@ local UF = ns:GetModule("UnitFrames")
 local RegisterUnitWatch, UnregisterUnitWatch = RegisterUnitWatch, UnregisterUnitWatch
 local InCombatLockdown = InCombatLockdown
 local random, floor = math.random, math.floor
-local pairs = pairs
 
 local NAMES = {
 	"Frostatom",

@@ -1,13 +1,11 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
 local UnitCastingInfo = UnitCastingInfo
 local UnitChannelInfo = UnitChannelInfo
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
 local random = math.random
-local unpack = unpack
 
 local FADE_SPEED = 1.4
 local INTERRUPTED_TEXT = "|cff8B0000INTERRUPTED|r"
@@ -215,7 +213,7 @@ local function create(frame, iconSide)
 	bar:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
 	bar:SetPoint("BOTTOMRIGHT", -BORDER_INSET, BORDER_INSET)
 	bar:SetMinMaxValues(0, 1)
-	bar:SetStatusBarTexture(ns.Media.blank)
+	ns.SkinStatusBar(bar)
 	castbar.bar = bar
 
 	castbar.icon = castbar:CreateTexture(nil, "BORDER")
@@ -229,12 +227,12 @@ local function create(frame, iconSide)
 	castbar.iconBorder:SetAllPoints(castbar.icon)
 
 	castbar.timer = bar:CreateFontString(nil, "OVERLAY")
-	castbar.timer:SetFont(ns.Media.font, config.castbarFont.size, config.castbarFont.outline)
+	ns.SetFont(castbar.timer, config.castbarFont.size, config.castbarFont.outline)
 	castbar.timer:SetPoint("RIGHT")
 	castbar.timer:SetJustifyH("LEFT")
 
 	castbar.name = bar:CreateFontString(nil, "OVERLAY")
-	castbar.name:SetFont(ns.Media.font, config.castbarFont.size, config.castbarFont.outline)
+	ns.SetFont(castbar.name, config.castbarFont.size, config.castbarFont.outline)
 	castbar.name:SetPoint("CENTER")
 
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_START", update)

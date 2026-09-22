@@ -2,8 +2,6 @@ local ADDON_NAME, ns = ...
 
 local tremove = table.remove
 local floor, modf, min, abs = math.floor, math.modf, math.min, math.abs
-local select, ipairs, pairs, next = select, ipairs, pairs, next
-local strtrim = strtrim
 
 local function tContains(tbl, item)
 	for i = 1, #tbl do
@@ -18,21 +16,6 @@ function ns.tDeleteItem(tbl, item)
 	local index = tContains(tbl, item)
 	if index then
 		return tremove(tbl, index)
-	end
-end
-
-local UnitAura = UnitAura
-local MAX_AURAS = 40
-
-function ns.FindAura(unit, wantedSpellId, filter)
-	for i = 1, MAX_AURAS do
-		local name, _, _, _, _, _, _, _, _, _, spellId = UnitAura(unit, i, filter)
-		if not name then
-			return
-		end
-		if spellId == wantedSpellId then
-			return UnitAura(unit, i, filter)
-		end
 	end
 end
 
@@ -57,7 +40,29 @@ end
 
 function ns.noop() end
 
-local function destroyFrame(frame, deep)
+local GetSpellInfo = GetSpellInfo
+local spellTextures = {}
+
+function ns.SpellTexture(spellId)
+	local texture = spellTextures[spellId]
+	if texture == nil then
+		local _, _, icon = GetSpellInfo(spellId)
+		texture = icon or false
+		spellTextures[spellId] = texture
+	end
+	return texture or nil
+end
+
+local destroyFrame
+
+local function destroyChildren(child, ...)
+	if child then
+		destroyFrame(child)
+		return destroyChildren(...)
+	end
+end
+
+function destroyFrame(frame, deep)
 	if not frame then
 		return
 	end
@@ -67,9 +72,7 @@ local function destroyFrame(frame, deep)
 	frame:UnregisterAllEvents()
 
 	if deep then
-		for _, child in ipairs({ frame:GetChildren() }) do
-			destroyFrame(child)
-		end
+		destroyChildren(frame:GetChildren())
 	end
 end
 ns.DestroyFrame = destroyFrame
@@ -82,11 +85,16 @@ smoother:Hide()
 smoother:SetScript("OnUpdate", function(_, elapsed)
 	local step = min(elapsed * SMOOTH_SPEED, 1)
 	for bar, target in pairs(smoothing) do
-		local current = bar:GetValue()
-		local low, high = bar:GetMinMaxValues()
-		local new = current + (target - current) * step
-		if abs(target - new) < (high - low) * 0.002 or not bar:IsVisible() then
-			new = target
+		local new = target
+		if bar:IsVisible() then
+			local current = bar:GetValue()
+			local low, high = bar:GetMinMaxValues()
+			new = current + (target - current) * step
+			if abs(target - new) < (high - low) * 0.002 then
+				new = target
+			end
+		end
+		if new == target then
 			smoothing[bar] = nil
 		end
 		bar:SetValueRaw(new)
@@ -157,14 +165,27 @@ function ns.TruncateUTF8(text, maxChars)
 	return text
 end
 
+local thousandsCache, millionsCache = {}, {}
+
 function ns.FormatValue(value)
 	if value < 1e3 then
 		return value
 	elseif value < 1e6 then
-		return ("%.1fk"):format(value / 1e3)
-	else
-		return ("%.1fm"):format(value / 1e6)
+		local key = floor(value / 100 + 0.5)
+		local text = thousandsCache[key]
+		if not text then
+			text = ("%.1fk"):format(key / 10)
+			thousandsCache[key] = text
+		end
+		return text
 	end
+	local key = floor(value / 1e5 + 0.5)
+	local text = millionsCache[key]
+	if not text then
+		text = ("%.1fm"):format(key / 10)
+		millionsCache[key] = text
+	end
+	return text
 end
 
 local function splitMoney(copper)

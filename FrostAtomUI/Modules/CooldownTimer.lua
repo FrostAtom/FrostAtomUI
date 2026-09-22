@@ -6,65 +6,106 @@ local GetTime = GetTime
 local CooldownTimer = ns:NewModule("CooldownTimer")
 
 local MIN_DURATION = 1.5
+local UPDATE_INTERVAL = 0.1
+
+local COLOR_URGENT, COLOR_SECONDS, COLOR_MINUTES, COLOR_HOURS = 1, 2, 3, 4
+
+local function setTimerColor(timer, state, r, g, b)
+	if timer.colorState ~= state then
+		timer.colorState = state
+		timer:SetTextColor(r, g, b)
+	end
+end
 
 local function setTimerText(timer, remain)
 	if remain <= 3 then
-		timer:SetTextColor(1, 0, 0)
+		setTimerColor(timer, COLOR_URGENT, 1, 0, 0)
 		timer:SetFormattedText("%.1f", remain)
 	elseif remain <= 60 then
-		timer:SetTextColor(1, 1, 0)
-		timer:SetText(ceil(remain))
+		setTimerColor(timer, COLOR_SECONDS, 1, 1, 0)
+		timer:SetFormattedText("%d", ceil(remain))
 	elseif remain <= 3600 then
-		timer:SetTextColor(1, 1, 1)
+		setTimerColor(timer, COLOR_MINUTES, 1, 1, 1)
 		timer:SetFormattedText("%dm", ceil(remain / 60))
 	else
-		timer:SetTextColor(0.6, 0.6, 0.6)
+		setTimerColor(timer, COLOR_HOURS, 0.6, 0.6, 0.6)
 		timer:SetFormattedText("%dh", ceil(remain / 3600))
 	end
 end
 
 CooldownTimer.SetTimerText = setTimerText
 
-local UPDATE_INTERVAL = 0.1
+local active, activeCount = {}, 0
+local activeIndex = {}
 
-local function onUpdate(cooldown, elapsed)
-	if not cooldown.endTime then
+local ticker = CreateFrame("Frame")
+ticker:Hide()
+
+local function activate(cooldown)
+	if activeIndex[cooldown] then
 		return
 	end
-
-	cooldown.untilTick = cooldown.untilTick - elapsed
-	if cooldown.untilTick > 0 then
-		return
-	end
-
-	local remain = cooldown.endTime - GetTime()
-	if remain > 0 then
-		setTimerText(cooldown.timer, remain)
-		cooldown.untilTick = remain <= 3 and 0 or UPDATE_INTERVAL
-	else
-		cooldown.endTime = nil
-		cooldown.timer:Hide()
-	end
+	activeCount = activeCount + 1
+	active[activeCount] = cooldown
+	activeIndex[cooldown] = activeCount
+	ticker:Show()
 end
+
+local function deactivateAt(index)
+	local cooldown = active[index]
+	local last = active[activeCount]
+	active[index] = last
+	activeIndex[last] = index
+	active[activeCount] = nil
+	activeIndex[cooldown] = nil
+	activeCount = activeCount - 1
+end
+
+ticker:SetScript("OnUpdate", function(self)
+	local now = GetTime()
+	local i = 1
+	while i <= activeCount do
+		local cooldown = active[i]
+		local remain = cooldown.endTime - now
+		if remain > 0 then
+			if now >= cooldown.nextTick then
+				cooldown.nextTick = now + UPDATE_INTERVAL
+				setTimerText(cooldown.timer, remain)
+			end
+			i = i + 1
+		else
+			cooldown.endTime = nil
+			cooldown.timer:Hide()
+			deactivateAt(i)
+		end
+	end
+	if activeCount == 0 then
+		self:Hide()
+	end
+end)
 
 local function onSetCooldown(cooldown, startTime, duration)
 	if duration > MIN_DURATION then
 		cooldown.endTime = startTime + duration
-		cooldown.untilTick = 0
+		cooldown.nextTick = 0
 		cooldown.timer:Show()
+		activate(cooldown)
 	else
 		cooldown.endTime = nil
 		cooldown.timer:Hide()
+		local index = activeIndex[cooldown]
+		if index then
+			deactivateAt(index)
+		end
 	end
 end
 
 function CooldownTimer:Attach(cooldown, fontSize, parent)
 	local timer = (parent or cooldown):CreateFontString(nil, "ARTWORK")
 	timer:SetPoint("CENTER")
-	timer:SetFont(ns.Media.font, fontSize or 12, "OUTLINE")
+	ns.SetFont(timer, fontSize or 12, "OUTLINE")
 	timer:SetShadowOffset(1, -1)
 	cooldown.timer = timer
 
-	cooldown:SetScript("OnUpdate", onUpdate)
 	hooksecurefunc(cooldown, "SetCooldown", onSetCooldown)
 end

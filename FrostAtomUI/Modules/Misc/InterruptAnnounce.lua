@@ -22,8 +22,7 @@ local function groupChannel()
 end
 
 local function onCombatLogEvent(_, _, event, sourceGUID, _, _, _, destName, _, _, _, _, _, extraSpellName)
-	local config = ns.Config.announce
-	if event ~= "SPELL_INTERRUPT" or not config.interrupts then
+	if event ~= "SPELL_INTERRUPT" then
 		return
 	end
 	if sourceGUID ~= playerGUID and sourceGUID ~= UnitGUID("pet") then
@@ -32,14 +31,22 @@ local function onCombatLogEvent(_, _, event, sourceGUID, _, _, _, destName, _, _
 
 	local channel = groupChannel()
 	if channel then
-		SendChatMessage(config.interruptMessage:format(destName or "?", extraSpellName or "?"), channel)
+		SendChatMessage(ns.Config.announce.interruptMessage:format(destName or "?", extraSpellName or "?"), channel)
+	end
+end
+
+local function applyConfig()
+	if ns.Config.announce.interrupts then
+		Misc:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
+	else
+		Misc:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
 	end
 end
 
 Misc:RegisterEvent("PLAYER_LOGIN", function()
 	playerGUID = UnitGUID("player")
 end)
-Misc:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
+Misc:WatchConfig("announce", applyConfig)
 
 Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
 	if db.InterruptAnnounce ~= nil then

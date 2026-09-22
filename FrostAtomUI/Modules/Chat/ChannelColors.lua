@@ -2,7 +2,6 @@ local _, ns = ...
 
 local GetChannelList = GetChannelList
 local ChangeChatColor = ChangeChatColor
-local select = select
 local match = string.match
 local abs = math.abs
 

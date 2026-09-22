@@ -1,18 +1,15 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
 local UnitClass = UnitClass
 local UnitGUID = UnitGUID
 local UnitIsPlayer = UnitIsPlayer
 local UnitExists = UnitExists
 local SetPortraitTexture = SetPortraitTexture
-local unpack = unpack
 
 local Talents = ns:GetModule("Talents")
 
 local CLASS_ICONS = "Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes"
-local GAP = 2
 local TRIM = 0.07
 
 local SPEC_ICONS = {
@@ -64,7 +61,7 @@ local function setIcon(frame, icon, class, spec)
 	end
 
 	icon:Show()
-	frame:SetContentInset(icon:GetWidth() + GAP + UF.CLASS_ICON_INSET - UF.BORDER_INSET)
+	frame:SetContentInset(UF.ClassIconInset(icon:GetWidth()))
 end
 
 local function update(frame)

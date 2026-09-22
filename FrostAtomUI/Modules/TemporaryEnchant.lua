@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetWeaponEnchantInfo = GetWeaponEnchantInfo
 local GetInventoryItemTexture = GetInventoryItemTexture
 local CancelItemTempEnchantment = CancelItemTempEnchantment

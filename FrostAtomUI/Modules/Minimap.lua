@@ -5,7 +5,6 @@ local MinimapZoomOut = MinimapZoomOut
 local ToggleCalendar = ToggleCalendar
 local ToggleDropDownMenu = ToggleDropDownMenu
 local Minimap_OnClick = Minimap_OnClick
-local unpack = unpack
 
 local MinimapModule = ns:NewModule("Minimap")
 MinimapModule.configKey = "minimap"
@@ -35,7 +34,7 @@ local function applyConfig()
 	Minimap:ClearAllPoints()
 	Minimap:SetPoint(unpack(config.point))
 	MinimapBackdrop:SetBackdropBorderColor(unpack(config.borderColor))
-	clock:SetFont(ns.Media.fontBold, config.clockFont.size, config.clockFont.outline)
+	ns.SetFont(clock, config.clockFont.size, config.clockFont.outline, true)
 	if config.showClock then
 		clock:Show()
 	else
@@ -134,4 +133,5 @@ function MinimapModule:Initialize()
 
 	applyConfig()
 	self:WatchConfig("minimap", applyConfig)
+	self:RegisterMover(Minimap, "minimap.point", "Minimap")
 end

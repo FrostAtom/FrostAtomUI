@@ -1,11 +1,11 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetFramerate = GetFramerate
 local GetNetStats = GetNetStats
 
 local UPDATE_INTERVAL = 1
 local UNIT_GAP, UNIT_LIFT = 3, 1
+local GROUP_GAP = 8
 
 local Misc = ns:GetModule("Misc")
 
@@ -63,21 +63,24 @@ end
 local function applyConfig()
 	local config = ns.Config.performance
 	local valueFont, unitFont = config.valueFont, config.unitFont
-	fpsValue:SetFont(ns.Media.fontBold, valueFont.size, valueFont.outline)
-	latencyValue:SetFont(ns.Media.fontBold, valueFont.size, valueFont.outline)
-	fpsLabel:SetFont(ns.Media.fontBold, unitFont.size, unitFont.outline)
-	latencyLabel:SetFont(ns.Media.fontBold, unitFont.size, unitFont.outline)
+	ns.SetFont(fpsValue, valueFont.size, valueFont.outline, true)
+	ns.SetFont(latencyValue, valueFont.size, valueFont.outline, true)
+	ns.SetFont(fpsLabel, unitFont.size, unitFont.outline, true)
+	ns.SetFont(latencyLabel, unitFont.size, unitFont.outline, true)
 	fpsLabel:SetText(fpsLabel.unit)
 	latencyLabel:SetText(latencyLabel.unit)
 
 	local lineHeight = valueFont.size + 2
 	fpsValue:SetText("888")
-	local columnWidth = fpsValue:GetStringWidth()
+	local fpsColumn = fpsValue:GetStringWidth()
+	latencyValue:SetText("8888")
+	local latencyColumn = latencyValue:GetStringWidth()
+	local fpsWidth = fpsColumn + UNIT_GAP + fpsLabel:GetStringWidth()
 	fpsValue:ClearAllPoints()
-	fpsValue:SetPoint("TOPRIGHT", frame, "TOPLEFT", columnWidth, 0)
+	fpsValue:SetPoint("TOPRIGHT", frame, "TOPLEFT", fpsColumn, 0)
 	latencyValue:ClearAllPoints()
-	latencyValue:SetPoint("TOPRIGHT", fpsValue, "TOPRIGHT", 0, -lineHeight)
-	frame:SetSize(columnWidth + UNIT_GAP + fpsLabel:GetStringWidth(), lineHeight * 2)
+	latencyValue:SetPoint("TOPRIGHT", frame, "TOPLEFT", fpsWidth + GROUP_GAP + latencyColumn, 0)
+	frame:SetSize(fpsWidth + GROUP_GAP + latencyColumn + UNIT_GAP + latencyLabel:GetStringWidth(), lineHeight)
 
 	if config.enabled then
 		untilNextTick = 0

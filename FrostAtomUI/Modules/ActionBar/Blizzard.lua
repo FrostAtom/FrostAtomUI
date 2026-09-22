@@ -37,6 +37,8 @@ local MICRO_BUTTONS = {
 }
 
 local BACKPACK_SIZE = 32
+local MICRO_MENU_WIDTH = 252
+local MICRO_MENU_HEIGHT = 40
 
 local function detachTalentFrame()
 	PlayerTalentFrame:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
@@ -106,11 +108,14 @@ function ActionBar:HideBlizzard()
 		_G[name]:SetParent(UIParent)
 	end
 
-	CharacterMicroButton:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMRIGHT", -254, 2)
+	local microMenu = CreateFrame("Frame", "FrostAtomUIMicroMenu", UIParent)
+	microMenu:SetSize(MICRO_MENU_WIDTH, MICRO_MENU_HEIGHT)
+	CharacterMicroButton:ClearAllPoints()
+	CharacterMicroButton:SetPoint("BOTTOMLEFT", microMenu, "BOTTOMLEFT", 0, 0)
+	self:AnchorToConfig(microMenu, "actionBar.microMenu", nil, "Micro menu")
 
 	MainMenuBarBackpackButton:SetParent(UIParent)
 	MainMenuBarBackpackButton:SetSize(BACKPACK_SIZE, BACKPACK_SIZE)
-	MainMenuBarBackpackButton:ClearAllPoints()
-	MainMenuBarBackpackButton:SetPoint("BOTTOMRIGHT", CharacterMicroButton, "BOTTOMLEFT", -2, 3)
 	MainMenuBarBackpackButtonNormalTexture:SetSize(BACKPACK_SIZE * 64 / 36, BACKPACK_SIZE * 64 / 36)
+	self:AnchorToConfig(MainMenuBarBackpackButton, "actionBar.bagButton", nil, "Bag button")
 end

@@ -2,8 +2,6 @@ local ADDON_NAME, ns = ...
 
 local ui = FrostAtomUI
 
-local CreateFrame = CreateFrame
-local tonumber, tostring, unpack, type, ipairs, pairs = tonumber, tostring, unpack, type, ipairs, pairs
 local floor, max, min = math.floor, math.max, math.min
 local tinsert, tremove, sort = tinsert, table.remove, table.sort
 
@@ -100,7 +98,7 @@ local function createButton(parent, text, width, height)
 	button:SetHighlightTexture(ui.Media.blank)
 	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
 	button.text = button:CreateFontString(nil, "OVERLAY")
-	button.text:SetFont(ui.Media.font, 12)
+	ui.SetFont(button.text, 12)
 	button.text:SetTextColor(0.8, 0.8, 0.8)
 	button.text:SetPoint("CENTER")
 	button.text:SetText(text)
@@ -111,7 +109,7 @@ local function createEditBox(parent, width, numeric)
 	local box = CreateFrame("EditBox", nextName(), parent, "InputBoxTemplate")
 	box:SetSize(width, 20)
 	box:SetAutoFocus(false)
-	box:SetFont(ui.Media.font, 12)
+	ui.SetFont(box, 12)
 	if numeric then
 		box:SetMaxLetters(7)
 	end
@@ -182,7 +180,7 @@ local function createRow(parent, entry)
 	row:SetScript("OnLeave", GameTooltip_Hide)
 
 	local label = row:CreateFontString(nil, "OVERLAY")
-	label:SetFont(ui.Media.font, 12)
+	ui.SetFont(label, 12)
 	label:SetTextColor(0.85, 0.85, 0.85)
 	label:SetPoint("LEFT", 0, 0)
 	label:SetWidth(LABEL_WIDTH)
@@ -218,7 +216,7 @@ function creators.header(parent, entry)
 	header:SetPoint("RIGHT", -PADDING, 0)
 
 	local label = header:CreateFontString(nil, "OVERLAY")
-	label:SetFont(ui.Media.fontBold, 13, "OUTLINE")
+	ui.SetFont(label, 13, "OUTLINE", true)
 	label:SetPoint("BOTTOMLEFT", 0, 4)
 	label:SetText(entry.header)
 
@@ -236,7 +234,7 @@ function creators.description(parent, entry)
 	holder:SetPoint("RIGHT", -PADDING, 0)
 
 	local text = holder:CreateFontString(nil, "OVERLAY")
-	text:SetFont(ui.Media.font, 12)
+	ui.SetFont(text, 12)
 	text:SetTextColor(0.6, 0.6, 0.6)
 	text:SetPoint("TOPLEFT", 0, -4)
 	text:SetPoint("RIGHT")
@@ -443,7 +441,7 @@ function creators.color(parent, entry)
 	fill:SetPoint("BOTTOMRIGHT", -3, 3)
 
 	local hex = row:CreateFontString(nil, "OVERLAY")
-	hex:SetFont(ui.Media.font, 12)
+	ui.SetFont(hex, 12)
 	hex:SetTextColor(0.6, 0.6, 0.6)
 	hex:SetPoint("LEFT", swatch, "RIGHT", 8, 0)
 
@@ -823,7 +821,7 @@ local function createNavButton(page, index)
 	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
 
 	local text = button:CreateFontString(nil, "OVERLAY")
-	text:SetFont(ui.Media.font, 12)
+	ui.SetFont(text, 12)
 	text:SetTextColor(0.85, 0.85, 0.85)
 	text:SetPoint("LEFT", 10, 0)
 	text:SetText(page.name)
@@ -854,7 +852,7 @@ local function createFrame()
 	tinsert(UISpecialFrames, FRAME_NAME)
 
 	local heading = frame:CreateFontString(nil, "OVERLAY")
-	heading:SetFont(ui.Media.fontBold, 13, "OUTLINE")
+	ui.SetFont(heading, 13, "OUTLINE", true)
 	heading:SetPoint("TOPLEFT", PADDING, -PADDING - 4)
 	heading:SetText("FrostAtom UI")
 
@@ -887,8 +885,17 @@ local function createFrame()
 		end)
 	end)
 
+	local unlock = createButton(nav, "Unlock frames", NAV_WIDTH - 12)
+	unlock:SetPoint("BOTTOMLEFT", resetAll, "TOPLEFT", 0, 6)
+	unlock:SetScript("OnClick", function()
+		ui.Movers.Unlock()
+		if ui.Movers.IsUnlocked() then
+			frame:Hide()
+		end
+	end)
+
 	local title = frame:CreateFontString(nil, "OVERLAY")
-	title:SetFont(ui.Media.fontBold, 13, "OUTLINE")
+	ui.SetFont(title, 13, "OUTLINE", true)
 	title:SetPoint("TOPLEFT", nav, "TOPRIGHT", PADDING, 0)
 	frame.title = title
 

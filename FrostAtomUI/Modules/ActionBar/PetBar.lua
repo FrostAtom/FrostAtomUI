@@ -1,6 +1,5 @@
 local ADDON_NAME, ns = ...
 
-local CreateFrame = CreateFrame
 local CooldownFrame_SetTimer = CooldownFrame_SetTimer
 local GetPetActionCooldown = GetPetActionCooldown
 local GetPetActionInfo = GetPetActionInfo

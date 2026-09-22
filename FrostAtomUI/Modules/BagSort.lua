@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetContainerNumSlots = GetContainerNumSlots
 local GetContainerNumFreeSlots = GetContainerNumFreeSlots
 local GetContainerItemInfo = GetContainerItemInfo
@@ -19,9 +18,6 @@ local tremove = table.remove
 local tsort = table.sort
 local floor = math.floor
 local bit_band = bit.band
-local wipe = wipe
-local pairs = pairs
-local next = next
 
 local Bags = ns:GetModule("Bags")
 

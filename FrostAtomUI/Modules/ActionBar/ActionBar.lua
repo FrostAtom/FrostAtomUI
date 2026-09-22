@@ -1,11 +1,9 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local RegisterStateDriver = RegisterStateDriver
 local GameTooltip = GameTooltip
 local GetNumShapeshiftForms = GetNumShapeshiftForms
 local InCombatLockdown = InCombatLockdown
-local unpack, ipairs, tonumber = unpack, ipairs, tonumber
 local max, min, ceil = math.max, math.min, math.ceil
 
 local Media = ns.Media

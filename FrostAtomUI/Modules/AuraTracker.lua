@@ -1,10 +1,9 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local UnitExists = UnitExists
-local unpack = unpack
-local FindAura = ns.FindAura
+local GetSpellInfo = GetSpellInfo
 
+local Auras = ns.Auras
 local AuraTracker = ns:NewModule("AuraTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
@@ -21,58 +20,68 @@ function AuraFrameMixin:Update()
 		return
 	end
 
-	local name, _, texture, count, _, duration, endTime = FindAura(self.unit, self.spell, self.filter)
-
-	if not name then
+	local aura = Auras.Find(self.unit, self.spell, self.filter)
+	if not aura then
+		self.start = nil
 		self:Hide()
 		return
 	end
 
+	local duration = aura.duration
 	if duration == 0 then
+		self.start = nil
 		self.cooldown:Hide()
 	else
-		self.cooldown:SetCooldown(endTime - duration, duration)
+		local start = aura.expires - duration
+		if start ~= self.start or duration ~= self.duration then
+			self.start, self.duration = start, duration
+			self.cooldown:SetCooldown(start, duration)
+		end
 	end
 
+	local count = aura.count
 	if count > 1 then
-		self.count:SetText(count)
+		self.count:SetFormattedText("%d", count)
 		self.count:Show()
 	else
 		self.count:Hide()
 	end
 
-	self.texture:SetTexture(texture)
+	self.texture:SetTexture(aura.icon)
 	self:Show()
 end
 
-function AuraFrameMixin:UNIT_AURA(unit)
-	if unit == self.unit then
-		self:Update()
-	end
-end
-
 function AuraFrameMixin:Configure(data)
+	self:UnregisterUnitEvent("UNIT_AURA")
+	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+	self:UnregisterEvent("PLAYER_FOCUS_CHANGED")
+
 	self.unit = data.unit
 	self.spell = data.enabled ~= false and data.spell or nil
 	self.filter = (data.debuff and "HARMFUL" or "HELPFUL") .. (data.isMine and "|PLAYER" or "")
+	self.start = nil
 
 	local size = data.size
 	self:SetSize(size, size)
 	self:ClearAllPoints()
 	self:SetPoint(unpack(data.point))
-	self.cooldown.timer:SetFont(ns.Media.font, size * 0.3, "OUTLINE")
+	ns.SetFont(self.cooldown.timer, size * 0.3, "OUTLINE")
 
-	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
-	self:UnregisterEvent("PLAYER_FOCUS_CHANGED")
-	local event = UNIT_EVENTS[data.unit]
-	if event then
-		self:RegisterEvent(event, "Update")
+	if self.spell then
+		self:RegisterUnitEvent("UNIT_AURA", data.unit, "Update")
+		local event = UNIT_EVENTS[data.unit]
+		if event then
+			self:RegisterEvent(event, "Update")
+		end
 	end
 	self:Update()
 end
 
 function AuraFrameMixin:Release()
 	self.spell = nil
+	self:UnregisterUnitEvent("UNIT_AURA")
+	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+	self:UnregisterEvent("PLAYER_FOCUS_CHANGED")
 	self:Hide()
 end
 
@@ -94,7 +103,6 @@ local function createAuraFrame()
 	frame.count = frame:CreateFontString(nil, "ARTWORK", "NumberFontNormal")
 	frame.count:SetPoint("BOTTOMRIGHT")
 
-	frame:RegisterEvent("UNIT_AURA")
 	frame:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 
 	return frame
@@ -114,9 +122,12 @@ local function applyConfig()
 		end
 		frame:SetScale(config.scale)
 		frame:Configure(auras[i])
+		local path = ("auraTracker.auras.%s.%d.point"):format(ns.PLAYER_CLASS, i)
+		ns.Movers.Register(frame, path, GetSpellInfo(auras[i].spell) or tostring(auras[i].spell))
 	end
 	for i = #auras + 1, #frames do
 		frames[i]:Release()
+		ns.Movers.Unregister(frames[i])
 	end
 end
 

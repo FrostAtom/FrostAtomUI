@@ -47,7 +47,6 @@ local GetBattlefieldWinner = GetBattlefieldWinner
 local IsActiveBattlefieldArena = IsActiveBattlefieldArena
 local IsInInstance = IsInInstance
 local GetNumPartyMembers = GetNumPartyMembers
-local wipe = wipe
 local tconcat = table.concat
 local format = string.format
 

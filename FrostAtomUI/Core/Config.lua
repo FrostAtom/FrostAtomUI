@@ -1,19 +1,28 @@
 local _, ns = ...
 
-local type, pairs, wipe, unpack, tonumber = type, pairs, wipe, unpack, tonumber
-local InCombatLockdown = InCombatLockdown
+local InCombatLockdown, SetCVar = InCombatLockdown, SetCVar
 
 ns.Defaults = {
+	general = {
+		font = "Fonts\\ARIALN.ttf",
+		fontBold = "Fonts\\FRIZQT__.ttf",
+		statusbar = "Interface\\Buttons\\WHITE8x8",
+		useUiScale = false,
+		uiScale = 0.7,
+	},
+
 	actionBar = {
 		enabled = true,
-		buttonSize = 36,
-		smallButtonSize = 30,
 		gap = 2,
-		bottomOffset = 2,
-		showBar2 = true,
-		showBar3 = true,
-		showBar4 = true,
-		showBar5 = true,
+		bar1 = { point = { "BOTTOM", 0, 2 }, buttons = 12, columns = 12, buttonSize = 36 },
+		bar2 = { enabled = true, point = { "BOTTOM", 0, 40 }, buttons = 12, columns = 12, buttonSize = 36 },
+		bar3 = { enabled = true, point = { "BOTTOM", 0, 78 }, buttons = 12, columns = 12, buttonSize = 36 },
+		bar4 = { enabled = true, point = { "BOTTOM", -316, 2 }, buttons = 12, columns = 4, buttonSize = 36 },
+		bar5 = { enabled = true, point = { "BOTTOM", 316, 2 }, buttons = 12, columns = 4, buttonSize = 36 },
+		stance = { point = { "BOTTOM", -150, 116 }, columns = 10, buttonSize = 30 },
+		pet = { point = { "BOTTOM", 68, 116 }, columns = 10, buttonSize = 30 },
+		microMenu = { "BOTTOMRIGHT", -2, 2 },
+		bagButton = { "BOTTOMRIGHT", -256, 5 },
 		showHotkeys = true,
 		showNames = true,
 		hotkeyFont = { size = 9, outline = "OUTLINE" },
@@ -26,7 +35,10 @@ ns.Defaults = {
 	unitFrames = {
 		enabled = true,
 		player = { "TOPLEFT", 320, -80 },
+		target = { "TOPLEFT", 522, -80 },
+		focus = { "TOPLEFT", 769, -80 },
 		playerCastbar = { "TOP", 0, -4 },
+		playerAuras = { "TOPRIGHT", -168, -10 },
 		party = { "LEFT", 150, 230 },
 		arena = { "RIGHT", -150, 230 },
 		groupSpacing = 160,
@@ -464,11 +476,19 @@ function ns:ResetConfig(path)
 	end
 	local node, key = walk(ns.Config, path, true)
 	local defaults, defaultKey = walk(ns.Defaults, path)
-	local saved, savedKey = walk(ns.db.config, path)
-	if saved then
-		saved[savedKey] = nil
-	end
 	assign(node, key, defaults and defaults[defaultKey])
+
+	local listPath = path:match("^(.-)%.%d+%.") or path:match("^(.-)%.%d+$")
+	if listPath then
+		local listNode, listKey = walk(ns.Config, listPath)
+		local saved, savedKey = walk(ns.db.config, listPath, true)
+		assign(saved, savedKey, listNode[listKey])
+	else
+		local saved, savedKey = walk(ns.db.config, path)
+		if saved then
+			saved[savedKey] = nil
+		end
+	end
 	ns:Fire(ns.CONFIG_CHANGED, path)
 end
 
@@ -477,15 +497,31 @@ function ns:IsDefaultConfig(path)
 	return not saved or saved[key] == nil
 end
 
+local function applyGeneral()
+	local general = ns.Config.general
+	ns.ApplyMedia(general)
+	if general.useUiScale then
+		SetCVar("useUiScale", 1)
+		SetCVar("uiScale", general.uiScale)
+	end
+end
+
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 	db.config = db.config or {}
 	merge(ns.Config, db.config)
+	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)
 end)
 
 local function matches(path, prefix)
 	return not path or path == prefix or path:sub(1, #prefix + 1) == prefix .. "."
 end
+
+Config:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
+	if matches(path, "general") then
+		applyGeneral()
+	end
+end)
 
 local pending = {}
 local combatWatcher = ns.Mixin({}, ns.EventMixin)
@@ -497,24 +533,37 @@ combatWatcher:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 	wipe(pending)
 end)
 
-function ns.ModulePrototype:AnchorToConfig(frame, path, secure)
+function ns.ModulePrototype:AnchorToConfig(frame, path, secure, label)
 	local function apply()
 		frame:ClearAllPoints()
 		frame:SetPoint(unpack(ns:GetConfig(path)))
 	end
 	apply()
 	self:WatchConfig(path, apply, secure)
+	ns.Movers.Register(frame, path, label, { secure = secure })
+end
+
+local function runWatcher(watcher)
+	local path = watcher.path
+	watcher.path = nil
+	if watcher.secure and InCombatLockdown() then
+		pending[watcher.handler] = watcher.owner
+	else
+		watcher.handler(watcher.owner, path or nil)
+	end
 end
 
 function ns.ModulePrototype:WatchConfig(prefix, handler, secure)
-	self:RegisterEvent(ns.CONFIG_CHANGED, function(owner, path)
+	local watcher = { owner = self, handler = handler, secure = secure }
+	self:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
 		if not matches(path, prefix) then
 			return
 		end
-		if secure and InCombatLockdown() then
-			pending[handler] = owner
-		else
-			handler(owner)
+		if watcher.path == nil then
+			watcher.path = path or false
+			ns.Defer(watcher, runWatcher)
+		elseif watcher.path ~= path then
+			watcher.path = false
 		end
 	end)
 end

@@ -22,9 +22,6 @@ local CanInspect = CanInspect
 local CheckInteractDistance = CheckInteractDistance
 local NotifyInspect = NotifyInspect
 local GetTime = GetTime
-local CreateFrame = CreateFrame
-local unpack = unpack
-local wipe = wipe
 local tconcat = table.concat
 
 local Misc = ns:GetModule("Misc")
@@ -37,12 +34,33 @@ local function labeled(label, value)
 	return ("|cff3366ff%s|r: |cffffffff%d|r"):format(label, value)
 end
 
+local function lineCache(side)
+	return setmetatable({}, {
+		__index = function(cache, tooltip)
+			local lines = setmetatable({}, {
+				__index = function(self, index)
+					local line = _G[tooltip:GetName() .. side .. index]
+					if line then
+						self[index] = line
+					end
+					return line
+				end,
+			})
+			cache[tooltip] = lines
+			return lines
+		end,
+	})
+end
+
+local leftLines = lineCache("TextLeft")
+local rightLines = lineCache("TextRight")
+
 local function titleLine(tooltip, index)
-	return _G[tooltip:GetName() .. "TextLeft" .. (index or 1)]
+	return leftLines[tooltip][index or 1]
 end
 
 local function setRightText(tooltip, index, text)
-	local right = _G[tooltip:GetName() .. "TextRight" .. index]
+	local right = rightLines[tooltip][index]
 	if right then
 		right:SetText(text)
 		right:SetTextColor(0.6, 0.6, 0.6)
@@ -132,6 +150,8 @@ hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
 	tooltip:ClearAllPoints()
 	tooltip:SetPoint(unpack(config.point))
 end)
+
+Misc:RegisterMover(nil, "tooltip.point", "Tooltip", { size = { 220, 120 } })
 
 local UF = ns:GetModule("UnitFrames")
 local classColors = UF.classColors

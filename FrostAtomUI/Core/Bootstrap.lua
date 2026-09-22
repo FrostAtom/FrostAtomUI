@@ -1,6 +1,17 @@
 local _, ns = ...
 
 local geterrorhandler = geterrorhandler
+local collectgarbage = collectgarbage
+
+local GC_PAUSE = 150
+local COLLECT_GROWTH_KB = 2048
+
+local heapAfterCollect = 0
+
+local function collect()
+	collectgarbage("collect")
+	heapAfterCollect = collectgarbage("count")
+end
 
 function ns.InitializeModules()
 	for name, module in ns:IterateModules() do
@@ -17,5 +28,14 @@ function ns.InitializeModules()
 		end
 	end
 
-	collectgarbage()
+	collectgarbage("setpause", GC_PAUSE)
+	collect()
 end
+
+local gcWatcher = ns.Mixin({}, ns.EventMixin)
+
+gcWatcher:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+	if collectgarbage("count") - heapAfterCollect > COLLECT_GROWTH_KB then
+		collect()
+	end
+end)

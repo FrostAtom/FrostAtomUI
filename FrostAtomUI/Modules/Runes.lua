@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetRuneType = GetRuneType
 local GetRuneCooldown = GetRuneCooldown
 local GetTime = GetTime
@@ -21,7 +20,7 @@ function RuneMixin:UpdateType()
 	local config = ns.Config.runes
 	local color = config[RUNE_COLOR_KEYS[GetRuneType(self:GetID())]] or config.emptyColor
 	local r, g, b = color[1], color[2], color[3]
-	self:GetStatusBarTexture():SetTexture(r, g, b)
+	self:SetStatusBarColor(r, g, b)
 	self.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
 end
 
@@ -65,9 +64,7 @@ local function createRune(id)
 	rune:SetID(id)
 	rune:SetMinMaxValues(0, 1)
 
-	local bar = rune:CreateTexture(nil, "BORDER")
-	bar:SetAllPoints()
-	rune:SetStatusBarTexture(bar)
+	ns.SkinStatusBar(rune)
 
 	rune.bg = rune:CreateTexture(nil, "BACKGROUND")
 	rune.bg:SetAllPoints()

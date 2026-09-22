@@ -2,18 +2,19 @@ local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
 local UnitIsUnit = UnitIsUnit
-local unpack = unpack
 
 local config = ns.Config.unitFrames
 
 local function setHighlight(frame, kind)
+	local color
 	if kind == "target" then
-		frame:SetBackdropBorderColor(unpack(config.targetBorderColor))
+		color = config.targetBorderColor
 	elseif kind == "focus" then
-		frame:SetBackdropBorderColor(unpack(config.focusBorderColor))
+		color = config.focusBorderColor
 	else
-		frame:SetBackdropBorderColor(unpack(config.borderColor))
+		color = config.borderColor
 	end
+	frame:SetBackdropBorderColor(color[1], color[2], color[3], color[4])
 end
 
 local function update(frame)

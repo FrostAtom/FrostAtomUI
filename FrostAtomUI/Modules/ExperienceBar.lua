@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local UnitLevel = UnitLevel
 local UnitXP, UnitXPMax = UnitXP, UnitXPMax
 local GetXPExhaustion = GetXPExhaustion
@@ -114,15 +113,16 @@ function ExperienceBar:Initialize()
 	rested:Hide()
 	rested:SetAllPoints()
 	rested:SetFrameLevel(holder:GetFrameLevel() + 1)
-	rested:SetStatusBarTexture(ns.Media.blank)
+	ns.SkinStatusBar(rested)
 
 	bar = CreateFrame("StatusBar", nil, holder)
 	bar:SetAllPoints()
 	bar:SetFrameLevel(holder:GetFrameLevel() + 2)
-	bar:SetStatusBarTexture(ns.Media.blank)
+	ns.SkinStatusBar(bar)
 
 	applyConfig(self)
 	self:WatchConfig("experienceBar", applyConfig)
+	self:RegisterMover(holder, "experienceBar.point", "Experience bar")
 
 	for _, event in ipairs({
 		"PLAYER_ENTERING_WORLD",

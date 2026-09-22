@@ -1,6 +1,5 @@
 local ADDON_NAME, ns = ...
 
-local CreateFrame = CreateFrame
 local GetContainerNumSlots = GetContainerNumSlots
 local GetContainerNumFreeSlots = GetContainerNumFreeSlots
 local GetContainerItemInfo = GetContainerItemInfo
@@ -32,11 +31,8 @@ local SetItemButtonDesaturated = SetItemButtonDesaturated
 local StaticPopup_Show = StaticPopup_Show
 local PlaySound = PlaySound
 local GameTooltip = GameTooltip
-local UIParent = UIParent
 local bit_band = bit.band
 local ceil = math.ceil
-local pairs = pairs
-local wipe = wipe
 local NUM_BAG_SLOTS = NUM_BAG_SLOTS
 local NUM_BANKGENERIC_SLOTS = NUM_BANKGENERIC_SLOTS
 local BACKPACK_CONTAINER = BACKPACK_CONTAINER
@@ -351,7 +347,7 @@ function ContainerMixin:CreateItemButton(index)
 	_G[name .. "Stock"]:Hide()
 
 	local count = _G[name .. "Count"]
-	count:SetFont(ns.Media.font, config.countFont.size, config.countFont.outline)
+	ns.SetFont(count, config.countFont.size, config.countFont.outline)
 	count:ClearAllPoints()
 	count:SetPoint("BOTTOMRIGHT", -1, 1)
 	button.countText = count
@@ -360,7 +356,7 @@ function ContainerMixin:CreateItemButton(index)
 	CooldownTimer:Attach(button.cooldown)
 
 	local level = button:CreateFontString(nil, "OVERLAY")
-	level:SetFont(ns.Media.font, config.levelFont.size, config.levelFont.outline)
+	ns.SetFont(level, config.levelFont.size, config.levelFont.outline)
 	level:SetPoint("TOPLEFT", 1, -1)
 	button.level = level
 
@@ -425,7 +421,7 @@ function ContainerMixin:CreateCurrency(index)
 	currency.icon:SetPoint("LEFT")
 
 	currency.count = currency:CreateFontString(nil, "OVERLAY")
-	currency.count:SetFont(ns.Media.font, 11, "OUTLINE")
+	ns.SetFont(currency.count, 11, "OUTLINE")
 	currency.count:SetPoint("LEFT", currency.icon, "RIGHT", 2, 0)
 
 	currency:SetScript("OnEnter", onCurrencyEnter)
@@ -499,8 +495,8 @@ function ContainerMixin:Layout()
 			button:SetID(slot)
 			button:SetSize(buttonSize, buttonSize)
 			button.glow:SetSize(buttonSize * 1.6, buttonSize * 1.6)
-			button.countText:SetFont(ns.Media.font, config.countFont.size, config.countFont.outline)
-			button.level:SetFont(ns.Media.font, config.levelFont.size, config.levelFont.outline)
+			ns.SetFont(button.countText, config.countFont.size, config.countFont.outline)
+			ns.SetFont(button.level, config.levelFont.size, config.levelFont.outline)
 			button:ClearAllPoints()
 			button:SetPoint(ns.GridPoint("TOPLEFT", index, columns, step))
 			button:Show()
@@ -620,7 +616,7 @@ local function createSearchBox(frame, title)
 	local search = CreateFrame("EditBox", nil, frame)
 	search:SetAutoFocus(false)
 	search:SetHeight(HEADER_HEIGHT)
-	search:SetFont(ns.Media.font, 12)
+	ns.SetFont(search, 12)
 	search:SetTextInsets(4, 4, 0, 0)
 	search:SetMaxLetters(40)
 	search:SetBackdrop(ns.CreateBackdrop(8))
@@ -628,7 +624,7 @@ local function createSearchBox(frame, title)
 	search:SetBackdropBorderColor(0.6, 0.6, 0.6)
 
 	local placeholder = search:CreateFontString(nil, "OVERLAY")
-	placeholder:SetFont(ns.Media.font, 12)
+	ns.SetFont(placeholder, 12)
 	placeholder:SetTextColor(0.5, 0.5, 0.5)
 	placeholder:SetPoint("LEFT", 4, 0)
 	placeholder:SetText(title)
@@ -691,7 +687,20 @@ local function createContainer(key, title, bags, columnsKey)
 	frame:EnableMouse(true)
 	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
 	frame:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
-	Bags:AnchorToConfig(frame, "bags." .. key)
+	Bags:AnchorToConfig(frame, "bags." .. key, nil, title)
+	ns.Movers.Register(frame, "bags." .. key, nil, {
+		size = function()
+			local step = config.buttonSize + config.spacing
+			local columns = config[columnsKey]
+			local slots = 0
+			for i = 1, #bags do
+				slots = slots + bagSize(bags[i])
+			end
+			local rows = ceil(slots / columns)
+			return columns * step - config.spacing + PADDING * 2,
+				rows * step - config.spacing + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + PADDING * 2
+		end,
+	})
 	frame:SetScript("OnShow", onShow)
 	frame:SetScript("OnHide", onHide)
 	tinsert(UISpecialFrames, frame:GetName())
@@ -726,11 +735,11 @@ local function createContainer(key, title, bags, columnsKey)
 	end
 
 	frame.freeText = frame:CreateFontString(nil, "OVERLAY")
-	frame.freeText:SetFont(ns.Media.font, 11, "OUTLINE")
+	ns.SetFont(frame.freeText, 11, "OUTLINE")
 	frame.freeText:SetPoint("LEFT", frame.bagButtons[#bags], "RIGHT", ROW_GAP, 0)
 
 	frame.moneyText = frame:CreateFontString(nil, "OVERLAY")
-	frame.moneyText:SetFont(ns.Media.font, 11, "OUTLINE")
+	ns.SetFont(frame.moneyText, 11, "OUTLINE")
 	frame.moneyText:SetPoint("RIGHT", frame, "BOTTOMRIGHT", -PADDING, PADDING + FOOTER_HEIGHT / 2)
 
 	frames[#frames + 1] = frame

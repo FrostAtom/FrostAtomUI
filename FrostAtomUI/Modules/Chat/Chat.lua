@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local ChatEdit_UpdateHeader = ChatEdit_UpdateHeader
 local UnitName = UnitName
 local UnitIsPlayer = UnitIsPlayer
@@ -11,13 +10,9 @@ local GameTooltip = GameTooltip
 local IsInInstance = IsInInstance
 local GetTime = GetTime
 local date = date
-local type = type
-local tonumber = tonumber
-local select = select
-local unpack = unpack
 local find, match, gsub, format, lower, sub =
 	string.find, string.match, string.gsub, string.format, string.lower, string.sub
-local tconcat, tremove = table.concat, table.remove
+local tconcat = table.concat
 
 local Chat = ns:NewModule("Chat")
 local config = ns.Config.chat
@@ -119,6 +114,7 @@ function Chat:Initialize()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", applyClassColors)
 	self:WatchConfig("chat", applyClassColors)
 	self:WatchConfig("chat", applyFrameConfig)
+	self:RegisterMover(ChatFrame1, "chat.point", "Chat")
 end
 
 local function groupChatType()
@@ -421,6 +417,9 @@ local function linkUrl(url, tld)
 end
 
 local function linkUrlsInPlainText(text)
+	if not find(text, ".", 1, true) then
+		return text
+	end
 	for i = 1, #URL_PATTERNS do
 		linkedAny = false
 		local linked = gsub(text, URL_PATTERNS[i], linkUrl)
@@ -514,10 +513,31 @@ local rawAddMessage = {}
 
 local function storeLine(chatFrame, text, r, g, b)
 	local lines = Chat.lines[chatFrame]
-	lines[#lines + 1] = { text, r, g, b }
-	if #lines > MAX_LINES then
-		tremove(lines, 1)
+	local count = lines.count
+	local slot
+	if count < MAX_LINES then
+		count = count + 1
+		lines.count = count
+		slot = count
+	else
+		slot = lines.head
+		lines.head = slot % MAX_LINES + 1
 	end
+	local line = lines[slot]
+	if not line then
+		line = {}
+		lines[slot] = line
+	end
+	line[1], line[2], line[3], line[4] = text, r, g, b
+end
+
+function Chat.NumLines(chatFrame)
+	return Chat.lines[chatFrame].count
+end
+
+function Chat.GetLine(chatFrame, index)
+	local lines = Chat.lines[chatFrame]
+	return lines[(lines.head + index - 2) % MAX_LINES + 1]
 end
 
 function Chat.AddStoredLine(chatFrame, text, r, g, b)
@@ -528,7 +548,7 @@ end
 local function hookAddMessage(chatFrame)
 	local addMessage = chatFrame.AddMessage
 	rawAddMessage[chatFrame] = addMessage
-	Chat.lines[chatFrame] = {}
+	Chat.lines[chatFrame] = { head = 1, count = 0 }
 
 	chatFrame.AddMessage = function(self, text, r, g, b, ...)
 		if type(text) == "string" then

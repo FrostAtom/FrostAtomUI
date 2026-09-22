@@ -1,11 +1,10 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local UnitAura = UnitAura
 local UnitCanAssist = UnitCanAssist
 local random = math.random
 
-local MAX_AURAS = 40
+local Auras = ns.Auras
 local config = ns.Config
 local debuffColors = UF.debuffColors
 
@@ -21,11 +20,9 @@ local DISPEL_TYPES = {
 local canDispel = DISPEL_TYPES[ns.PLAYER_CLASS]
 
 local function firstDispellable(unit)
-	for i = 1, MAX_AURAS do
-		local name, _, _, _, debuffType = UnitAura(unit, i, "HARMFUL")
-		if not name then
-			return
-		end
+	local auras, count = Auras.Get(unit, "HARMFUL")
+	for i = 1, count do
+		local debuffType = auras[i].debuffType
 		if debuffType and canDispel[debuffType] then
 			return debuffType
 		end

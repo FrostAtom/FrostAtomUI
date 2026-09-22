@@ -4,11 +4,9 @@ if ns.PLAYER_CLASS ~= "WARRIOR" then
 	return
 end
 
-local CreateFrame = CreateFrame
 local GetInventoryItemLink = GetInventoryItemLink
 local GetInventoryItemTexture = GetInventoryItemTexture
 local GetItemInfo = GetItemInfo
-local select = select
 
 local Misc = ns:GetModule("Misc")
 local UF = ns:GetModule("UnitFrames")

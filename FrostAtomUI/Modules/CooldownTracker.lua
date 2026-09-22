@@ -315,9 +315,10 @@ local function onForbearanceApplied(guid)
 	local duration = FORBEARANCE_DURATION
 	local unit = ns.UnitByGUID(guid)
 	if unit then
-		local _, _, _, _, _, auraDuration, expires = ns.FindAura(unit, FORBEARANCE, "HARMFUL")
-		if auraDuration and auraDuration > 0 and expires then
-			duration = expires - now
+		ns.Auras.Invalidate(unit)
+		local aura = ns.Auras.Find(unit, FORBEARANCE, "HARMFUL")
+		if aura and aura.duration and aura.duration > 0 and aura.expires then
+			duration = aura.expires - now
 		end
 	end
 
@@ -388,20 +389,52 @@ end
 
 local function petOwnerGUID(petGUID)
 	local owner = petOwners[petGUID]
-	if owner then
-		return owner
+	if owner ~= nil then
+		return owner or nil
 	end
 	cachePets()
-	return petOwners[petGUID]
+	owner = petOwners[petGUID]
+	if not owner then
+		petOwners[petGUID] = false
+	end
+	return owner
 end
 
+local SUBEVENT_HANDLERS = {
+	SPELL_CAST_SUCCESS = function(self, sourceGUID, spellId)
+		if TALENT_SWAP[spellId] then
+			Talents:Invalidate(sourceGUID)
+		else
+			self:OnCast(sourceGUID, spellId, false)
+		end
+	end,
+	SPELL_AURA_APPLIED = function(self, sourceGUID, spellId, destGUID)
+		self:OnCast(sourceGUID, spellId, true)
+		onAuraApplied(sourceGUID, spellId, destGUID)
+	end,
+	SPELL_MISSED = function(self, sourceGUID, spellId)
+		self:OnCast(sourceGUID, spellId, true)
+	end,
+	SPELL_AURA_REMOVED = function(_, sourceGUID, spellId, destGUID)
+		onAuraRemoved(sourceGUID, spellId, destGUID)
+	end,
+}
+
 local function onCombatLogEvent(self, _, event, sourceGUID, _, sourceFlags, destGUID, _, _, spellId)
-	if event == "SPELL_AURA_APPLIED" and spellId == FORBEARANCE then
-		onForbearanceApplied(destGUID)
+	local handler = SUBEVENT_HANDLERS[event]
+	local hint = SPEC_HINTS[spellId]
+	if not handler and not hint then
 		return
-	elseif event == "SPELL_AURA_REMOVED" and spellId == FORBEARANCE then
-		onForbearanceRemoved(destGUID)
-		return
+	end
+
+	if spellId == FORBEARANCE then
+		if event == "SPELL_AURA_APPLIED" then
+			onForbearanceApplied(destGUID)
+			return
+		elseif event == "SPELL_AURA_REMOVED" then
+			onForbearanceRemoved(destGUID)
+			return
+		end
 	end
 
 	if bit_band(sourceFlags, COMBATLOG_OBJECT_TYPE_PET) ~= 0 then
@@ -417,24 +450,12 @@ local function onCombatLogEvent(self, _, event, sourceGUID, _, sourceFlags, dest
 		return
 	end
 
-	local hint = strsub(event, 1, 6) == "SPELL_" and event ~= "SPELL_AURA_BROKEN_SPELL" and SPEC_HINTS[spellId]
-	if hint then
+	if hint and event ~= "SPELL_AURA_BROKEN_SPELL" and strsub(event, 1, 6) == "SPELL_" then
 		Talents:Observe(sourceGUID, hint)
 	end
 
-	if event == "SPELL_CAST_SUCCESS" then
-		if TALENT_SWAP[spellId] then
-			Talents:Invalidate(sourceGUID)
-		else
-			self:OnCast(sourceGUID, spellId, false)
-		end
-	elseif event == "SPELL_AURA_APPLIED" then
-		self:OnCast(sourceGUID, spellId, true)
-		onAuraApplied(sourceGUID, spellId, destGUID)
-	elseif event == "SPELL_MISSED" then
-		self:OnCast(sourceGUID, spellId, true)
-	elseif event == "SPELL_AURA_REMOVED" then
-		onAuraRemoved(sourceGUID, spellId, destGUID)
+	if handler then
+		handler(self, sourceGUID, spellId, destGUID)
 	end
 end
 

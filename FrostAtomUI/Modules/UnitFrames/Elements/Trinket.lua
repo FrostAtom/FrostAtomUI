@@ -1,7 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
 local random = math.random
@@ -56,7 +55,7 @@ end
 
 local function setIconSize(trinket, size)
 	trinket:SetSize(size, size)
-	trinket.cooldown.timer:SetFont(ns.Media.font, size * 0.4, "OUTLINE")
+	ns.SetFont(trinket.cooldown.timer, size * 0.4, "OUTLINE")
 end
 
 local function create(frame, options)

@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local InCombatLockdown = InCombatLockdown
 local GetMouseFocus = GetMouseFocus
 local GetBindingKey = GetBindingKey

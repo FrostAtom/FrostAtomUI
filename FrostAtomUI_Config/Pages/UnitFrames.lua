@@ -1,7 +1,7 @@
 local _, ns = ...
 
 local function size(path, label, min, max)
-	return { path = path, label = label, type = "number", min = min, max = max, step = 1, reload = true }
+	return { path = path, label = label, type = "number", min = min, max = max, step = 1 }
 end
 
 ns.RegisterPage({
@@ -49,6 +49,7 @@ ns.RegisterPage({
 			type = "point",
 			desc = "Relative to the bottom of the player plate.",
 		},
+		{ path = "unitFrames.playerAuras", label = "Player buffs / debuffs", type = "point" },
 		{ path = "unitFrames.party", label = "Party", type = "point", enabledBy = "unitFrames.showParty" },
 		{ path = "unitFrames.arena", label = "Arena", type = "point", enabledBy = "unitFrames.showArena" },
 		{
@@ -62,7 +63,6 @@ ns.RegisterPage({
 		{ path = "unitFrames.boss", label = "Boss", type = "point", enabledBy = "unitFrames.showBoss" },
 		{ path = "unitFrames.bossSpacing", label = "Boss spacing", type = "number", min = 40, max = 200, step = 1 },
 		{ header = "Frame sizes" },
-		{ description = "Frame sizes apply after a UI reload." },
 		size("unitFrames.playerWidth", "Player / target width", 120, 320),
 		size("unitFrames.playerHeight", "Player / target height", 30, 80),
 		size("unitFrames.partyWidth", "Party width", 120, 320),

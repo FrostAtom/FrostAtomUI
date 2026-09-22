@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local IsInInstance = IsInInstance
 local GetBattlefieldStatus = GetBattlefieldStatus
 local GetBattlefieldTimeWaited = GetBattlefieldTimeWaited
@@ -11,7 +10,6 @@ local UnitName = UnitName
 local GameTooltip = GameTooltip
 local GetTime = GetTime
 local cos, pi, floor = math.cos, math.pi, math.floor
-local unpack = unpack
 local MAX_BATTLEFIELD_QUEUES = MAX_BATTLEFIELD_QUEUES or 2
 
 local Misc = ns:GetModule("Misc")
@@ -192,7 +190,7 @@ end)
 
 local function applyConfig()
 	local font = ns.Config.soloQueue.rangeFont
-	range:SetFont(ns.Media.fontBold, font.size, font.outline)
+	ns.SetFont(range, font.size, font.outline, true)
 	update()
 end
 

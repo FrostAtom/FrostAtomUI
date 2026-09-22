@@ -16,7 +16,6 @@ local BlackoutWorld = BlackoutWorld
 local WORLDMAP_SETTINGS = WORLDMAP_SETTINGS
 local MAP_VEHICLES = MAP_VEHICLES
 local VEHICLE_TEXTURES = VEHICLE_TEXTURES
-local CreateFrame = CreateFrame
 local GetScreenHeight = GetScreenHeight
 local GetCursorPosition = GetCursorPosition
 local GetPlayerMapPosition = GetPlayerMapPosition
@@ -201,8 +200,8 @@ local playerText = coords:CreateFontString(nil, "OVERLAY")
 local function applyConfig()
 	local config = ns.Config.worldMap
 	local font = config.coordFont
-	cursorText:SetFont(ns.Media.font, font.size, font.outline)
-	playerText:SetFont(ns.Media.font, font.size, font.outline)
+	ns.SetFont(cursorText, font.size, font.outline)
+	ns.SetFont(playerText, font.size, font.outline)
 	if config.showCoords then
 		coords:Show()
 	else

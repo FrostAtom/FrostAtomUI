@@ -1,7 +1,6 @@
 local ADDON_NAME, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
 local UIDropDownMenu_Initialize = UIDropDownMenu_Initialize
 local ToggleDropDownMenu = ToggleDropDownMenu
 local UnitPopup_ShowMenu = UnitPopup_ShowMenu

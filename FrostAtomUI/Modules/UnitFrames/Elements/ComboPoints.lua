@@ -1,7 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
 local GetComboPoints = GetComboPoints
 local UnitHasVehicleUI = UnitHasVehicleUI
 local MAX_COMBO_POINTS = MAX_COMBO_POINTS or 5

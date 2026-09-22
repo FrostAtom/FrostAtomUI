@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 
 local Misc = ns:GetModule("Misc")

@@ -2,7 +2,6 @@ local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
 local UnitName = UnitName
-local unpack = unpack
 
 local TruncateUTF8 = ns.TruncateUTF8
 local config = ns.Config
@@ -20,7 +19,7 @@ end
 
 local function create(frame, maxLength)
 	local name = frame:CreateFontString(nil, "OVERLAY")
-	name:SetFont(ns.Media.font, config.unitFrames.textFont.size, config.unitFrames.textFont.outline)
+	ns.SetFont(name, config.unitFrames.textFont.size, config.unitFrames.textFont.outline)
 	name:SetTextColor(unpack(UF.textColor))
 	name.maxLength = maxLength
 

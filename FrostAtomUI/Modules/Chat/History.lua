@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local gsub = string.gsub
 local tconcat, tinsert, tremove = table.concat, table.insert, table.remove
 local max = math.max
@@ -35,11 +34,12 @@ Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
 end)
 
 Chat:RegisterEvent("PLAYER_LOGOUT", function()
-	local lines = Chat.lines[ChatFrame1]
+	local count = Chat.NumLines(ChatFrame1)
 	local saved = {}
-	for i = max(1, #lines - SAVED_LINES + 1), #lines do
-		if lines[i][1] ~= DIVIDER then
-			saved[#saved + 1] = lines[i]
+	for i = max(1, count - SAVED_LINES + 1), count do
+		local line = Chat.GetLine(ChatFrame1, i)
+		if line[1] ~= DIVIDER then
+			saved[#saved + 1] = { line[1], line[2], line[3], line[4] }
 		end
 	end
 	ns:SaveVariable("chat_history", saved)
@@ -126,10 +126,9 @@ end
 local function copyChatFrame(chatFrame)
 	copyFrame = copyFrame or createCopyFrame()
 
-	local lines = Chat.lines[chatFrame]
 	local text = {}
-	for i = 1, #lines do
-		text[i] = plainText(lines[i][1])
+	for i = 1, Chat.NumLines(chatFrame) do
+		text[i] = plainText(Chat.GetLine(chatFrame, i)[1])
 	end
 
 	local editBox = copyFrame.editBox

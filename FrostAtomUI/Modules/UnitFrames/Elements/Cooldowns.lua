@@ -1,12 +1,12 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
 local UnitGUID = UnitGUID
-local GetSpellInfo = GetSpellInfo
 local GameTooltip = GameTooltip
 local GetTime = GetTime
 local min, huge, random = math.min, math.huge, math.random
+
+local SpellTexture = ns.SpellTexture
 
 local CooldownTracker = ns:GetModule("CooldownTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
@@ -26,7 +26,7 @@ local function onIconLeave()
 end
 
 local function onIconResize(icon, size)
-	icon.cooldown.timer:SetFont(ns.Media.font, size * 0.38, "OUTLINE")
+	ns.SetFont(icon.cooldown.timer, size * 0.38, "OUTLINE")
 	icon.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
 end
 
@@ -97,13 +97,16 @@ function refresh(container)
 			end
 
 			icon.spellId = id
-			local _, _, texture = GetSpellInfo(id)
-			icon.texture:SetTexture(texture)
+			icon.texture:SetTexture(SpellTexture(id))
 
 			if start then
-				icon.cooldown:SetCooldown(start, duration)
+				if start ~= icon.start or duration ~= icon.duration then
+					icon.start, icon.duration = start, duration
+					icon.cooldown:SetCooldown(start, duration)
+				end
 				nextExpiry = min(nextExpiry, start + duration)
-			else
+			elseif icon.start then
+				icon.start = nil
 				icon.cooldown:SetCooldown(0, 0)
 			end
 			if highlighted then
@@ -140,8 +143,8 @@ local function test(frame)
 				container[shown] = icon
 			end
 			icon.spellId = id
-			local _, _, texture = GetSpellInfo(id)
-			icon.texture:SetTexture(texture)
+			icon.texture:SetTexture(SpellTexture(id))
+			icon.start = nil
 			icon.cooldown:SetCooldown(now - random(0, cooldown - 5), cooldown)
 			if random(5) == 1 then
 				icon.glow:Show()

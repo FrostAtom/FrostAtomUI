@@ -1,11 +1,9 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
 local UnitPowerType = UnitPowerType
 local UnitAffectingCombat = UnitAffectingCombat
-local unpack = unpack
 
 local PlayerPlate = ns:NewModule("PlayerPlate")
 local UF = ns:GetModule("UnitFrames")
@@ -22,7 +20,7 @@ plate:Hide()
 
 local function createBar()
 	local bar = CreateFrame("StatusBar", nil, plate)
-	bar:SetStatusBarTexture(ns.Media.blank)
+	ns.SkinStatusBar(bar)
 	ns.SmoothBar(bar)
 
 	local bg = bar:CreateTexture(nil, "BORDER")
@@ -123,10 +121,10 @@ local function applyConfig()
 	power:SetPoint("TOP", health, "BOTTOM", 0, -config.gap)
 
 	local font = config.font
-	for _, bar in ipairs({ health, power }) do
-		bar.text:SetFont(ns.Media.font, font.size, font.outline)
-		bar.text:SetTextColor(unpack(frameConfig.textColor))
-	end
+	ns.SetFont(health.text, font.size, font.outline)
+	ns.SetFont(power.text, font.size, font.outline)
+	health.text:SetTextColor(unpack(frameConfig.textColor))
+	power.text:SetTextColor(unpack(frameConfig.textColor))
 	if config.showText then
 		health.text:Show()
 		power.text:Show()

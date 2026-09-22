@@ -1,8 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
-local unpack = unpack
-
 local Misc = ns:GetModule("Misc")
 
 local FADE_SPEED = 2
@@ -44,7 +41,7 @@ end
 
 local function applyConfig()
 	local font = ns.Config.combatAlert.font
-	text:SetFont(ns.Media.fontBold, font.size, font.outline)
+	ns.SetFont(text, font.size, font.outline, true)
 end
 
 applyConfig()

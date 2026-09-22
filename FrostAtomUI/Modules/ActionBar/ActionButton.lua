@@ -1,6 +1,5 @@
 local ADDON_NAME, ns = ...
 
-local CreateFrame = CreateFrame
 local CooldownFrame_SetTimer = CooldownFrame_SetTimer
 local GetActionTexture = GetActionTexture
 local GetActionCooldown = GetActionCooldown
@@ -20,7 +19,6 @@ local InCombatLockdown = InCombatLockdown
 local PickupAction = PickupAction
 local PlaceAction = PlaceAction
 local GameTooltip = GameTooltip
-local pairs = pairs
 
 local Media = ns.Media
 local ActionBar = ns:GetModule("ActionBar")

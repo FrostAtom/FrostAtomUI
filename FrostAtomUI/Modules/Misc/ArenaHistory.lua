@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetNumBattlefieldScores = GetNumBattlefieldScores
 local GetBattlefieldScore = GetBattlefieldScore
 local GetBattlefieldTeamInfo = GetBattlefieldTeamInfo
@@ -24,11 +23,9 @@ local FauxScrollFrame_OnVerticalScroll = FauxScrollFrame_OnVerticalScroll
 local FauxScrollFrame_GetOffset = FauxScrollFrame_GetOffset
 local FauxScrollFrame_SetOffset = FauxScrollFrame_SetOffset
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
-local UIParent = UIParent
 local time, date = time, date
 local floor, max = math.floor, math.max
 local tinsert, tremove = table.insert, table.remove
-local wipe, unpack, select = wipe, unpack, select
 local format = string.format
 
 local Misc = ns:GetModule("Misc")
@@ -468,7 +465,7 @@ local function createCells(row, columns, height)
 		local column = columns[i]
 		if not column.icons then
 			local cell = row:CreateFontString(nil, "OVERLAY")
-			cell:SetFont(ns.Media.font, 12)
+			ns.SetFont(cell, 12)
 			cell:SetPoint("LEFT", column.x + 4, 0)
 			cell:SetSize(column.width - 8, height)
 			cell:SetJustifyH(column.right and "RIGHT" or "LEFT")
@@ -483,7 +480,7 @@ local function createHeaders(parent, columns, y)
 	for i = 1, #columns do
 		local column = columns[i]
 		local header = parent:CreateFontString(nil, "OVERLAY")
-		header:SetFont(ns.Media.fontBold, 11, "OUTLINE")
+		ns.SetFont(header, 11, "OUTLINE", true)
 		header:SetTextColor(unpack(HEADER_COLOR))
 		header:SetPoint("TOPLEFT", column.x + 4, y)
 		header:SetSize(column.width - 8, DETAIL_ROW_HEIGHT)
@@ -793,7 +790,7 @@ local function createFilterButton(parent, index, key, label)
 	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
 
 	button.text = button:CreateFontString(nil, "OVERLAY")
-	button.text:SetFont(ns.Media.font, 12)
+	ns.SetFont(button.text, 12)
 	button.text:SetPoint("CENTER")
 	button.text:SetText(label)
 
@@ -819,7 +816,7 @@ local function createFrame()
 	tinsert(UISpecialFrames, FRAME_NAME)
 
 	local title = frame:CreateFontString(nil, "OVERLAY")
-	title:SetFont(ns.Media.fontBold, 13, "OUTLINE")
+	ns.SetFont(title, 13, "OUTLINE", true)
 	title:SetPoint("TOPLEFT", PADDING, -PADDING - 3)
 	title:SetText("Arena history")
 
@@ -839,7 +836,7 @@ local function createFrame()
 	frame.filters = filters
 
 	local stats = frame:CreateFontString(nil, "OVERLAY")
-	stats:SetFont(ns.Media.font, 12)
+	ns.SetFont(stats, 12)
 	stats:SetPoint("LEFT", filters[#filters], "RIGHT", 12, 0)
 	frame.stats = stats
 
@@ -852,7 +849,7 @@ local function createFrame()
 	clear:SetHighlightTexture(ns.Media.blank)
 	clear:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
 	clear.text = clear:CreateFontString(nil, "OVERLAY")
-	clear.text:SetFont(ns.Media.font, 12)
+	ns.SetFont(clear.text, 12)
 	clear.text:SetTextColor(0.7, 0.7, 0.7)
 	clear.text:SetPoint("CENTER")
 	clear.text:SetText("Clear")
@@ -885,7 +882,7 @@ local function createFrame()
 	frame.rows = rows
 
 	local empty = list:CreateFontString(nil, "OVERLAY")
-	empty:SetFont(ns.Media.font, 13)
+	ns.SetFont(empty, 13)
 	empty:SetTextColor(0.5, 0.5, 0.5)
 	empty:SetPoint("CENTER")
 	empty:SetText("No games recorded yet")
@@ -907,7 +904,7 @@ local function createFrame()
 	line:SetHeight(1)
 
 	detail.title = detail:CreateFontString(nil, "OVERLAY")
-	detail.title:SetFont(ns.Media.fontBold, 12, "OUTLINE")
+	ns.SetFont(detail.title, 12, "OUTLINE", true)
 	detail.title:SetPoint("TOPLEFT", 4, 0)
 	detail.title:SetHeight(DETAIL_ROW_HEIGHT)
 	detail.title:SetJustifyV("MIDDLE")
@@ -917,7 +914,7 @@ local function createFrame()
 	detail.teamHeaders = {}
 	for side = 1, 2 do
 		local header = detail:CreateFontString(nil, "OVERLAY")
-		header:SetFont(ns.Media.fontBold, 12, "OUTLINE")
+		ns.SetFont(header, 12, "OUTLINE", true)
 		header:SetHeight(DETAIL_ROW_HEIGHT)
 		header:SetJustifyV("MIDDLE")
 		detail.teamHeaders[side] = header

@@ -1,6 +1,5 @@
 local _, ns = ...
 
-local CreateFrame = CreateFrame
 local GetInventoryItemLink = GetInventoryItemLink
 local GetInventoryItemTexture = GetInventoryItemTexture
 local GetInventoryItemDurability = GetInventoryItemDurability
@@ -118,7 +117,7 @@ local function createPage(getUnit, modelFrame, slotPrefix, anchor)
 		local button = _G[slotPrefix .. suffix]
 		if button then
 			local text = button:CreateFontString(nil, "OVERLAY")
-			text:SetFont(ns.Media.font, 11, "OUTLINE")
+			ns.SetFont(text, 11, "OUTLINE")
 			text:SetPoint("BOTTOM", 0, 1)
 			page.slotTexts[slot] = text
 		end
@@ -130,7 +129,7 @@ local function createPage(getUnit, modelFrame, slotPrefix, anchor)
 	overlay:SetFrameLevel(modelFrame:GetFrameLevel() + 1)
 
 	local averageText = overlay:CreateFontString(nil, "OVERLAY")
-	averageText:SetFont(ns.Media.fontBold, 14, "OUTLINE")
+	ns.SetFont(averageText, 14, "OUTLINE", true)
 	averageText:SetPoint("BOTTOMRIGHT")
 	page.averageText = averageText
 

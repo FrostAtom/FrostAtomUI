@@ -1,15 +1,12 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local CreateFrame = CreateFrame
-local UnitAura = UnitAura
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
 local random = math.random
 
+local Auras = ns.Auras
 local CooldownTimer = ns:GetModule("CooldownTimer")
-
-local MAX_AURAS = 40
 
 -- stylua: ignore
 local CC_SPELL_IDS = {
@@ -36,40 +33,48 @@ for _, spellId in ipairs(CC_SPELL_IDS) do
 end
 UF.ccSpellNames = CC_SPELL_NAMES
 
+local function show(loseControl, texture, start, duration)
+	loseControl.texture:SetTexture(texture)
+	if start ~= loseControl.start or duration ~= loseControl.duration then
+		loseControl.start, loseControl.duration = start, duration
+		loseControl:SetCooldown(start, duration)
+	end
+	loseControl:Show()
+end
+
+local function hide(loseControl)
+	loseControl.start = nil
+	loseControl:Hide()
+end
+
 local function update(frame)
-	local unit = frame.unit
 	local loseControl = frame.losecontrol
+	local auras, count = Auras.Get(frame.unit, "HARMFUL")
 
-	local longestEnd, longestDuration, longestTexture = 0
-	for i = 1, MAX_AURAS do
-		local name, _, texture, _, _, duration, endTime = UnitAura(unit, i, "HARMFUL")
-		if not name then
-			break
-		end
-
-		if CC_SPELL_NAMES[name] and endTime > longestEnd then
-			longestEnd, longestDuration, longestTexture = endTime, duration, texture
+	local longest
+	for i = 1, count do
+		local aura = auras[i]
+		if CC_SPELL_NAMES[aura.name] and (not longest or aura.expires > longest.expires) then
+			longest = aura
 		end
 	end
 
-	if longestEnd == 0 then
-		loseControl:Hide()
+	if longest then
+		show(loseControl, longest.icon, longest.expires - longest.duration, longest.duration)
 	else
-		loseControl.texture:SetTexture(longestTexture)
-		loseControl:SetCooldown(longestEnd - longestDuration, longestDuration)
+		hide(loseControl)
 	end
 end
 
 local function test(frame)
 	local loseControl = frame.losecontrol
 	if random(3) ~= 1 then
-		loseControl:Hide()
+		hide(loseControl)
 		return
 	end
 	local _, _, texture = GetSpellInfo(CC_SPELL_IDS[random(#CC_SPELL_IDS)])
 	local duration = random(4, 10)
-	loseControl.texture:SetTexture(texture)
-	loseControl:SetCooldown(GetTime() - random(0, duration - 2), duration)
+	show(loseControl, texture, GetTime() - random(0, duration - 2), duration)
 end
 
 local function create(frame, fontSize)
