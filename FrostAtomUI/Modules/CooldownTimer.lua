@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local ceil = math.ceil
 local GetTime = GetTime
 
@@ -26,10 +28,10 @@ local function setTimerText(timer, remain)
 		timer:SetFormattedText("%d", ceil(remain))
 	elseif remain <= 3600 then
 		setTimerColor(timer, COLOR_MINUTES, 1, 1, 1)
-		timer:SetFormattedText("%dm", ceil(remain / 60))
+		timer:SetFormattedText(L["%dm"], ceil(remain / 60))
 	else
 		setTimerColor(timer, COLOR_HOURS, 0.6, 0.6, 0.6)
-		timer:SetFormattedText("%dh", ceil(remain / 3600))
+		timer:SetFormattedText(L["%dh"], ceil(remain / 3600))
 	end
 end
 

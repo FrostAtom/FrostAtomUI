@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local GetInventoryItemLink = GetInventoryItemLink
 local GetInventoryItemTexture = GetInventoryItemTexture
 local GetInventoryItemDurability = GetInventoryItemDurability
@@ -214,7 +216,7 @@ local function checkDurability()
 	if config.enabled and config.durabilityWarning and lowest < config.durabilityThreshold then
 		if not warned then
 			warned = true
-			ns.Print("|cffff0000durability %d%%|r - repair soon", lowest * 100)
+			ns.Print(L["|cffff0000durability %d%%|r - repair soon"], lowest * 100)
 		end
 	else
 		warned = false

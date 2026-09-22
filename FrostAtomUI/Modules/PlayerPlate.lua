@@ -13,7 +13,7 @@ local BORDER_INSET = UF.BORDER_INSET
 local frameConfig = ns.Config.unitFrames
 
 local plate = CreateFrame("Frame", "FrostAtomUIPlayerPlate", UIParent)
-PlayerPlate:AnchorToConfig(plate, "playerPlate.point")
+PlayerPlate:AnchorToConfig(plate, "playerPlate.point", "Player plate")
 plate:SetBackdrop(UF.backdrop)
 plate:Hide()
 

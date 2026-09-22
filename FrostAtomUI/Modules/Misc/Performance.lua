@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local GetFramerate = GetFramerate
 local GetNetStats = GetNetStats
 local max = math.max
@@ -11,7 +13,7 @@ local GROUP_GAP = 8
 local Misc = ns:GetModule("Misc")
 
 local frame = CreateFrame("Frame", nil, UIParent)
-Misc:AnchorToConfig(frame, "performance.point")
+Misc:AnchorToConfig(frame, "performance.point", "Performance")
 frame:SetFrameStrata("LOW")
 
 local function createReadout(unit)
@@ -115,3 +117,9 @@ end
 
 applyConfig()
 Misc:WatchConfig("performance", applyConfig)
+
+ns.OnLocaleReady(function()
+	fpsLabel.unit = L["fps"]
+	latencyLabel.unit = L["ms"]
+	applyConfig()
+end)

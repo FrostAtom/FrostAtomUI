@@ -1,5 +1,7 @@
 local ADDON_NAME, ns = ...
 
+local L = ns.L
+
 local GetAddOnMetadata = GetAddOnMetadata
 local SendAddonMessage = SendAddonMessage
 local GetNumRaidMembers = GetNumRaidMembers
@@ -99,7 +101,7 @@ local function reportNewer(theirVersion, theirBuild)
 	end
 	newerReported = true
 	ns.Print(
-		"A newer version is available: %s (yours: %s)",
+		L["A newer version is available: %s (yours: %s)"],
 		Version.Label(theirVersion, theirBuild),
 		Version.Label(version, build)
 	)
@@ -150,7 +152,7 @@ Misc:RegisterEvent("RAID_ROSTER_UPDATE", onGroupChanged)
 local function onEnteringWorld()
 	Misc:UnregisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 	Misc:RegisterEvent("PLAYER_ENTERING_WORLD", queueAnnounce)
-	ns.Print("v%s, settings: |cffffffff/ui|r", Version.Label(version, build))
+	ns.Print(L["v%s, settings: |cffffffff/ui|r"], Version.Label(version, build))
 	queueAnnounce()
 end
 

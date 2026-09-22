@@ -99,7 +99,7 @@ function Runes:Initialize()
 	ns.DestroyFrame(RuneFrame, true)
 
 	holder = CreateFrame("Frame", nil, UIParent)
-	self:AnchorToConfig(holder, "runes.point")
+	self:AnchorToConfig(holder, "runes.point", "Runes")
 
 	for i = 1, NUM_RUNES do
 		createRune(i)

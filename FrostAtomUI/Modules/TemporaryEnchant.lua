@@ -96,7 +96,7 @@ function TemporaryEnchant:Initialize()
 	ns.DestroyFrame(TemporaryEnchantFrame, true)
 
 	holder = CreateFrame("Frame", nil, UIParent)
-	self:AnchorToConfig(holder, "temporaryEnchant.point")
+	self:AnchorToConfig(holder, "temporaryEnchant.point", "Weapon enchants")
 	for i = 1, MAX_ICONS do
 		icons[i] = createIcon()
 	end

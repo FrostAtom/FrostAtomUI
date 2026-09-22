@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 
 local GameTooltip = GameTooltip
 local InCombatLockdown, GetCursorPosition, IsShiftKeyDown = InCombatLockdown, GetCursorPosition, IsShiftKeyDown
@@ -78,7 +79,7 @@ end
 
 function Movers.GetLabel(path)
 	local mover = byPath[path]
-	return mover and mover.label or path and humanize(path)
+	return mover and L[mover.label] or path and humanize(path)
 end
 
 local function anchorParent(path)
@@ -217,10 +218,10 @@ local function showTooltip(overlay)
 	local mover = overlay.mover
 	local point, x, y, anchorPath, anchorPoint = unpack(ns:GetConfig(mover.path))
 	GameTooltip:SetOwner(overlay, "ANCHOR_TOP")
-	GameTooltip:SetText(mover.label, 1, 1, 1)
+	GameTooltip:SetText(L[mover.label], 1, 1, 1)
 	if anchorPath then
 		GameTooltip:AddLine(
-			("%s  %d, %d  of  %s %s"):format(point, x, y, Movers.GetLabel(anchorPath), anchorPoint),
+			L["%s  %d, %d  of  %s %s"]:format(point, x, y, Movers.GetLabel(anchorPath), anchorPoint),
 			0.4,
 			1,
 			0.5
@@ -228,9 +229,9 @@ local function showTooltip(overlay)
 	else
 		GameTooltip:AddLine(("%s  %d, %d"):format(point, x, y), 0.8, 0.8, 0.8)
 	end
-	GameTooltip:AddLine("Drag to move, right-click to reset, hold Shift to drop snapping", 0.6, 0.6, 0.6)
+	GameTooltip:AddLine(L["Drag to move, right-click to reset, hold Shift to drop snapping"], 0.6, 0.6, 0.6)
 	if mover.resize then
-		GameTooltip:AddLine("Drag the bottom-right corner to resize", 0.6, 0.6, 0.6)
+		GameTooltip:AddLine(L["Drag the bottom-right corner to resize"], 0.6, 0.6, 0.6)
 	end
 	GameTooltip:Show()
 end
@@ -599,7 +600,7 @@ local function createOverlay(mover)
 	local text = overlay:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(text, 11, "OUTLINE", true)
 	text:SetPoint("CENTER")
-	text:SetText(mover.label)
+	text:SetText(L[mover.label])
 	overlay.text = text
 
 	if mover.resize then
@@ -631,7 +632,7 @@ function Movers.Register(frame, path, label, options)
 		mover[key] = value
 	end
 	if mover.overlay then
-		mover.overlay.text:SetText(mover.label)
+		mover.overlay.text:SetText(L[mover.label])
 		if unlocked then
 			refresh(mover)
 		end
@@ -753,7 +754,7 @@ local function createPanel()
 	ns.SetFont(hint, 11)
 	hint:SetTextColor(0.7, 0.7, 0.7)
 	hint:SetPoint("TOP", 0, -8)
-	hint:SetText("Drag to move and snap, Shift drops snapping")
+	hint:SetText(L["Drag to move and snap, Shift drops snapping"])
 
 	local lock = CreateFrame("Button", nil, panel)
 	lock:SetSize(120, 20)
@@ -769,7 +770,7 @@ local function createPanel()
 	ns.SetFont(text, 12)
 	text:SetTextColor(0.8, 0.8, 0.8)
 	text:SetPoint("CENTER")
-	text:SetText("Lock frames")
+	text:SetText(L["Lock frames"])
 end
 
 function Movers.Unlock()
@@ -777,7 +778,7 @@ function Movers.Unlock()
 		return
 	end
 	if InCombatLockdown() then
-		ns.Print("cannot unlock frames in combat")
+		ns.Print(L["cannot unlock frames in combat"])
 		return
 	end
 	unlocked = true

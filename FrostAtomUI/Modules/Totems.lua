@@ -79,7 +79,7 @@ function Totems:Initialize()
 	end
 
 	holder = CreateFrame("Frame", nil, UIParent)
-	self:AnchorToConfig(holder, "totems.point", nil, { secure = true })
+	self:AnchorToConfig(holder, "totems.point", "Totems", { secure = true })
 
 	for slot = 1, MAX_TOTEMS do
 		createButton(slot, holder)

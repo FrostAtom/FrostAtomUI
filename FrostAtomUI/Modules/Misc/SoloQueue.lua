@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local IsInInstance = IsInInstance
 local GetBattlefieldStatus = GetBattlefieldStatus
 local GetBattlefieldTimeWaited = GetBattlefieldTimeWaited
@@ -35,6 +37,10 @@ local STATES = {
 	enter = { icon = QUEUE_ICON, tooltip = ENTER_BATTLE, glow = true },
 	arena = { icon = LEAVE_ICON, tooltip = LEAVE_ARENA },
 }
+
+ns.OnLocaleReady(function()
+	STATES.join.tooltip = L["Join solo queue"]
+end)
 
 local button = CreateFrame("Button", nil, UIParent)
 button:Hide()
@@ -73,7 +79,7 @@ local function onEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	GameTooltip:SetText(STATES[self.state].tooltip)
 	if self.state == "queued" then
-		GameTooltip:AddLine("Time in queue: " .. queueTime(self.queueIndex), 1, 1, 1)
+		GameTooltip:AddLine(L["Time in queue: "] .. queueTime(self.queueIndex), 1, 1, 1)
 	end
 	GameTooltip:Show()
 end

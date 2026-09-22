@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local ChatEdit_UpdateHeader = ChatEdit_UpdateHeader
 local UnitName = UnitName
 local UnitIsPlayer = UnitIsPlayer
@@ -366,8 +368,7 @@ local function filterQueueSpam(message)
 		low, high = tonumber(low), tonumber(high)
 		ns:Fire(ns.SOLOQ_SEARCHING, low, high, tonumber(teamRating))
 		return false,
-			format(
-				"Team found (%s), searching opponents: %d |cff7f7f7f[%d-%d]|r",
+			L["Team found (%s), searching opponents: %d |cff7f7f7f[%d-%d]|r"]:format(
 				teamRating,
 				(low + high) / 2,
 				low,
@@ -536,6 +537,10 @@ StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
 		self:GetParent():Hide()
 	end,
 }
+
+ns.OnLocaleReady(function()
+	StaticPopupDialogs.FROSTATOMUI_COPY_URL.text = L["Ctrl+C to copy"]
+end)
 
 local blizzardSetItemRef
 

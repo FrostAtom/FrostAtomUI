@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local UnitGUID = UnitGUID
 local SendChatMessage = SendChatMessage
 local GetNumRaidMembers = GetNumRaidMembers
@@ -59,6 +61,6 @@ end)
 SlashCmdList.FROSTATOMUI_INTERRUPT_ANNOUNCE = function()
 	local enabled = not ns.Config.announce.interrupts
 	ns:SetConfig("announce.interrupts", enabled)
-	ns.Print("Interrupt announce %s", enabled and "enabled" or "disabled")
+	ns.Print(L["Interrupt announce %s"], enabled and L["enabled"] or L["disabled"])
 end
 SLASH_FROSTATOMUI_INTERRUPT_ANNOUNCE1 = "/ia"

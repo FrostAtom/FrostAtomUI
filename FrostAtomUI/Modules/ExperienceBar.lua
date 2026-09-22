@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local UnitLevel = UnitLevel
 local UnitXP, UnitXPMax = UnitXP, UnitXPMax
 local GetXPExhaustion = GetXPExhaustion
@@ -69,16 +71,16 @@ local function onEnter(self)
 
 	if self.mode == "xp" then
 		local current, max = UnitXP("player"), UnitXPMax("player")
-		GameTooltip:AddDoubleLine("Experience", ("%d / %d (%d%%)"):format(current, max, current / max * 100))
+		GameTooltip:AddDoubleLine(L["Experience"], ("%d / %d (%d%%)"):format(current, max, current / max * 100))
 		local exhaustion = GetXPExhaustion()
 		if exhaustion and exhaustion > 0 then
-			GameTooltip:AddDoubleLine("Rested", ("+%d (%d%%)"):format(exhaustion, exhaustion / max * 100), 0, 0.6, 1)
+			GameTooltip:AddDoubleLine(L["Rested"], ("+%d (%d%%)"):format(exhaustion, exhaustion / max * 100), 0, 0.6, 1)
 		end
 	else
 		local _, standing, min, max, value = GetWatchedFactionInfo()
 		local standingText = _G["FACTION_STANDING_LABEL" .. standing] or ""
 		GameTooltip:AddDoubleLine(self.factionName, standingText)
-		GameTooltip:AddDoubleLine("Reputation", ("%d / %d"):format(value - min, max - min))
+		GameTooltip:AddDoubleLine(L["Reputation"], ("%d / %d"):format(value - min, max - min))
 	end
 
 	GameTooltip:Show()

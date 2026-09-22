@@ -1,4 +1,6 @@
-﻿local ADDON_NAME, ns = ...
+local ADDON_NAME, ns = ...
+
+local L = FrostAtomUI.L
 
 local ui = FrostAtomUI
 
@@ -29,13 +31,13 @@ local function createWindow()
 	title:SetPoint("TOPLEFT", PADDING, -PADDING - 4)
 	window.title = title
 
-	local close = ns.CreateButton(window, "Close", 80)
+	local close = ns.CreateButton(window, L["Close"], 80)
 	close:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
 	close:SetScript("OnClick", function()
 		window:Hide()
 	end)
 
-	local action = ns.CreateButton(window, "Import", 80)
+	local action = ns.CreateButton(window, L["Import"], 80)
 	action:SetPoint("RIGHT", close, "LEFT", -8, 0)
 	window.action = action
 
@@ -68,7 +70,7 @@ local function showExport()
 	if not window then
 		createWindow()
 	end
-	window.title:SetText(("Export profile: %s"):format(ui:GetActiveProfile()))
+	window.title:SetText(L["Export profile: %s"]:format(ui:GetActiveProfile()))
 	window.action:Hide()
 	window.box:SetText(ui:ExportProfile())
 	window:Show()
@@ -80,16 +82,16 @@ local function showImport()
 	if not window then
 		createWindow()
 	end
-	window.title:SetText(("Import into profile: %s"):format(ui:GetActiveProfile()))
+	window.title:SetText(L["Import into profile: %s"]:format(ui:GetActiveProfile()))
 	window.action:Show()
 	window.action:SetScript("OnClick", function()
 		local text = window.box:GetText()
-		ns.Confirm("Replace all settings of the active profile with the imported ones?", function()
+		ns.Confirm(L["Replace all settings of the active profile with the imported ones?"], function()
 			local ok, err = ui:ImportProfile(text)
 			if ok then
 				window:Hide()
 			else
-				ui.Print("import failed: %s", err)
+				ui.Print(L["import failed: %s"], err)
 			end
 		end)
 	end)
@@ -113,12 +115,12 @@ local function noOtherProfiles()
 end
 
 local schema = {
-	{ header = "Active profile" },
+	{ header = L["Active profile"] },
 	{
-		description = "Each character remembers its profile; several characters can share one.",
+		description = L["Each character remembers its profile; several characters can share one."],
 	},
 	{
-		label = "Profile",
+		label = L["Profile"],
 		type = "select",
 		values = function()
 			return profileOptions()
@@ -129,10 +131,10 @@ local schema = {
 		set = function(name)
 			ui:SetProfile(name)
 		end,
-		desc = "Switch this character to another profile.",
+		desc = L["Switch this character to another profile."],
 	},
 	{
-		label = "New profile",
+		label = L["New profile"],
 		type = "string",
 		width = 160,
 		maxLetters = 32,
@@ -142,69 +144,69 @@ local schema = {
 		set = function(name)
 			ui:SetProfile(name)
 		end,
-		desc = "Type a name and press Enter to create an empty profile and switch to it.",
+		desc = L["Type a name and press Enter to create an empty profile and switch to it."],
 	},
 	{
-		label = "Copy from",
+		label = L["Copy from"],
 		type = "select",
-		placeholder = "Select profile...",
+		placeholder = L["Select profile..."],
 		values = function()
 			return profileOptions(true)
 		end,
 		get = function() end,
 		set = function(name)
-			ns.Confirm(("Overwrite the active profile with settings from %q?"):format(name), function()
+			ns.Confirm(L["Overwrite the active profile with settings from %q?"]:format(name), function()
 				ui:CopyProfile(name)
 			end)
 		end,
 		disabled = noOtherProfiles,
-		desc = "Replace all settings of the active profile with a copy of another one.",
+		desc = L["Replace all settings of the active profile with a copy of another one."],
 	},
 	{
-		label = "Delete profile",
+		label = L["Delete profile"],
 		type = "select",
-		placeholder = "Select profile...",
+		placeholder = L["Select profile..."],
 		values = function()
 			return profileOptions(true)
 		end,
 		get = function() end,
 		set = function(name)
-			ns.Confirm(("Delete profile %q? Characters using it fall back to Default."):format(name), function()
+			ns.Confirm(L["Delete profile %q? Characters using it fall back to Default."]:format(name), function()
 				ui:DeleteProfile(name)
 			end)
 		end,
 		disabled = noOtherProfiles,
-		desc = "The active profile cannot be deleted.",
+		desc = L["The active profile cannot be deleted."],
 	},
 	{
-		label = "Reset profile",
+		label = L["Reset profile"],
 		type = "execute",
-		text = "Reset",
-		confirm = "Reset all settings of the active profile to defaults?",
+		text = L["Reset"],
+		confirm = L["Reset all settings of the active profile to defaults?"],
 		func = function()
 			ui:ResetConfig()
 		end,
 	},
-	{ header = "Import / export" },
+	{ header = L["Import / export"] },
 	{
-		label = "Export",
+		label = L["Export"],
 		type = "execute",
-		text = "Export",
+		text = L["Export"],
 		func = showExport,
-		desc = "Show the active profile as a string to copy.",
+		desc = L["Show the active profile as a string to copy."],
 	},
 	{
-		label = "Import",
+		label = L["Import"],
 		type = "execute",
-		text = "Import",
+		text = L["Import"],
 		func = showImport,
-		desc = "Paste a profile string to replace the active profile.",
+		desc = L["Paste a profile string to replace the active profile."],
 	},
 }
 
 ns.RegisterPage({
 	key = "profiles",
-	name = "Profiles",
+	name = L["Profiles"],
 	order = 60,
 	schema = schema,
 	noReset = true,

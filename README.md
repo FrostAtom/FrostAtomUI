@@ -107,10 +107,10 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 | ![Minimap](docs/screenshots/minimap.png) | ![Bags](docs/screenshots/bags.png) |
 
 - Square minimap in the top-right corner: wheel to zoom, right-click for tracking, middle-click for the calendar.
-- **Solo queue button** in the minimap's bottom-right corner: click to join the solo 3v3 queue (sends `.soloq join`
-  as a whisper to yourself), click again to leave the queue, enter the arena in one click once the match is ready,
-  and leave the arena in one click while inside. The rating range the queue is currently searching in is shown
-  under the button (gold once a team is found) instead of the "Searching team" chat message.
+- **Solo queue button** in the minimap's bottom-right corner: click to join the solo 3v3 queue, click again to
+  leave it, enter the arena in one click once the match is ready, and leave the arena in one click while inside.
+  The rating range the queue is currently searching in is shown under the button (gold once a team is found)
+  instead of the "Searching team" chat message.
 - **Arena history** (`/history`): every finished 2v2 / 3v3 / solo queue match is saved with the full scoreboard —
   map, duration, result and rating change, team MMR, and for every player their class/spec icon, race, kills,
   deaths, damage and healing. Filter by bracket, click a game for the details, right-click to delete it.
@@ -201,12 +201,13 @@ everything applies immediately, the few options that need a reload say so and of
   their own (chat, minimap, unit frames, bags, micro menu, queue eye) resize from their bottom-right corner.
 - **Reset page** / **Reset all** — back to defaults with a confirmation.
 - **Profiles** page — per-character profiles, copy, reset, and export/import as a text string to share with friends.
+- **Language** — English and Russian. Follows your game client by default; change it under
+  *General → Language* and reload when asked.
 
-The window lives in the separate `FrostAtomUI_Config` addon, which is only loaded when you open it.
-Defaults are listed in `FrostAtomUI/Core/Config.lua`. If something you need is missing, ask in
-[Discord](https://discord.gg/HSD3gCYw8Q).
+If something you need is missing, ask in [Discord](https://discord.gg/HSD3gCYw8Q).
 
-Your profiles, chat history and arena history are saved per account in `WTF\Account\<name>\SavedVariables\FrostAtomUI.lua`.
+Your settings, chat history and arena history are saved per account in
+`WTF\Account\<name>\SavedVariables\FrostAtomUI.lua` — copy that file to keep them or move them to another PC.
 
 ---
 
@@ -215,23 +216,3 @@ Your profiles, chat history and arena history are saved per account in `WTF\Acco
 - Client **3.3.5a** (build 12340). Other versions are not supported.
 - Written for Wrath private servers; some features (arena queue summaries, spectator entry) rely on
   server-side messages that may look different elsewhere.
-
----
-
-## For developers
-
-Formatting is done with [StyLua](https://github.com/JohnnyMorganz/StyLua) (`stylua.toml`),
-linting with [luacheck](https://github.com/lunarmodules/luacheck) (`.luacheckrc`).
-
-```
-npm install            # installs stylua
-npm run format         # format everything
-npm run format:check   # CI-style check
-luacheck .             # needs luacheck on PATH
-```
-
-Both checks run on GitHub Actions for every push and pull request (`.github/workflows/lint.yml`).
-
-Every file starts with `local _, ns = ...`; `ns` is the shared addon table. A module is
-`ns:NewModule("Name")` and subscribes to events with `module:RegisterEvent(event, handlerOrMethodName)`.
-`Core/Bootstrap.lua` must stay last in the `.toc`.

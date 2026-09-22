@@ -1,5 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
+local L = ns.L
 
 local RegisterUnitWatch, UnregisterUnitWatch = RegisterUnitWatch, UnregisterUnitWatch
 local InCombatLockdown = InCombatLockdown
@@ -86,7 +87,7 @@ function UF:SetTestMode(enabled)
 		return
 	end
 	if InCombatLockdown() then
-		ns.Print("unit frame test mode is not available in combat")
+		ns.Print(L["unit frame test mode is not available in combat"])
 		return
 	end
 
@@ -101,7 +102,7 @@ function UF:SetTestMode(enabled)
 			end
 		end
 	end
-	ns.Print("unit frame test mode %s", enabled and "on" or "off")
+	ns.Print(L["unit frame test mode %s"], enabled and L["on"] or L["off"])
 end
 
 SlashCmdList.FROSTATOMUI_UNITFRAME_TEST = function()

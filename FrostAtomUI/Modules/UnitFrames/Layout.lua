@@ -1,6 +1,5 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
-
 local max = math.max
 
 local MAX_PARTY_FRAMES = 3

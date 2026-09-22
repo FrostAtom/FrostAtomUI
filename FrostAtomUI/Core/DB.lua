@@ -15,6 +15,7 @@ DB:RegisterEvent("ADDON_LOADED", function(self, addonName)
 	ns.db = _G[DB_NAME] or {}
 	_G[DB_NAME] = ns.db
 
+	ns.ApplyLocale(ns.db.locale)
 	ns:Fire(ns.DB_LOADED, ns.db)
 	ns.InitializeModules()
 end)

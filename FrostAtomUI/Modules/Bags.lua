@@ -1,5 +1,7 @@
 local ADDON_NAME, ns = ...
 
+local L = ns.L
+
 local GetContainerNumSlots = GetContainerNumSlots
 local GetContainerNumFreeSlots = GetContainerNumFreeSlots
 local GetContainerItemInfo = GetContainerItemInfo
@@ -964,8 +966,8 @@ local function isBagOpen(bag)
 end
 
 function Bags:Initialize()
-	inventory = createContainer("inventory", "Bags", INVENTORY_BAGS, "inventoryColumns")
-	bank = createContainer("bank", "Bank", BANK_BAGS, "bankColumns")
+	inventory = createContainer("inventory", L["Bags"], INVENTORY_BAGS, "inventoryColumns")
+	bank = createContainer("bank", L["Bank"], BANK_BAGS, "bankColumns")
 	inventory.currencies = {}
 
 	ToggleBag = toggleBag

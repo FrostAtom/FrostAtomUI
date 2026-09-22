@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local GetSpellInfo = GetSpellInfo
 local GetItemInfo = GetItemInfo
 local GetItemIcon = GetItemIcon
@@ -103,7 +105,7 @@ local function onTooltipSetSpell(tooltip)
 	end
 
 	if config.showIds then
-		tooltip:AddLine(labeled("ID", spellId))
+		tooltip:AddLine(labeled(L["ID"], spellId))
 	end
 	tooltip:Show()
 end
@@ -125,7 +127,7 @@ local function onTooltipSetItem(tooltip)
 			title:SetFormattedText(TITLE_ICON, GetItemIcon(link), text)
 			if config.showItemLevel and equipLoc ~= "" and itemLevel then
 				local color = quality and ITEM_QUALITY_COLORS[quality]
-				setRightText(tooltip, i, ("ilvl %s%d|r"):format(color and color.hex or "|cffffffff", itemLevel))
+				setRightText(tooltip, i, L["ilvl %s%d|r"]:format(color and color.hex or "|cffffffff", itemLevel))
 			end
 			break
 		end
@@ -135,14 +137,14 @@ local function onTooltipSetItem(tooltip)
 		local inBags = GetItemCount(link)
 		local inBank = GetItemCount(link, true) - inBags
 		if inBank > 0 then
-			tooltip:AddLine(labeled("Bags", inBags) .. "  " .. labeled("Bank", inBank))
+			tooltip:AddLine(labeled(L["Bags"], inBags) .. "  " .. labeled(L["Bank"], inBank))
 		elseif inBags > 0 then
-			tooltip:AddLine(labeled("Bags", inBags))
+			tooltip:AddLine(labeled(L["Bags"], inBags))
 		end
 	end
 
 	if config.showIds then
-		tooltip:AddLine(labeled("ID", link:match("|Hitem:(%d+):")))
+		tooltip:AddLine(labeled(L["ID"], link:match("|Hitem:(%d+):")))
 	end
 
 	tooltip:Show()
@@ -198,7 +200,7 @@ local inspectGuid, inspectUnit, inspectTime, inspectRetries
 
 local function addItemLevel(tooltip, average)
 	local _, _, _, hex = ns.AverageItemLevelColor(average)
-	local text = ("ilvl %s%.1f|r"):format(hex, average)
+	local text = L["ilvl %s%.1f|r"]:format(hex, average)
 	local line = findLine(tooltip, "^" .. LEVEL .. " ")
 	if line then
 		setRightText(tooltip, line, text)
@@ -338,8 +340,8 @@ local function onTooltipSetUnit(tooltip)
 
 	local target = unit .. "target"
 	if unit ~= "player" and UnitExists(target) then
-		local name = UnitIsUnit(target, "player") and "|cffff0000<YOU>|r" or colorize(target, UnitName(target))
-		tooltip:AddDoubleLine("Target", name)
+		local name = UnitIsUnit(target, "player") and L["|cffff0000<YOU>|r"] or colorize(target, UnitName(target))
+		tooltip:AddDoubleLine(L["Target"], name)
 	end
 
 	local prefix, count = groupUnits()
@@ -352,14 +354,14 @@ local function onTooltipSetUnit(tooltip)
 	end
 	local numTargeting = #targetedBy
 	if numTargeting > 0 then
-		tooltip:AddLine(("Targeted by (%d): %s"):format(numTargeting, tconcat(targetedBy, ", ")), 1, 1, 1, true)
+		tooltip:AddLine(L["Targeted by (%d): %s"]:format(numTargeting, tconcat(targetedBy, ", ")), 1, 1, 1, true)
 	end
 
 	if not isPlayer and config.showIds then
 		local guid = UnitGUID(unit)
 		local npcId = guid and tonumber(guid:sub(7, 12), 16)
 		if npcId and npcId > 0 then
-			tooltip:AddLine(labeled("NPC ID", npcId))
+			tooltip:AddLine(labeled(L["NPC ID"], npcId))
 		end
 	end
 
@@ -388,7 +390,7 @@ local function onSetUnitAura(tooltip, unit, index, filter)
 		return
 	end
 
-	local idText = labeled("ID", spellId)
+	local idText = labeled(L["ID"], spellId)
 	if caster then
 		local r, g, b = 1, 0.9, 0.8
 		if UnitIsPlayer(caster) then

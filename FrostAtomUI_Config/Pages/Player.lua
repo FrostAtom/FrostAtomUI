@@ -1,12 +1,14 @@
 local _, ns = ...
 
+local L = FrostAtomUI.L
+
 local ui = FrostAtomUI
 local Section = ns.Section
 
 local HEALTH_COLOR_VALUES = {
-	{ "class", "Class color" },
-	{ "health", "Health percent" },
-	{ "custom", "Fixed color" },
+	{ "class", L["Class color"] },
+	{ "health", L["Health percent"] },
+	{ "custom", L["Fixed color"] },
 }
 
 local function notClass(class)
@@ -15,117 +17,117 @@ end
 
 local schema = {}
 
-Section(schema, "Player plate", "playerPlate", {
+Section(schema, L["Player plate"], "playerPlate", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
 		type = "toggle",
-		desc = "Compact health and power bars below the character.",
+		desc = L["Compact health and power bars below the character."],
 	},
 	{
 		path = "alwaysShow",
-		label = "Always show",
+		label = L["Always show"],
 		type = "toggle",
-		desc = "Keep visible out of combat at full health.",
+		desc = L["Keep visible out of combat at full health."],
 	},
 	{
 		path = "fadeTime",
-		label = "Fade out time",
+		label = L["Fade out time"],
 		type = "number",
 		min = 0,
 		max = 3,
 		step = 0.1,
-		desc = "Seconds to fade out after leaving combat at full health. 0 hides instantly.",
+		desc = L["Seconds to fade out after leaving combat at full health. 0 hides instantly."],
 		disabled = function()
 			return ui:GetConfig("playerPlate.alwaysShow")
 		end,
 	},
-	{ path = "point", label = "Position", type = "point" },
-	{ path = "width", label = "Width", type = "number", min = 60, max = 400, step = 1 },
-	{ path = "healthHeight", label = "Health bar height", type = "number", min = 3, max = 40, step = 1 },
-	{ path = "powerHeight", label = "Power bar height", type = "number", min = 2, max = 40, step = 1 },
-	{ path = "gap", label = "Bar spacing", type = "number", min = 0, max = 20, step = 1 },
+	{ path = "point", label = L["Position"], type = "point" },
+	{ path = "width", label = L["Width"], type = "number", min = 60, max = 400, step = 1 },
+	{ path = "healthHeight", label = L["Health bar height"], type = "number", min = 3, max = 40, step = 1 },
+	{ path = "powerHeight", label = L["Power bar height"], type = "number", min = 2, max = 40, step = 1 },
+	{ path = "gap", label = L["Bar spacing"], type = "number", min = 0, max = 20, step = 1 },
 	{
 		path = "showText",
-		label = "Show values",
+		label = L["Show values"],
 		type = "toggle",
-		desc = "Current health and power numbers on the bars.",
+		desc = L["Current health and power numbers on the bars."],
 	},
-	{ path = "font", label = "Font", type = "font" },
+	{ path = "font", label = L["Font"], type = "font" },
 	{
 		path = "healthColorMode",
-		label = "Health bar color",
+		label = L["Health bar color"],
 		type = "select",
 		values = HEALTH_COLOR_VALUES,
-		desc = "Your class color, a color mixed from the current health percent, or a fixed color.",
+		desc = L["Your class color, a color mixed from the current health percent, or a fixed color."],
 	},
 	{
 		path = "healthColor",
-		label = "Health color",
+		label = L["Health color"],
 		type = "color",
-		desc = "Used with the fixed color mode.",
+		desc = L["Used with the fixed color mode."],
 		disabled = function()
 			return ui:GetConfig("playerPlate.healthColorMode") ~= "custom"
 		end,
 	},
 })
 
-Section(schema, "Shield indicator", "shieldIndicator", {
+Section(schema, L["Shield indicator"], "shieldIndicator", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
 		type = "toggle",
-		desc = "Show the equipped shield icon next to the player plate.",
+		desc = L["Show the equipped shield icon next to the player plate."],
 	},
-	{ path = "point", label = "Position", type = "point" },
-	{ path = "size", label = "Icon size", type = "number", min = 12, max = 64, step = 1 },
+	{ path = "point", label = L["Position"], type = "point" },
+	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 64, step = 1 },
 }, notClass("WARRIOR"))
 
-Section(schema, "Runes", "runes", {
+Section(schema, L["Runes"], "runes", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = "Replace the Blizzard rune frame.",
+		desc = L["Replace the Blizzard rune frame."],
 	},
-	{ path = "point", label = "Position", type = "point" },
-	{ path = "width", label = "Rune width", type = "number", min = 10, max = 100, step = 1 },
-	{ path = "height", label = "Rune height", type = "number", min = 4, max = 40, step = 1 },
-	{ path = "gap", label = "Spacing", type = "number", min = 0, max = 12, step = 1 },
-	{ path = "bloodColor", label = "Blood", type = "color" },
-	{ path = "unholyColor", label = "Unholy", type = "color" },
-	{ path = "frostColor", label = "Frost", type = "color" },
-	{ path = "deathColor", label = "Death", type = "color", desc = "Runes converted to death runes." },
-	{ path = "emptyColor", label = "Empty", type = "color", desc = "Runes on cooldown." },
+	{ path = "point", label = L["Position"], type = "point" },
+	{ path = "width", label = L["Rune width"], type = "number", min = 10, max = 100, step = 1 },
+	{ path = "height", label = L["Rune height"], type = "number", min = 4, max = 40, step = 1 },
+	{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+	{ path = "bloodColor", label = L["Blood"], type = "color" },
+	{ path = "unholyColor", label = L["Unholy"], type = "color" },
+	{ path = "frostColor", label = L["Frost"], type = "color" },
+	{ path = "deathColor", label = L["Death"], type = "color", desc = L["Runes converted to death runes."] },
+	{ path = "emptyColor", label = L["Empty"], type = "color", desc = L["Runes on cooldown."] },
 }, notClass("DEATHKNIGHT"))
 
-Section(schema, "Totems", "totems", {
+Section(schema, L["Totems"], "totems", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
 		type = "toggle",
-		desc = "Totem icons with timers, right-click to destroy.",
+		desc = L["Totem icons with timers, right-click to destroy."],
 	},
-	{ path = "point", label = "Position", type = "point" },
-	{ path = "size", label = "Icon size", type = "number", min = 16, max = 64, step = 1 },
-	{ path = "gap", label = "Spacing", type = "number", min = 0, max = 12, step = 1 },
-	{ path = "timerFont", label = "Timer font", type = "font" },
+	{ path = "point", label = L["Position"], type = "point" },
+	{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
+	{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+	{ path = "timerFont", label = L["Timer font"], type = "font" },
 }, notClass("SHAMAN"))
 
-Section(schema, "Aura tracker", "auraTracker", {
+Section(schema, L["Aura tracker"], "auraTracker", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
 		type = "toggle",
-		desc = "Class-specific proc and buff icons around the character.",
+		desc = L["Class-specific proc and buff icons around the character."],
 	},
-	{ path = "scale", label = "Scale", type = "number", min = 0.5, max = 2, step = 0.05 },
+	{ path = "scale", label = L["Scale"], type = "number", min = 0.5, max = 2, step = 0.05 },
 	{
 		path = "auras." .. ui.PLAYER_CLASS,
-		label = "Add spell ID",
+		label = L["Add spell ID"],
 		type = "list",
-		desc = "Track an aura by spell ID. Press Enter or Add.",
+		desc = L["Track an aura by spell ID. Press Enter or Add."],
 		create = function(id)
 			if not GetSpellInfo(id) then
 				return nil
@@ -139,35 +141,35 @@ Section(schema, "Aura tracker", "auraTracker", {
 		fields = {
 			{
 				key = "unit",
-				label = "Unit",
+				label = L["Unit"],
 				type = "select",
-				values = { { "player", "Player" }, { "target", "Target" }, { "focus", "Focus" } },
-				desc = "Whose auras to scan for this spell.",
+				values = { { "player", L["Player"] }, { "target", L["Target"] }, { "focus", L["Focus"] } },
+				desc = L["Whose auras to scan for this spell."],
 			},
-			{ key = "debuff", label = "Debuff", type = "toggle", desc = "Look for a debuff instead of a buff." },
-			{ key = "isMine", label = "Only mine", type = "toggle", desc = "Only auras applied by you." },
-			{ key = "size", label = "Size", type = "number", min = 16, max = 80, step = 1 },
-			{ key = "point", label = "Position", type = "point" },
+			{ key = "debuff", label = L["Debuff"], type = "toggle", desc = L["Look for a debuff instead of a buff."] },
+			{ key = "isMine", label = L["Only mine"], type = "toggle", desc = L["Only auras applied by you."] },
+			{ key = "size", label = L["Size"], type = "number", min = 16, max = 80, step = 1 },
+			{ key = "point", label = L["Position"], type = "point" },
 		},
 	},
 })
 
-Section(schema, "Weapon enchants", "temporaryEnchant", {
+Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = "Replace the Blizzard temporary enchant icons, right-click to cancel.",
+		desc = L["Replace the Blizzard temporary enchant icons, right-click to cancel."],
 	},
-	{ path = "point", label = "Position", type = "point" },
-	{ path = "size", label = "Icon size", type = "number", min = 16, max = 64, step = 1 },
-	{ path = "gap", label = "Spacing", type = "number", min = 0, max = 12, step = 1 },
+	{ path = "point", label = L["Position"], type = "point" },
+	{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
+	{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
 })
 
 ns.RegisterPage({
 	key = "player",
-	name = "Player resources",
+	name = L["Player resources"],
 	order = 30,
 	schema = schema,
 })

@@ -1,6 +1,8 @@
 ﻿## Interface: 30300
 ## Title: FrostAtom UI Config
 ## Notes: Settings panel for FrostAtom UI, loaded on demand by /fui.
+## Title-ruRU: FrostAtom UI Config
+## Notes-ruRU: Панель настроек FrostAtom UI, загружается по команде /fui.
 ## Author: frostatom
 ## Version: 1.3.0
 ## Dependencies: FrostAtomUI

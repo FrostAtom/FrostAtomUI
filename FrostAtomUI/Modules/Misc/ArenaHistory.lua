@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local GetNumBattlefieldScores = GetNumBattlefieldScores
 local GetBattlefieldScore = GetBattlefieldScore
 local GetBattlefieldTeamInfo = GetBattlefieldTeamInfo
@@ -89,6 +91,29 @@ local DETAIL_COLUMNS = {
 	{ key = "damage", title = "Damage", width = 80, right = true },
 	{ key = "healing", title = "Healing", width = 80, right = true },
 }
+
+local function localizeValues(labels)
+	for key, value in pairs(labels) do
+		labels[key] = L[value]
+	end
+end
+
+local function localizeTitles(columns)
+	for i = 1, #columns do
+		local column = columns[i]
+		column.title = L[column.title]
+	end
+end
+
+ns.OnLocaleReady(function()
+	for i = 1, #FILTERS do
+		FILTERS[i][2] = L[FILTERS[i][2]]
+	end
+	localizeValues(BRACKET_LABELS)
+	localizeValues(MAP_LABELS)
+	localizeTitles(LIST_COLUMNS)
+	localizeTitles(DETAIL_COLUMNS)
+end)
 
 local function layoutColumns(columns, totalWidth)
 	local x = 0
@@ -435,7 +460,7 @@ local function teamLabel(record, side)
 	local team = side == 1 and record.team or record.enemy
 	local name = team.name
 	if not name or name == "" then
-		name = side == 1 and "Team" or "Enemy"
+		name = side == 1 and L["Team"] or L["Enemy"]
 	end
 	if not played(record) then
 		return name
@@ -547,10 +572,10 @@ local function fillListRow(row, record)
 	cells.map:SetText(mapLabel(record))
 	cells.duration:SetText(formatDuration(record.duration))
 	if played(record) then
-		cells.result:SetFormattedText("%s %+d", record.win and "Win" or "Loss", record.team.change)
+		cells.result:SetFormattedText("%s %+d", record.win and L["Win"] or L["Loss"], record.team.change)
 		cells.mmr:SetText(record.team.mmr)
 	else
-		cells.result:SetText("No game")
+		cells.result:SetText(L["No game"])
 		cells.mmr:SetText("")
 	end
 	cells.result:SetTextColor(resultColor(record, record.win))
@@ -581,7 +606,7 @@ local function onRowEnter(self)
 		end
 	end
 	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine("Right-click to delete", 0.5, 0.5, 0.5)
+	GameTooltip:AddLine(L["Right-click to delete"], 0.5, 0.5, 0.5)
 	GameTooltip:Show()
 end
 
@@ -663,7 +688,7 @@ local function refreshDetail()
 		.. SEPARATOR
 		.. formatDuration(record.duration)
 	if not played(record) then
-		title = title .. SEPARATOR .. "No game"
+		title = title .. SEPARATOR .. L["No game"]
 	end
 	detail.title:SetText(title)
 
@@ -736,7 +761,7 @@ local function refreshStats()
 		return
 	end
 	frame.stats:SetFormattedText(
-		"%d games   |cff4dff4d%d|r - |cffff4d4d%d|r   %d%%   %s",
+		L["%d games   |cff4dff4d%d|r - |cffff4d4d%d|r   %d%%   %s"],
 		total,
 		wins,
 		losses,
@@ -813,7 +838,7 @@ local function createFrame()
 	frame = CreateFrame("Frame", FRAME_NAME, UIParent)
 	frame:Hide()
 	frame:SetWidth(WIDTH)
-	Misc:AnchorToConfig(frame, "arenaHistory.point")
+	Misc:AnchorToConfig(frame, "arenaHistory.point", "Arena history")
 	frame:SetFrameStrata("HIGH")
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
@@ -829,7 +854,7 @@ local function createFrame()
 	local title = frame:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(title, 13, "OUTLINE", true)
 	title:SetPoint("TOPLEFT", PADDING, -PADDING - 3)
-	title:SetText("Arena history")
+	title:SetText(L["Arena history"])
 
 	local close = CreateFrame("Button", nil, frame)
 	close:SetSize(26, 26)
@@ -863,7 +888,7 @@ local function createFrame()
 	ns.SetFont(clear.text, 12)
 	clear.text:SetTextColor(0.7, 0.7, 0.7)
 	clear.text:SetPoint("CENTER")
-	clear.text:SetText("Clear")
+	clear.text:SetText(L["Clear"])
 	clear:SetScript("OnClick", function()
 		StaticPopup_Show("FROSTATOMUI_ARENA_HISTORY_CLEAR")
 	end)
@@ -896,7 +921,7 @@ local function createFrame()
 	ns.SetFont(empty, 13)
 	empty:SetTextColor(0.5, 0.5, 0.5)
 	empty:SetPoint("CENTER")
-	empty:SetText("No games recorded yet")
+	empty:SetText(L["No games recorded yet"])
 	frame.empty = empty
 
 	frame.listBottom = listTop + DETAIL_ROW_HEIGHT + LIST_ROWS * LIST_ROW_HEIGHT + DETAIL_GAP
@@ -961,6 +986,11 @@ StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_DELETE = {
 	whileDead = 1,
 	hideOnEscape = 1,
 }
+
+ns.OnLocaleReady(function()
+	StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_CLEAR.text = L["Clear the whole arena history?"]
+	StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_DELETE.text = L["Delete this game from the history?"]
+end)
 
 Misc:WatchConfig("arenaHistory", function()
 	for i = 1, #listCells do

@@ -10,6 +10,7 @@ local UnitIsPlayer, UnitReaction = UnitIsPlayer, UnitReaction
 local GetGuildInfo = GetGuildInfo
 local floor, tonumber, tostring = math.floor, tonumber, tostring
 local concat, wipe = table.concat, wipe
+local DEAD, AFK, DND, OFFLINE = DEAD, AFK, DND, FRIENDS_LIST_OFFLINE
 
 local FormatValue = ns.FormatValue
 local TruncateUTF8 = ns.TruncateUTF8
@@ -129,27 +130,27 @@ local tags = {
 	},
 	afk = {
 		func = function(unit, data)
-			return not data and UnitIsAFK(unit) and "AFK" or ""
+			return not data and UnitIsAFK(unit) and AFK or ""
 		end,
 	},
 	dnd = {
 		func = function(unit, data)
-			return not data and UnitIsDND(unit) and "DND" or ""
+			return not data and UnitIsDND(unit) and DND or ""
 		end,
 	},
 	status = {
 		health = true,
 		func = function(unit, data)
 			if data then
-				return data.dead and "Dead" or ""
+				return data.dead and DEAD or ""
 			elseif not UnitIsConnected(unit) then
-				return "Offline"
+				return OFFLINE
 			elseif UnitIsDeadOrGhost(unit) then
-				return "Dead"
+				return DEAD
 			elseif UnitIsAFK(unit) then
-				return "AFK"
+				return AFK
 			elseif UnitIsDND(unit) then
-				return "DND"
+				return DND
 			end
 			return ""
 		end,

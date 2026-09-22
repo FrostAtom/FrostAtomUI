@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local GetContainerNumSlots = GetContainerNumSlots
 local GetContainerNumFreeSlots = GetContainerNumFreeSlots
 local GetContainerItemInfo = GetContainerItemInfo
@@ -367,7 +369,7 @@ end
 local function replan()
 	replans = replans + 1
 	if replans > MAX_REPLANS then
-		return stop("sorting failed, try again")
+		return stop(L["sorting failed, try again"])
 	end
 	if not plan(activeFrame.bags) then
 		return stop()
@@ -417,7 +419,7 @@ end
 
 ticker:SetScript("OnUpdate", function()
 	if InCombatLockdown() then
-		return stop("sorting interrupted by combat")
+		return stop(L["sorting interrupted by combat"])
 	end
 	if not moves[1] then
 		return replan()

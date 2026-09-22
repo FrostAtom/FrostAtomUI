@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local StaticPopupDialogs = StaticPopupDialogs
 local InCombatLockdown = InCombatLockdown
 local IsInInstance = IsInInstance
@@ -127,7 +129,7 @@ Misc:RegisterEvent("PARTY_INVITE_REQUEST", function(_, leader)
 	if isFriendOrGuildMate(leader) then
 		AcceptGroup()
 		StaticPopup_Hide("PARTY_INVITE")
-		ns.Print("accepted %s's invite", leader)
+		ns.Print(L["accepted %s's invite"], leader)
 	end
 end)
 
@@ -150,7 +152,7 @@ local function toggleDecline(key, label, args)
 	if not status then
 		ns:SetConfig("popups." .. key, enabled)
 	end
-	ns.Print("%s %s", label, enabled and "enabled" or "disabled")
+	ns.Print("%s %s", label, enabled and L["enabled"] or L["disabled"])
 end
 
 Misc:WatchConfig("popups", applyDeclines)

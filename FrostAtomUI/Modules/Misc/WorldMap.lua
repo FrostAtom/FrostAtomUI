@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local Misc = ns:GetModule("Misc")
 
 Misc:OnInitialize(function()
@@ -374,7 +376,7 @@ Misc:OnInitialize(function()
 		if self:IsMouseOver() and scroll:IsMouseOver() then
 			name, fileName, texPercentX, texPercentY, textureX, textureY, scrollChildX, scrollChildY =
 				UpdateMapHighlight(adjustedX, adjustedY)
-			cursorText:SetFormattedText(COORD_FORMAT, "Cursor", adjustedX * 100, adjustedY * 100)
+			cursorText:SetFormattedText(COORD_FORMAT, L["Cursor"], adjustedX * 100, adjustedY * 100)
 		else
 			cursorText:SetText("")
 		end
@@ -414,7 +416,7 @@ Misc:OnInitialize(function()
 		else
 			WorldMapPlayer.arrow:SetRotation(PlayerArrowFrame:GetFacing())
 			placeUnit(WorldMapPlayer, playerX, playerY, mapWidth, mapHeight)
-			playerText:SetFormattedText(COORD_FORMAT, "Player", playerX * 100, playerY * 100)
+			playerText:SetFormattedText(COORD_FORMAT, L["Player"], playerX * 100, playerY * 100)
 		end
 
 		local playerCount = 0

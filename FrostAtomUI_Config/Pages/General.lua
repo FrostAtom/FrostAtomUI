@@ -1,39 +1,54 @@
 local _, ns = ...
 
+local L = FrostAtomUI.L
+
 local Section = ns.Section
 
 local ui = FrostAtomUI
 
 local schema = {
-	{ header = "Appearance" },
-	{ path = "general.font", label = "Font", type = "select", values = ui.Media.fonts },
-	{ path = "general.fontBold", label = "Bold font", type = "select", values = ui.Media.fonts },
-	{ path = "general.statusbar", label = "Status bar texture", type = "select", values = ui.Media.statusbars },
+	{ header = L["Language"] },
+	{
+		label = L["Interface language"],
+		type = "select",
+		width = 180,
+		values = ui.GetLocaleOptions,
+		get = ui.GetLocaleOverride,
+		set = function(value)
+			ui.SetLocaleOverride(value)
+			ns.Confirm(L["The language changes after a UI reload. Reload now?"], ReloadUI)
+		end,
+		desc = L["Language of FrostAtom UI text. Auto follows the game client."],
+	},
+	{ header = L["Appearance"] },
+	{ path = "general.font", label = L["Font"], type = "select", values = ui.Media.fonts },
+	{ path = "general.fontBold", label = L["Bold font"], type = "select", values = ui.Media.fonts },
+	{ path = "general.statusbar", label = L["Status bar texture"], type = "select", values = ui.Media.statusbars },
 	{
 		path = "general.useUiScale",
-		label = "Override UI scale",
+		label = L["Override UI scale"],
 		type = "toggle",
-		desc = "Apply the scale below instead of the game's own setting. Turning it off keeps the last applied value.",
+		desc = L["Apply the scale below instead of the game's own setting. Turning it off keeps the last applied value."],
 	},
 	{
 		path = "general.uiScale",
-		label = "UI scale",
+		label = L["UI scale"],
 		type = "number",
 		min = 0.64,
 		max = 1,
 		step = 0.01,
 		enabledBy = "general.useUiScale",
 	},
-	{ header = "Frame movers" },
+	{ header = L["Frame movers"] },
 	{
 		path = "general.showGrid",
-		label = "Alignment grid",
+		label = L["Alignment grid"],
 		type = "toggle",
-		desc = "Grid over the screen while frames are unlocked. Screen center lines are always drawn.",
+		desc = L["Grid over the screen while frames are unlocked. Screen center lines are always drawn."],
 	},
 	{
 		path = "general.gridSize",
-		label = "Grid step",
+		label = L["Grid step"],
 		type = "number",
 		min = 8,
 		max = 128,
@@ -41,10 +56,10 @@ local schema = {
 		enabledBy = "general.showGrid",
 	},
 	{
-		label = "Move frames",
+		label = L["Move frames"],
 		type = "execute",
-		text = "Unlock",
-		desc = "Drag frames to move them, drag the bottom-right corner of a frame to resize it. Frames snap to each other, to screen edges and to screen center lines, and stay attached to the frame they snapped to. Hold Shift to drop snapping and detach.",
+		text = L["Unlock"],
+		desc = L["Drag frames to move them, drag the bottom-right corner of a frame to resize it. Frames snap to each other, to screen edges and to screen center lines, and stay attached to the frame they snapped to. Hold Shift to drop snapping and detach."],
 		func = function()
 			ui.Movers.Unlock()
 			if ui.Movers.IsUnlocked() then
@@ -52,66 +67,81 @@ local schema = {
 			end
 		end,
 	},
-	{ header = "Unit frames" },
+	{ header = L["Unit frames"] },
 	{
 		path = "dispelHighlightAlpha",
-		label = "Dispel highlight alpha",
+		label = L["Dispel highlight alpha"],
 		type = "number",
 		min = 0,
 		max = 1,
 		step = 0.05,
-		desc = "Border alpha on unit frames with a debuff you can dispel.",
+		desc = L["Border alpha on unit frames with a debuff you can dispel."],
 	},
 }
 
-Section(schema, "Arena history", "arenaHistory", {
-	{ path = "enabled", label = "Record games", type = "toggle", desc = "Save arena scoreboards. Open with /history." },
-	{ path = "point", label = "Window position", type = "point" },
+Section(schema, L["Arena history"], "arenaHistory", {
+	{
+		path = "enabled",
+		label = L["Record games"],
+		type = "toggle",
+		desc = L["Save arena scoreboards. Open with /history."],
+	},
+	{ path = "point", label = L["Window position"], type = "point" },
 	{
 		path = "maxGames",
-		label = "Games to keep",
+		label = L["Games to keep"],
 		type = "number",
 		min = 50,
 		max = 5000,
 		step = 50,
-		desc = "Oldest games are dropped past this count.",
+		desc = L["Oldest games are dropped past this count."],
 	},
-	{ path = "listFont", label = "List font", type = "font", desc = "Rows of the game list and match details." },
-	{ path = "winColor", label = "Win color", type = "color" },
-	{ path = "lossColor", label = "Loss color", type = "color" },
+	{ path = "listFont", label = L["List font"], type = "font", desc = L["Rows of the game list and match details."] },
+	{ path = "winColor", label = L["Win color"], type = "color" },
+	{ path = "lossColor", label = L["Loss color"], type = "color" },
 	{
-		label = "History window",
+		label = L["History window"],
 		type = "execute",
-		text = "Open",
+		text = L["Open"],
 		func = function()
 			SlashCmdList.FROSTATOMUI_ARENA_HISTORY()
 		end,
 	},
 })
 
-Section(schema, "Equipment", "equipment", {
-	{ path = "enabled", label = "Enable", type = "toggle", desc = "Item level display and durability warnings." },
+Section(schema, L["Equipment"], "equipment", {
+	{
+		path = "enabled",
+		label = L["Enable"],
+		type = "toggle",
+		desc = L["Item level display and durability warnings."],
+	},
 	{
 		path = "showItemLevels",
-		label = "Item levels on character / inspect",
+		label = L["Item levels on character / inspect"],
 		type = "toggle",
-		desc = "Per-slot item level and the average on the paper doll.",
+		desc = L["Per-slot item level and the average on the paper doll."],
 	},
-	{ path = "slotFont", label = "Slot item level font", type = "font", enabledBy = "equipment.showItemLevels" },
-	{ path = "averageFont", label = "Average item level font", type = "font", enabledBy = "equipment.showItemLevels" },
+	{ path = "slotFont", label = L["Slot item level font"], type = "font", enabledBy = "equipment.showItemLevels" },
+	{
+		path = "averageFont",
+		label = L["Average item level font"],
+		type = "font",
+		enabledBy = "equipment.showItemLevels",
+	},
 	{
 		path = "qualityThresholds.uncommon",
-		label = "Average: green from",
+		label = L["Average: green from"],
 		type = "number",
 		min = 1,
 		max = 400,
 		step = 1,
 		enabledBy = "equipment.showItemLevels",
-		desc = "Average item level colored by quality tier. Grey below this value.",
+		desc = L["Average item level colored by quality tier. Grey below this value."],
 	},
 	{
 		path = "qualityThresholds.rare",
-		label = "Average: blue from",
+		label = L["Average: blue from"],
 		type = "number",
 		min = 1,
 		max = 400,
@@ -120,7 +150,7 @@ Section(schema, "Equipment", "equipment", {
 	},
 	{
 		path = "qualityThresholds.epic",
-		label = "Average: purple from",
+		label = L["Average: purple from"],
 		type = "number",
 		min = 1,
 		max = 400,
@@ -129,7 +159,7 @@ Section(schema, "Equipment", "equipment", {
 	},
 	{
 		path = "qualityThresholds.legendary",
-		label = "Average: orange from",
+		label = L["Average: orange from"],
 		type = "number",
 		min = 1,
 		max = 400,
@@ -138,205 +168,213 @@ Section(schema, "Equipment", "equipment", {
 	},
 	{
 		path = "durabilityWarning",
-		label = "Durability warning",
+		label = L["Durability warning"],
 		type = "toggle",
-		desc = "Print a chat warning when gear durability gets low.",
+		desc = L["Print a chat warning when gear durability gets low."],
 	},
 	{
 		path = "durabilityThreshold",
-		label = "Warn below",
+		label = L["Warn below"],
 		type = "number",
 		min = 0.05,
 		max = 0.9,
 		step = 0.05,
 		enabledBy = "equipment.durabilityWarning",
-		desc = "Warn when any equipped item drops below this durability.",
+		desc = L["Warn when any equipped item drops below this durability."],
 	},
 })
 
-Section(schema, "Merchant", "merchant", {
-	{ path = "enabled", label = "Enable", type = "toggle", desc = "Automatic actions when a merchant window opens." },
-	{
-		path = "sellGreys",
-		label = "Sell grey items",
-		type = "toggle",
-		desc = "Sell every poor quality item in your bags.",
-	},
-	{ path = "autoRepair", label = "Auto repair", type = "toggle", desc = "Repair all gear when you can afford it." },
-	{
-		path = "shiftToSkip",
-		label = "Hold Shift to skip",
-		type = "toggle",
-		desc = "Do nothing when the merchant window is opened with Shift held.",
-	},
-})
-
-schema[#schema + 1] = { header = "Interface" }
-schema[#schema + 1] = {
-	path = "wheelPaging.enabled",
-	label = "Mouse wheel paging",
-	type = "toggle",
-	desc = "Scroll pages in the merchant, spellbook, mailbox, auction house and calendar with the mouse wheel.",
-}
-
-Section(schema, "Tweaks", "tweaks", {
+Section(schema, L["Merchant"], "merchant", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
+		type = "toggle",
+		desc = L["Automatic actions when a merchant window opens."],
+	},
+	{
+		path = "sellGreys",
+		label = L["Sell grey items"],
+		type = "toggle",
+		desc = L["Sell every poor quality item in your bags."],
+	},
+	{
+		path = "autoRepair",
+		label = L["Auto repair"],
+		type = "toggle",
+		desc = L["Repair all gear when you can afford it."],
+	},
+	{
+		path = "shiftToSkip",
+		label = L["Hold Shift to skip"],
+		type = "toggle",
+		desc = L["Do nothing when the merchant window is opened with Shift held."],
+	},
+})
+
+schema[#schema + 1] = { header = L["Interface"] }
+schema[#schema + 1] = {
+	path = "wheelPaging.enabled",
+	label = L["Mouse wheel paging"],
+	type = "toggle",
+	desc = L["Scroll pages in the merchant, spellbook, mailbox, auction house and calendar with the mouse wheel."],
+}
+
+Section(schema, L["Tweaks"], "tweaks", {
+	{
+		path = "enabled",
+		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = "Pinned CVars (no tutorials, ground clutter, camera distance, script errors), "
-			.. "world state frame position and the Spectate entry in friend menus.",
+		desc = L["Pinned CVars (no tutorials, ground clutter, camera distance, script errors), world state frame position and the Spectate entry in friend menus."],
 	},
 	{
 		path = "hideErrors",
-		label = "Hide red error messages",
+		label = L["Hide red error messages"],
 		type = "toggle",
-		desc = '"Not enough mana", "Out of range" and similar messages at the top of the screen.',
+		desc = L['"Not enough mana", "Out of range" and similar messages at the top of the screen.'],
 	},
 	{
 		path = "scriptErrors",
-		label = "Show Lua errors",
+		label = L["Show Lua errors"],
 		type = "toggle",
-		desc = "Pop up addon script errors instead of silently ignoring them.",
+		desc = L["Pop up addon script errors instead of silently ignoring them."],
 	},
 	{
 		path = "hideGroundClutter",
-		label = "Hide ground clutter",
+		label = L["Hide ground clutter"],
 		type = "toggle",
-		desc = "Grass and other ground decorations. Turning it off restores the game default.",
+		desc = L["Grass and other ground decorations. Turning it off restores the game default."],
 	},
 	{
 		path = "cameraDistanceMax",
-		label = "Max camera distance",
+		label = L["Max camera distance"],
 		type = "number",
 		min = 10,
 		max = 50,
 		step = 1,
-		desc = "How far the camera can zoom out.",
+		desc = L["How far the camera can zoom out."],
 	},
 	{
 		path = "cameraDistanceClose",
-		label = "Close camera distance",
+		label = L["Close camera distance"],
 		type = "number",
 		min = 0,
 		max = 50,
 		step = 1,
-		desc = "Distance the Close camera distance key binding snaps to.",
+		desc = L["Distance the Close camera distance key binding snaps to."],
 	},
 	{
 		path = "cameraDistanceMedium",
-		label = "Medium camera distance",
+		label = L["Medium camera distance"],
 		type = "number",
 		min = 0,
 		max = 50,
 		step = 1,
-		desc = "Distance the Medium camera distance key binding snaps to.",
+		desc = L["Distance the Medium camera distance key binding snaps to."],
 	},
 	{
 		path = "cameraDistanceFar",
-		label = "Far camera distance",
+		label = L["Far camera distance"],
 		type = "number",
 		min = 0,
 		max = 50,
 		step = 1,
-		desc = "Distance the Far camera distance key binding snaps to.",
+		desc = L["Distance the Far camera distance key binding snaps to."],
 	},
 	{
 		path = "worldStatePoint",
-		label = "World state position",
+		label = L["World state position"],
 		type = "point",
-		desc = "Battleground score / flag status frame.",
+		desc = L["Battleground score / flag status frame."],
 	},
 })
 
-Section(schema, "Character model", "modelControls", {
+Section(schema, L["Character model"], "modelControls", {
 	{
 		path = "enabled",
-		label = "Enable",
+		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = "Drag to rotate, right-drag to pan and mouse wheel to zoom the character, inspect and dressing room models. "
-			.. "Removes the rotate buttons.",
+		desc = L["Drag to rotate, right-drag to pan and mouse wheel to zoom the character, inspect and dressing room models. Removes the rotate buttons."],
 	},
 	{
 		path = "rotateSpeed",
-		label = "Rotate speed",
+		label = L["Rotate speed"],
 		type = "number",
 		min = 0.002,
 		max = 0.05,
 		step = 0.002,
-		desc = "Radians per pixel of mouse movement.",
+		desc = L["Radians per pixel of mouse movement."],
 	},
 	{
 		path = "zoomStep",
-		label = "Zoom step",
+		label = L["Zoom step"],
 		type = "number",
 		min = 0.1,
 		max = 1,
 		step = 0.05,
-		desc = "Distance change per mouse wheel notch.",
+		desc = L["Distance change per mouse wheel notch."],
 	},
 })
 
-Section(schema, "Combat log", "combatLogFix", {
+Section(schema, L["Combat log"], "combatLogFix", {
 	{
 		path = "enabled",
-		label = "Fix stalled combat log",
+		label = L["Fix stalled combat log"],
 		type = "toggle",
-		desc = "Clear the combat log when it stops delivering events inside instances. WoW Circle only.",
+		desc = L["Clear the combat log when it stops delivering events inside instances. WoW Circle only."],
 	},
 }, not GetCVar("realmlist"):lower():find("circle"))
 
-Section(schema, "Popups", "popups", {
-	{ path = "enabled", label = "Enable", type = "toggle", desc = "Automatic handling of popup dialogs." },
+Section(schema, L["Popups"], "popups", {
+	{ path = "enabled", label = L["Enable"], type = "toggle", desc = L["Automatic handling of popup dialogs."] },
 	{
 		path = "autoAcceptInvites",
-		label = "Auto accept invites from friends / guild",
+		label = L["Auto accept invites from friends / guild"],
 		type = "toggle",
-		desc = "Only while not already in a group.",
+		desc = L["Only while not already in a group."],
 	},
 	{
 		path = "autoRelease",
-		label = "Auto release in battlegrounds",
+		label = L["Auto release in battlegrounds"],
 		type = "toggle",
-		desc = "Release spirit immediately on death in a battleground.",
+		desc = L["Release spirit immediately on death in a battleground."],
 	},
 	{
 		path = "declineTradeInCombat",
-		label = "Decline trades in combat",
+		label = L["Decline trades in combat"],
 		type = "toggle",
-		desc = "Close incoming trade windows while in combat.",
+		desc = L["Close incoming trade windows while in combat."],
 	},
 	{
 		path = "declineDuels",
-		label = "Decline duels",
+		label = L["Decline duels"],
 		type = "toggle",
-		desc = "Toggle with /noduel.",
+		desc = L["Toggle with /noduel."],
 	},
 	{
 		path = "declineInvites",
-		label = "Decline party invites",
+		label = L["Decline party invites"],
 		type = "toggle",
-		desc = "Toggle with /noparty.",
+		desc = L["Toggle with /noparty."],
 	},
 	{
 		path = "declineTrades",
-		label = "Decline trades",
+		label = L["Decline trades"],
 		type = "toggle",
-		desc = "Toggle with /notrade.",
+		desc = L["Toggle with /notrade."],
 	},
 	{
 		path = "fillDeleteConfirm",
-		label = 'Fill in "DELETE" confirmation',
+		label = L['Fill in "DELETE" confirmation'],
 		type = "toggle",
-		desc = "Pre-type the confirmation word when deleting good items.",
+		desc = L["Pre-type the confirmation word when deleting good items."],
 	},
 })
 
 ns.RegisterPage({
 	key = "general",
-	name = "General",
+	name = L["General"],
 	order = 10,
 	schema = schema,
 })

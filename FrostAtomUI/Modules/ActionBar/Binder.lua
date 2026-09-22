@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 
 local InCombatLockdown = InCombatLockdown
 local GetMouseFocus = GetMouseFocus
@@ -114,10 +115,11 @@ local function createBinder()
 	highlight:SetTexture(0, 1, 0, 0.4)
 
 	StaticPopupDialogs[POPUP] = {
-		text = "Hover your mouse over any action button and press a key to bind it. "
-			.. "Press Escape to clear the hovered button's binding.",
-		button1 = "Save bindings",
-		button2 = "Discard bindings",
+		text = L["Hover your mouse over any action button and press a key to bind it."]
+			.. " "
+			.. L["Press Escape to clear the hovered button's binding."],
+		button1 = L["Save bindings"],
+		button2 = L["Discard bindings"],
 		OnAccept = function()
 			SaveBindings(GetCurrentBindingSet())
 			closeBinder()
@@ -141,7 +143,7 @@ SlashCmdList.FROSTATOMUI_BIND = function()
 		binder:Hide()
 		StaticPopup_Hide(POPUP)
 	elseif InCombatLockdown() then
-		ns.Print("cannot change bindings in combat")
+		ns.Print(L["cannot change bindings in combat"])
 	else
 		binder:Show()
 		StaticPopup_Show(POPUP)
@@ -156,6 +158,6 @@ combatWatcher:SetScript("OnEvent", function()
 	if binder and binder:IsShown() then
 		StaticPopupDialogs[POPUP].OnCancel()
 		StaticPopup_Hide(POPUP)
-		ns.Print("keybinding mode closed: entering combat, changes discarded")
+		ns.Print(L["keybinding mode closed: entering combat, changes discarded"])
 	end
 end)

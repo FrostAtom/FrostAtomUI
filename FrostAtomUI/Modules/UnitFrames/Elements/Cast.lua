@@ -8,8 +8,8 @@ local GetTime = GetTime
 local random = math.random
 
 local FADE_SPEED = 1.4
-local INTERRUPTED_TEXT = "|cff8B0000INTERRUPTED|r"
-local FAILED_TEXT = "|cff808080FAILED|r"
+local INTERRUPTED_TEXT = "|cff8B0000" .. INTERRUPTED .. "|r"
+local FAILED_TEXT = "|cff808080" .. FAILED .. "|r"
 
 local TEST_CASTS = {
 	12826, -- Polymorph
@@ -97,7 +97,7 @@ local function onUpdate(castbar, elapsed)
 end
 
 local function startCast(castbar, name, texture, startTime, endTime, isChannel, castId, interruptible)
-	castbar.name:SetText(name ~= "" and name or "unknown")
+	castbar.name:SetText(name ~= "" and name or UNKNOWN)
 	castbar.icon:SetTexture(texture ~= "" and texture or ns.Media.questionMark)
 	setInterruptible(castbar, interruptible)
 

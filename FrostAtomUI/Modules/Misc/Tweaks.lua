@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local Misc = ns:NewModule("Misc")
 
 local function applyErrors()
@@ -63,7 +65,7 @@ Misc:OnInitialize(function(self)
 
 	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", "World state", { size = { 200, 30 } })
 
-	UnitPopupButtons.SPECTATE = { text = "Spectate", dist = 0 }
+	UnitPopupButtons.SPECTATE = { text = L["Spectate"], dist = 0 }
 	for _, menu in ipairs({ "FRIEND", "TEAM", "BN_FRIEND" }) do
 		tinsert(UnitPopupMenus[menu], #UnitPopupMenus[menu] - 1, "SPECTATE")
 	end
@@ -79,9 +81,9 @@ SlashCmdList.FROSTATOMUI_GUID = function()
 
 	local guid = UnitGUID("target")
 	if guid:sub(5, 5) == "0" then
-		ns.Print("%s's GUID: %d", UnitName("target"), tonumber(guid:sub(13, 18), 16))
+		ns.Print(L["%s's GUID: %d"], UnitName("target"), tonumber(guid:sub(13, 18), 16))
 	else
-		ns.Print("%s isn't a player", UnitName("target"))
+		ns.Print(L["%s isn't a player"], UnitName("target"))
 	end
 end
 SLASH_FROSTATOMUI_GUID1 = "/guid"
@@ -97,7 +99,7 @@ SlashCmdList.FROSTATOMUI_CONFIG = function(text)
 	end
 	local loaded, reason = LoadAddOn("FrostAtomUI_Config")
 	if not loaded then
-		ns.Print("cannot load FrostAtomUI_Config: %s", _G["ADDON_" .. reason] or reason)
+		ns.Print(L["cannot load FrostAtomUI_Config: %s"], _G["ADDON_" .. reason] or reason)
 		return
 	end
 	FrostAtomUI_Config.Toggle(command ~= "" and command or nil)
@@ -130,7 +132,6 @@ local FOCUS_COMMAND = "CLICK " .. FOCUS_BUTTON_NAME .. ":LeftButton"
 local FOCUS_DEFAULT_KEY = "BUTTON5"
 
 BINDING_HEADER_FROSTATOMUI = "FrostAtomUI"
-_G["BINDING_NAME_" .. FOCUS_COMMAND] = "Focus mouseover"
 
 local focusButton = CreateFrame("Button", FOCUS_BUTTON_NAME, nil, "SecureActionButtonTemplate")
 focusButton:RegisterForClicks("AnyDown")
@@ -142,9 +143,12 @@ local CAMERA_SNAP_HOLD = 0.05
 local CAMERA_SNAP_TAIL = 0.05
 local CAMERA_SNAP_MIN_FRAMES = 3
 
-BINDING_NAME_FROSTATOMUI_CAMERA_CLOSE = "Close camera distance"
-BINDING_NAME_FROSTATOMUI_CAMERA_MEDIUM = "Medium camera distance"
-BINDING_NAME_FROSTATOMUI_CAMERA_FAR = "Far camera distance"
+ns.OnLocaleReady(function()
+	_G["BINDING_NAME_" .. FOCUS_COMMAND] = L["Focus mouseover"]
+	BINDING_NAME_FROSTATOMUI_CAMERA_CLOSE = L["Close camera distance"]
+	BINDING_NAME_FROSTATOMUI_CAMERA_MEDIUM = L["Medium camera distance"]
+	BINDING_NAME_FROSTATOMUI_CAMERA_FAR = L["Far camera distance"]
+end)
 
 local snapFrame = CreateFrame("Frame")
 local snapMax, snapFactor, snapDistance, snapTime, snapFrames, snapStopFrames

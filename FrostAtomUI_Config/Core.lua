@@ -1,6 +1,7 @@
 local ADDON_NAME, ns = ...
 
 local ui = FrostAtomUI
+local L = ui.L
 
 local floor, max, min = math.floor, math.max, math.min
 local tinsert, tremove, sort = tinsert, table.remove, table.sort
@@ -23,7 +24,7 @@ local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highli
 local DISABLED_ALPHA = 0.4
 
 local ANCHORS = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" }
-local OUTLINES = { { "", "None" }, { "OUTLINE", "Outline" }, { "THICKOUTLINE", "Thick outline" } }
+local OUTLINES = { { "", L["None"] }, { "OUTLINE", L["Outline"] }, { "THICKOUTLINE", L["Thick outline"] } }
 
 ns.ANCHORS = ANCHORS
 ns.OUTLINES = OUTLINES
@@ -35,7 +36,7 @@ local lastNavPage
 local refreshing = false
 local widgetCount = 0
 
-local searchPage = { key = "search", name = "Search", schema = {}, noReset = true }
+local searchPage = { key = "search", name = L["Search"], schema = {}, noReset = true }
 
 function ns.RegisterPage(page)
 	for _, entry in ipairs(page.schema) do
@@ -222,7 +223,7 @@ local function set(entry, value)
 	if entry.reload then
 		frame.reloadButton:Show()
 		if entry.type == "toggle" then
-			ns.Confirm("This change takes effect after a UI reload. Reload now?", ReloadUI)
+			ns.Confirm(L["This change takes effect after a UI reload. Reload now?"], ReloadUI)
 		end
 	end
 end
@@ -539,7 +540,7 @@ function creators.color(parent, entry)
 		ColorPickerFrame:Show()
 	end)
 
-	local reset = createButton(row, "Default", 60)
+	local reset = createButton(row, L["Default"], 60)
 	reset:SetPoint("LEFT", hex, "RIGHT", 12, 0)
 	reset:SetScript("OnClick", function()
 		ui:ResetConfig(entry.path)
@@ -600,7 +601,7 @@ function creators.point(parent, entry)
 	end)
 	detach:SetScript("OnEnter", function(self)
 		GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
-		GameTooltip:SetText("Detach", 1, 1, 1)
+		GameTooltip:SetText(L["Detach"], 1, 1, 1)
 		GameTooltip:AddLine(anchor.tooltip or "", 0.6, 0.6, 0.6, true)
 		GameTooltip:Show()
 	end)
@@ -630,8 +631,8 @@ function creators.point(parent, entry)
 		xBox:SetCursorPosition(0)
 		yBox:SetCursorPosition(0)
 		if anchorPath then
-			anchor:SetText("of " .. ui.Movers.GetLabel(anchorPath))
-			anchor.tooltip = ("Offsets are relative to %s %s."):format(ui.Movers.GetLabel(anchorPath), anchorPoint)
+			anchor:SetText(L["of %s"]:format(ui.Movers.GetLabel(anchorPath)))
+			anchor.tooltip = L["Offsets are relative to %s %s."]:format(ui.Movers.GetLabel(anchorPath), anchorPoint)
 			detach:Show()
 		else
 			anchor:SetText("")
@@ -685,7 +686,7 @@ function creators.list(parent, entry)
 	local box = createEditBox(row, 80, true)
 	box:SetPoint("LEFT", CONTROL_X, 0)
 
-	local add = createButton(row, entry.addText or "Add", 60)
+	local add = createButton(row, entry.addText or L["Add"], 60)
 	add:SetPoint("LEFT", box, "RIGHT", 8, 0)
 
 	local function commit()
@@ -695,7 +696,7 @@ function creators.list(parent, entry)
 		end
 		local item = entry.create(id)
 		if not item then
-			ui.Print("unknown ID %d", id)
+			ui.Print(L["unknown ID %d"], id)
 			return
 		end
 		local list = copyList(listItems(entry))
@@ -730,7 +731,7 @@ function creators.listItem(parent, entry)
 	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 	icon:SetTexture(entry.icon)
 
-	local remove = createButton(row, "Remove", 70)
+	local remove = createButton(row, L["Remove"], 70)
 	remove:SetPoint("RIGHT", 0, 0)
 	remove:SetScript("OnClick", function()
 		local list = copyList(listItems(entry.list))
@@ -1004,8 +1005,7 @@ local function runSearch()
 	searchPage.schema = schema
 	searchPage.content = nil
 	searchPage.rows = nil
-	searchPage.name = count > 0 and ("Search: %d result%s"):format(count, count == 1 and "" or "s")
-		or "Search: no results"
+	searchPage.name = count > 0 and L["Search: %d results"]:format(count) or L["Search: no results"]
 	showPage(searchPage)
 end
 
@@ -1045,7 +1045,7 @@ local function createSearchBox()
 	ui.SetFont(placeholder, 12)
 	placeholder:SetTextColor(0.5, 0.5, 0.5)
 	placeholder:SetPoint("LEFT", 6, 0)
-	placeholder:SetText("Search settings...")
+	placeholder:SetText(L["Search settings..."])
 	box.placeholder = placeholder
 	frame.searchBox = box
 end
@@ -1116,15 +1116,15 @@ local function createFrame()
 	divider:SetPoint("TOP", nav, "TOPRIGHT", 0, 0)
 	divider:SetPoint("BOTTOM", nav, "BOTTOMRIGHT", 0, 0)
 
-	local resetAll = createButton(nav, "Reset all", NAV_WIDTH - 12)
+	local resetAll = createButton(nav, L["Reset all"], NAV_WIDTH - 12)
 	resetAll:SetPoint("BOTTOMLEFT", 0, 0)
 	resetAll:SetScript("OnClick", function()
-		ns.Confirm("Reset all FrostAtom UI settings to defaults?", function()
+		ns.Confirm(L["Reset all FrostAtom UI settings to defaults?"], function()
 			ui:ResetConfig()
 		end)
 	end)
 
-	local unlock = createButton(nav, "Unlock frames", NAV_WIDTH - 12)
+	local unlock = createButton(nav, L["Unlock frames"], NAV_WIDTH - 12)
 	unlock:SetPoint("BOTTOMLEFT", resetAll, "TOPLEFT", 0, 6)
 	unlock:SetScript("OnClick", function()
 		ui.Movers.Unlock()
@@ -1138,18 +1138,18 @@ local function createFrame()
 	title:SetPoint("TOPLEFT", nav, "TOPRIGHT", PADDING, 0)
 	frame.title = title
 
-	local resetPageButton = createButton(frame, "Reset page", 100)
+	local resetPageButton = createButton(frame, L["Reset page"], 100)
 	resetPageButton:SetPoint("TOPRIGHT", -PADDING - 26, -PADDING - 1)
 	frame.resetPageButton = resetPageButton
 
-	local reloadButton = createButton(frame, "Reload UI", 90)
+	local reloadButton = createButton(frame, L["Reload UI"], 90)
 	reloadButton:SetPoint("RIGHT", resetPageButton, "LEFT", -8, 0)
 	reloadButton.text:SetTextColor(1, 0.6, 0.2)
 	reloadButton:SetScript("OnClick", ReloadUI)
 	reloadButton:Hide()
 	frame.reloadButton = reloadButton
 	resetPageButton:SetScript("OnClick", function()
-		ns.Confirm(("Reset %s settings to defaults?"):format(currentPage.name), function()
+		ns.Confirm(L["Reset %s settings to defaults?"]:format(currentPage.name), function()
 			resetPage(currentPage)
 		end)
 	end)

@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 
 local RegisterStateDriver = RegisterStateDriver
 local GameTooltip = GameTooltip
@@ -259,7 +260,7 @@ function ActionBar:Initialize()
 		self:RegisterMover(
 			self.bars[page],
 			"actionBar.bar" .. page .. ".point",
-			"Action bar " .. page,
+			L["Action bar %d"]:format(page),
 			{ secure = true }
 		)
 	end

@@ -1,4 +1,5 @@
-﻿local _, ns = ...
+local _, ns = ...
+local L = ns.L
 
 local InCombatLockdown, SetCVar = InCombatLockdown, SetCVar
 local sort, concat, strchar = table.sort, table.concat, string.char
@@ -856,7 +857,7 @@ end
 function ns:ImportProfile(text)
 	text = text and text:trim()
 	if not text or text:sub(1, #EXPORT_PREFIX) ~= EXPORT_PREFIX then
-		return false, "not a FrostAtom UI profile string"
+		return false, L["not a FrostAtom UI profile string"]
 	end
 	local body, err = ns.Decode(text:sub(#EXPORT_PREFIX + 1))
 	if not body then
@@ -864,7 +865,7 @@ function ns:ImportProfile(text)
 	end
 	local data, pos = parseValue(body, 1)
 	if type(data) ~= "table" or pos ~= #body + 1 then
-		return false, "malformed profile string"
+		return false, L["malformed profile string"]
 	end
 	prune(data, ns.Defaults)
 	wipe(saved)
@@ -881,8 +882,7 @@ local function migrate(profile)
 	for name, fallback in pairs(HEALTH_COLOR_SECTIONS) do
 		local section = profile[name]
 		if section and section.classColorHealth ~= nil then
-			section.healthColorMode = section.healthColorMode
-				or (section.classColorHealth and "class" or fallback)
+			section.healthColorMode = section.healthColorMode or (section.classColorHealth and "class" or fallback)
 			section.classColorHealth = nil
 		end
 	end

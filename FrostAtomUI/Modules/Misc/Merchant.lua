@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local CanMerchantRepair = CanMerchantRepair
 local GetRepairAllCost = GetRepairAllCost
 local RepairAllItems = RepairAllItems
@@ -35,7 +37,7 @@ local function sellGreys()
 	end
 
 	if count > 0 then
-		ns.Print("sold %d grey item(s) for %s", count, formatMoney(total))
+		ns.Print(L["sold %d grey item(s) for %s"], count, formatMoney(total))
 	end
 end
 
@@ -51,9 +53,9 @@ local function repair()
 
 	if GetMoney() >= cost then
 		RepairAllItems()
-		ns.Print("repaired for %s", formatMoney(cost))
+		ns.Print(L["repaired for %s"], formatMoney(cost))
 	else
-		ns.Print("not enough money to repair (%s)", formatMoney(cost))
+		ns.Print(L["not enough money to repair (%s)"], formatMoney(cost))
 	end
 end
 

@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 
 local floor, strbyte, strchar, strsub, concat = math.floor, string.byte, string.char, string.sub, table.concat
 
@@ -169,15 +170,15 @@ end
 function ns.Decode(encoded)
 	local bytes = fromZ85((encoded:gsub("%s", "")))
 	if not bytes or #bytes < 4 then
-		return nil, "malformed string"
+		return nil, L["malformed string"]
 	end
 	local b1, b2, b3, b4 = strbyte(bytes, 1, 4)
 	local text = decompress(strsub(bytes, 5))
 	if not text then
-		return nil, "corrupted data"
+		return nil, L["corrupted data"]
 	end
 	if adler32(text) ~= ((b1 * 256 + b2) * 256 + b3) * 256 + b4 then
-		return nil, "checksum mismatch"
+		return nil, L["checksum mismatch"]
 	end
 	return text
 end

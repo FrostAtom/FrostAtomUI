@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local GetNumFriends = GetNumFriends
 local GetFriendInfo = GetFriendInfo
 local GetTime = GetTime
@@ -43,19 +45,19 @@ local function printMessages(sender)
 	for i = 1, #blockedMessages do
 		local entry = blockedMessages[i]
 		if not sender or entry.sender == sender then
-			lines[#lines + 1] = ("%s (at %s): %s"):format(entry.sender, entry.time, entry.text)
+			lines[#lines + 1] = L["%s (at %s): %s"]:format(entry.sender, entry.time, entry.text)
 		end
 	end
 	if #lines > 0 then
-		ns.Print("blocked whispers:\n%s", table.concat(lines, "\n"))
+		ns.Print(L["blocked whispers:\n%s"], table.concat(lines, "\n"))
 	end
 end
 
 local function printStatus()
 	if blocked then
-		ns.Print("NoDM |cffff0000enabled|r, reply: %s", replyText() or "none (set with /nodm <message>)")
+		ns.Print(L["NoDM |cffff0000enabled|r, reply: %s"], replyText() or L["none (set with /nodm <message>)"])
 	else
-		ns.Print("NoDM |cff00ff00disabled|r")
+		ns.Print(L["NoDM |cff00ff00disabled|r"])
 	end
 end
 

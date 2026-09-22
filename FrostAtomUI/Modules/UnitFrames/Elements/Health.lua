@@ -1,5 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
+local L = ns.L
 
 local UnitIsConnected = UnitIsConnected
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
@@ -41,7 +42,7 @@ local function setDead(health, setValue)
 	setValue(health, 0)
 	health.colorClass = nil
 	health.bg:SetVertexColor(DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
-	health.text:SetText("RIP")
+	health.text:SetText(L["RIP"])
 	health.lastCurrent = nil
 end
 
@@ -93,7 +94,7 @@ local function update(frame)
 		setValue(health, 0)
 		health.colorClass = nil
 		health.bg:SetVertexColor(frame:GetBackdropColor())
-		health.text:SetText("offline")
+		health.text:SetText(L["offline"])
 		health.lastCurrent = nil
 	elseif UnitIsDeadOrGhost(unit) then
 		setDead(health, setValue)

@@ -1,4 +1,5 @@
 local _, ns = ...
+local L = ns.L
 
 local tremove = table.remove
 
@@ -74,6 +75,6 @@ end)
 SlashCmdList.FROSTATOMUI_VIDEORECORD = function()
 	local enabled = not config.clickAnimation
 	ns:SetConfig("actionBar.clickAnimation", enabled)
-	ns.Print("click animation %s", enabled and "enabled" or "disabled")
+	ns.Print(L["click animation %s"], enabled and L["enabled"] or L["disabled"])
 end
 SLASH_FROSTATOMUI_VIDEORECORD1 = "/vr"

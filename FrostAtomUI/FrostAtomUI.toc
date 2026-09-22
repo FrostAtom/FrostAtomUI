@@ -1,6 +1,8 @@
 ﻿## Interface: 30300
 ## Title: FrostAtom UI
 ## Notes: Personal UI replacement: action bars, unit frames, nameplates, chat, minimap and PvP helpers.
+## Title-ruRU: FrostAtom UI
+## Notes-ruRU: Замена интерфейса: панели команд, рамки юнитов, индикаторы имён, чат, мини-карта и PvP-помощники.
 ## Author: frostatom
 ## Version: 1.3.0
 ## X-Build: 2026-09-22
@@ -8,6 +10,8 @@
 
 # Core: namespace, utilities, event dispatcher, saved variables, settings
 Core\Init.lua
+Core\Locale.lua
+Locales\ruRU.lua
 Core\Util.lua
 Core\Events.lua
 Core\Scheduler.lua
