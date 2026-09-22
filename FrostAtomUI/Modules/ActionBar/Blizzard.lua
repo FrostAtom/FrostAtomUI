@@ -104,18 +104,40 @@ function ActionBar:HideBlizzard()
 		DestroyFrame(_G["CharacterBag" .. i .. "Slot"])
 	end
 
-	for _, name in ipairs(MICRO_BUTTONS) do
-		_G[name]:SetParent(UIParent)
-	end
-
 	local microMenu = CreateFrame("Frame", "FrostAtomUIMicroMenu", UIParent)
 	microMenu:SetSize(MICRO_MENU_WIDTH, MICRO_MENU_HEIGHT)
+	for _, name in ipairs(MICRO_BUTTONS) do
+		_G[name]:SetParent(microMenu)
+	end
 	CharacterMicroButton:ClearAllPoints()
 	CharacterMicroButton:SetPoint("BOTTOMLEFT", microMenu, "BOTTOMLEFT", 0, 0)
-	self:AnchorToConfig(microMenu, "actionBar.microMenu", nil, "Micro menu")
+	self:AnchorToConfig(microMenu, "actionBar.microMenu", "Micro menu", {
+		resize = {
+			minWidth = MICRO_MENU_WIDTH / 2,
+			maxWidth = MICRO_MENU_WIDTH * 2,
+			get = function()
+				return MICRO_MENU_WIDTH * ns.Config.actionBar.microMenuScale, MICRO_MENU_HEIGHT
+			end,
+			set = function(width)
+				ns:SetConfig("actionBar.microMenuScale", width / MICRO_MENU_WIDTH)
+			end,
+		},
+	})
 
 	MainMenuBarBackpackButton:SetParent(UIParent)
 	MainMenuBarBackpackButton:SetSize(BACKPACK_SIZE, BACKPACK_SIZE)
 	MainMenuBarBackpackButtonNormalTexture:SetSize(BACKPACK_SIZE * 64 / 36, BACKPACK_SIZE * 64 / 36)
-	self:AnchorToConfig(MainMenuBarBackpackButton, "actionBar.bagButton", nil, "Bag button")
+	self:AnchorToConfig(MainMenuBarBackpackButton, "actionBar.bagButton", "Bag button")
+
+	local microMenuFader = ns.CreateFader({ microMenu })
+	local bagFader = ns.CreateFader({ MainMenuBarBackpackButton })
+
+	local function applyMenus()
+		local config = ns.Config.actionBar
+		microMenu:SetScale(config.microMenuScale)
+		microMenuFader:Configure(config.microMenuMouseover, config.menuFadeAlpha)
+		bagFader:Configure(config.bagButtonMouseover, config.menuFadeAlpha)
+	end
+	applyMenus()
+	self:WatchConfig("actionBar", applyMenus)
 end

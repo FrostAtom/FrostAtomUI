@@ -27,6 +27,14 @@ local function applyCameraDistance()
 	ns:GetModule("CVars"):Pin("cameraDistanceMax", tostring(ns.Config.tweaks.cameraDistanceMax))
 end
 
+local function fixLFDCooldownFrame()
+	LFDQueueFrameCooldownFrame:SetScript("OnEvent", function(_, event, unit)
+		if event ~= "UNIT_AURA" or unit == "player" or (unit and unit:find("^party")) then
+			LFDQueueFrameRandomCooldownFrame_Update()
+		end
+	end)
+end
+
 local function onPopupClick(self)
 	if self.value == "SPECTATE" then
 		SendChatMessage(".spec pla " .. UIDROPDOWNMENU_INIT_MENU.name)
@@ -34,6 +42,7 @@ local function onPopupClick(self)
 end
 
 Misc:OnInitialize(function(self)
+	fixLFDCooldownFrame()
 	if not ns.Config.tweaks.enabled then
 		return
 	end
@@ -52,8 +61,7 @@ Misc:OnInitialize(function(self)
 	self:WatchConfig("tweaks.cameraDistanceMax", applyCameraDistance)
 	self:WatchConfig("tweaks.hideErrors", applyErrors)
 
-	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", nil, "World state")
-	ns.Movers.Register(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", nil, { size = { 200, 30 } })
+	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", "World state", { size = { 200, 30 } })
 
 	UnitPopupButtons.SPECTATE = { text = "Spectate", dist = 0 }
 	for _, menu in ipairs({ "FRIEND", "TEAM", "BN_FRIEND" }) do
@@ -98,6 +106,24 @@ SLASH_FROSTATOMUI_CONFIG1 = "/fui"
 SLASH_FROSTATOMUI_CONFIG2 = "/frostatomui"
 SLASH_FROSTATOMUI_CONFIG3 = "/faui"
 SLASH_FROSTATOMUI_CONFIG4 = "/ui"
+
+local MENU_BUTTON_COLOR = { 0.09, 0.49, 0.75 }
+
+local menuButton = CreateFrame("Button", "FrostAtomUIMenuButton", GameMenuFrame, "GameMenuButtonTemplate")
+menuButton:SetText("FrostAtomUI")
+menuButton:SetPoint("TOP", GameMenuButtonUIOptions, "BOTTOM", 0, -1)
+menuButton:SetScript("OnClick", function()
+	PlaySound("igMainMenuOption")
+	HideUIPanel(GameMenuFrame)
+	SlashCmdList.FROSTATOMUI_CONFIG("")
+end)
+menuButton:GetFontString():SetTextColor(unpack(MENU_BUTTON_COLOR))
+menuButton:HookScript("OnEnable", function(self)
+	self:GetFontString():SetTextColor(unpack(MENU_BUTTON_COLOR))
+end)
+
+GameMenuButtonKeybindings:SetPoint("TOP", menuButton, "BOTTOM", 0, -1)
+GameMenuFrame:SetHeight(GameMenuFrame:GetHeight() + menuButton:GetHeight() + 1)
 
 local FOCUS_BUTTON_NAME = "FrostAtomUIFocusButton"
 local FOCUS_COMMAND = "CLICK " .. FOCUS_BUTTON_NAME .. ":LeftButton"

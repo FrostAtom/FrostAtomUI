@@ -13,6 +13,15 @@ local function size(path, label, min, max, desc, enabledBy)
 	}
 end
 
+local TAGS_DESC = "Format [tag:color:8], where:\n"
+	.. "tag: name, curhp, maxhp, misshp, perhp, curpp, maxpp, perpp, class, race, guild, level, afk, dnd, status\n"
+	.. "color: class, reaction, hp, power, ffaaff\n"
+	.. "8 - max letters"
+
+local function text(path, label, desc)
+	return { path = path, label = label, type = "string", width = 260, maxLetters = 120, desc = desc }
+end
+
 local RIGHT_CLICK_VALUES = {
 	{ "menu", "Unit menu" },
 	{ "focus", "Set focus" },
@@ -145,6 +154,27 @@ ns.RegisterPage({
 		size("unitFrames.loseControlSize", "Player crowd control size", 20, 100, nil, "unitFrames.showLoseControl"),
 		{ header = "Positions" },
 		{ path = "unitFrames.player", label = "Player", type = "point" },
+		{ path = "unitFrames.target", label = "Target", type = "point" },
+		{ path = "unitFrames.focus", label = "Focus", type = "point" },
+		{
+			path = "unitFrames.pet",
+			label = "Pet",
+			type = "point",
+			enabledBy = "unitFrames.showPet",
+			desc = "Attached to the player frame by default.",
+		},
+		{
+			path = "unitFrames.targetOfTarget",
+			label = "Target of target",
+			type = "point",
+			desc = "Attached to the target frame by default.",
+		},
+		{
+			path = "unitFrames.focusTarget",
+			label = "Target of focus",
+			type = "point",
+			desc = "Attached to the focus frame by default.",
+		},
 		{
 			path = "unitFrames.playerCastbar",
 			label = "Player castbar",
@@ -324,8 +354,15 @@ ns.RegisterPage({
 			desc = "Glow around a cooldown icon while the spell's effect is still active.",
 		},
 		{ header = "Text" },
+		{ description = TAGS_DESC },
 		{ path = "unitFrames.textFont", label = "Text font", type = "font", desc = "Name, health and power text." },
 		{ path = "unitFrames.castbarFont", label = "Castbar font", type = "font" },
+		text("unitFrames.leftText", "Left text", "Bottom-left of the health bar."),
+		text("unitFrames.leftTextHover", "Left text (mouseover)", "Empty to keep the left text on mouseover."),
+		text("unitFrames.rightText", "Right text", "Bottom-right of the health bar."),
+		text("unitFrames.rightTextHover", "Right text (mouseover)", "Empty to keep the right text on mouseover."),
+		text("unitFrames.powerText", "Power text", "Right side of the power bar."),
+		text("unitFrames.powerTextHover", "Power text (mouseover)", "Empty to keep the power text on mouseover."),
 		{ header = "Visibility" },
 		{
 			path = "unitFrames.outOfRangeAlpha",

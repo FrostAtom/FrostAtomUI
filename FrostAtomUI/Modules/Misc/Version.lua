@@ -98,7 +98,11 @@ local function reportNewer(theirVersion, theirBuild)
 		return
 	end
 	newerReported = true
-	ns.Print("A newer version is available: %s (yours: %s)", Version.Label(theirVersion, theirBuild), Version.Label(version, build))
+	ns.Print(
+		"A newer version is available: %s (yours: %s)",
+		Version.Label(theirVersion, theirBuild),
+		Version.Label(version, build)
+	)
 end
 
 Misc:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, message, channel, sender)

@@ -15,8 +15,38 @@ local schema = {
 		type = "toggle",
 		desc = "Star burst on a pressed button. Toggle with /vr.",
 	},
+	{ header = "Micro menu and bags" },
 	{ path = "actionBar.microMenu", label = "Micro menu position", type = "point" },
+	{
+		path = "actionBar.microMenuScale",
+		label = "Micro menu scale",
+		type = "number",
+		min = 0.5,
+		max = 2,
+		step = 0.05,
+	},
+	{
+		path = "actionBar.microMenuMouseover",
+		label = "Micro menu on mouseover",
+		type = "toggle",
+		desc = "Keep the micro menu faded until the cursor is over it.",
+	},
 	{ path = "actionBar.bagButton", label = "Bag button position", type = "point" },
+	{
+		path = "actionBar.bagButtonMouseover",
+		label = "Bag button on mouseover",
+		type = "toggle",
+		desc = "Keep the bag button faded until the cursor is over it.",
+	},
+	{
+		path = "actionBar.menuFadeAlpha",
+		label = "Faded alpha",
+		type = "number",
+		min = 0,
+		max = 1,
+		step = 0.05,
+		enabledByAny = { "actionBar.microMenuMouseover", "actionBar.bagButtonMouseover" },
+	},
 }
 
 local function bar(header, key, hasToggle, hasCount)

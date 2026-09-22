@@ -20,7 +20,7 @@ local config = ns.Config.chat.whisperBlock
 local blocked = false
 local blockedMessages = {}
 local whitelist = {}
-local lastReplyTime, lastMessageText = 0
+local lastReplyTime = 0
 
 local function replyText()
 	local reply = config.reply
@@ -36,8 +36,19 @@ local function isFriend(name)
 	return false
 end
 
-local function printMessage(entry)
-	ns.Print("%s (at %s): %s", entry.sender, entry.time, entry.text)
+local lines = {}
+
+local function printMessages(sender)
+	wipe(lines)
+	for i = 1, #blockedMessages do
+		local entry = blockedMessages[i]
+		if not sender or entry.sender == sender then
+			lines[#lines + 1] = ("%s (at %s): %s"):format(entry.sender, entry.time, entry.text)
+		end
+	end
+	if #lines > 0 then
+		ns.Print("blocked whispers:\n%s", table.concat(lines, "\n"))
+	end
 end
 
 local function printStatus()
@@ -60,9 +71,9 @@ local function onWhisper(_, _, message, sender)
 		SendChatMessage(reply, "WHISPER", nil, sender)
 	end
 
-	if lastMessageText ~= message then
-		lastMessageText = message
-		blockedMessages[#blockedMessages + 1] = { sender = sender, time = date(TIME_FORMAT), text = message }
+	local last = blockedMessages[#blockedMessages]
+	if not (last and last.sender == sender and last.text == message and last.at == now) then
+		blockedMessages[#blockedMessages + 1] = { sender = sender, time = date(TIME_FORMAT), text = message, at = now }
 
 		while #blockedMessages > MAX_STORED_MESSAGES do
 			tremove(blockedMessages, 1)
@@ -77,12 +88,7 @@ local function onWhisperSent(_, _, message, target)
 		return true
 	end
 
-	for i = 1, #blockedMessages do
-		local entry = blockedMessages[i]
-		if entry.sender == target then
-			printMessage(entry)
-		end
-	end
+	printMessages(target)
 	for i = #blockedMessages, 1, -1 do
 		if blockedMessages[i].sender == target then
 			tremove(blockedMessages, i)
@@ -103,9 +109,7 @@ local function applyConfig()
 	else
 		ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", onWhisper)
 		ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER_INFORM", onWhisperSent)
-		for i = 1, #blockedMessages do
-			printMessage(blockedMessages[i])
-		end
+		printMessages()
 		wipe(blockedMessages)
 	end
 	printStatus()

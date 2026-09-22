@@ -16,12 +16,10 @@ local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
 local TARGET_AURAS_PER_ROW = 8
 local TARGET_AURA_ROWS = 2
-local TARGET_OF_TARGET_GAP = 0
 local RIGHT_CLICK_ACTIONS = { menu = "menu", focus = "focus" }
 local config = ns.Config.unitFrames
 
 UF.BORDER_INSET = BORDER_INSET
-UF.TARGET_OF_TARGET_GAP = TARGET_OF_TARGET_GAP
 UF.CLASS_ICON_INSET = CLASS_ICON_INSET
 UF.CASTBAR_ICON_GAP = CASTBAR_ICON_GAP
 UF.backdrop = ns.CreateBackdrop(14, 3)
@@ -211,7 +209,7 @@ local function capitalize(text)
 	return (text:gsub("^%l", string.upper))
 end
 
-local HOVER_ELEMENTS = { "health", "power" }
+local HOVER_ELEMENTS = { "health", "power", "name" }
 
 local function setHovered(frame, hovered)
 	frame.hovered = hovered
@@ -431,7 +429,7 @@ function UF:CreateSquare(unit, size)
 	health:SetPoint("TOPRIGHT", -BORDER_INSET, -BORDER_INSET)
 	health:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET)
 	health.text:SetPoint("CENTER")
-	health.compact = true
+	health.text.template = "[curhp]"
 
 	return frame
 end
@@ -452,7 +450,7 @@ function UF:CreateTargetOfTarget(unit, size)
 	frame.ownerUnit = unit:match("^(.+)target$")
 	RegisterUnitEvent(frame, "UNIT_TARGET", frame.ownerUnit, onOwnerUnitChanged)
 
-	local name = self:AddElement(frame, "name", 3)
+	local name = self:AddElement(frame, "name", "[name:3]")
 	name:SetPoint("TOP", 0, -BORDER_INSET)
 
 	return frame
@@ -462,7 +460,6 @@ function UF:CreateTarget(unit, width, height)
 	local frame = self:CreateRectangle(unit, width, height, "RIGHT")
 
 	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
-	targetOfTarget:SetPoint("LEFT", frame, "RIGHT", TARGET_OF_TARGET_GAP, 0)
 
 	local auraOptions = {
 		size = width / TARGET_AURAS_PER_ROW - 1,
@@ -506,6 +503,6 @@ function UF:ResizeTarget(frame, width, height)
 	castbar:SetHeight(height)
 	castbar:ClearAllPoints()
 	castbar:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", height + CASTBAR_ICON_GAP, -castbarOffset)
-	castbar:SetPoint("TOPRIGHT", frame.targetOfTarget, "BOTTOMRIGHT", 0, -castbarOffset)
+	castbar:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -castbarOffset)
 	castbar.icon:SetSize(height, height)
 end

@@ -10,6 +10,8 @@ ns.Defaults = {
 		statusbar = "Interface\\Buttons\\WHITE8x8",
 		useUiScale = false,
 		uiScale = 0.7,
+		showGrid = true,
+		gridSize = 32,
 	},
 
 	actionBar = {
@@ -23,7 +25,11 @@ ns.Defaults = {
 		stance = { point = { "BOTTOM", -150, 116 }, columns = 10, buttonSize = 30 },
 		pet = { point = { "BOTTOM", 68, 116 }, columns = 10, buttonSize = 30 },
 		microMenu = { "BOTTOMRIGHT", -2, 2 },
+		microMenuScale = 1,
+		microMenuMouseover = false,
 		bagButton = { "BOTTOMRIGHT", -256, 5 },
+		bagButtonMouseover = false,
+		menuFadeAlpha = 0.1,
 		showHotkeys = true,
 		showShapeshiftHotkeys = false,
 		showNames = true,
@@ -40,7 +46,10 @@ ns.Defaults = {
 		player = { "TOPLEFT", 320, -80 },
 		target = { "TOPLEFT", 522, -80 },
 		focus = { "TOPLEFT", 769, -80 },
-		playerCastbar = { "TOP", 0, -4 },
+		pet = { "RIGHT", -2, 0, "unitFrames.player", "LEFT" },
+		targetOfTarget = { "LEFT", 0, 0, "unitFrames.target", "RIGHT" },
+		focusTarget = { "LEFT", 0, 0, "unitFrames.focus", "RIGHT" },
+		playerCastbar = { "TOP", 0, -4, "playerPlate.point", "BOTTOM" },
 		playerAuras = { "TOPRIGHT", -168, -10 },
 		party = { "LEFT", 150, 230 },
 		arena = { "RIGHT", -150, 230 },
@@ -76,6 +85,12 @@ ns.Defaults = {
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
 		textFont = { size = 10, outline = "OUTLINE" },
 		castbarFont = { size = 12, outline = "OUTLINE" },
+		leftText = "[name]",
+		leftTextHover = "",
+		rightText = "[curhp]",
+		rightTextHover = "[curhp] / [maxhp]",
+		powerText = "",
+		powerTextHover = "[curpp] / [maxpp]",
 		showClassIcon = true,
 		showLeaderIcon = true,
 		showCombatIcon = true,
@@ -123,6 +138,8 @@ ns.Defaults = {
 		point = { "BOTTOMLEFT", 12, 36 },
 		width = 400,
 		height = 153,
+		mouseover = false,
+		fadeAlpha = 0.1,
 		fadeTime = 30,
 		backgroundAlpha = 0.6,
 		copyWindowWidth = 520,
@@ -391,8 +408,9 @@ ns.Defaults = {
 
 	soloQueue = {
 		enabled = true,
-		buttonSize = 20,
-		buttonInset = 3,
+		point = { "RIGHT", -4, 0, "minimap.lfgPoint", "LEFT" },
+		buttonSize = 32,
+		queuedSize = 44,
 		glowColor = { 0.3, 1, 0.3 },
 		rangeFont = { size = 12, outline = "OUTLINE" },
 		teamSearchColor = { 1, 1, 1 },
@@ -460,6 +478,10 @@ ns.Defaults = {
 		enabled = true,
 		point = { "TOPRIGHT", -15, -15 },
 		size = 140,
+		mouseover = false,
+		fadeAlpha = 0.1,
+		lfgPoint = { "TOPRIGHT", -4, -6, "minimap.point", "BOTTOMRIGHT" },
+		lfgSize = 32,
 		showClock = true,
 		clock24h = true,
 		clockPoint = { "BOTTOM", 0, 4 },
@@ -879,14 +901,13 @@ combatWatcher:RegisterEvent("PLAYER_REGEN_ENABLED", function()
 	wipe(pending)
 end)
 
-function ns.ModulePrototype:AnchorToConfig(frame, path, secure, label)
+function ns.ModulePrototype:AnchorToConfig(frame, path, label, options)
 	local function apply()
-		frame:ClearAllPoints()
-		frame:SetPoint(unpack(ns:GetConfig(path)))
+		ns.ApplyPoint(frame, path)
 	end
 	apply()
-	self:WatchConfig(path, apply, secure)
-	ns.Movers.Register(frame, path, label, { secure = secure })
+	self:WatchConfig(path, apply, options and options.secure)
+	ns.Movers.Register(frame, path, label, options)
 end
 
 local function runWatcher(watcher)

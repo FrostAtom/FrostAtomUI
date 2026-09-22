@@ -6,7 +6,6 @@ local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
 local UnitPowerType = UnitPowerType
 local UnitGUID = UnitGUID
 
-local FormatValue = ns.FormatValue
 local powerColors = UF.powerColors
 local config = ns.Config.unitFrames
 
@@ -30,10 +29,17 @@ local function setPower(power, setValue, current, max, powerType)
 		power:SetStatusBarColor(r, g, b)
 		power.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
 	end
-	if power:GetParent().hovered and max > 0 then
-		power.text:SetFormattedText("%s / %s", FormatValue(current), FormatValue(max))
+	local frame = power:GetParent()
+	if max > 0 then
+		UF.UpdateText(frame, power.text, "power")
 	else
 		power.text:SetText(nil)
+	end
+	if frame.name and UF.TagsUse(UF.TextTemplate(frame, frame.name, "left"), "power") then
+		UF.UpdateText(frame, frame.name, "left")
+	end
+	if frame.health.lastCurrent and UF.TagsUse(UF.TextTemplate(frame, frame.health.text, "right"), "power") then
+		UF.UpdateText(frame, frame.health.text, "right")
 	end
 end
 

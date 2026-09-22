@@ -257,7 +257,7 @@ function creators.description(parent, entry)
 	ui.SetFont(text, 12)
 	text:SetTextColor(0.6, 0.6, 0.6)
 	text:SetPoint("TOPLEFT", 0, -4)
-	text:SetPoint("RIGHT")
+	text:SetWidth(parent:GetWidth() - PADDING * 2)
 	text:SetJustifyH("LEFT")
 	text:SetText(entry.description)
 	holder:SetHeight(text:GetStringHeight() + 12)
@@ -585,6 +585,27 @@ function creators.point(parent, entry)
 	local yBox = createEditBox(row, 54, true)
 	yBox:SetPoint("LEFT", xBox, "RIGHT", 10, 0)
 
+	local anchor = row:CreateFontString(nil, "OVERLAY")
+	ui.SetFont(anchor, 11)
+	anchor:SetTextColor(0.4, 1, 0.5)
+	anchor:SetWidth(LABEL_WIDTH - 70)
+	anchor:SetJustifyH("RIGHT")
+	anchor:SetPoint("RIGHT", row, "LEFT", CONTROL_X - 26, 0)
+
+	local detach = createButton(row, "x", 20)
+	detach:SetPoint("LEFT", yBox, "RIGHT", 8, 0)
+	detach:SetScript("OnClick", function()
+		ui.Movers.Detach(entry.path)
+		row.Refresh()
+	end)
+	detach:SetScript("OnEnter", function(self)
+		GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
+		GameTooltip:SetText("Detach", 1, 1, 1)
+		GameTooltip:AddLine(anchor.tooltip or "", 0.6, 0.6, 0.6, true)
+		GameTooltip:Show()
+	end)
+	detach:SetScript("OnLeave", GameTooltip_Hide)
+
 	row.commit = function()
 		local x, y = tonumber(xBox:GetText()), tonumber(yBox:GetText())
 		if not x or not y then
@@ -595,24 +616,34 @@ function creators.point(parent, entry)
 		local point = dropdown.selected
 		local value = get(entry)
 		if point ~= value[1] or x ~= value[2] or y ~= value[3] then
-			ui:SetConfig(entry.path, { point, x, y })
+			ui:SetConfig(entry.path, { point, x, y, value[4], value[5] })
 		end
 	end
 	xBox.OnCommit = row.commit
 	yBox.OnCommit = row.commit
 
 	row.Refresh = function()
-		local point, x, y = unpack(get(entry))
+		local point, x, y, anchorPath, anchorPoint = unpack(get(entry))
 		dropdown:Select(point)
 		xBox:SetText(tostring(x))
 		yBox:SetText(tostring(y))
 		xBox:SetCursorPosition(0)
 		yBox:SetCursorPosition(0)
+		if anchorPath then
+			anchor:SetText("of " .. ui.Movers.GetLabel(anchorPath))
+			anchor.tooltip = ("Offsets are relative to %s %s."):format(ui.Movers.GetLabel(anchorPath), anchorPoint)
+			detach:Show()
+		else
+			anchor:SetText("")
+			detach:Hide()
+		end
 	end
 	row.SetEnabled = function(_, enabled)
 		dropdown:SetEnabled(enabled)
 		setEditBoxEnabled(xBox, enabled)
 		setEditBoxEnabled(yBox, enabled)
+		detach:EnableMouse(enabled)
+		setEnabledAlpha(detach, enabled)
 	end
 	return row
 end

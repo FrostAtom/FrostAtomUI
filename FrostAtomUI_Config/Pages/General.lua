@@ -24,6 +24,34 @@ local schema = {
 		step = 0.01,
 		enabledBy = "general.useUiScale",
 	},
+	{ header = "Frame movers" },
+	{
+		path = "general.showGrid",
+		label = "Alignment grid",
+		type = "toggle",
+		desc = "Grid over the screen while frames are unlocked. Screen center lines are always drawn.",
+	},
+	{
+		path = "general.gridSize",
+		label = "Grid step",
+		type = "number",
+		min = 8,
+		max = 128,
+		step = 4,
+		enabledBy = "general.showGrid",
+	},
+	{
+		label = "Move frames",
+		type = "execute",
+		text = "Unlock",
+		desc = "Drag frames to move them, drag the bottom-right corner of a frame to resize it. Frames snap to each other, to screen edges and to screen center lines, and stay attached to the frame they snapped to. Hold Shift to drop snapping and detach.",
+		func = function()
+			ui.Movers.Unlock()
+			if ui.Movers.IsUnlocked() then
+				ns.Toggle()
+			end
+		end,
+	},
 	{ header = "Unit frames" },
 	{
 		path = "dispelHighlightAlpha",

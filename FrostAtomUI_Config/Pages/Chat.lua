@@ -138,6 +138,21 @@ local schema = {
 	},
 	{ path = "chat.backgroundAlpha", label = "Background alpha", type = "number", min = 0, max = 1, step = 0.05 },
 	{
+		path = "chat.mouseover",
+		label = "Show on mouseover",
+		type = "toggle",
+		desc = "Keep the chat faded until the cursor is over it or the edit box is open.",
+	},
+	{
+		path = "chat.fadeAlpha",
+		label = "Faded alpha",
+		type = "number",
+		min = 0,
+		max = 1,
+		step = 0.05,
+		enabledBy = "chat.mouseover",
+	},
+	{
 		path = "chat.copyWindowWidth",
 		label = "Copy window width",
 		type = "number",

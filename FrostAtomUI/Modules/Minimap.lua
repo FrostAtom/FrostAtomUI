@@ -27,7 +27,9 @@ local ZONE_COLORS = {
 }
 local DEFAULT_ZONE_COLOR = { 1, 0.82, 0 }
 
-local clock, zoneText
+local LFG_BUTTON_SIZE = 33
+
+local clock, zoneText, lfgHolder, fader
 local icons = {}
 
 local function skinIcon(frame, icon, border, texture, point, dx, dy)
@@ -54,12 +56,22 @@ local function updateZoneText()
 	zoneText:SetTextColor(color[1], color[2], color[3])
 end
 
+local function applyLfg()
+	local size = config.lfgSize
+	lfgHolder:SetSize(size, size)
+	ns.ApplyPoint(lfgHolder, "minimap.lfgPoint")
+	MiniMapLFGFrame:SetScale(size / LFG_BUTTON_SIZE)
+	MiniMapLFGFrame:ClearAllPoints()
+	MiniMapLFGFrame:SetPoint("CENTER", lfgHolder)
+end
+
 local function applyConfig()
 	local size, iconSize = config.size, config.iconSize
 	Minimap:SetSize(size, size)
-	Minimap:ClearAllPoints()
-	Minimap:SetPoint(unpack(config.point))
+	ns.ApplyPoint(Minimap, "minimap.point")
 	MinimapBackdrop:SetBackdropBorderColor(unpack(config.borderColor))
+	fader:Configure(config.mouseover, config.fadeAlpha)
+	applyLfg()
 
 	ns.SetFont(clock, config.clockFont.size, config.clockFont.outline, true)
 	clock:ClearAllPoints()
@@ -195,11 +207,45 @@ function MinimapModule:Initialize()
 
 	ns.DestroyFrame(MinimapCluster, true)
 
+	lfgHolder = CreateFrame("Frame", "FrostAtomUILFG", UIParent)
+	MiniMapLFGFrame:SetParent(lfgHolder)
+	MiniMapLFGFrame:SetFrameStrata("MEDIUM")
+
+	fader = ns.CreateFader({ Minimap, MinimapBackdrop }, { Minimap })
+
 	applyConfig()
+	self:RegisterMover(lfgHolder, "minimap.lfgPoint", "Queue eye", {
+		size = function()
+			return config.lfgSize, config.lfgSize
+		end,
+		resize = {
+			square = true,
+			minWidth = 16,
+			maxWidth = 96,
+			get = function()
+				return config.lfgSize, config.lfgSize
+			end,
+			set = function(size)
+				ns:SetConfig("minimap.lfgSize", size)
+			end,
+		},
+	})
 	self:WatchConfig("minimap", applyConfig)
 	self:RegisterEvent("ZONE_CHANGED", updateZoneText)
 	self:RegisterEvent("ZONE_CHANGED_INDOORS", updateZoneText)
 	self:RegisterEvent("ZONE_CHANGED_NEW_AREA", updateZoneText)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", updateZoneText)
-	self:RegisterMover(Minimap, "minimap.point", "Minimap")
+	self:RegisterMover(Minimap, "minimap.point", "Minimap", {
+		resize = {
+			square = true,
+			minWidth = 100,
+			maxWidth = 400,
+			get = function()
+				return config.size, config.size
+			end,
+			set = function(size)
+				ns:SetConfig("minimap.size", size)
+			end,
+		},
+	})
 end

@@ -11,7 +11,12 @@ local COUNTDOWN_SECONDS = 15
 
 local countdown = CreateFrame("Frame")
 countdown:Hide()
-Misc:AnchorToConfig(countdown, "arena.countdownPoint")
+Misc:AnchorToConfig(countdown, "arena.countdownPoint", nil, {
+	size = function()
+		local size = ns.Config.arena.countdownFont.size
+		return size * 2, size * 1.4
+	end,
+})
 countdown:SetSize(2, 2)
 
 countdown.text = countdown:CreateFontString(nil, "BORDER")

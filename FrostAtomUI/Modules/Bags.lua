@@ -32,7 +32,7 @@ local StaticPopup_Show = StaticPopup_Show
 local PlaySound = PlaySound
 local GameTooltip = GameTooltip
 local bit_band = bit.band
-local ceil = math.ceil
+local ceil, floor, max, min = math.ceil, math.floor, math.max, math.min
 local NUM_BAG_SLOTS = NUM_BAG_SLOTS
 local NUM_BANKGENERIC_SLOTS = NUM_BANKGENERIC_SLOTS
 local BACKPACK_CONTAINER = BACKPACK_CONTAINER
@@ -58,6 +58,8 @@ local GLYPH_ALPHA = 0.6
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local ARENA_POINTS_ICON = "Interface\\PVPFrame\\PVP-ArenaPoints-Icon"
 local HONOR_ICON = "Interface\\TargetingFrame\\UI-PVP-%s"
+local MIN_COLUMNS = 4
+local MAX_COLUMNS = 24
 local CURRENCY_ICON_SIZE = 14
 local CURRENCY_SPACING = 10
 
@@ -710,20 +712,35 @@ local function createContainer(key, title, bags, columnsKey)
 	frame:EnableMouse(true)
 	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
 	frame:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
-	Bags:AnchorToConfig(frame, "bags." .. key, nil, title)
-	ns.Movers.Register(frame, "bags." .. key, nil, {
+	local function frameWidth(columns)
+		return columns * (config.buttonSize + config.spacing) - config.spacing + config.padding * 2
+	end
+
+	Bags:AnchorToConfig(frame, "bags." .. key, title, {
 		size = function()
-			local step = config.buttonSize + config.spacing
 			local columns = config[columnsKey]
 			local slots = 0
 			for i = 1, #bags do
 				slots = slots + bagSize(bags[i])
 			end
 			local rows = ceil(slots / columns)
-			local padding = config.padding
-			return columns * step - config.spacing + padding * 2,
-				rows * step - config.spacing + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + padding * 2
+			local step = config.buttonSize + config.spacing
+			return frameWidth(columns),
+				rows * step - config.spacing + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + config.padding * 2
 		end,
+		resize = {
+			square = false,
+			minWidth = frameWidth(MIN_COLUMNS),
+			maxWidth = frameWidth(MAX_COLUMNS),
+			get = function()
+				return frameWidth(config[columnsKey]), frame:GetHeight()
+			end,
+			set = function(width)
+				local step = config.buttonSize + config.spacing
+				local columns = floor((width - config.padding * 2 + config.spacing) / step + 0.5)
+				ns:SetConfig("bags." .. columnsKey, max(MIN_COLUMNS, min(MAX_COLUMNS, columns)))
+			end,
+		},
 	})
 	frame:SetScript("OnShow", onShow)
 	frame:SetScript("OnHide", onHide)

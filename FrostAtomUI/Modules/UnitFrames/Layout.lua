@@ -1,6 +1,8 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
+local max = math.max
+
 local MAX_PARTY_FRAMES = 3
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
@@ -18,34 +20,25 @@ local player, castbar, pet, target, focus
 local party, arena, bosses = {}, {}, {}
 local partyPets, arenaPets = {}, {}
 
-local function setPoint(frame, position, offset)
-	local point, x, y = unpack(position)
-	frame:ClearAllPoints()
-	frame:SetPoint(point, UIParent, point, x, y - (offset or 0))
-end
-
-local function setGroupPoints(frames, position, spacing)
+local function setGroupPoints(frames, path, spacing)
 	for i = 1, #frames do
-		setPoint(frames[i], position, (i - 1) * spacing)
+		ns.ApplyPoint(frames[i], path, (i - 1) * spacing)
 	end
-end
-
-local function setCastbarPoint(position)
-	local point, x, y = unpack(position)
-	castbar:ClearAllPoints()
-	castbar:SetPoint(point, FrostAtomUIPlayerPlate, "BOTTOM", x, y)
 end
 
 local function applyPositions()
 	local config = ns.Config.unitFrames
-	setPoint(player, config.player)
-	setPoint(target, config.target)
-	setPoint(focus, config.focus)
-	setPoint(player.buffs, config.playerAuras)
-	setCastbarPoint(config.playerCastbar)
-	setGroupPoints(party, config.party, config.groupSpacing)
-	setGroupPoints(arena, config.arena, config.groupSpacing)
-	setGroupPoints(bosses, config.boss, config.bossSpacing)
+	ns.ApplyPoint(player, "unitFrames.player")
+	ns.ApplyPoint(target, "unitFrames.target")
+	ns.ApplyPoint(focus, "unitFrames.focus")
+	ns.ApplyPoint(pet, "unitFrames.pet")
+	ns.ApplyPoint(target.targetOfTarget, "unitFrames.targetOfTarget")
+	ns.ApplyPoint(focus.targetOfTarget, "unitFrames.focusTarget")
+	ns.ApplyPoint(player.buffs, "unitFrames.playerAuras")
+	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
+	setGroupPoints(party, "unitFrames.party", config.groupSpacing)
+	setGroupPoints(arena, "unitFrames.arena", config.groupSpacing)
+	setGroupPoints(bosses, "unitFrames.boss", config.bossSpacing)
 end
 
 local function applySizes()
@@ -161,7 +154,7 @@ end
 local function applyElements()
 	local config = ns.Config.unitFrames
 	setLoseControlSize(player.losecontrol, config.loseControlSize)
-	setPoint(player.losecontrol, config.loseControlPoint)
+	ns.ApplyPoint(player.losecontrol, "unitFrames.loseControlPoint")
 	target.combopoints:SetPointSize(config.comboPointSize)
 	for i = 1, #party do
 		anchorGroupGrids(party[i])
@@ -174,38 +167,45 @@ local function applyElements()
 	end
 end
 
-local function targetMoverOptions(frame)
+local function frameResize(widthKey, heightKey, minWidth, minHeight)
 	return {
-		secure = true,
-		extendTo = frame.targetOfTarget,
-		size = function()
-			return frame:GetWidth() + UF.TARGET_OF_TARGET_GAP + frame.targetOfTarget:GetWidth(), frame:GetHeight()
+		minWidth = minWidth,
+		maxWidth = 500,
+		minHeight = minHeight,
+		maxHeight = 200,
+		get = function()
+			local config = ns.Config.unitFrames
+			return config[widthKey], config[heightKey]
+		end,
+		set = function(width, height)
+			ns:SetConfig("unitFrames." .. widthKey, width)
+			ns:SetConfig("unitFrames." .. heightKey, height)
 		end,
 	}
 end
 
 local function createPlayer(self, config)
 	player = self:CreateRectangle("player", config.playerWidth, config.playerHeight, "LEFT")
-	player:SetPoint(unpack(config.player))
+	ns.ApplyPoint(player, "unitFrames.player")
 
 	local leader = self:AddElement(player, "leader")
 	leader:SetPoint("TOPRIGHT", player.classicon, -1, -1)
 
 	local auraOptions = { size = config.playerAuraSize, gap = 2, anchor = "TOPRIGHT" }
 	local buffs = self:AddElement(player, "buffs", auraOptions)
-	setPoint(buffs, config.playerAuras)
+	ns.ApplyPoint(buffs, "unitFrames.playerAuras")
 
 	local debuffs = self:AddElement(player, "debuffs", auraOptions)
 	debuffs:SetPoint("TOPRIGHT", buffs, "BOTTOMRIGHT", 0, -config.playerAuraSize * 0.2)
 
 	castbar = self:AddElement(player, "castbar")
 	castbar:SetSize(config.playerCastbarWidth, config.playerCastbarHeight)
-	setCastbarPoint(config.playerCastbar)
+	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
 	castbar.icon:SetSize(config.playerCastbarHeight, config.playerCastbarHeight)
 
 	local loseControl = self:AddElement(player, "losecontrol")
 	setLoseControlSize(loseControl, config.loseControlSize)
-	setPoint(loseControl, config.loseControlPoint)
+	ns.ApplyPoint(loseControl, "unitFrames.loseControlPoint")
 
 	local raidIcon = self:AddElement(player, "raidicon")
 	raidIcon:SetPoint("BOTTOM", player, "TOP", 0, -4)
@@ -219,7 +219,7 @@ local function createPlayer(self, config)
 	self:AddElement(player, "dispel")
 
 	pet = self:CreatePet("pet", config.playerHeight)
-	pet:SetPoint("RIGHT", player, "LEFT", -2, 0)
+	ns.ApplyPoint(pet, "unitFrames.pet")
 
 	return player
 end
@@ -227,7 +227,8 @@ end
 local function createTargets(self, player, config)
 	local targetOfTarget
 	target, targetOfTarget = self:CreateTarget("target", config.playerWidth, config.playerHeight)
-	target:SetPoint(unpack(config.target))
+	ns.ApplyPoint(target, "unitFrames.target")
+	ns.ApplyPoint(targetOfTarget, "unitFrames.targetOfTarget")
 	target:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
 	targetOfTarget:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
 
@@ -236,7 +237,8 @@ local function createTargets(self, player, config)
 
 	local focusTarget
 	focus, focusTarget = self:CreateTarget("focus", config.playerWidth, config.playerHeight)
-	focus:SetPoint(unpack(config.focus))
+	ns.ApplyPoint(focus, "unitFrames.focus")
+	ns.ApplyPoint(focusTarget, "unitFrames.focusTarget")
 	focus:RegisterEvent("PLAYER_FOCUS_CHANGED", "QueueUpdate")
 	focusTarget:RegisterEvent("PLAYER_FOCUS_CHANGED", "QueueUpdate")
 
@@ -367,27 +369,44 @@ function UF:Initialize()
 	createBosses(self, config)
 	applyVisibility()
 
-	self:RegisterMover(player, "unitFrames.player", "Player", { secure = true })
-	self:RegisterMover(target, "unitFrames.target", "Target", targetMoverOptions(target))
-	self:RegisterMover(focus, "unitFrames.focus", "Focus", targetMoverOptions(focus))
+	local playerResize = frameResize("playerWidth", "playerHeight", 80, 20)
+	self:RegisterMover(player, "unitFrames.player", "Player", { secure = true, resize = playerResize })
+	self:RegisterMover(target, "unitFrames.target", "Target", { secure = true, resize = playerResize })
+	self:RegisterMover(focus, "unitFrames.focus", "Focus", { secure = true, resize = playerResize })
+	self:RegisterMover(pet, "unitFrames.pet", "Pet", { secure = true })
+	self:RegisterMover(target.targetOfTarget, "unitFrames.targetOfTarget", "Target of target", { secure = true })
+	self:RegisterMover(focus.targetOfTarget, "unitFrames.focusTarget", "Target of focus", { secure = true })
 	self:RegisterMover(castbar, "unitFrames.playerCastbar", "Player castbar", {
-		relativeTo = FrostAtomUIPlayerPlate,
-		relativePoint = "BOTTOM",
+		resize = frameResize("playerCastbarWidth", "playerCastbarHeight", 60, 10),
 	})
 	self:RegisterMover(player.buffs, "unitFrames.playerAuras", "Player auras", {
 		size = function()
-			return player.buffs:GetWidth(), ns.Config.unitFrames.playerAuraSize
+			local buffs, debuffs = player.buffs, player.debuffs
+			local size = ns.Config.unitFrames.playerAuraSize
+			local rows = max(buffs.rows, 1) + max(debuffs.rows, 1)
+			return buffs:GetWidth(), rows * (size + buffs.gap) - buffs.gap + size * 0.2
 		end,
 	})
-	self:RegisterMover(party[1], "unitFrames.party", "Party", { secure = true })
-	self:RegisterMover(arena[1], "unitFrames.arena", "Arena", { secure = true })
-	self:RegisterMover(bosses[1], "unitFrames.boss", "Boss", { secure = true })
+	self:RegisterMover(party[1], "unitFrames.party", "Party", {
+		secure = true,
+		resize = frameResize("partyWidth", "partyHeight", 80, 20),
+	})
+	self:RegisterMover(arena[1], "unitFrames.arena", "Arena", {
+		secure = true,
+		resize = frameResize("arenaWidth", "arenaHeight", 80, 20),
+	})
+	self:RegisterMover(bosses[1], "unitFrames.boss", "Boss", {
+		secure = true,
+		resize = frameResize("bossWidth", "bossHeight", 80, 20),
+	})
 	self:RegisterMover(player.losecontrol, "unitFrames.loseControlPoint", "Lose control", {
 		size = function()
 			local size = ns.Config.unitFrames.loseControlSize
 			return size, size
 		end,
 	})
+	applyPositions()
+	applyElements()
 
 	self:WatchConfig("unitFrames", applyPositions, true)
 	self:WatchConfig("unitFrames", applyVisibility, true)

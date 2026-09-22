@@ -37,6 +37,7 @@ Modules\ActionBar\Blizzard.lua
 # Unit frames
 Modules\UnitFrames\UnitFrames.lua
 Modules\UnitFrames\Menu.lua
+Modules\UnitFrames\Tags.lua
 Modules\UnitFrames\Elements\Health.lua
 Modules\UnitFrames\Elements\Power.lua
 Modules\UnitFrames\Elements\Name.lua

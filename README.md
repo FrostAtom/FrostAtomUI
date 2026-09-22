@@ -181,12 +181,18 @@ Every `/no…` command also takes `on`, `off` or `status`.
 
 ![Settings window](docs/screenshots/settings.png)
 
-Type `/fui` (or `/ui`, `/faui`, `/frostatomui`) to open the settings window. Every module has an
+Type `/fui` (or `/ui`, `/faui`, `/frostatomui`), or press `Esc` and click the blue **FrostAtomUI**
+entry under *Interface*, to open the settings window. Every module has an
 **Enable** toggle and its own page with sizes, positions, fonts, colors and visibility options; almost
 everything applies immediately, the few options that need a reload say so and offer to reload right away.
 
 - **Search** box above the page list, or `/fui <text>` — finds options by name or description.
-- **Unlock frames** (or `/fui unlock`) — drag any frame where you want it, right-click to reset.
+- **Unlock frames** (or `/fui unlock`) — drag any frame where you want it, right-click to reset. Every box covers
+  exactly what the element takes on screen. Frames snap to each other, to the screen edges and to the
+  screen center lines — edge to edge they always keep the same small gap, whichever side they meet on —
+  and stay attached to the frame they snapped to, so moving or resizing that frame carries them along;
+  hold Shift while dragging to drop snapping and detach. An alignment grid is drawn while frames are unlocked, and frames with a size of
+  their own (chat, minimap, unit frames, bags, micro menu, queue eye) resize from their bottom-right corner.
 - **Reset page** / **Reset all** — back to defaults with a confirmation.
 - **Profiles** page — per-character profiles, copy, reset, and export/import as a text string to share with friends.
 

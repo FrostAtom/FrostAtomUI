@@ -157,8 +157,7 @@ hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
 		return
 	end
 	tooltip:SetOwner(parent, "ANCHOR_NONE")
-	tooltip:ClearAllPoints()
-	tooltip:SetPoint(unpack(config.point))
+	ns.ApplyPoint(tooltip, "tooltip.point")
 end)
 
 Misc:RegisterMover(nil, "tooltip.point", "Tooltip", { size = { 220, 120 } })

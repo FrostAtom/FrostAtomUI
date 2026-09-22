@@ -72,19 +72,20 @@ Section(schema, "Battleground", "battleground", {
 Section(schema, "Solo queue", "soloQueue", {
 	{
 		path = "enabled",
-		label = "Minimap button",
+		label = "Queue button",
 		type = "toggle",
-		desc = "Join, leave and enter the solo queue from a button on the minimap.",
+		desc = "Join, leave and enter the solo queue from a button next to the queue eye.",
 	},
+	{ path = "point", label = "Position", type = "point" },
 	{ path = "buttonSize", label = "Button size", type = "number", min = 12, max = 40, step = 1 },
 	{
-		path = "buttonInset",
-		label = "Button inset",
+		path = "queuedSize",
+		label = "Button size in queue",
 		type = "number",
-		min = 0,
-		max = 20,
+		min = 12,
+		max = 60,
 		step = 1,
-		desc = "Distance from the bottom-right corner of the minimap.",
+		desc = "Button size while waiting in the queue or ready to enter.",
 	},
 	{
 		path = "glowColor",
@@ -96,7 +97,7 @@ Section(schema, "Solo queue", "soloQueue", {
 		path = "rangeFont",
 		label = "Search range font",
 		type = "font",
-		desc = "Rating range shown under the minimap while searching.",
+		desc = "Rating range shown under the button while searching.",
 	},
 	{
 		path = "teamSearchColor",

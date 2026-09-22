@@ -8,7 +8,6 @@ local UnitGUID = UnitGUID
 local UnitIsPlayer = UnitIsPlayer
 local UnitClass = UnitClass
 
-local FormatValue = ns.FormatValue
 local ColorGradient = ns.ColorGradient
 local classColors = UF.classBarColors
 local config = ns.Config.unitFrames
@@ -65,10 +64,13 @@ local function setAlive(health, setValue, current, max, class)
 		health.colorClass = nil
 		setColor(health, ColorGradient(current / max, unpack(GRADIENT)))
 	end
-	if health:GetParent().hovered and not health.compact then
-		health.text:SetFormattedText("%s / %s", FormatValue(current), FormatValue(max))
-	else
-		health.text:SetText(FormatValue(current))
+	local frame = health:GetParent()
+	UF.UpdateText(frame, health.text, "right")
+	if frame.name and UF.TagsUse(UF.TextTemplate(frame, frame.name, "left"), "health") then
+		UF.UpdateText(frame, frame.name, "left")
+	end
+	if frame.power and UF.TagsUse(UF.TextTemplate(frame, frame.power.text, "power"), "health") then
+		UF.UpdateText(frame, frame.power.text, "power")
 	end
 end
 

@@ -91,8 +91,7 @@ end
 local function applyConfig(self)
 	local config = ns.Config.experienceBar
 	holder:SetSize(config.width, config.height)
-	holder:ClearAllPoints()
-	holder:SetPoint(unpack(config.point))
+	ns.ApplyPoint(holder, "experienceBar.point")
 	bg:SetTexture(0, 0, 0, config.backgroundAlpha)
 	rested:SetStatusBarColor(unpack(config.restedColor))
 	self:Update()

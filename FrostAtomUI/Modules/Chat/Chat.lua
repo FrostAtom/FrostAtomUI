@@ -13,6 +13,7 @@ local date = date
 local find, match, gsub, format, lower, sub =
 	string.find, string.match, string.gsub, string.format, string.lower, string.sub
 local tconcat = table.concat
+local max = math.max
 
 local Chat = ns:NewModule("Chat")
 Chat.configKey = "chat"
@@ -53,10 +54,13 @@ local function applyClassColors()
 end
 
 local chatBackdrops = {}
+local dockRails = {}
+local tabs = {}
+local fader, tabFader
+local updateTabColors, chatInsets
 
 local function applyPosition()
-	ChatFrame1:ClearAllPoints()
-	ChatFrame1:SetPoint(unpack(config.point))
+	ns.ApplyPoint(ChatFrame1, "chat.point")
 	ChatFrame1:SetSize(config.width, config.height)
 end
 
@@ -67,6 +71,10 @@ local function applyFrameConfig()
 	for i = 1, #chatBackdrops do
 		chatBackdrops[i]:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 	end
+	for i = 1, #tabs do
+		updateTabColors(tabs[i])
+	end
+	fader:Configure(config.mouseover, config.fadeAlpha)
 	applyPosition()
 end
 
@@ -118,6 +126,18 @@ function Chat:Initialize()
 		lockChatFrames()
 	end
 	applyClassColors()
+	local function isTyping()
+		return ChatFrame1EditBox:IsShown()
+	end
+	local hover = { ChatFrame1, ChatFrame1EditBox }
+	for i = 1, #tabs do
+		hover[#hover + 1] = tabs[i]
+	end
+	fader = ns.CreateFader({ ChatFrame1 }, hover, isTyping)
+	if config.skin then
+		tabFader = ns.CreateFader(tabs, hover, isTyping, dockRails)
+		tabFader:Configure(true, 0)
+	end
 	applyFrameConfig()
 	for i = 1, #STICKY_TYPES do
 		local info = ChatTypeInfo[STICKY_TYPES[i]]
@@ -130,7 +150,22 @@ function Chat:Initialize()
 	self:WatchConfig("chat", applyClassColors)
 	self:WatchConfig("chat", applyFrameConfig)
 	self:WatchConfig("chat.stickyChannels", applySticky)
-	self:RegisterMover(ChatFrame1, "chat.point", "Chat")
+	self:RegisterMover(ChatFrame1, "chat.point", "Chat", {
+		insets = chatInsets,
+		resize = {
+			minWidth = 200,
+			maxWidth = 1200,
+			minHeight = 60,
+			maxHeight = 800,
+			get = function()
+				return config.width, config.height
+			end,
+			set = function(width, height)
+				ns:SetConfig("chat.width", width)
+				ns:SetConfig("chat.height", height)
+			end,
+		},
+	})
 end
 
 local function groupChatType()
@@ -609,6 +644,26 @@ end
 
 local BACKDROP = ns.CreateBackdrop(14, 3)
 local FRIENDS_ICON = [[Interface\FriendsFrame\UI-Toast-FriendOnlineIcon]]
+local TAB_HEIGHT = 21
+local TAB_INACTIVE_ALPHA = 0.45
+local TAB_ACTIVE_COLOR = { 1, 1, 1 }
+local TAB_INACTIVE_COLOR = { 0.55, 0.55, 0.55 }
+local PANEL_INSET = 6
+local BORDER_BAND = BACKDROP.edgeSize
+local MIN_FONT_SIZE = 8
+local MAX_FONT_SIZE = 24
+
+function chatInsets()
+	if not config.skin then
+		return 0, 0, 0, 0
+	end
+	local tab = ChatFrame1Tab
+	local top = 0
+	if tab:IsShown() and tab:GetBottom() and ChatFrame1:GetTop() then
+		top = max(tab:GetBottom() + TAB_HEIGHT - ChatFrame1:GetTop(), 0)
+	end
+	return PANEL_INSET, PANEL_INSET, top, PANEL_INSET
+end
 
 local function hideRegions(prefix, ...)
 	for i = 1, select("#", ...) do
@@ -627,6 +682,116 @@ local function addBackdrop(parent, inset)
 	return backdrop
 end
 
+local function createClipped(parent, level)
+	local clip = CreateFrame("ScrollFrame", nil, parent)
+	clip:SetFrameLevel(level > 0 and level or 0)
+	local backdrop = CreateFrame("Frame", nil, clip)
+	backdrop:SetBackdrop(BACKDROP)
+	backdrop:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
+	clip:SetScrollChild(backdrop)
+	clip.backdrop = backdrop
+	chatBackdrops[#chatBackdrops + 1] = backdrop
+	return clip
+end
+
+local function layoutPanel(clip)
+	local width, height = clip:GetWidth(), clip:GetHeight()
+	if width < 1 or height < 1 then
+		return
+	end
+	clip.backdrop:SetSize(width, height + BORDER_BAND)
+	clip:SetVerticalScroll(BORDER_BAND)
+end
+
+local function layoutRail(clip)
+	local width = clip:GetWidth()
+	if width < 1 then
+		return
+	end
+	clip.backdrop:SetSize(width + BORDER_BAND, BORDER_BAND * 3)
+	clip:SetHorizontalScroll(clip.clipLeft and BORDER_BAND or 0)
+end
+
+local function edgeTabs(chatFrame)
+	local docked = FCFDock_GetChatFrames(GeneralDockManager)
+	local own = _G[chatFrame:GetName() .. "Tab"]
+	local first, last
+	for i = 1, #docked do
+		if docked[i] == chatFrame then
+			for j = 1, #docked do
+				local tab = _G[docked[j]:GetName() .. "Tab"]
+				if tab:IsShown() then
+					if not first or tab:GetLeft() < first:GetLeft() then
+						first = tab
+					end
+					if not last or tab:GetRight() > last:GetRight() then
+						last = tab
+					end
+				end
+			end
+			return first, last
+		end
+	end
+	if own:IsShown() then
+		return own, own
+	end
+end
+
+local function updateRail(chatFrame)
+	local rail, dockRail = chatFrame.rail, chatFrame.dockRail
+	if not rail then
+		return
+	end
+	local first, last = edgeTabs(chatFrame)
+	for i = 1, #tabs do
+		local tab = tabs[i]
+		tab.clip:SetPoint("TOPLEFT", tab == first and -PANEL_INSET or 0, -(tab:GetHeight() - TAB_HEIGHT))
+	end
+	rail:ClearAllPoints()
+	rail:SetHeight(BORDER_BAND)
+	rail:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", PANEL_INSET, BORDER_BAND)
+	rail.clipLeft = last ~= nil
+	if last then
+		rail:SetPoint("LEFT", last, "RIGHT")
+		dockRail:ClearAllPoints()
+		dockRail:SetHeight(BORDER_BAND)
+		dockRail:SetPoint("TOPLEFT", chatFrame, "TOPLEFT", -PANEL_INSET, BORDER_BAND)
+		dockRail:SetPoint("RIGHT", last, "RIGHT")
+		dockRail:Show()
+	else
+		rail:SetPoint("LEFT", chatFrame, "LEFT", -PANEL_INSET, 0)
+		dockRail:Hide()
+	end
+	layoutRail(rail)
+	layoutRail(dockRail)
+end
+
+local function updateRails()
+	for i = 1, NUM_CHAT_WINDOWS do
+		updateRail(_G["ChatFrame" .. i])
+	end
+end
+
+function updateTabColors(tab, selected)
+	if not tab.backdrop then
+		return
+	end
+	if selected == nil then
+		selected = SELECTED_DOCK_FRAME == tab.chatFrame
+	end
+	tab.backdrop:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
+	tab.backdrop:SetBackdropBorderColor(1, 1, 1, selected and 1 or TAB_INACTIVE_ALPHA)
+	tab:GetFontString():SetTextColor(unpack(selected and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR))
+end
+
+local function layoutTab(tab)
+	local width, height = tab.clip:GetWidth(), tab.clip:GetHeight()
+	if width < 1 or height < 1 then
+		return
+	end
+	tab.backdrop:SetSize(width, height + BORDER_BAND)
+end
+
 local function setupTab(name)
 	local tab = _G[name]
 
@@ -636,9 +801,29 @@ local function setupTab(name)
 	tab.middleSelectedTexture:SetAlpha(0)
 	tab.leftHighlightTexture:SetTexture(nil)
 	tab.rightHighlightTexture:SetTexture(nil)
-	tab.middleHighlightTexture:SetTexture([[BUTTONS\CheckButtonGlow]])
-	tab.middleHighlightTexture:SetWidth(76)
-	tab.middleHighlightTexture:SetTexCoord(0, 0, 1, 0.5)
+	tab.middleHighlightTexture:SetTexture(nil)
+
+	tab.chatFrame = _G[name:gsub("Tab$", "")]
+
+	local clip = createClipped(tab, tab:GetFrameLevel() - 1)
+	clip:SetPoint("TOPLEFT", 0, -(tab:GetHeight() - TAB_HEIGHT))
+	clip:SetPoint("RIGHT")
+	clip:SetPoint("BOTTOM", tab.chatFrame.panel, "TOP")
+
+	tab.clip, tab.backdrop = clip, clip.backdrop
+	layoutTab(tab)
+	tab:HookScript("OnSizeChanged", updateRails)
+	clip:SetScript("OnSizeChanged", function()
+		layoutTab(tab)
+	end)
+
+	local highlight = tab:CreateTexture(nil, "HIGHLIGHT")
+	highlight:SetTexture(1, 1, 1, 0.08)
+	highlight:SetPoint("TOPLEFT", clip, "TOPLEFT")
+	highlight:SetPoint("BOTTOMRIGHT", clip, "BOTTOMRIGHT")
+
+	tabs[#tabs + 1] = tab
+	updateTabColors(tab)
 end
 
 local function setupEditBox(name, chatFrame)
@@ -703,13 +888,33 @@ local function skinChatFrame(name)
 		"BottomLeftTexture",
 		"BottomRightTexture"
 	)
-	addBackdrop(chatFrame, 6)
+
+	local level = chatFrame:GetFrameLevel() - 1
+	local panel = createClipped(chatFrame, level)
+	panel:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", PANEL_INSET, 0)
+	panel:SetPoint("BOTTOMLEFT", chatFrame, "BOTTOMLEFT", -PANEL_INSET, -PANEL_INSET)
+	panel:SetScript("OnSizeChanged", layoutPanel)
+	layoutPanel(panel)
+
+	local rail = createClipped(chatFrame, level)
+	rail:SetScript("OnSizeChanged", layoutRail)
+
+	local dockRail = createClipped(chatFrame, level)
+	dockRail:SetScript("OnSizeChanged", layoutRail)
+	dockRails[#dockRails + 1] = dockRail
+
+	chatFrame.panel, chatFrame.rail, chatFrame.dockRail = panel, rail, dockRail
+	updateRail(chatFrame)
 end
 
 function Chat:HookMessages()
 	CombatLog_LoadUI = ns.noop
 	Blizzard_CombatLog_Update_QuickButtons = ns.noop
 	ChatConfigFrame:SetScript("OnShow", nil)
+	wipe(CHAT_FONT_HEIGHTS)
+	for size = MIN_FONT_SIZE, MAX_FONT_SIZE do
+		CHAT_FONT_HEIGHTS[#CHAT_FONT_HEIGHTS + 1] = size
+	end
 	self:RegisterEvent("UI_ERROR_MESSAGE", onErrorMessage)
 	hooksecurefunc("ChatEdit_OnSpacePressed", onSpacePressed)
 	hooksecurefunc("ChatEdit_UpdateHeader", onUpdateHeader)
@@ -778,4 +983,7 @@ function Chat:Skin()
 		setupTab(name .. "Tab")
 		setupEditBox(name .. "EditBox", _G[name])
 	end
+	hooksecurefunc("FCFTab_UpdateColors", updateTabColors)
+	hooksecurefunc("FCFDock_UpdateTabs", updateRails)
+	updateRails()
 end

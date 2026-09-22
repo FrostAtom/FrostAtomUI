@@ -21,6 +21,11 @@ local PULSE_MIN_ALPHA = 0.35
 local TOOLTIP_REFRESH_INTERVAL = 0.5
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 2.2
+local BACKGROUND_TEXTURE = "Interface\\Minimap\\UI-Minimap-Background"
+local BORDER_TEXTURE = "Interface\\Minimap\\MiniMap-TrackingBorder"
+local BORDER_SCALE = 52 / 33
+local BORDER_INSET = 1 / 33
+local ICON_SCALE = 0.62
 local QUEUE_ICON = "Interface\\GossipFrame\\BattleMasterGossipIcon"
 local LEAVE_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
 
@@ -31,15 +36,22 @@ local STATES = {
 	arena = { icon = LEAVE_ICON, tooltip = LEAVE_ARENA },
 }
 
-local button = CreateFrame("Button", nil, Minimap)
+local button = CreateFrame("Button", nil, UIParent)
 button:Hide()
 button:RegisterForClicks("LeftButtonUp")
 
+button.background = button:CreateTexture(nil, "BACKGROUND")
+button.background:SetTexture(BACKGROUND_TEXTURE)
+button.background:SetAllPoints()
+
 button.icon = button:CreateTexture(nil, "BORDER")
-button.icon:SetAllPoints()
+button.icon:SetPoint("CENTER")
+
+button.border = button:CreateTexture(nil, "ARTWORK")
+button.border:SetTexture(BORDER_TEXTURE)
 
 button.highlight = button:CreateTexture(nil, "HIGHLIGHT")
-button.highlight:SetAllPoints()
+button.highlight:SetPoint("CENTER")
 button.highlight:SetBlendMode("ADD")
 
 button.glow = button:CreateTexture(nil, "OVERLAY")
@@ -94,6 +106,18 @@ local function refreshRange()
 	end
 end
 
+local function applySize()
+	local config = ns.Config.soloQueue
+	local size = (button.state == "queued" or button.state == "enter") and config.queuedSize or config.buttonSize
+	button:SetSize(size, size)
+	button.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
+	button.icon:SetSize(size * ICON_SCALE, size * ICON_SCALE)
+	button.highlight:SetSize(size * ICON_SCALE, size * ICON_SCALE)
+	button.border:SetSize(size * BORDER_SCALE, size * BORDER_SCALE)
+	button.border:ClearAllPoints()
+	button.border:SetPoint("TOPLEFT", size * BORDER_INSET, -size * BORDER_INSET)
+end
+
 local function setState(state, queueIndex)
 	if state ~= "queued" then
 		searchRange = nil
@@ -107,6 +131,7 @@ local function setState(state, queueIndex)
 	end
 
 	local info = STATES[state]
+	applySize()
 	button.icon:SetTexture(info.icon)
 	button.icon:SetAlpha(1)
 	button.highlight:SetTexture(info.icon)
@@ -183,20 +208,22 @@ end)
 local function applyConfig()
 	local config = ns.Config.soloQueue
 	local font = config.rangeFont
-	local size, inset = config.buttonSize, config.buttonInset
 	ns.SetFont(range, font.size, font.outline, true)
-	button:SetSize(size, size)
-	button:ClearAllPoints()
-	button:SetPoint("BOTTOMRIGHT", -inset, inset)
-	button.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
+	ns.ApplyPoint(button, "soloQueue.point")
 	button.glow:SetVertexColor(unpack(config.glowColor))
 	range:ClearAllPoints()
-	range:SetPoint("TOPRIGHT", Minimap, "BOTTOMRIGHT", -inset, -RANGE_OFFSET)
+	range:SetPoint("TOP", button, "BOTTOM", 0, -RANGE_OFFSET)
 	update()
 end
 
 applyConfig()
 Misc:WatchConfig("soloQueue", applyConfig)
+Misc:RegisterMover(button, "soloQueue.point", "Solo queue", {
+	size = function()
+		local config = ns.Config.soloQueue
+		return config.buttonSize, config.buttonSize
+	end,
+})
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", update)
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", update)
 

@@ -140,7 +140,7 @@ local function setupPagedButton(button, index)
 	button:SetAttribute("_childupdate-page", PAGE_CHANGED_SNIPPET)
 end
 
-local function layoutBar(bar, barConfig, count)
+local function layoutBar(bar, barConfig, count, path)
 	local size, gap = barConfig.buttonSize, config.gap
 	local slot = size + gap
 	local columns = max(min(barConfig.columns, count), 1)
@@ -163,8 +163,7 @@ local function layoutBar(bar, barConfig, count)
 	end
 
 	bar:SetSize(columns * slot - gap, rows * slot - gap)
-	bar:ClearAllPoints()
-	bar:SetPoint(unpack(barConfig.point))
+	ns.ApplyPoint(bar, path)
 	if barConfig.enabled ~= nil then
 		if barConfig.enabled then
 			bar:Show()
@@ -176,13 +175,14 @@ end
 
 function ActionBar:LayoutBar(key)
 	local barConfig = config[key]
+	local path = "actionBar." .. key .. ".point"
 	if key == "pet" then
-		layoutBar(self.petBar, barConfig, #self.petButtons)
+		layoutBar(self.petBar, barConfig, #self.petButtons, path)
 	elseif key == "stance" then
-		layoutBar(self.stanceBar, barConfig, GetNumShapeshiftForms())
+		layoutBar(self.stanceBar, barConfig, GetNumShapeshiftForms(), path)
 	else
 		local bar = self.bars[tonumber(key:match("%d+"))]
-		layoutBar(bar, barConfig, barConfig.buttons)
+		layoutBar(bar, barConfig, barConfig.buttons, path)
 	end
 end
 

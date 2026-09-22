@@ -14,7 +14,7 @@ local UF = ns:GetModule("UnitFrames")
 local OFFHAND_SLOT = 17
 
 local icon = CreateFrame("Frame", nil, UIParent)
-Misc:AnchorToConfig(icon, "shieldIndicator.point", nil, "Shield indicator")
+Misc:AnchorToConfig(icon, "shieldIndicator.point", "Shield indicator")
 icon:Hide()
 
 local texture = icon:CreateTexture(nil, "BORDER")

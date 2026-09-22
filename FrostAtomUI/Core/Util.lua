@@ -121,6 +121,87 @@ function ns.SmoothBar(bar)
 	return bar
 end
 
+local FADE_INTERVAL = 0.05
+local FADE_IN_SPEED = 6
+local FADE_OUT_SPEED = 2.5
+local FADE_EPSILON = 0.01
+
+local faders = {}
+local FaderMixin = {}
+
+local function anyMouseOver(frames)
+	for i = 1, #frames do
+		local frame = frames[i]
+		if frame:IsVisible() and frame:IsMouseOver() then
+			return true
+		end
+	end
+	return false
+end
+
+function FaderMixin:SetAlpha(alpha)
+	self.current = alpha
+	for i = 1, #self.frames do
+		self.frames[i]:SetAlpha(alpha)
+	end
+	for i = 1, #self.inverse do
+		self.inverse[i]:SetAlpha(1 - alpha)
+	end
+end
+
+function FaderMixin:Update(elapsed)
+	local awake = not self.enabled or anyMouseOver(self.hover) or (self.isActive and self.isActive())
+	local target = awake and 1 or self.alpha
+	if abs(target - self.current) < FADE_EPSILON then
+		self:SetAlpha(target)
+		return
+	end
+	local speed = target > self.current and FADE_IN_SPEED or FADE_OUT_SPEED
+	self:SetAlpha(self.current + (target - self.current) * min(elapsed * speed, 1))
+end
+
+function FaderMixin:Configure(enabled, alpha)
+	self.enabled = enabled and true or false
+	self.alpha = alpha or 0
+	if not self.enabled then
+		self:SetAlpha(1)
+	end
+end
+
+function ns.CreateFader(frames, hover, isActive, inverse)
+	local fader = ns.Mixin({
+		frames = frames,
+		hover = hover or frames,
+		isActive = isActive,
+		inverse = inverse or {},
+		enabled = false,
+		alpha = 0,
+		current = 1,
+	}, FaderMixin)
+	faders[#faders + 1] = fader
+	return fader
+end
+
+local untilNextFade = 0
+
+local fadeRunner = CreateFrame("Frame")
+
+fadeRunner:SetScript("OnUpdate", function(_, elapsed)
+	untilNextFade = untilNextFade - elapsed
+	if untilNextFade > 0 then
+		return
+	end
+	elapsed = FADE_INTERVAL - untilNextFade
+	untilNextFade = FADE_INTERVAL
+
+	for i = 1, #faders do
+		local fader = faders[i]
+		if fader.enabled or fader.current ~= 1 then
+			fader:Update(elapsed)
+		end
+	end
+end)
+
 function ns.PixelPerfect(size)
 	return size * (2 - UIParent:GetEffectiveScale())
 end
