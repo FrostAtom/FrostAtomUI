@@ -191,5 +191,6 @@ SlashCmdList.FROSTATOMUI_NODM = function(args)
 		return
 	end
 	ns:SetConfig("chat.whisperBlock.enabled", state)
+	applyConfig()
 end
 SLASH_FROSTATOMUI_NODM1 = "/nodm"
