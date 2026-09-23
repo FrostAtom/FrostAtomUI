@@ -18,6 +18,7 @@ local DISPEL_TYPES = {
 }
 
 local canDispel = DISPEL_TYPES[ns.PLAYER_CLASS]
+UF.canDispel = canDispel
 
 local function firstDispellable(unit)
 	local auras, count = Auras.Get(unit, "HARMFUL")

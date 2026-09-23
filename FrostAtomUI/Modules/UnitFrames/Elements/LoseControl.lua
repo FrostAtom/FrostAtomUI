@@ -25,9 +25,11 @@ local CC_SPELL_IDS = {
 	63024, 63018, 62589, 63276, 66770, 48792,
 }
 
+local TIMER_FONT_SIZE = 10
+
 local CC_SPELL_NAMES = {}
-for _, spellId in ipairs(CC_SPELL_IDS) do
-	local name = GetSpellInfo(spellId)
+for i = 1, #CC_SPELL_IDS do
+	local name = GetSpellInfo(CC_SPELL_IDS[i])
 	if name then
 		CC_SPELL_NAMES[name] = true
 	end
@@ -78,10 +80,10 @@ local function test(frame)
 	show(loseControl, texture, GetTime() - random(0, duration - 2), duration)
 end
 
-local function create(frame, fontSize)
+local function create(frame)
 	local loseControl = CreateFrame("Cooldown", nil, frame)
 	loseControl:SetReverse(true)
-	CooldownTimer:Attach(loseControl, fontSize or 10)
+	CooldownTimer:Attach(loseControl, TIMER_FONT_SIZE)
 
 	loseControl.texture = loseControl:CreateTexture(nil, "BORDER")
 	UF.SkinIcon(loseControl, loseControl.texture)

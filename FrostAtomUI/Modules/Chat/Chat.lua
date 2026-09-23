@@ -11,10 +11,11 @@ local StaticPopup_Show = StaticPopup_Show
 local GameTooltip = GameTooltip
 local IsInInstance = IsInInstance
 local GetTime = GetTime
+local GetBattlefieldWinner = GetBattlefieldWinner
 local date = date
 local find, match, gsub, format, lower, sub =
 	string.find, string.match, string.gsub, string.format, string.lower, string.sub
-local tconcat = table.concat
+local tconcat, sort = table.concat, table.sort
 local max = math.max
 
 local Chat = ns:NewModule("Chat")
@@ -38,6 +39,15 @@ local STICKY_TYPES = {
 
 local blizzardSticky = {}
 
+local function captureBlizzardSticky()
+	for i = 1, #STICKY_TYPES do
+		local info = ChatTypeInfo[STICKY_TYPES[i]]
+		if info then
+			blizzardSticky[STICKY_TYPES[i]] = info.sticky
+		end
+	end
+end
+
 local function applySticky()
 	for i = 1, #STICKY_TYPES do
 		local info = ChatTypeInfo[STICKY_TYPES[i]]
@@ -58,7 +68,7 @@ end
 local chatBackdrops = {}
 local dockRails = {}
 local tabs = {}
-local fader, tabFader
+local fader
 local updateTabColors, chatInsets
 
 local function applyPosition()
@@ -139,16 +149,10 @@ function Chat:Initialize()
 	end
 	fader = ns.CreateFader({ ChatFrame1 }, hover, isTyping)
 	if config.skin then
-		tabFader = ns.CreateFader(tabs, hover, isTyping, dockRails)
-		tabFader:Configure(true, 0)
+		ns.CreateFader(tabs, hover, isTyping, dockRails):Configure(true, 0)
 	end
 	applyFrameConfig()
-	for i = 1, #STICKY_TYPES do
-		local info = ChatTypeInfo[STICKY_TYPES[i]]
-		if info then
-			blizzardSticky[STICKY_TYPES[i]] = info.sticky
-		end
-	end
+	captureBlizzardSticky()
 	applySticky()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", applyClassColors)
 	self:WatchConfig("chat", applyClassColors)
@@ -192,8 +196,7 @@ end
 SLASH_FROSTATOMUI_GROUP1 = "/gr"
 
 SlashCmdList.FROSTATOMUI_CLEAR = function()
-	local chatFrame = SELECTED_DOCK_FRAME or ChatFrame1
-	chatFrame:Clear()
+	(SELECTED_DOCK_FRAME or ChatFrame1):Clear()
 end
 SLASH_FROSTATOMUI_CLEAR1 = "/clear"
 
@@ -254,39 +257,113 @@ local function formatToPattern(text)
 	return "^" .. gsub(gsub(text, "[%(%)%.%%%+%-%*%?%[%]%^%$]", "%%%0"), "%%%%[sd]", "(.-)") .. "$"
 end
 
-local ARENA_SPAM = {
-	formatToPattern(ERR_SET_LOOT_FREEFORALL),
-	formatToPattern(ERR_SET_LOOT_GROUP),
-	formatToPattern(ERR_SET_LOOT_MASTER),
-	formatToPattern(ERR_SET_LOOT_ROUNDROBIN),
-	formatToPattern(ERR_SET_LOOT_THRESHOLD_S),
-	formatToPattern(ERR_RAID_YOU_JOINED),
-	formatToPattern(ERR_RAID_YOU_LEFT),
+local function withOptionalPeriod(pattern)
+	return sub(pattern, 1, -2) .. "%.?$"
+end
+
+local BG_JOINED = {
+	withOptionalPeriod(formatToPattern(ERR_BG_PLAYER_JOINED_SS)),
+	withOptionalPeriod(formatToPattern((gsub(ERR_BG_PLAYER_JOINED_SS, "|H.-|h.-|h", "%%s", 1)))),
 	formatToPattern(ERR_RAID_MEMBER_ADDED_S),
+}
+local BG_LEFT = {
+	withOptionalPeriod(formatToPattern(ERR_BG_PLAYER_LEFT_S)),
 	formatToPattern(ERR_RAID_MEMBER_REMOVED_S),
-	formatToPattern(ERR_BG_PLAYER_LEFT_S),
-	formatToPattern(ERR_PLAYER_DIED_S),
-	formatToPattern(ERR_LEFT_GROUP_S),
-	formatToPattern(ERR_NEW_LEADER_YOU),
-	formatToPattern(ERR_NEW_LEADER_S),
-	"^%S+ has joined the battle%.?$",
-	"^One minute until the Arena battle begins!$",
-	"^Thirty seconds until the Arena battle begins!$",
-	"^Fifteen seconds until the Arena battle begins!$",
-	"^The Arena battle has begun!$",
-	"^Speeding up the battle start! Players ready: %d+%.$",
-	"^You are in Spectator Mode%. ",
-	"^The %a+ Team wins!$",
 }
 
+local function appendFormatPatterns(patterns, ...)
+	for i = 1, select("#", ...) do
+		patterns[#patterns + 1] = formatToPattern((select(i, ...)))
+	end
+	return patterns
+end
+
+local ARENA_SPAM = appendFormatPatterns(
+	{
+		BG_JOINED[1],
+		BG_JOINED[2],
+		"^One minute until the Arena battle begins!$",
+		"^Thirty seconds until the Arena battle begins!$",
+		"^Fifteen seconds until the Arena battle begins!$",
+		"^The Arena battle has begun!$",
+		"^Speeding up the battle start! Players ready: %d+%.$",
+		"^You are in Spectator Mode%. ",
+		"^The %a+ Team wins!$",
+	},
+	ERR_SET_LOOT_FREEFORALL,
+	ERR_SET_LOOT_GROUP,
+	ERR_SET_LOOT_MASTER,
+	ERR_SET_LOOT_ROUNDROBIN,
+	ERR_SET_LOOT_THRESHOLD_S,
+	ERR_RAID_YOU_JOINED,
+	ERR_RAID_YOU_LEFT,
+	ERR_RAID_MEMBER_ADDED_S,
+	ERR_RAID_MEMBER_REMOVED_S,
+	ERR_BG_PLAYER_LEFT_S,
+	ERR_PLAYER_DIED_S,
+	ERR_LEFT_GROUP_S,
+	ERR_NEW_LEADER_YOU,
+	ERR_NEW_LEADER_S
+)
+
+local BG_BATCH_DURATION = 60
+local BG_BATCH_INTERVAL = 5
+local BG_BATCH_TICKER = "FrostAtomUI_ChatBgBatch"
+local ARENA_SPAM_AFTER_LEAVE = 10
+
 local wasInArena, arenaLeftAt = false, 0
+local inBattleground, bgBatchUntil = false, 0
+local bgJoined, bgLeft, bgNames = {}, {}, {}
+
+local function printBgBatch(players, one, few, many)
+	if not next(players) then
+		return
+	end
+	wipe(bgNames)
+	for name in pairs(players) do
+		bgNames[#bgNames + 1] = name
+	end
+	wipe(players)
+	sort(bgNames)
+	local count = #bgNames
+	local text
+	if count == 1 then
+		text = format(one, bgNames[1])
+	elseif count <= 3 then
+		text = format(few, count, tconcat(bgNames, PLAYER_LIST_DELIMITER))
+	else
+		text = format(many, count)
+	end
+	local info = ChatTypeInfo.SYSTEM
+	DEFAULT_CHAT_FRAME:AddMessage(text, info.r, info.g, info.b, info.id)
+end
+
+local function flushBgBatch(_, now)
+	printBgBatch(bgLeft, ERR_PLAYER_LEFT_BATTLE_D, ERR_PLAYERLIST_LEFT_BATTLE, ERR_PLAYERS_LEFT_BATTLE_D)
+	printBgBatch(bgJoined, ERR_PLAYER_JOINED_BATTLE_D, ERR_PLAYERLIST_JOINED_BATTLE, ERR_PLAYERS_JOINED_BATTLE_D)
+	if now >= bgBatchUntil then
+		ns.Scheduler.RemoveTicker(BG_BATCH_TICKER)
+	end
+end
 
 Chat:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-	local inArena = select(2, IsInInstance()) == "arena"
+	local _, instanceType = IsInInstance()
+	local inArena = instanceType == "arena"
 	if wasInArena and not inArena then
 		arenaLeftAt = GetTime()
 	end
 	wasInArena = inArena
+
+	inBattleground = instanceType == "pvp"
+	wipe(bgJoined)
+	wipe(bgLeft)
+	if inBattleground and config.enabled and config.batchBattlegroundJoins then
+		bgBatchUntil = GetTime() + BG_BATCH_DURATION
+		ns.Scheduler.AddTicker(BG_BATCH_TICKER, flushBgBatch, BG_BATCH_INTERVAL)
+	else
+		bgBatchUntil = 0
+		ns.Scheduler.RemoveTicker(BG_BATCH_TICKER)
+	end
 end)
 
 local function matchesAny(message, patterns)
@@ -298,8 +375,40 @@ local function matchesAny(message, patterns)
 	return false
 end
 
+local function matchPlayer(message, patterns)
+	for i = 1, #patterns do
+		local name = match(message, patterns[i])
+		if name then
+			return match(name, "^[^%-]+") or name
+		end
+	end
+end
+
+local function isBattlegroundJoinLeave(message)
+	if not inBattleground or not config.batchBattlegroundJoins then
+		return false
+	end
+	if GetBattlefieldWinner() then
+		return matchPlayer(message, BG_LEFT) ~= nil
+	end
+	if GetTime() >= bgBatchUntil then
+		return false
+	end
+	local name = matchPlayer(message, BG_JOINED)
+	if name then
+		bgJoined[name] = true
+		return true
+	end
+	name = matchPlayer(message, BG_LEFT)
+	if name then
+		bgLeft[name] = true
+		return true
+	end
+	return false
+end
+
 local function isArenaSpam(message)
-	if not config.filterArenaSpam or (not wasInArena and GetTime() - arenaLeftAt > 10) then
+	if not config.filterArenaSpam or (not wasInArena and GetTime() - arenaLeftAt > ARENA_SPAM_AFTER_LEAVE) then
 		return false
 	end
 	return matchesAny(message, ARENA_SPAM)
@@ -377,9 +486,16 @@ local function filterQueueSpam(message)
 	end
 end
 
+local function isServerSpam(message)
+	return ns.IS_WOWCIRCLE and config.filterSystemSpam and matchesAny(message, SYSTEM_SPAM)
+end
+
 local function filterSystem(_, _, message, ...)
-	if (config.filterSystemSpam and matchesAny(message, SYSTEM_SPAM)) or isArenaSpam(message) then
+	if isServerSpam(message) or isArenaSpam(message) or isBattlegroundJoinLeave(message) then
 		return true
+	end
+	if not ns.IS_WOWCIRCLE then
+		return
 	end
 
 	local filtered, newMessage = filterQueueSpam(message)
@@ -425,7 +541,12 @@ local function applyChannelGets()
 	end
 end
 
-local TIMESTAMP_COLOR = "|cff7f7f7f"
+local timestampColor = "|cff7f7f7f"
+
+local function applyTimestampColor()
+	local color = config.timestampColor
+	timestampColor = format("|cff%02x%02x%02x", color[1] * 255 + 0.5, color[2] * 255 + 0.5, color[3] * 255 + 0.5)
+end
 
 local function shortenChannelName(text)
 	if not config.shortChannelNames then
@@ -542,6 +663,14 @@ ns.OnLocaleReady(function()
 	StaticPopupDialogs.FROSTATOMUI_COPY_URL.text = L["Ctrl+C to copy"]
 end)
 
+function ns.ShowCopyPopup(text)
+	local popup = StaticPopup_Show("FROSTATOMUI_COPY_URL")
+	if popup then
+		popup.url = text
+		focusEditBoxText(popup, text)
+	end
+end
+
 local blizzardSetItemRef
 
 local function setItemRef(link, ...)
@@ -549,12 +678,7 @@ local function setItemRef(link, ...)
 	if not url then
 		return blizzardSetItemRef(link, ...)
 	end
-
-	local popup = StaticPopup_Show("FROSTATOMUI_COPY_URL")
-	if popup then
-		popup.url = url
-		focusEditBoxText(popup, url)
-	end
+	ns.ShowCopyPopup(url)
 end
 
 local maxLines = 1000
@@ -605,7 +729,7 @@ local function hookAddMessage(chatFrame)
 		if type(text) == "string" then
 			text = linkUrls(stripRealm(shortenChannelName(text)))
 			if config.timestamps then
-				text = TIMESTAMP_COLOR .. date(config.timestampFormat) .. "|r " .. text
+				text = timestampColor .. date(config.timestampFormat) .. "|r " .. text
 			end
 			storeLine(self, text, r, g, b)
 		end
@@ -701,13 +825,19 @@ local function createClipped(parent, level)
 	return clip
 end
 
-local function layoutPanel(clip)
+local function fitClippedBackdrop(clip)
 	local width, height = clip:GetWidth(), clip:GetHeight()
 	if width < 1 or height < 1 then
-		return
+		return false
 	end
 	clip.backdrop:SetSize(width, height + BORDER_BAND)
-	clip:SetVerticalScroll(BORDER_BAND)
+	return true
+end
+
+local function layoutPanel(clip)
+	if fitClippedBackdrop(clip) then
+		clip:SetVerticalScroll(BORDER_BAND)
+	end
 end
 
 local function layoutRail(clip)
@@ -721,27 +851,26 @@ end
 
 local function edgeTabs(chatFrame)
 	local docked = FCFDock_GetChatFrames(GeneralDockManager)
-	local own = _G[chatFrame:GetName() .. "Tab"]
+	if not ns.tContains(docked, chatFrame) then
+		local own = _G[chatFrame:GetName() .. "Tab"]
+		if own:IsShown() then
+			return own, own
+		end
+		return
+	end
 	local first, last
 	for i = 1, #docked do
-		if docked[i] == chatFrame then
-			for j = 1, #docked do
-				local tab = _G[docked[j]:GetName() .. "Tab"]
-				if tab:IsShown() then
-					if not first or tab:GetLeft() < first:GetLeft() then
-						first = tab
-					end
-					if not last or tab:GetRight() > last:GetRight() then
-						last = tab
-					end
-				end
+		local tab = _G[docked[i]:GetName() .. "Tab"]
+		if tab:IsShown() then
+			if not first or tab:GetLeft() < first:GetLeft() then
+				first = tab
 			end
-			return first, last
+			if not last or tab:GetRight() > last:GetRight() then
+				last = tab
+			end
 		end
 	end
-	if own:IsShown() then
-		return own, own
-	end
+	return first, last
 end
 
 local function updateRail(chatFrame)
@@ -791,24 +920,17 @@ function updateTabColors(tab, selected)
 	tab:GetFontString():SetTextColor(unpack(selected and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR))
 end
 
-local function layoutTab(tab)
-	local width, height = tab.clip:GetWidth(), tab.clip:GetHeight()
-	if width < 1 or height < 1 then
-		return
-	end
-	tab.backdrop:SetSize(width, height + BORDER_BAND)
-end
+local TAB_TEXTURE_PARTS = { "left", "middle", "right" }
 
 local function setupTab(name)
 	local tab = _G[name]
 
 	hideRegions(name, "Left", "Middle", "Right")
-	tab.leftSelectedTexture:SetAlpha(0)
-	tab.rightSelectedTexture:SetAlpha(0)
-	tab.middleSelectedTexture:SetAlpha(0)
-	tab.leftHighlightTexture:SetTexture(nil)
-	tab.rightHighlightTexture:SetTexture(nil)
-	tab.middleHighlightTexture:SetTexture(nil)
+	for i = 1, #TAB_TEXTURE_PARTS do
+		local part = TAB_TEXTURE_PARTS[i]
+		tab[part .. "SelectedTexture"]:SetAlpha(0)
+		tab[part .. "HighlightTexture"]:SetTexture(nil)
+	end
 
 	tab.chatFrame = _G[name:gsub("Tab$", "")]
 
@@ -818,11 +940,9 @@ local function setupTab(name)
 	clip:SetPoint("BOTTOM", tab.chatFrame.panel, "TOP")
 
 	tab.clip, tab.backdrop = clip, clip.backdrop
-	layoutTab(tab)
+	fitClippedBackdrop(clip)
 	tab:HookScript("OnSizeChanged", updateRails)
-	clip:SetScript("OnSizeChanged", function()
-		layoutTab(tab)
-	end)
+	clip:SetScript("OnSizeChanged", fitClippedBackdrop)
 
 	local highlight = tab:CreateTexture(nil, "HIGHLIGHT")
 	highlight:SetTexture(1, 1, 1, 0.08)
@@ -833,6 +953,8 @@ local function setupTab(name)
 	updateTabColors(tab)
 end
 
+local EDIT_BOX_TEXTURE_PARTS = { "Left", "Right", "Mid" }
+
 local function setupEditBox(name, chatFrame)
 	local editBox = _G[name]
 	editBox:SetAltArrowKeyMode(false)
@@ -841,10 +963,10 @@ local function setupEditBox(name, chatFrame)
 	editBox:SetPoint("TOPLEFT", chatFrame, "BOTTOMLEFT", -6, -2)
 	editBox:SetPoint("TOPRIGHT", chatFrame, "BOTTOMRIGHT", 6, -2)
 
-	hideRegions(name, "Left", "Right", "Mid")
-	editBox.focusLeft:SetTexture(nil)
-	editBox.focusRight:SetTexture(nil)
-	editBox.focusMid:SetTexture(nil)
+	hideRegions(name, unpack(EDIT_BOX_TEXTURE_PARTS))
+	for i = 1, #EDIT_BOX_TEXTURE_PARTS do
+		editBox["focus" .. EDIT_BOX_TEXTURE_PARTS[i]]:SetTexture(nil)
+	end
 
 	local backdrop = addBackdrop(editBox, 0)
 	backdrop:SetPoint("TOPRIGHT", 0, -4)
@@ -875,8 +997,6 @@ end
 local function skinChatFrame(name)
 	local chatFrame = _G[name]
 	chatFrame:SetScript("OnUpdate", nil)
-	chatFrame:SetFading(config.fadeMessages)
-	chatFrame:SetTimeVisible(config.fadeTime)
 	chatFrame:SetShadowOffset(0, 0)
 	chatFrame:SetClampRectInsets(-7, -7, -7, -31)
 
@@ -932,6 +1052,8 @@ function Chat:HookMessages()
 	end
 	applyChannelGets()
 	self:WatchConfig("chat.shortChannelNames", applyChannelGets)
+	applyTimestampColor()
+	self:WatchConfig("chat.timestampColor", applyTimestampColor)
 
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", filterSystem)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_BG_SYSTEM_NEUTRAL", filterBgSystem)

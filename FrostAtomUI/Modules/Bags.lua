@@ -58,6 +58,7 @@ local SORT_ICON_CROP = 0.3
 local GLYPH_SIZE = 16
 local GLYPH_ALPHA = 0.6
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
+local GLOW_SCALE = 1.6
 local ARENA_POINTS_ICON = "Interface\\PVPFrame\\PVP-ArenaPoints-Icon"
 local HONOR_ICON = "Interface\\TargetingFrame\\UI-PVP-%s"
 local MIN_COLUMNS = 4
@@ -84,6 +85,19 @@ local atBank = false
 local autoOpened = false
 local inventory, bank
 local frames = {}
+
+local function frameWidth(columns)
+	return columns * (config.buttonSize + config.spacing) - config.spacing + config.padding * 2
+end
+
+local function frameHeight(rows)
+	return rows * (config.buttonSize + config.spacing)
+		- config.spacing
+		+ HEADER_HEIGHT
+		+ FOOTER_HEIGHT
+		+ ROW_GAP * 2
+		+ config.padding * 2
+end
 
 local function bagSize(bag)
 	if bag == BANK_CONTAINER then
@@ -367,7 +381,7 @@ function ContainerMixin:CreateItemButton(index)
 	glow:SetTexture(GLOW_TEXTURE)
 	glow:SetBlendMode("ADD")
 	glow:SetVertexColor(0.3, 1, 0.3, 0.8)
-	glow:SetSize(size * 1.6, size * 1.6)
+	glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
 	glow:SetPoint("CENTER")
 	glow:Hide()
 	button.glow = glow
@@ -496,7 +510,6 @@ end
 
 function ContainerMixin:Layout()
 	local buttonSize = config.buttonSize
-	local padding = config.padding
 	local step = buttonSize + config.spacing
 	local columns = config[self.columnsKey]
 	local bags, buttons, holders = self.bags, self.buttons, self.holders
@@ -517,7 +530,7 @@ function ContainerMixin:Layout()
 			button:SetParent(holder)
 			button:SetID(slot)
 			button:SetSize(buttonSize, buttonSize)
-			button.glow:SetSize(buttonSize * 1.6, buttonSize * 1.6)
+			button.glow:SetSize(buttonSize * GLOW_SCALE, buttonSize * GLOW_SCALE)
 			ns.SetFont(button.countText, config.countFont.size, config.countFont.outline)
 			ns.SetFont(button.level, config.levelFont.size, config.levelFont.outline)
 			button:ClearAllPoints()
@@ -532,10 +545,8 @@ function ContainerMixin:Layout()
 	end
 
 	local rows = ceil(index / columns)
-	local width = columns * step - config.spacing
-	local height = rows * step - config.spacing
-	self.itemArea:SetSize(width, height)
-	self:SetSize(width + padding * 2, height + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + padding * 2)
+	self.itemArea:SetSize(columns * step - config.spacing, rows * step - config.spacing)
+	self:SetSize(frameWidth(columns), frameHeight(rows))
 	self:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 	self:UpdateInfo()
 end
@@ -689,10 +700,10 @@ local function createGlyphButton(parent, texture, crop, onClick)
 	button:SetPushedTexture(texture)
 	button:GetPushedTexture():SetVertexColor(0.5, 0.5, 0.5)
 	if crop then
-		button:GetNormalTexture():SetTexCoord(crop, 1 - crop, crop, 1 - crop)
-		button:GetPushedTexture():SetTexCoord(crop, 1 - crop, crop, 1 - crop)
-		button:GetNormalTexture():SetDesaturated(true)
-		button:GetPushedTexture():SetDesaturated(true)
+		for _, region in ipairs({ button:GetNormalTexture(), button:GetPushedTexture() }) do
+			region:SetTexCoord(crop, 1 - crop, crop, 1 - crop)
+			region:SetDesaturated(true)
+		end
 	end
 	button:SetAlpha(GLYPH_ALPHA)
 	button:SetScript("OnEnter", onGlyphEnter)
@@ -714,9 +725,6 @@ local function createContainer(key, title, bags, columnsKey)
 	frame:EnableMouse(true)
 	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
 	frame:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
-	local function frameWidth(columns)
-		return columns * (config.buttonSize + config.spacing) - config.spacing + config.padding * 2
-	end
 
 	Bags:AnchorToConfig(frame, "bags." .. key, title, {
 		size = function()
@@ -725,10 +733,7 @@ local function createContainer(key, title, bags, columnsKey)
 			for i = 1, #bags do
 				slots = slots + bagSize(bags[i])
 			end
-			local rows = ceil(slots / columns)
-			local step = config.buttonSize + config.spacing
-			return frameWidth(columns),
-				rows * step - config.spacing + HEADER_HEIGHT + FOOTER_HEIGHT + ROW_GAP * 2 + config.padding * 2
+			return frameWidth(columns), frameHeight(ceil(slots / columns))
 		end,
 		resize = {
 			square = false,
@@ -834,13 +839,17 @@ function Bags:BAG_UPDATE(bag)
 	markDirty(bag)
 end
 
-function Bags:BAG_UPDATE_COOLDOWN()
+local function forEachShownFrame(method, arg)
 	for i = 1, #frames do
 		local frame = frames[i]
 		if frame:IsShown() then
-			frame:ForEachButton("UpdateCooldown")
+			frame[method](frame, arg)
 		end
 	end
+end
+
+function Bags:BAG_UPDATE_COOLDOWN()
+	forEachShownFrame("ForEachButton", "UpdateCooldown")
 end
 
 function Bags:ITEM_LOCK_CHANGED(bag, slot)
@@ -895,12 +904,7 @@ function Bags:BANKFRAME_CLOSED()
 end
 
 function Bags:PLAYER_MONEY()
-	for i = 1, #frames do
-		local frame = frames[i]
-		if frame:IsShown() then
-			frame:UpdateInfo()
-		end
-	end
+	forEachShownFrame("UpdateInfo")
 end
 
 local function questLogChanged()
@@ -979,12 +983,7 @@ function Bags:Initialize()
 	IsBagOpen = isBagOpen
 
 	self:WatchConfig("bags", function()
-		if inventory:IsShown() then
-			inventory:Layout()
-		end
-		if bank:IsShown() then
-			bank:Layout()
-		end
+		forEachShownFrame("Layout")
 	end)
 
 	self:RegisterEvent("CURRENCY_DISPLAY_UPDATE", updateCurrencies)
@@ -993,14 +992,18 @@ function Bags:Initialize()
 	BankFrame:UnregisterEvent("BANKFRAME_OPENED")
 	BankFrame:UnregisterEvent("BANKFRAME_CLOSED")
 
-	self:RegisterEvent("BAG_UPDATE")
-	self:RegisterEvent("BAG_UPDATE_COOLDOWN")
-	self:RegisterEvent("ITEM_LOCK_CHANGED")
-	self:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
-	self:RegisterEvent("PLAYERBANKBAGSLOTS_CHANGED")
-	self:RegisterEvent("BANKFRAME_OPENED")
-	self:RegisterEvent("BANKFRAME_CLOSED")
-	self:RegisterEvent("PLAYER_MONEY")
+	for _, event in ipairs({
+		"BAG_UPDATE",
+		"BAG_UPDATE_COOLDOWN",
+		"ITEM_LOCK_CHANGED",
+		"PLAYERBANKSLOTS_CHANGED",
+		"PLAYERBANKBAGSLOTS_CHANGED",
+		"BANKFRAME_OPENED",
+		"BANKFRAME_CLOSED",
+		"PLAYER_MONEY",
+	}) do
+		self:RegisterEvent(event)
+	end
 	self:RegisterEvent("QUEST_ACCEPTED", questLogChanged)
 	self:RegisterEvent("UNIT_QUEST_LOG_CHANGED", function(_, unit)
 		if unit == "player" then

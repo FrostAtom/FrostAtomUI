@@ -8,6 +8,7 @@ local Misc = ns:GetModule("Misc")
 
 local COUNTDOWN_MESSAGE = "Fifteen seconds until the Arena battle begins!"
 local COUNTDOWN_SECONDS = 15
+local COUNTDOWN_URGENT_SECONDS = 3
 
 local countdown = CreateFrame("Frame")
 countdown:Hide()
@@ -26,7 +27,7 @@ countdown:SetScript("OnUpdate", function(self, elapsed)
 	self.remain = self.remain - elapsed
 	if self.remain <= 0 then
 		self:Hide()
-	elseif self.remain <= 3 then
+	elseif self.remain <= COUNTDOWN_URGENT_SECONDS then
 		self.text:SetFormattedText("%.1f", self.remain)
 		self.text:SetTextColor(unpack(ns.Config.arena.countdownUrgentColor))
 	else

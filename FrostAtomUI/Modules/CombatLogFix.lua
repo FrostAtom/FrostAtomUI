@@ -1,8 +1,8 @@
-if not GetCVar("realmlist"):lower():find("circle") then
+local _, ns = ...
+
+if not ns.IS_WOWCIRCLE then
 	return
 end
-
-local _, ns = ...
 
 local CombatLogClearEntries = CombatLogClearEntries
 local IsInInstance = IsInInstance

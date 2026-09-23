@@ -1,10 +1,16 @@
 local _, ns = ...
 
+if not ns.IS_WOWCIRCLE then
+	return
+end
+
 local L = ns.L
 
 local IsInInstance = IsInInstance
 local GetBattlefieldStatus = GetBattlefieldStatus
 local GetBattlefieldTimeWaited = GetBattlefieldTimeWaited
+local GetBattlefieldEstimatedWaitTime = GetBattlefieldEstimatedWaitTime
+local SecondsToTime = SecondsToTime
 local AcceptBattlefieldPort = AcceptBattlefieldPort
 local LeaveBattlefield = LeaveBattlefield
 local SendChatMessage = SendChatMessage
@@ -12,6 +18,7 @@ local UnitName = UnitName
 local GameTooltip = GameTooltip
 local GetTime = GetTime
 local cos, pi, floor = math.cos, math.pi, math.floor
+local format = string.format
 local MAX_BATTLEFIELD_QUEUES = MAX_BATTLEFIELD_QUEUES or 2
 
 local Misc = ns:GetModule("Misc")
@@ -20,7 +27,7 @@ local JOIN_COMMAND = ".soloq join"
 local RANGE_OFFSET = 8
 local PULSE_PERIOD = 1.6
 local PULSE_MIN_ALPHA = 0.35
-local TOOLTIP_REFRESH_INTERVAL = 0.5
+local TOOLTIP_REFRESH_INTERVAL = 0.1
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 2.2
 local BACKGROUND_TEXTURE = "Interface\\Minimap\\UI-Minimap-Background"
@@ -70,16 +77,38 @@ range:Hide()
 
 local searchRange, opponentSearch
 
-local function queueTime(index)
-	local seconds = floor(GetBattlefieldTimeWaited(index) / 1000)
-	return ("%d:%02d"):format(seconds / 60, seconds % 60)
+local function isQueueState(state)
+	return state == "queued" or state == "enter"
+end
+
+local function formatWait(milliseconds)
+	local seconds = floor(milliseconds / 1000)
+	if seconds < 60 then
+		return L["Less than a minute"]
+	end
+	return SecondsToTime(seconds, true)
+end
+
+local function queueLines(index)
+	local waited = format(L["Time in queue: %s"], formatWait(GetBattlefieldTimeWaited(index)))
+	local estimate = GetBattlefieldEstimatedWaitTime(index)
+	if estimate > 0 then
+		return waited, format(L["Average wait: %s"], formatWait(estimate))
+	end
+	return waited
 end
 
 local function onEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	GameTooltip:SetText(STATES[self.state].tooltip)
+	self.queueText = nil
 	if self.state == "queued" then
-		GameTooltip:AddLine(L["Time in queue: "] .. queueTime(self.queueIndex), 1, 1, 1)
+		local waited, estimate = queueLines(self.queueIndex)
+		self.queueText = waited .. (estimate or "")
+		GameTooltip:AddLine(waited, 1, 1, 1)
+		if estimate then
+			GameTooltip:AddLine(estimate, 1, 1, 1)
+		end
 	end
 	GameTooltip:Show()
 end
@@ -96,7 +125,10 @@ local function onPulse(self, elapsed)
 	if self.untilTooltipRefresh <= 0 then
 		self.untilTooltipRefresh = TOOLTIP_REFRESH_INTERVAL
 		if GameTooltip:IsOwned(self) then
-			onEnter(self)
+			local waited, estimate = queueLines(self.queueIndex)
+			if waited .. (estimate or "") ~= self.queueText then
+				onEnter(self)
+			end
 		end
 	end
 end
@@ -114,7 +146,7 @@ end
 
 local function applySize()
 	local config = ns.Config.soloQueue
-	local size = (button.state == "queued" or button.state == "enter") and config.queuedSize or config.buttonSize
+	local size = isQueueState(button.state) and config.queuedSize or config.buttonSize
 	button:SetSize(size, size)
 	button.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
 	button.icon:SetSize(size * ICON_SCALE, size * ICON_SCALE)
@@ -141,7 +173,7 @@ local function setState(state, queueIndex)
 	button.icon:SetTexture(info.icon)
 	button.icon:SetAlpha(1)
 	button.highlight:SetTexture(info.icon)
-	if state == "queued" or state == "enter" then
+	if isQueueState(state) then
 		MiniMapBattlefieldFrame:Hide()
 	end
 	if info.glow then
@@ -160,7 +192,7 @@ local function setState(state, queueIndex)
 end
 
 hooksecurefunc("BattlefieldFrame_UpdateStatus", function()
-	if button.state == "queued" or button.state == "enter" then
+	if isQueueState(button.state) then
 		MiniMapBattlefieldFrame:Hide()
 	end
 end)

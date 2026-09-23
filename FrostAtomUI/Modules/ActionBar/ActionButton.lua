@@ -17,9 +17,15 @@ local IsStackableAction = IsStackableAction
 local InCombatLockdown = InCombatLockdown
 local PickupAction = PickupAction
 local PlaceAction = PlaceAction
+local GetActionInfo = GetActionInfo
+local GetMacroSpell = GetMacroSpell
+local GetSpellInfo = GetSpellInfo
+local UnitGUID = UnitGUID
+local GetTime = GetTime
 local GameTooltip = GameTooltip
 
 local Media = ns.Media
+local Auras = ns.Auras
 local ActionBar = ns:GetModule("ActionBar")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
@@ -28,6 +34,128 @@ local WHITE = { 1, 1, 1 }
 local BUTTON_NAME = ADDON_NAME .. "ActionButton%d"
 local BINDING_NAME = "CLICK " .. BUTTON_NAME .. ":LeftButton"
 local RANGE_CHECK_INTERVAL = 0.1
+local GCD_DURATION = 1.5
+local MAX_INTERRUPT_LOCKOUT = 8
+local INTERRUPT_TOLERANCE = 0.5
+
+local LOCK, SILENCE = 1, 2
+
+local LOCK_SPELLS = {
+	47481, -- Gnaw
+	51209, -- Hungering Cold
+	5211, -- Bash
+	33786, -- Cyclone
+	2637, -- Hibernate
+	22570, -- Maim
+	9005, -- Pounce
+	60210, -- Freezing Arrow Effect
+	3355, -- Freezing Trap Effect
+	24394, -- Intimidation
+	1513, -- Scare Beast
+	19503, -- Scatter Shot
+	19386, -- Wyvern Sting
+	50519, -- Sonic Blast
+	50518, -- Ravage
+	44572, -- Deep Freeze
+	31661, -- Dragon's Breath
+	12355, -- Impact
+	118, -- Polymorph
+	853, -- Hammer of Justice
+	2812, -- Holy Wrath
+	20066, -- Repentance
+	20170, -- Stun
+	10326, -- Turn Evil
+	605, -- Mind Control
+	64044, -- Psychic Horror
+	8122, -- Psychic Scream
+	9484, -- Shackle Undead
+	2094, -- Blind
+	1833, -- Cheap Shot
+	1776, -- Gouge
+	408, -- Kidney Shot
+	6770, -- Sap
+	39796, -- Stoneclaw Stun
+	51514, -- Hex
+	710, -- Banish
+	6789, -- Death Coil
+	5782, -- Fear
+	5484, -- Howl of Terror
+	6358, -- Seduction
+	30283, -- Shadowfury
+	22703, -- Inferno Effect
+	7922, -- Charge Stun
+	12809, -- Concussion Blow
+	20253, -- Intercept
+	5246, -- Intimidating Shout
+	12798, -- Revenge Stun
+	46968, -- Shockwave
+	20549, -- War Stomp
+	30217, -- Adamantite Grenade
+	67769, -- Cobalt Frag Bomb
+	30216, -- Fel Iron Bomb
+}
+
+local SILENCE_SPELLS = {
+	47476, -- Strangulate
+	34490, -- Silencing Shot
+	18469, -- Silenced - Improved Counterspell
+	63529, -- Silenced - Shield of the Templar
+	15487, -- Silence
+	1330, -- Garrote - Silence
+	18425, -- Silenced - Improved Kick
+	24259, -- Spell Lock
+	18498, -- Silenced - Gag Order
+	25046, -- Arcane Torrent
+}
+
+local ID_CATEGORIES = {
+	[31117] = SILENCE, -- Unstable Affliction
+	[64058] = false, -- Psychic Horror
+}
+
+local CC_USABLE_SPELLS = {
+	59752, -- Every Man for Himself
+	7744, -- Will of the Forsaken
+	45438, -- Ice Block
+	642, -- Divine Shield
+	33206, -- Pain Suppression
+	22812, -- Barkskin
+	18499, -- Berserker Rage
+	1953, -- Blink
+	48792, -- Icebound Fortitude
+}
+
+local SILENCE_IMMUNE_CLASSES = {
+	WARRIOR = true,
+	ROGUE = true,
+}
+
+local PHYSICAL_POWER_TYPES = {
+	[1] = true,
+	[3] = true,
+}
+
+local function mapSpellNames(target, spells, value)
+	for i = 1, #spells do
+		local name = GetSpellInfo(spells[i])
+		if name then
+			target[name] = value
+		end
+	end
+end
+
+local NAME_CATEGORIES = {}
+mapSpellNames(NAME_CATEGORIES, LOCK_SPELLS, LOCK)
+mapSpellNames(NAME_CATEGORIES, SILENCE_SPELLS, SILENCE)
+
+local CC_USABLE_NAMES = {}
+mapSpellNames(CC_USABLE_NAMES, CC_USABLE_SPELLS, true)
+
+local silenceImmune = SILENCE_IMMUNE_CLASSES[ns.PLAYER_CLASS]
+local lockEnd, lockDuration = 0, 0
+local silenceEnd, silenceDuration = 0, 0
+local interruptedAt = -math.huge
+local actionButtons = {}
 
 local DRAG_MODIFIERS = {
 	shift = IsShiftKeyDown,
@@ -69,7 +197,16 @@ local function abbreviateKey(key)
 	end
 	return key
 end
-ActionBar.AbbreviateKey = abbreviateKey
+local function updateHotkey(button)
+	local key = GetBindingKey(button.bindingName)
+	if key then
+		button.hotkey:SetText(abbreviateKey(key))
+		button.hotkey:Show()
+	else
+		button.hotkey:Hide()
+	end
+end
+ActionBar.UpdateHotkey = updateHotkey
 
 local ActionButtonMixin = {}
 
@@ -82,7 +219,7 @@ function ActionButtonMixin:UpdateColors()
 	local color
 	if self.notEnoughMana then
 		color = config.manaColor
-	elseif self.outOfRange then
+	elseif self.outOfRange and config.rangeIconTint then
 		color = config.rangeColor
 	elseif self.usable then
 		color = WHITE
@@ -90,6 +227,9 @@ function ActionButtonMixin:UpdateColors()
 		color = config.unusableColor
 	end
 	applyColors(self, color[1], color[2], color[3])
+
+	color = self.outOfRange and config.rangeHotkey and config.rangeColor or WHITE
+	self.hotkey:SetTextColor(color[1], color[2], color[3])
 end
 
 function ActionButtonMixin:UpdateUsable()
@@ -118,13 +258,7 @@ function ActionButtonMixin:UpdateStateForCompanion(companionType)
 end
 
 function ActionButtonMixin:UpdateBindings()
-	local key = GetBindingKey(self.bindingName)
-	if key then
-		self.hotkey:SetText(abbreviateKey(key))
-		self.hotkey:Show()
-	else
-		self.hotkey:Hide()
-	end
+	updateHotkey(self)
 end
 
 function ActionButtonMixin:UpdateName()
@@ -147,8 +281,104 @@ function ActionButtonMixin:UpdateIcon()
 	self.icon:SetTexture(texture)
 end
 
+local function actionSpellName(action)
+	local actionType, id, _, spellId = GetActionInfo(action)
+	if actionType == "spell" then
+		return spellId and GetSpellInfo(spellId)
+	elseif actionType == "macro" then
+		return GetMacroSpell(id)
+	end
+end
+
+function ActionButtonMixin:UpdateSpellFlags()
+	local name = actionSpellName(self.action)
+	if not name then
+		self.ccUsable, self.silenceable = true, false
+		return
+	end
+	self.ccUsable = CC_USABLE_NAMES[name] == true
+	if silenceImmune or self.ccUsable then
+		self.silenceable = false
+	else
+		local _, _, _, _, _, powerType = GetSpellInfo(name)
+		self.silenceable = not PHYSICAL_POWER_TYPES[powerType]
+	end
+end
+
+function ActionButtonMixin:UpdateLockout(now)
+	local start, duration, endTime = 0, 0, 0
+	if self.hasAction then
+		if lockEnd > 0 and not self.ccUsable then
+			start, duration, endTime = lockEnd - lockDuration, lockDuration, lockEnd
+		end
+		if silenceEnd > endTime and self.silenceable then
+			start, duration, endTime = silenceEnd - silenceDuration, silenceDuration, silenceEnd
+		end
+		if self.schoolLocked and self.cooldownEnd > endTime then
+			start, duration, endTime = self.cooldownEnd - self.cooldownDuration, self.cooldownDuration, self.cooldownEnd
+		end
+	end
+
+	local lockout = self.lockout
+	if endTime > now and endTime >= self.cooldownEnd then
+		if not lockout then
+			lockout = CreateFrame("Cooldown", nil, self)
+			lockout:SetAllPoints()
+			lockout:SetFrameLevel(self.cooldown:GetFrameLevel() + 1)
+			lockout.tint = lockout:CreateTexture(nil, "BACKGROUND")
+			lockout.tint:SetAllPoints()
+			lockout.tint:SetTexture(Media.blank)
+			self.lockout = lockout
+		end
+		local color = config.lossOfControlColor
+		lockout.tint:SetVertexColor(color[1], color[2], color[3], color[4])
+		if not lockout:IsShown() then
+			lockout:Show()
+			self.cooldown:SetAlpha(0)
+		end
+		if start ~= lockout.start or duration ~= lockout.duration then
+			lockout.start, lockout.duration = start, duration
+			lockout:SetCooldown(start, duration)
+		end
+		self.lockoutEnd = endTime
+	elseif lockout and lockout:IsShown() then
+		lockout.start = nil
+		lockout:Hide()
+		self.cooldown:SetAlpha(1)
+		self.lockoutEnd = nil
+	end
+end
+
 function ActionButtonMixin:UpdateCooldown()
-	CooldownFrame_SetTimer(self.cooldown, GetActionCooldown(self.action))
+	local start, duration, enable = GetActionCooldown(self.action)
+	CooldownFrame_SetTimer(self.cooldown, start, duration, enable)
+
+	local now = GetTime()
+	local endTime = start + duration
+	if enable == 1 and duration > GCD_DURATION and endTime > now then
+		self.cooldownEnd, self.cooldownDuration = endTime, duration
+		self.schoolLocked = config.interruptLockout
+			and duration <= MAX_INTERRUPT_LOCKOUT
+			and start > interruptedAt - INTERRUPT_TOLERANCE
+			and start < interruptedAt + INTERRUPT_TOLERANCE
+	else
+		self.cooldownEnd, self.cooldownDuration = 0, 0
+		self.schoolLocked = false
+	end
+
+	local desaturated = config.desaturateOnCooldown and self.cooldownEnd > 0 or false
+	if desaturated ~= self.desaturated then
+		self.desaturated = desaturated
+		self.icon:SetDesaturated(desaturated)
+	end
+
+	self:UpdateLockout(now)
+
+	local expiry = self.lockoutEnd
+	if desaturated and (not expiry or self.cooldownEnd < expiry) then
+		expiry = self.cooldownEnd
+	end
+	self.expiry = expiry
 end
 
 function ActionButtonMixin:Update()
@@ -180,6 +410,7 @@ function ActionButtonMixin:Update()
 	self:UpdateState()
 	self:UpdateBindings()
 	self:UpdateIcon()
+	self:UpdateSpellFlags()
 	self:UpdateCooldown()
 	self:UpdateName()
 end
@@ -190,6 +421,11 @@ function ActionButtonMixin:OnUpdate(elapsed)
 		return
 	end
 	self.rangeTimer = RANGE_CHECK_INTERVAL
+
+	local expiry = self.expiry
+	if expiry and GetTime() >= expiry then
+		self:UpdateCooldown()
+	end
 
 	local outOfRange = IsActionInRange(self.action) == 0
 	if outOfRange ~= self.outOfRange then
@@ -271,7 +507,81 @@ function ActionBar:CreateActionButton(action, parent)
 	self:AttachTooltip(button, button.SetTooltip)
 
 	button.usable = true
+	button.cooldownEnd = 0
 	button:Update()
 
+	actionButtons[#actionButtons + 1] = button
 	return button
+end
+
+local function updateCooldowns()
+	for i = 1, #actionButtons do
+		local button = actionButtons[i]
+		if button.hasAction then
+			button:UpdateCooldown()
+		end
+	end
+end
+
+local function scanLossOfControl()
+	local newLockEnd, newLockDuration, newSilenceEnd, newSilenceDuration = 0, 0, 0, 0
+	if config.lossOfControl then
+		local auras, count = Auras.Get("player", "HARMFUL")
+		for i = 1, count do
+			local aura = auras[i]
+			local category = ID_CATEGORIES[aura.spellId]
+			if category == nil then
+				category = NAME_CATEGORIES[aura.name]
+			end
+			local duration, expires = aura.duration, aura.expires
+			if category and duration and duration > 0 then
+				if category == LOCK then
+					if expires > newLockEnd then
+						newLockEnd, newLockDuration = expires, duration
+					end
+				elseif expires > newSilenceEnd then
+					newSilenceEnd, newSilenceDuration = expires, duration
+				end
+			end
+		end
+	end
+
+	if
+		newLockEnd ~= lockEnd
+		or newLockDuration ~= lockDuration
+		or newSilenceEnd ~= silenceEnd
+		or newSilenceDuration ~= silenceDuration
+	then
+		lockEnd, lockDuration = newLockEnd, newLockDuration
+		silenceEnd, silenceDuration = newSilenceEnd, newSilenceDuration
+		updateCooldowns()
+	end
+end
+
+local playerGUID
+
+local function onCombatLog(_, _, event, _, _, _, destGUID)
+	if event ~= "SPELL_INTERRUPT" then
+		return
+	end
+	playerGUID = playerGUID or UnitGUID("player")
+	if destGUID == playerGUID then
+		interruptedAt = GetTime()
+		updateCooldowns()
+	end
+end
+
+function ActionBar:UpdateLockoutTracking()
+	if config.lossOfControl then
+		self:RegisterUnitEvent("UNIT_AURA", "player", scanLossOfControl)
+	else
+		self:UnregisterUnitEvent("UNIT_AURA", "player", scanLossOfControl)
+	end
+	if config.interruptLockout then
+		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
+	else
+		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
+	end
+	scanLossOfControl()
+	updateCooldowns()
 end

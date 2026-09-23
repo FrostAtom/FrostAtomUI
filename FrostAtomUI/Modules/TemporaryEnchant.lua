@@ -4,12 +4,15 @@ local GetWeaponEnchantInfo = GetWeaponEnchantInfo
 local GetInventoryItemTexture = GetInventoryItemTexture
 local CancelItemTempEnchantment = CancelItemTempEnchantment
 local GameTooltip = GameTooltip
+local GetTime = GetTime
 
 local TemporaryEnchant = ns:NewModule("TemporaryEnchant")
 TemporaryEnchant.configKey = "temporaryEnchant"
+local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 
 local MAIN_HAND_SLOT = 16
 local MAX_ICONS = 2
+local TIMER_INTERVAL = 0.5
 
 local holder
 
@@ -17,14 +20,14 @@ local function onClick(icon)
 	CancelItemTempEnchantment(icon.weaponIndex)
 end
 
-local function onUpdate(icon)
+local function refreshTooltip(icon)
 	GameTooltip:SetInventoryItem("player", icon.slot)
 end
 
 local function onEnter(icon)
 	GameTooltip:SetOwner(icon, "ANCHOR_BOTTOMLEFT")
-	onUpdate(icon)
-	icon:SetScript("OnUpdate", onUpdate)
+	refreshTooltip(icon)
+	icon:SetScript("OnUpdate", refreshTooltip)
 end
 
 local function onLeave(icon)
@@ -43,14 +46,41 @@ local function createIcon()
 	icon.texture = icon:CreateTexture(nil, "BORDER")
 	icon.texture:SetAllPoints()
 
+	icon.timer = icon:CreateFontString(nil, "OVERLAY")
+	icon.timer:SetPoint("CENTER")
+
 	return icon
 end
 
 local icons = {}
+local shownCount = 0
+
+local function updateTimers()
+	local now = GetTime()
+	for i = 1, shownCount do
+		local icon = icons[i]
+		local remain = icon.expires - now
+		if remain > 0 then
+			SetTimerText(icon.timer, remain)
+		else
+			icon.timer:SetText("")
+		end
+	end
+end
+
+local function onHolderUpdate(self, elapsed)
+	self.untilTick = self.untilTick - elapsed
+	if self.untilTick > 0 then
+		return
+	end
+	self.untilTick = TIMER_INTERVAL
+	updateTimers()
+end
 
 local function showEnchants(...)
 	local shown = 0
 	local weaponIndex = 0
+	local now = GetTime()
 	for i = 1, select("#", ...), 3 do
 		weaponIndex = weaponIndex + 1
 		if select(i, ...) then
@@ -60,6 +90,7 @@ local function showEnchants(...)
 			local slot = MAIN_HAND_SLOT - 1 + weaponIndex
 			icon.weaponIndex = weaponIndex
 			icon.slot = slot
+			icon.expires = now + (select(i + 1, ...) or 0) / 1000
 			icon.texture:SetTexture(GetInventoryItemTexture("player", slot))
 			icon:Show()
 		end
@@ -67,6 +98,14 @@ local function showEnchants(...)
 
 	for i = shown + 1, #icons do
 		icons[i]:Hide()
+	end
+
+	shownCount = shown
+	if shown > 0 and ns.Config.temporaryEnchant.showTimer then
+		holder.untilTick = 0
+		holder:SetScript("OnUpdate", onHolderUpdate)
+	else
+		holder:SetScript("OnUpdate", nil)
 	end
 end
 
@@ -82,14 +121,21 @@ end
 
 local function applyConfig()
 	local config = ns.Config.temporaryEnchant
-	local size, gap = config.size, config.gap
+	local size, gap, font = config.size, config.gap, config.timerFont
 	holder:SetSize(MAX_ICONS * (size + gap) - gap, size)
 	for i = 1, MAX_ICONS do
 		local icon = icons[i]
 		icon:SetSize(size, size)
 		icon:ClearAllPoints()
 		icon:SetPoint("TOPLEFT", (i - 1) * (size + gap), 0)
+		ns.SetFont(icon.timer, font.size, font.outline)
+		if config.showTimer then
+			icon.timer:Show()
+		else
+			icon.timer:Hide()
+		end
 	end
+	TemporaryEnchant:Update()
 end
 
 function TemporaryEnchant:Initialize()

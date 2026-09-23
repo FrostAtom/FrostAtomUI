@@ -25,7 +25,7 @@ alert:SetScript("OnUpdate", function(self, elapsed)
 	end
 end)
 
-local function show(message, color)
+local function showAlert(message, color)
 	local config = ns.Config.combatAlert
 	if not config.enabled then
 		return
@@ -37,6 +37,20 @@ local function show(message, color)
 	alert:Show()
 end
 
+local function showEnterAlert()
+	local config = ns.Config.combatAlert
+	showAlert(config.enterText, config.enterColor)
+end
+
+local function showLeaveAlert()
+	local config = ns.Config.combatAlert
+	showAlert(config.leaveText, config.leaveColor)
+end
+
+function Misc:TestCombatAlert()
+	showEnterAlert()
+end
+
 local function applyConfig()
 	local font = ns.Config.combatAlert.font
 	ns.SetFont(text, font.size, font.outline, true)
@@ -45,12 +59,5 @@ end
 applyConfig()
 Misc:WatchConfig("combatAlert", applyConfig)
 
-Misc:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-	local config = ns.Config.combatAlert
-	show(config.enterText, config.enterColor)
-end)
-
-Misc:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-	local config = ns.Config.combatAlert
-	show(config.leaveText, config.leaveColor)
-end)
+Misc:RegisterEvent("PLAYER_REGEN_DISABLED", showEnterAlert)
+Misc:RegisterEvent("PLAYER_REGEN_ENABLED", showLeaveAlert)

@@ -1,6 +1,15 @@
 local ADDON_NAME, ns = ...
 
 ns.PLAYER_CLASS = select(2, UnitClass("player"))
+ns.IS_WOWCIRCLE = (GetCVar("realmlist") or ""):lower():find("wowcircle") ~= nil
+
+function ns.SetShown(region, shown)
+	if shown then
+		region:Show()
+	else
+		region:Hide()
+	end
+end
 
 function ns.Mixin(target, ...)
 	for i = 1, select("#", ...) do

@@ -56,10 +56,10 @@ end
 NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = function(plate, name)
 	local icon = plateIcons[plate]
 	if not icon then
-		icon = plate:CreateTexture(nil, "BORDER")
+		icon = plate.overlay:CreateTexture(nil, "BORDER")
 		icon:SetPoint("LEFT", plate.holder, "RIGHT", ICON_GAP, 0)
 		icon:SetTexture(HEALER_ICON)
-		NamePlates.SkinIcon(plate, icon)
+		NamePlates.SkinIcon(plate.overlay, icon)
 		plateIcons[plate] = icon
 	end
 	updateIcon(icon, name)

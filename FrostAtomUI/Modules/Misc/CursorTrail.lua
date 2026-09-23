@@ -7,6 +7,7 @@ local Misc = ns:GetModule("Misc")
 
 local TRAIL_SCALE = 0.0018
 local SHINE_SCALE = 0.01
+local CURSOR_OFFSET_X, CURSOR_OFFSET_Y = 4, -6
 
 local trail = CreateFrame("Model")
 trail:SetAllPoints()
@@ -27,7 +28,7 @@ shine:SetScript("OnUpdate", function(self)
 	end
 	lastX, lastY = x, y
 
-	x, y = (x + 4) / screenDiagonal, (y - 6) / screenDiagonal
+	x, y = (x + CURSOR_OFFSET_X) / screenDiagonal, (y + CURSOR_OFFSET_Y) / screenDiagonal
 	self:SetPosition(x, y)
 	trail:SetPosition(x, y)
 end)

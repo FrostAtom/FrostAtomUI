@@ -27,7 +27,7 @@ local FauxScrollFrame_SetOffset = FauxScrollFrame_SetOffset
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local time, date = time, date
 local floor, max = math.floor, math.max
-local tinsert, tremove = table.insert, table.remove
+local tinsert, tremove, tconcat = table.insert, table.remove, table.concat
 local format = string.format
 
 local Misc = ns:GetModule("Misc")
@@ -48,11 +48,9 @@ local DETAIL_GAP = 10
 local SCROLLBAR_WIDTH = 24
 local ICON_SIZE = 16
 local ICON_GAP = 1
-local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
-local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
 local NO_GAME_COLOR = { 0.5, 0.5, 0.5 }
 local HEADER_COLOR = { 0.7, 0.7, 0.7 }
-local UNKNOWN = UNKNOWNOBJECT
+local UNKNOWN_NAME = UNKNOWNOBJECT
 local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
 local SEPARATOR = "   |cff7f7f7f-|r   "
 
@@ -138,8 +136,8 @@ local seen = {}
 local sightings = {}
 local unknowns = {}
 local teamNames = {}
-local soloQueued = false
-local soloQueue = false
+local soloQueueSearchSeen = false
+local isSoloMatch = false
 local preparing = false
 local startTime
 
@@ -167,7 +165,7 @@ local function collectUnit(unit, side)
 		return
 	end
 	local name = stripRealm(UnitName(unit))
-	if not name or name == UNKNOWN then
+	if not name or name == UNKNOWN_NAME then
 		return
 	end
 	local entry = addPlayer(name, side)
@@ -203,7 +201,7 @@ local function bracketOf(teamName, size)
 		if teamName:find("^Solo Team [1-2]$") then
 			return "solo"
 		end
-	elseif soloQueue then
+	elseif isSoloMatch then
 		return "solo"
 	end
 	return size .. "v" .. size
@@ -220,30 +218,59 @@ local function mergeScore(to, from)
 	to.healing = max(to.healing, from.healing)
 end
 
+local function readScores(rows)
+	local numScores = GetNumBattlefieldScores()
+	for i = 1, numScores do
+		local name, kb, hk, deaths, honor, teamIndex, _, race, _, class, damage, healing = GetBattlefieldScore(i)
+		local row = rows[i] or {}
+		rows[i] = row
+		row.name, row.teamIndex, row.race, row.class = stripRealm(name), teamIndex, race, class
+		row.kb, row.hk, row.deaths, row.honor = kb or 0, hk or 0, deaths or 0, honor or 0
+		row.damage, row.healing = damage or 0, healing or 0
+	end
+	for i = #rows, numScores + 1, -1 do
+		rows[i] = nil
+	end
+	return rows
+end
+
+local function playerTeamOf(rows)
+	local playerName = UnitName("player")
+	for i = 1, #rows do
+		if rows[i].name == playerName then
+			return rows[i].teamIndex
+		end
+	end
+end
+
+local function readTeam(teamIndex)
+	local name, lost, gained, mmr = GetBattlefieldTeamInfo(teamIndex)
+	if not name or name == "" then
+		name = teamNames[teamIndex]
+	end
+	lost, gained = lost or 0, gained or 0
+	return { name = name, lost = lost, gained = gained, change = gained - lost, mmr = mmr or 0 }
+end
+
 local refresh
+local scores = {}
+local currentTeam
 
 local function snapshot()
 	local winner = GetBattlefieldWinner()
 	if not winner or not history or not ns.Config.arenaHistory.enabled then
 		return
 	end
-	local numScores = GetNumBattlefieldScores()
-	if numScores == 0 then
+	readScores(scores)
+	if #scores == 0 then
 		return
 	end
 
-	local playerName = UnitName("player")
-	local playerTeam
-	for i = 1, numScores do
-		local name, _, _, _, _, teamIndex = GetBattlefieldScore(i)
-		if stripRealm(name) == playerName then
-			playerTeam = teamIndex
-			break
-		end
-	end
+	local playerTeam = playerTeamOf(scores)
 	if not playerTeam then
 		return
 	end
+	currentTeam = playerTeam
 
 	collectParty()
 	collectArena()
@@ -251,19 +278,19 @@ local function snapshot()
 	for i = 1, #sightings do
 		sightings[i].scored = nil
 	end
-	for i = 1, numScores do
-		local name, kb, _, deaths, _, teamIndex, _, race, _, class, damage, healing = GetBattlefieldScore(i)
-		name = stripRealm(name)
-		local side = teamIndex == playerTeam and 1 or 2
-		local score = { kb = kb or 0, deaths = deaths or 0, damage = damage or 0, healing = healing or 0 }
-		if name and name ~= UNKNOWN then
+	for i = 1, #scores do
+		local row = scores[i]
+		local name = row.name
+		local side = row.teamIndex == playerTeam and 1 or 2
+		local score = { kb = row.kb, deaths = row.deaths, damage = row.damage, healing = row.healing }
+		if name and name ~= UNKNOWN_NAME then
 			local entry = addPlayer(name, side)
-			entry.class = entry.class or class
-			entry.race = entry.race or race
+			entry.class = entry.class or row.class
+			entry.race = entry.race or row.race
 			entry.scored = true
 			mergeScore(entry, score)
 		else
-			score.name, score.team = UNKNOWN, side
+			score.name, score.team = UNKNOWN_NAME, side
 			unknowns[#unknowns + 1] = score
 		end
 	end
@@ -284,21 +311,8 @@ local function snapshot()
 	end
 	record.win = winner == playerTeam
 
-	for side = 1, 2 do
-		local teamIndex = side == 1 and playerTeam or 1 - playerTeam
-		local name, lost, gained, mmr = GetBattlefieldTeamInfo(teamIndex)
-		if not name or name == "" then
-			name = teamNames[teamIndex]
-		end
-		lost, gained = lost or 0, gained or 0
-		record[side == 1 and "team" or "enemy"] = {
-			name = name,
-			lost = lost,
-			gained = gained,
-			change = gained - lost,
-			mmr = mmr or 0,
-		}
-	end
+	record.team = readTeam(playerTeam)
+	record.enemy = readTeam(1 - playerTeam)
 
 	local players, counts = {}, { 0, 0 }
 	for i = 1, #sightings do
@@ -340,14 +354,15 @@ end)
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	inArena = select(2, IsInInstance()) == "arena"
 	current = nil
+	currentTeam = nil
 	preparing = false
 	startTime = nil
 	wipe(seen)
 	wipe(sightings)
 	wipe(teamNames)
 	if inArena then
-		soloQueue = soloQueued
-		soloQueued = false
+		isSoloMatch = soloQueueSearchSeen
+		soloQueueSearchSeen = false
 		collectParty()
 		collectArena()
 		RequestBattlefieldScoreData()
@@ -355,7 +370,7 @@ Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 end)
 
 Misc:RegisterEvent(ns.SOLOQ_SEARCHING, function()
-	soloQueued = true
+	soloQueueSearchSeen = true
 end)
 
 Misc:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
@@ -453,7 +468,7 @@ local function bracketLabel(record)
 end
 
 local function mapLabel(record)
-	return MAP_LABELS[record.map] or record.map or UNKNOWN
+	return MAP_LABELS[record.map] or record.map or UNKNOWN_NAME
 end
 
 local function teamLabel(record, side)
@@ -550,18 +565,18 @@ local function fillIcons(icons, record, side)
 	end
 end
 
-local names = {}
+local nameParts = {}
 
-local function teamNames(record, side)
-	wipe(names)
+local function coloredTeamNames(record, side)
+	wipe(nameParts)
 	local players = record.players
 	for i = 1, #players do
 		local player = players[i]
 		if player.team == side then
-			names[#names + 1] = coloredName(player)
+			nameParts[#nameParts + 1] = coloredName(player)
 		end
 	end
-	return table.concat(names, ", ")
+	return tconcat(nameParts, ", ")
 end
 
 local function fillListRow(row, record)
@@ -581,12 +596,8 @@ local function fillListRow(row, record)
 	cells.result:SetTextColor(resultColor(record, record.win))
 	fillIcons(row.icons[1], record, 1)
 	fillIcons(row.icons[2], record, 2)
-	cells.names:SetText(teamNames(record, 2))
-	if record == selected then
-		row.selected:Show()
-	else
-		row.selected:Hide()
-	end
+	cells.names:SetText(coloredTeamNames(record, 2))
+	ns.SetShown(row.selected, record == selected)
 end
 
 local function onRowEnter(self)
@@ -736,11 +747,7 @@ local function refreshList()
 		end
 	end
 	FauxScrollFrame_Update(frame.scroll, #filtered, LIST_ROWS, LIST_ROW_HEIGHT)
-	if #filtered == 0 then
-		frame.empty:Show()
-	else
-		frame.empty:Hide()
-	end
+	ns.SetShown(frame.empty, #filtered == 0)
 end
 
 local function refreshStats()
@@ -815,11 +822,9 @@ local function onFilterClick(self)
 	refresh()
 end
 
-local function createFilterButton(parent, index, key, label)
+local function createToolbarButton(parent, label)
 	local button = CreateFrame("Button", nil, parent)
-	button.filter = key
 	button:SetSize(FILTER_WIDTH, FILTER_HEIGHT - 2)
-	button:SetPoint("TOPLEFT", PADDING + (index - 1) * (FILTER_WIDTH + 4), -(PADDING + HEADER_HEIGHT))
 	button:SetBackdrop(ns.CreateBackdrop(8))
 	button:SetBackdropBorderColor(0.6, 0.6, 0.6)
 	button:SetHighlightTexture(ns.Media.blank)
@@ -829,45 +834,28 @@ local function createFilterButton(parent, index, key, label)
 	ns.SetFont(button.text, 12)
 	button.text:SetPoint("CENTER")
 	button.text:SetText(label)
+	return button
+end
 
+local function createFilterButton(parent, index, key, label)
+	local button = createToolbarButton(parent, label)
+	button.filter = key
+	button:SetPoint("TOPLEFT", PADDING + (index - 1) * (FILTER_WIDTH + 4), -(PADDING + HEADER_HEIGHT))
 	button:SetScript("OnClick", onFilterClick)
 	return button
 end
 
 local function createFrame()
-	frame = CreateFrame("Frame", FRAME_NAME, UIParent)
-	frame:Hide()
-	frame:SetWidth(WIDTH)
+	frame = ns.CreateWindow(FRAME_NAME, { width = WIDTH, title = L["Arena history"] })
 	Misc:AnchorToConfig(frame, "arenaHistory.point", "Arena history")
-	frame:SetFrameStrata("HIGH")
-	frame:EnableMouse(true)
-	frame:SetMovable(true)
-	frame:SetClampedToScreen(true)
-	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
 	frame:SetScript("OnShow", refresh)
-	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
-	frame:SetBackdropColor(0, 0, 0, 0.6)
-	tinsert(UISpecialFrames, FRAME_NAME)
-
-	local title = frame:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(title, 13, "OUTLINE", true)
-	title:SetPoint("TOPLEFT", PADDING, -PADDING - 3)
-	title:SetText(L["Arena history"])
-
-	local close = CreateFrame("Button", nil, frame)
-	close:SetSize(26, 26)
-	close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
-	close:SetNormalTexture(CLOSE_ICON)
-	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
-	close:SetScript("OnClick", function()
-		frame:Hide()
-	end)
 
 	local filters = {}
 	for i = 1, #FILTERS do
-		filters[i] = createFilterButton(frame, i, FILTERS[i][1], FILTERS[i][2])
+		local key = FILTERS[i][1]
+		if key ~= "solo" or ns.IS_WOWCIRCLE then
+			filters[#filters + 1] = createFilterButton(frame, #filters + 1, key, FILTERS[i][2])
+		end
 	end
 	frame.filters = filters
 
@@ -876,19 +864,10 @@ local function createFrame()
 	stats:SetPoint("LEFT", filters[#filters], "RIGHT", 12, 0)
 	frame.stats = stats
 
-	local clear = CreateFrame("Button", nil, frame)
-	clear:SetSize(FILTER_WIDTH, FILTER_HEIGHT - 2)
+	local clear = createToolbarButton(frame, L["Clear"])
 	clear:SetPoint("TOPRIGHT", -PADDING, -(PADDING + HEADER_HEIGHT))
-	clear:SetBackdrop(ns.CreateBackdrop(8))
 	clear:SetBackdropColor(0, 0, 0, 0.5)
-	clear:SetBackdropBorderColor(0.6, 0.6, 0.6)
-	clear:SetHighlightTexture(ns.Media.blank)
-	clear:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
-	clear.text = clear:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(clear.text, 12)
 	clear.text:SetTextColor(0.7, 0.7, 0.7)
-	clear.text:SetPoint("CENTER")
-	clear.text:SetText(L["Clear"])
 	clear:SetScript("OnClick", function()
 		StaticPopup_Show("FROSTATOMUI_ARENA_HISTORY_CLEAR")
 	end)
@@ -999,7 +978,7 @@ Misc:WatchConfig("arenaHistory", function()
 	refresh()
 end)
 
-SlashCmdList.FROSTATOMUI_ARENA_HISTORY = function()
+local function toggle()
 	if not history then
 		return
 	end
@@ -1012,5 +991,17 @@ SlashCmdList.FROSTATOMUI_ARENA_HISTORY = function()
 		frame:Show()
 	end
 end
+
+ns.ArenaHistory = {
+	ReadScores = readScores,
+	ReadTeam = readTeam,
+	PlayerTeamOf = playerTeamOf,
+	Toggle = toggle,
+	GetCurrent = function()
+		return current, currentTeam
+	end,
+}
+
+SlashCmdList.FROSTATOMUI_ARENA_HISTORY = toggle
 SLASH_FROSTATOMUI_ARENA_HISTORY1 = "/history"
 SLASH_FROSTATOMUI_ARENA_HISTORY2 = "/ah"

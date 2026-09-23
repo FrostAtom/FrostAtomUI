@@ -17,15 +17,15 @@ local FACTION_COLORS = FACTION_BAR_COLORS
 local holder, bar, rested, bg
 
 local function showExperience()
-	local current, max = UnitXP("player"), UnitXPMax("player")
-	bar:SetMinMaxValues(0, max)
+	local current, maxXP = UnitXP("player"), UnitXPMax("player")
+	bar:SetMinMaxValues(0, maxXP)
 	bar:SetValue(current)
 	bar:SetStatusBarColor(unpack(ns.Config.experienceBar.xpColor))
 
 	local exhaustion = GetXPExhaustion()
 	if exhaustion and exhaustion > 0 then
-		rested:SetMinMaxValues(0, max)
-		rested:SetValue(min(current + exhaustion, max))
+		rested:SetMinMaxValues(0, maxXP)
+		rested:SetValue(min(current + exhaustion, maxXP))
 		rested:Show()
 	else
 		rested:Hide()
@@ -36,20 +36,19 @@ local function showExperience()
 end
 
 local function showReputation()
-	local name, standing, min, max, value = GetWatchedFactionInfo()
+	local name, standing, minValue, maxValue, value = GetWatchedFactionInfo()
 	if not name then
 		holder:Hide()
 		return
 	end
 
-	bar:SetMinMaxValues(0, max - min)
-	bar:SetValue(value - min)
+	bar:SetMinMaxValues(0, maxValue - minValue)
+	bar:SetValue(value - minValue)
 	local color = FACTION_COLORS[standing]
 	bar:SetStatusBarColor(color.r, color.g, color.b)
 	rested:Hide()
 
 	holder.mode = "reputation"
-	holder.factionName = name
 	holder:Show()
 end
 
@@ -70,17 +69,22 @@ local function onEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_BOTTOM")
 
 	if self.mode == "xp" then
-		local current, max = UnitXP("player"), UnitXPMax("player")
-		GameTooltip:AddDoubleLine(L["Experience"], ("%d / %d (%d%%)"):format(current, max, current / max * 100))
+		local current, maxXP = UnitXP("player"), UnitXPMax("player")
+		GameTooltip:AddDoubleLine(L["Experience"], ("%d / %d (%d%%)"):format(current, maxXP, current / maxXP * 100))
 		local exhaustion = GetXPExhaustion()
 		if exhaustion and exhaustion > 0 then
-			GameTooltip:AddDoubleLine(L["Rested"], ("+%d (%d%%)"):format(exhaustion, exhaustion / max * 100), 0, 0.6, 1)
+			GameTooltip:AddDoubleLine(
+				L["Rested"],
+				("+%d (%d%%)"):format(exhaustion, exhaustion / maxXP * 100),
+				0,
+				0.6,
+				1
+			)
 		end
 	else
-		local _, standing, min, max, value = GetWatchedFactionInfo()
-		local standingText = _G["FACTION_STANDING_LABEL" .. standing] or ""
-		GameTooltip:AddDoubleLine(self.factionName, standingText)
-		GameTooltip:AddDoubleLine(L["Reputation"], ("%d / %d"):format(value - min, max - min))
+		local name, standing, minValue, maxValue, value = GetWatchedFactionInfo()
+		GameTooltip:AddDoubleLine(name, _G["FACTION_STANDING_LABEL" .. standing] or "")
+		GameTooltip:AddDoubleLine(L["Reputation"], ("%d / %d"):format(value - minValue, maxValue - minValue))
 	end
 
 	GameTooltip:Show()

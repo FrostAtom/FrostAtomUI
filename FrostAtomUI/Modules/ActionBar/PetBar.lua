@@ -5,7 +5,6 @@ local GetPetActionCooldown = GetPetActionCooldown
 local GetPetActionInfo = GetPetActionInfo
 local GetPetActionSlotUsable = GetPetActionSlotUsable
 local RegisterStateDriver = RegisterStateDriver
-local GetBindingKey = GetBindingKey
 local GameTooltip = GameTooltip
 local NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS
 
@@ -15,6 +14,7 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local BUTTON_NAME = ADDON_NAME .. "PetButton%d"
 local buttons = ActionBar.petButtons
+local updateHotkey = ActionBar.UpdateHotkey
 
 local tokenTextures = setmetatable({}, {
 	__index = function(self, token)
@@ -30,16 +30,6 @@ local function setTooltip(button)
 		GameTooltip:SetPetAction(id)
 	else
 		GameTooltip:Hide()
-	end
-end
-
-local function updateHotkey(button)
-	local key = GetBindingKey(button.bindingName)
-	if key then
-		button.hotkey:SetText(ActionBar.AbbreviateKey(key))
-		button.hotkey:Show()
-	else
-		button.hotkey:Hide()
 	end
 end
 
@@ -143,11 +133,15 @@ function ActionBar:InitializePetBar(parent)
 	self:RegisterEvent("UNIT_FLAGS", onPetUnitEvent)
 	self:RegisterEvent("UNIT_AURA", onPetUnitEvent)
 	self:RegisterEvent("UNIT_PET", onPlayerUnitEvent)
-	self:RegisterEvent("PET_BAR_UPDATE", "UpdatePetBar")
-	self:RegisterEvent("PET_BAR_UPDATE_USABLE", "UpdatePetBar")
+	for _, event in ipairs({
+		"PET_BAR_UPDATE",
+		"PET_BAR_UPDATE_USABLE",
+		"PLAYER_CONTROL_LOST",
+		"PLAYER_CONTROL_GAINED",
+		"PLAYER_FARSIGHT_FOCUS_CHANGED",
+	}) do
+		self:RegisterEvent(event, "UpdatePetBar")
+	end
 	self:RegisterEvent("PET_BAR_UPDATE_COOLDOWN", "UpdatePetCooldowns")
-	self:RegisterEvent("PLAYER_CONTROL_LOST", "UpdatePetBar")
-	self:RegisterEvent("PLAYER_CONTROL_GAINED", "UpdatePetBar")
-	self:RegisterEvent("PLAYER_FARSIGHT_FOCUS_CHANGED", "UpdatePetBar")
 	self:RegisterEvent("UPDATE_BINDINGS", "UpdatePetHotkeys")
 end

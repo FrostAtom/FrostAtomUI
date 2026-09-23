@@ -26,6 +26,8 @@ local PROBE_INTERVAL = 300
 local version = GetAddOnMetadata(ADDON_NAME, "Version") or "0"
 local build = GetAddOnMetadata(ADDON_NAME, "X-Build") or "0"
 local payload = version .. ":" .. build
+local ANNOUNCE_MESSAGE = "V:" .. payload
+local PROBE_MESSAGE = "Q:" .. payload
 
 local playerName = UnitName("player")
 local playerFaction = UnitFactionGroup("player")
@@ -34,7 +36,7 @@ local users = {}
 local probed = {}
 local announcePending, groupSize, newerReported = false, 0, false
 
-local Version = { version = version, build = build }
+local Version = {}
 ns.Version = Version
 
 function Version.GetUser(name)
@@ -66,7 +68,7 @@ local function announce()
 	announcePending = false
 	local channel = groupChannel()
 	if channel then
-		SendAddonMessage(PREFIX, "V:" .. payload, channel)
+		SendAddonMessage(PREFIX, ANNOUNCE_MESSAGE, channel)
 	end
 end
 
@@ -78,17 +80,13 @@ local function queueAnnounce()
 end
 
 local function isGroupMember(name)
-	if GetNumRaidMembers() > 0 then
-		for i = 1, GetNumRaidMembers() do
-			if UnitName("raid" .. i) == name then
-				return true
-			end
-		end
-	else
-		for i = 1, GetNumPartyMembers() do
-			if UnitName("party" .. i) == name then
-				return true
-			end
+	local prefix, count = "raid", GetNumRaidMembers()
+	if count == 0 then
+		prefix, count = "party", GetNumPartyMembers()
+	end
+	for i = 1, count do
+		if UnitName(prefix .. i) == name then
+			return true
 		end
 	end
 	return false
@@ -122,7 +120,7 @@ function Version.Probe(unit)
 		return
 	end
 	probed[name] = now
-	SendAddonMessage(PREFIX, "Q:" .. payload, "WHISPER", name)
+	SendAddonMessage(PREFIX, PROBE_MESSAGE, "WHISPER", name)
 end
 
 local function reportNewer(theirVersion, theirBuild)
@@ -157,7 +155,7 @@ Misc:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, message, channel, sende
 		reportNewer(theirVersion, theirBuild)
 	end
 	if kind == "Q" and channel == "WHISPER" and isTalkable(sender) then
-		SendAddonMessage(PREFIX, "V:" .. payload, "WHISPER", sender)
+		SendAddonMessage(PREFIX, ANNOUNCE_MESSAGE, "WHISPER", sender)
 	end
 
 	if GameTooltip:IsShown() then

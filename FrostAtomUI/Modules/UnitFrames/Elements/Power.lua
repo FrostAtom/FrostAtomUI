@@ -7,9 +7,10 @@ local UnitPowerType = UnitPowerType
 local UnitGUID = UnitGUID
 
 local powerColors = UF.powerColors
+local setBarColor = UF.SetBarColor
 local config = ns.Config.unitFrames
 
-local MAX_POWER_EVENTS = {
+local POWER_CHANGE_EVENTS = {
 	"UNIT_MAXMANA",
 	"UNIT_MAXRAGE",
 	"UNIT_MAXFOCUS",
@@ -25,9 +26,7 @@ local function setPower(power, setValue, current, max, powerType)
 	if power.colorType ~= powerType then
 		power.colorType = powerType
 		local color = powerColors[powerType]
-		local r, g, b = color[1], color[2], color[3]
-		power:SetStatusBarColor(r, g, b)
-		power.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
+		setBarColor(power, color[1], color[2], color[3])
 	end
 	local frame = power:GetParent()
 	if max > 0 then
@@ -35,11 +34,11 @@ local function setPower(power, setValue, current, max, powerType)
 	else
 		power.text:SetText(nil)
 	end
-	if frame.name and UF.TagsUse(UF.TextTemplate(frame, frame.name, "left"), "power") then
-		UF.UpdateText(frame, frame.name, "left")
+	if frame.name then
+		UF.UpdateTextIfUses(frame, frame.name, "left", "power")
 	end
-	if frame.health.lastCurrent and UF.TagsUse(UF.TextTemplate(frame, frame.health.text, "right"), "power") then
-		UF.UpdateText(frame, frame.health.text, "right")
+	if frame.health.lastCurrent then
+		UF.UpdateTextIfUses(frame, frame.health.text, "right", "power")
 	end
 end
 
@@ -96,8 +95,8 @@ local function create(frame)
 	power.text:SetTextColor(unpack(UF.textColor))
 
 	power:SetScript("OnUpdate", onUpdate)
-	for i = 1, #MAX_POWER_EVENTS do
-		frame:RegisterUnitEvent(MAX_POWER_EVENTS[i], update)
+	for i = 1, #POWER_CHANGE_EVENTS do
+		frame:RegisterUnitEvent(POWER_CHANGE_EVENTS[i], update)
 	end
 
 	return power

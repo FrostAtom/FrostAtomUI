@@ -10,6 +10,9 @@ local config = ns.Config.chat
 local DIVIDER = "|cff7f7f7f" .. ("-"):rep(60) .. "|r"
 
 local COPY_FRAME_NAME = "FrostAtomUICopyChat"
+local COPY_TEXT_MARGIN = 40
+local COPY_ICON = [[Interface\Buttons\UI-GuildButton-PublicNote-Up]]
+local COPY_BUTTON_ALPHA = 0.4
 
 local commandHistory = {}
 
@@ -84,7 +87,7 @@ local copyFrame
 local function applyCopySize()
 	if copyFrame then
 		copyFrame:SetSize(config.copyWindowWidth, config.copyWindowHeight)
-		copyFrame.editBox:SetWidth(config.copyWindowWidth - 40)
+		copyFrame.editBox:SetWidth(config.copyWindowWidth - COPY_TEXT_MARGIN)
 	end
 end
 
@@ -125,14 +128,15 @@ local function createCopyFrame()
 	frame.editBox = editBox
 	copyFrame = frame
 	applyCopySize()
-	return frame
 end
 
 local function copyChatFrame(chatFrame)
 	if not Chat.lines[chatFrame] then
 		return
 	end
-	copyFrame = copyFrame or createCopyFrame()
+	if not copyFrame then
+		createCopyFrame()
+	end
 
 	local text = {}
 	for i = 1, Chat.NumLines(chatFrame) do
@@ -160,7 +164,7 @@ local function onCopyButtonEnter(self)
 end
 
 local function onCopyButtonLeave(self)
-	self:SetAlpha(0.4)
+	self:SetAlpha(COPY_BUTTON_ALPHA)
 	GameTooltip:Hide()
 end
 
@@ -180,9 +184,9 @@ Chat:OnInitialize(function(self)
 		copyButton:SetSize(16, 16)
 		copyButton:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", 4, 4)
 		copyButton:SetFrameLevel(chatFrame:GetFrameLevel() + 5)
-		copyButton:SetNormalTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
-		copyButton:SetHighlightTexture([[Interface\Buttons\UI-GuildButton-PublicNote-Up]])
-		copyButton:SetAlpha(0.4)
+		copyButton:SetNormalTexture(COPY_ICON)
+		copyButton:SetHighlightTexture(COPY_ICON)
+		copyButton:SetAlpha(COPY_BUTTON_ALPHA)
 		copyButton:SetScript("OnEnter", onCopyButtonEnter)
 		copyButton:SetScript("OnLeave", onCopyButtonLeave)
 		copyButton:SetScript("OnClick", onCopyButtonClick)

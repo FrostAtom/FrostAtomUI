@@ -2,13 +2,141 @@ local _, ns = ...
 
 local L = ns.L
 
+local GetTime = GetTime
+
 local Misc = ns:NewModule("Misc")
 
+local ERROR_FLASH_DURATION = 0.2
+local ERROR_FLASH_BRIGHTNESS = 0.4
+local MAX_ERROR_LINES = 8
+
+local COOLDOWN_ERRORS = {}
+for _, key in ipairs({
+	"ERR_ABILITY_COOLDOWN",
+	"ERR_SPELL_COOLDOWN",
+	"ERR_ITEM_COOLDOWN",
+	"ERR_POTION_COOLDOWN",
+	"SPELL_FAILED_ITEM_NOT_READY",
+	"SPELL_FAILED_NOT_READY",
+	"SPELL_FAILED_SPELL_IN_PROGRESS",
+	"ERR_OUT_OF_ENERGY",
+	"ERR_OUT_OF_FOCUS",
+	"ERR_OUT_OF_HEALTH",
+	"ERR_OUT_OF_MANA",
+	"ERR_OUT_OF_RAGE",
+	"ERR_OUT_OF_RUNES",
+	"ERR_OUT_OF_RUNIC_POWER",
+	"OUT_OF_ENERGY",
+	"OUT_OF_MANA",
+	"OUT_OF_RAGE",
+}) do
+	if _G[key] then
+		COOLDOWN_ERRORS[_G[key]] = true
+	end
+end
+
+local errorLines, errorLineCount = {}, 0
+local redrawingErrors = false
+local flashLine, flashStart
+local errorFlashFrame = CreateFrame("Frame")
+
+local function recordErrorLine(_, text, r, g, b, id)
+	if redrawingErrors or type(text) ~= "string" then
+		return
+	end
+	local line
+	if errorLineCount == MAX_ERROR_LINES then
+		line = tremove(errorLines, 1)
+		errorLines[MAX_ERROR_LINES] = line
+		if line == flashLine then
+			flashLine = nil
+		end
+	else
+		errorLineCount = errorLineCount + 1
+		line = errorLines[errorLineCount] or {}
+		errorLines[errorLineCount] = line
+	end
+	line.text, line.r, line.g, line.b, line.id, line.time = text, r or 1, g or 1, b or 1, id, GetTime()
+end
+
+local function forgetErrorLines()
+	if not redrawingErrors then
+		errorLineCount = 0
+	end
+end
+
+local function redrawErrors(boost)
+	local now = GetTime()
+	local hold = UIErrorsFrame:GetTimeVisible()
+	redrawingErrors = true
+	UIErrorsFrame:Clear()
+	local kept = 0
+	for i = 1, errorLineCount do
+		local line = errorLines[i]
+		if line == flashLine or now - line.time < hold then
+			kept = kept + 1
+			errorLines[i], errorLines[kept] = errorLines[kept], line
+			line.time = now
+			local extra = line == flashLine and boost or 0
+			UIErrorsFrame:AddMessage(line.text, line.r + extra, line.g + extra, line.b + extra, line.id)
+		end
+	end
+	errorLineCount = kept
+	redrawingErrors = false
+end
+
+local function onErrorFlashUpdate(self)
+	local progress = (GetTime() - flashStart) / ERROR_FLASH_DURATION
+	if progress >= 1 then
+		self:SetScript("OnUpdate", nil)
+		redrawErrors(0)
+		flashLine = nil
+		return
+	end
+	redrawErrors((progress > 0.5 and 1 - progress or progress) * 2 * ERROR_FLASH_BRIGHTNESS)
+end
+
+local function findVisibleErrorLine(message)
+	local window = UIErrorsFrame:GetTimeVisible() + UIErrorsFrame:GetFadeDuration()
+	local now = GetTime()
+	for i = errorLineCount, 1, -1 do
+		local line = errorLines[i]
+		if line.text == message and now - line.time < window then
+			return line
+		end
+	end
+end
+
+local function onErrorMessage(_, message)
+	local config = ns.Config.tweaks
+	if config.filterCooldownErrors and COOLDOWN_ERRORS[message] then
+		return
+	end
+	local line = config.dedupErrors and findVisibleErrorLine(message)
+	if not line then
+		UIErrorsFrame:AddMessage(message, 1, 0.1, 0.1, 1)
+		return
+	end
+	flashLine, flashStart = line, GetTime()
+	redrawErrors(0)
+	errorFlashFrame:SetScript("OnUpdate", onErrorFlashUpdate)
+end
+
+hooksecurefunc(UIErrorsFrame, "AddMessage", recordErrorLine)
+hooksecurefunc(UIErrorsFrame, "Clear", forgetErrorLines)
+
 local function applyErrors()
-	if ns.Config.tweaks.hideErrors then
+	local config = ns.Config.tweaks
+	local takeOver = not config.hideErrors and (config.dedupErrors or config.filterCooldownErrors)
+	if config.hideErrors or takeOver then
 		UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
 	else
 		UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
+	end
+	if takeOver then
+		Misc:RegisterEvent("UI_ERROR_MESSAGE", onErrorMessage)
+	else
+		Misc:UnregisterEvent("UI_ERROR_MESSAGE", onErrorMessage)
 	end
 end
 
@@ -62,6 +190,8 @@ Misc:OnInitialize(function(self)
 	self:WatchConfig("tweaks.hideGroundClutter", applyGroundClutter)
 	self:WatchConfig("tweaks.cameraDistanceMax", applyCameraDistance)
 	self:WatchConfig("tweaks.hideErrors", applyErrors)
+	self:WatchConfig("tweaks.dedupErrors", applyErrors)
+	self:WatchConfig("tweaks.filterCooldownErrors", applyErrors)
 
 	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", "World state", { size = { 200, 30 } })
 

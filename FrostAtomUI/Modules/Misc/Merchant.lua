@@ -12,6 +12,11 @@ local GetContainerItemInfo = GetContainerItemInfo
 local GetItemInfo = GetItemInfo
 local UseContainerItem = UseContainerItem
 local IsShiftKeyDown = IsShiftKeyDown
+local IsInGuild = IsInGuild
+local CanGuildBankRepair = CanGuildBankRepair
+local GetGuildBankWithdrawMoney = GetGuildBankWithdrawMoney
+local GetGuildBankMoney = GetGuildBankMoney
+local min = math.min
 local NUM_BAG_SLOTS = NUM_BAG_SLOTS
 
 local Misc = ns:GetModule("Misc")
@@ -41,6 +46,17 @@ local function sellGreys()
 	end
 end
 
+local function guildFunds()
+	if not IsInGuild() or not CanGuildBankRepair() then
+		return 0
+	end
+	local withdraw, bank = GetGuildBankWithdrawMoney(), GetGuildBankMoney()
+	if withdraw == -1 then
+		return bank
+	end
+	return min(withdraw, bank)
+end
+
 local function repair()
 	if not CanMerchantRepair() then
 		return
@@ -51,7 +67,10 @@ local function repair()
 		return
 	end
 
-	if GetMoney() >= cost then
+	if ns.Config.merchant.guildRepair and guildFunds() >= cost then
+		RepairAllItems(1)
+		ns.Print(L["repaired for %s from the guild bank"], formatMoney(cost))
+	elseif GetMoney() >= cost then
 		RepairAllItems()
 		ns.Print(L["repaired for %s"], formatMoney(cost))
 	else

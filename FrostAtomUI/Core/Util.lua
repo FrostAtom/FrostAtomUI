@@ -1,25 +1,25 @@
 local ADDON_NAME, ns = ...
 
+local UnitGUID, GetSpellInfo = UnitGUID, GetSpellInfo
 local tremove = table.remove
 local floor, modf, min, abs = math.floor, math.modf, math.min, math.abs
 
-local function tContains(tbl, item)
+local function indexOf(tbl, item)
 	for i = 1, #tbl do
 		if tbl[i] == item then
 			return i
 		end
 	end
 end
-ns.tContains = tContains
+ns.tContains = indexOf
 
 function ns.tDeleteItem(tbl, item)
-	local index = tContains(tbl, item)
+	local index = indexOf(tbl, item)
 	if index then
 		return tremove(tbl, index)
 	end
 end
 
-local UnitGUID = UnitGUID
 -- stylua: ignore
 local GUID_UNITS = {
 	"player", "target", "focus",
@@ -40,7 +40,6 @@ end
 
 function ns.noop() end
 
-local GetSpellInfo = GetSpellInfo
 local spellTextures = {}
 
 function ns.SpellTexture(spellId)
@@ -78,6 +77,7 @@ end
 ns.DestroyFrame = destroyFrame
 
 local SMOOTH_SPEED = 12
+local SMOOTH_SNAP_FRACTION = 0.002
 local smoothing = {}
 
 local smoother = CreateFrame("Frame")
@@ -90,7 +90,7 @@ smoother:SetScript("OnUpdate", function(_, elapsed)
 			local current = bar:GetValue()
 			local low, high = bar:GetMinMaxValues()
 			new = current + (target - current) * step
-			if abs(target - new) < (high - low) * 0.002 then
+			if abs(target - new) < (high - low) * SMOOTH_SNAP_FRACTION then
 				new = target
 			end
 		end
@@ -290,25 +290,22 @@ end
 
 local thousandsCache, millionsCache = {}, {}
 
+local function formatTenths(cache, tenths, pattern)
+	local text = cache[tenths]
+	if not text then
+		text = pattern:format(tenths / 10)
+		cache[tenths] = text
+	end
+	return text
+end
+
 function ns.FormatValue(value)
 	if value < 1e3 then
 		return value
 	elseif value < 1e6 then
-		local key = floor(value / 100 + 0.5)
-		local text = thousandsCache[key]
-		if not text then
-			text = ("%.1fk"):format(key / 10)
-			thousandsCache[key] = text
-		end
-		return text
+		return formatTenths(thousandsCache, floor(value / 100 + 0.5), "%.1fk")
 	end
-	local key = floor(value / 1e5 + 0.5)
-	local text = millionsCache[key]
-	if not text then
-		text = ("%.1fm"):format(key / 10)
-		millionsCache[key] = text
-	end
-	return text
+	return formatTenths(millionsCache, floor(value / 1e5 + 0.5), "%.1fm")
 end
 
 local function splitMoney(copper)
@@ -359,6 +356,49 @@ function ns.ColorGradient(percent, ...)
 	local r1, g1, b1, r2, g2, b2 = select(segment * 3 + 1, ...)
 
 	return r1 + (r2 - r1) * relativePercent, g1 + (g2 - g1) * relativePercent, b1 + (b2 - b1) * relativePercent
+end
+
+local WINDOW_PADDING = 12
+local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
+local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
+
+function ns.CreateWindow(name, options)
+	local frame = CreateFrame("Frame", name, UIParent)
+	frame:Hide()
+	frame:SetWidth(options.width)
+	if options.height then
+		frame:SetHeight(options.height)
+	end
+	frame:SetFrameStrata("HIGH")
+	frame:EnableMouse(true)
+	frame:SetMovable(true)
+	frame:SetClampedToScreen(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", frame.StartMoving)
+	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
+	frame:SetBackdropColor(0, 0, 0, 0.6)
+	tinsert(UISpecialFrames, name)
+
+	if options.title then
+		local title = frame:CreateFontString(nil, "OVERLAY")
+		ns.SetFont(title, 13, "OUTLINE", true)
+		title:SetPoint("TOPLEFT", WINDOW_PADDING, -WINDOW_PADDING - 3)
+		title:SetText(options.title)
+		frame.title = title
+	end
+
+	local close = CreateFrame("Button", nil, frame)
+	close:SetSize(26, 26)
+	close:SetPoint("TOPRIGHT", -WINDOW_PADDING + 6, -WINDOW_PADDING + 6)
+	close:SetNormalTexture(CLOSE_ICON)
+	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
+	close:SetScript("OnClick", function()
+		frame:Hide()
+	end)
+	frame.close = close
+
+	return frame
 end
 
 function ns.GridPoint(point, i, perRow, size)

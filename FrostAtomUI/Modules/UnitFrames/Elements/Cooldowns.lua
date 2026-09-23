@@ -13,6 +13,7 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 local config = ns.Config.unitFrames
 
 local EXPIRY_CHECK_INTERVAL = 0.5
+local TIMER_FONT_SCALE = 0.38
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 1.75
 
@@ -35,7 +36,7 @@ local function onIconLeave()
 end
 
 local function onIconResize(icon, size)
-	ns.SetFont(icon.cooldown.timer, size * 0.38, "OUTLINE")
+	ns.SetFont(icon.cooldown.timer, size * TIMER_FONT_SCALE, "OUTLINE")
 	icon.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
 end
 
@@ -54,9 +55,10 @@ local function createIcon(container, index)
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
 	icon.cooldown:SetAllPoints()
 	icon.cooldown:SetAlpha(0)
-	CooldownTimer:Attach(icon.cooldown, container.size * 0.38, icon)
+	CooldownTimer:Attach(icon.cooldown, container.size * TIMER_FONT_SCALE, icon)
 	icon.cooldown.timer:ClearAllPoints()
 	icon.cooldown.timer:SetPoint("BOTTOM", 0, 1)
+	CooldownTimer:AttachFlash(icon.cooldown, icon.texture, config, "cooldownReadyFlash")
 
 	icon.glow = icon:CreateTexture(nil, "OVERLAY")
 	icon.glow:SetPoint("CENTER")
@@ -67,6 +69,17 @@ local function createIcon(container, index)
 
 	icon.OnResize = onIconResize
 
+	return icon
+end
+
+local function acquireSpellIcon(container, index, spellId)
+	local icon = container[index]
+	if not icon then
+		icon = createIcon(container, index)
+		container[index] = icon
+	end
+	icon.spellId = spellId
+	icon.texture:SetTexture(SpellTexture(spellId))
 	return icon
 end
 
@@ -98,15 +111,7 @@ function refresh(container)
 		local highlighted = CooldownTracker:IsHighlighted(guid, id)
 		if (start or highlighted) and not container.skip[id] then
 			shown = shown + 1
-			local icon = container[shown]
-			if not icon then
-				icon = createIcon(container, shown)
-				container[shown] = icon
-			end
-
-			icon.spellId = id
-			icon.texture:SetTexture(SpellTexture(id))
-
+			local icon = acquireSpellIcon(container, shown, id)
 			if start then
 				if start ~= icon.start or duration ~= icon.duration then
 					icon.start, icon.duration = start, duration
@@ -141,13 +146,7 @@ local function test(frame)
 		local id, cooldown = spells[i][1], spells[i][2]
 		if random(3) == 1 and not container.skip[id] then
 			shown = shown + 1
-			local icon = container[shown]
-			if not icon then
-				icon = createIcon(container, shown)
-				container[shown] = icon
-			end
-			icon.spellId = id
-			icon.texture:SetTexture(SpellTexture(id))
+			local icon = acquireSpellIcon(container, shown, id)
 			icon.start = nil
 			icon.cooldown:SetCooldown(now - random(0, cooldown - 5), cooldown)
 			showGlow(icon, random(5) == 1)

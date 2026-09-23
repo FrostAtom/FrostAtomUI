@@ -77,7 +77,7 @@ local function slotKey(bag, slot)
 	return bag * 100 + slot
 end
 
-local function decode(key)
+local function decodeSlotKey(key)
 	return floor(key / 100), key % 100
 end
 
@@ -170,7 +170,7 @@ local function addMove(from, to)
 	}
 end
 
-local function stack(sourceBags, targetBags, partialOnly)
+local function stackItems(sourceBags, targetBags, partialOnly)
 	for i = 1, #targetBags do
 		local bag = targetBags[i]
 		for slot = 1, GetContainerNumSlots(bag) do
@@ -225,7 +225,7 @@ local function canGoInBag(id, bag)
 	return bagFamily == 0 or bit_band(itemFamily, bagFamily) > 0
 end
 
-local function fill(sourceBags, targetBags)
+local function fillEmptySlots(sourceBags, targetBags)
 	for i = 1, #targetBags do
 		local bag = targetBags[i]
 		for slot = 1, GetContainerNumSlots(bag) do
@@ -244,7 +244,7 @@ local function fill(sourceBags, targetBags)
 			end
 			local source = slotKey(bag, slot)
 			local id = ids[source]
-			if id and canGoInBag(id, (decode(emptySlots[1]))) then
+			if id and canGoInBag(id, (decodeSlotKey(emptySlots[1]))) then
 				addMove(source, tremove(emptySlots, 1))
 			end
 		end
@@ -277,7 +277,7 @@ local function sameContent(a, b)
 	return ids[a] == ids[b] and counts[a] == counts[b]
 end
 
-local function sort(bags)
+local function sortSlots(bags)
 	wipe(sorted)
 	wipe(initialOrder)
 
@@ -313,7 +313,7 @@ local function sort(bags)
 	wipe(initialOrder)
 end
 
-local function plan(bags)
+local function planMoves(bags)
 	wipe(moves)
 	scan(bags)
 
@@ -340,13 +340,13 @@ local function plan(bags)
 	end
 
 	for _, group in pairs(specialtyBags) do
-		stack(group, group, true)
-		stack(normalBags, group)
-		fill(normalBags, group)
-		sort(group)
+		stackItems(group, group, true)
+		stackItems(normalBags, group)
+		fillEmptySlots(normalBags, group)
+		sortSlots(group)
 	end
-	stack(normalBags, normalBags, true)
-	sort(normalBags)
+	stackItems(normalBags, normalBags, true)
+	sortSlots(normalBags)
 	return #moves > 0
 end
 
@@ -371,13 +371,13 @@ local function replan()
 	if replans > MAX_REPLANS then
 		return stop(L["sorting failed, try again"])
 	end
-	if not plan(activeFrame.bags) then
+	if not planMoves(activeFrame.bags) then
 		return stop()
 	end
 end
 
 local function slotState(key)
-	local bag, slot = decode(key)
+	local bag, slot = decodeSlotKey(key)
 	local _, count, locked = GetContainerItemInfo(bag, slot)
 	return GetContainerItemID(bag, slot) or false, count or 0, locked
 end
@@ -391,9 +391,9 @@ local function moveFinished(move)
 	return toId == move.toId and toCount == move.toCount and fromId == move.fromId
 end
 
-local function issue(move)
-	local sourceBag, sourceSlot = decode(move.from)
-	local targetBag, targetSlot = decode(move.to)
+local function issueMove(move)
+	local sourceBag, sourceSlot = decodeSlotKey(move.from)
+	local targetBag, targetSlot = decodeSlotKey(move.to)
 	local sourceId, sourceCount = slotState(move.from)
 	local targetId, targetCount = slotState(move.to)
 	if not sourceId then
@@ -444,19 +444,17 @@ ticker:SetScript("OnUpdate", function()
 			else
 				busy[from], busy[to] = true, true
 			end
-		elseif not (busy[from] or busy[to]) then
-			if issued < MOVES_PER_FRAME then
+		else
+			if not (busy[from] or busy[to]) and issued < MOVES_PER_FRAME then
 				local _, _, fromLocked = slotState(from)
 				local _, _, toLocked = slotState(to)
 				if not (fromLocked or toLocked) then
-					if not issue(move) then
+					if not issueMove(move) then
 						return replan()
 					end
 					issued = issued + 1
 				end
 			end
-			busy[from], busy[to] = true, true
-		else
 			busy[from], busy[to] = true, true
 		end
 		i = i + 1
@@ -472,7 +470,7 @@ function Bags:SortBags(frame)
 	end
 
 	replans = 0
-	if not plan(frame.bags) then
+	if not planMoves(frame.bags) then
 		return
 	end
 

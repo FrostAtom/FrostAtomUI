@@ -55,14 +55,15 @@ local GetNumPartyMembers = GetNumPartyMembers
 local tconcat = table.concat
 local format = string.format
 
-local UNKNOWN = UNKNOWNOBJECT
+local UNKNOWN_NAME = UNKNOWNOBJECT
+local MAX_ARENA_OPPONENTS = 5
 
 local ourNames, enemyNames = {}, {}
 local ourSeen, enemySeen = {}, {}
 local inArena = false
 
 local function addName(list, seen, name)
-	if not name or name == UNKNOWN or seen[name] then
+	if not name or name == UNKNOWN_NAME or seen[name] then
 		return
 	end
 	seen[name] = true
@@ -76,15 +77,15 @@ local function collectParty()
 	end
 end
 
-local function collectArena(unit)
+local function collectArenaUnit(unit)
 	if UnitExists(unit) then
 		addName(enemyNames, enemySeen, UnitName(unit))
 	end
 end
 
-local function collectAllArena()
-	for i = 1, 5 do
-		collectArena("arena" .. i)
+local function collectArenaUnits()
+	for i = 1, MAX_ARENA_OPPONENTS do
+		collectArenaUnit("arena" .. i)
 	end
 end
 
@@ -138,7 +139,7 @@ Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 		wipe(ourSeen)
 		wipe(enemySeen)
 		collectParty()
-		collectAllArena()
+		collectArenaUnits()
 	end
 end)
 
@@ -150,13 +151,13 @@ end)
 
 Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", function(_, unit)
 	if inArena then
-		collectArena(unit)
+		collectArenaUnit(unit)
 	end
 end)
 
 Misc:RegisterEvent("UNIT_NAME_UPDATE", function(_, unit)
 	if inArena and unit:find("^arena%d$") then
-		collectArena(unit)
+		collectArenaUnit(unit)
 	end
 end)
 

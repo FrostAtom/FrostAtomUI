@@ -3,6 +3,7 @@ local L = ns.L
 
 local GameTooltip = GameTooltip
 local InCombatLockdown, GetCursorPosition, IsShiftKeyDown = InCombatLockdown, GetCursorPosition, IsShiftKeyDown
+local IsAddOnLoaded, LoadAddOn = IsAddOnLoaded, LoadAddOn
 local floor, abs, max, min = math.floor, math.abs, math.max, math.min
 local tconcat = table.concat
 
@@ -17,11 +18,25 @@ local ANCHORED_TEXT_COLOR = { 0.6, 0.65, 0.7 }
 local GRIP_COLOR = { 0.8, 0.95, 1, 0.8 }
 local GRID_COLOR = { 1, 1, 1, 0.12 }
 local GRID_CENTER_COLOR = { 1, 0.4, 0.4, 0.4 }
+local SELECTED_BORDER_COLOR = { 1, 0.82, 0 }
+local SNAP_LINE_COLOR = { 1, 0.82, 0, 0.9 }
+local ATTACH_LINE_COLOR = { 0.4, 1, 0.5, 0.9 }
 local MIN_WIDTH, MIN_HEIGHT = 96, 26
 local GRIP_SIZE = 12
 local SNAP_DISTANCE = 10
 local SNAP_GAP = 4
 local ADJACENT_GAP = 24
+local SHIFT_NUDGE = 10
+local NUDGE_BUTTON = "FrostAtomUIMoversNudge"
+local CONFIG_ADDON = "FrostAtomUI_Config"
+local OVERLAY_STRATA = "DIALOG"
+
+local NUDGE_KEYS = {
+	UP = { 0, 1 },
+	DOWN = { 0, -1 },
+	LEFT = { -1, 0 },
+	RIGHT = { 1, 0 },
+}
 
 local POINT_PARTS = {
 	BOTTOMLEFT = { 1, 1 },
@@ -49,6 +64,8 @@ local byFrame = {}
 local byPath = {}
 local unlocked = false
 local panel, grid
+local selected
+local testModeOwned = false
 
 local function humanize(path)
 	local words = {}
@@ -72,7 +89,7 @@ local function fallbackSize(mover)
 	return MIN_WIDTH, MIN_HEIGHT
 end
 
-function Movers.GetFrame(path)
+local function registeredFrame(path)
 	local mover = byPath[path]
 	return mover and mover.frame
 end
@@ -82,17 +99,9 @@ function Movers.GetLabel(path)
 	return mover and L[mover.label] or path and humanize(path)
 end
 
-local function anchorParent(path)
-	local anchorPath = ns:GetConfig(path)[4]
-	if not anchorPath then
-		return nil
-	end
-	return Movers.GetFrame(anchorPath), anchorPath
-end
-
 function ns.ApplyPoint(frame, path, offset)
 	local point, x, y, anchorPath, anchorPoint = unpack(ns:GetConfig(path))
-	local parent = anchorPath and Movers.GetFrame(anchorPath)
+	local parent = anchorPath and registeredFrame(anchorPath)
 	frame:ClearAllPoints()
 	frame:SetPoint(point, parent or UIParent, parent and anchorPoint or point, x, y - (offset or 0))
 end
@@ -122,10 +131,18 @@ local function wouldLoop(path, anchorPath)
 	return false
 end
 
--- geometry in UIParent units
-
 local function scaleOf(frame)
 	return frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+end
+
+local function uiToFrameFactor(mover)
+	return UIParent:GetEffectiveScale() / (mover.frame or mover.overlay):GetEffectiveScale()
+end
+
+local function cursorPosition()
+	local uiScale = UIParent:GetEffectiveScale()
+	local cursorX, cursorY = GetCursorPosition()
+	return cursorX / uiScale, cursorY / uiScale
 end
 
 local function rectOf(frame)
@@ -205,11 +222,9 @@ local function attach(mover)
 		overlay:SetSize(max(width, 1), max(height, 1))
 		overlay:SetPoint("BOTTOMLEFT", mover.frame, "BOTTOMLEFT", left - frameLeft, bottom - frameBottom)
 	else
-		local point, x, y, anchorPath, anchorPoint = unpack(ns:GetConfig(mover.path))
-		local parent = anchorPath and Movers.GetFrame(anchorPath)
 		local fallbackWidth, fallbackHeight = fallbackSize(mover)
 		overlay:SetSize(max(fallbackWidth, 1), max(fallbackHeight, 1))
-		overlay:SetPoint(point, parent or UIParent, parent and anchorPoint or point, x, y)
+		ns.ApplyPoint(overlay, mover.path)
 	end
 	placeLabel(overlay)
 end
@@ -229,14 +244,18 @@ local function showTooltip(overlay)
 	else
 		GameTooltip:AddLine(("%s  %d, %d"):format(point, x, y), 0.8, 0.8, 0.8)
 	end
+	GameTooltip:AddLine(L["Click to open settings"], 0.6, 0.6, 0.6)
 	GameTooltip:AddLine(L["Drag to move, right-click to reset, hold Shift to drop snapping"], 0.6, 0.6, 0.6)
+	if mover == selected then
+		GameTooltip:AddLine(L["Arrow keys nudge by 1 px, Shift+arrows by 10 px, Esc clears the selection"], 1, 0.82, 0)
+	else
+		GameTooltip:AddLine(L["Selected frames nudge with the arrow keys"], 0.6, 0.6, 0.6)
+	end
 	if mover.resize then
 		GameTooltip:AddLine(L["Drag the bottom-right corner to resize"], 0.6, 0.6, 0.6)
 	end
 	GameTooltip:Show()
 end
-
--- snapping
 
 local linesX, linesY, parts = {}, {}, {}
 
@@ -289,23 +308,67 @@ local function snapOffset(lines, low, size)
 	return best, bestLine, bestPart
 end
 
+local snapLineFrame
+local snapLines = {}
+
+local function snapLine(axis)
+	local line = snapLines[axis]
+	if not line then
+		if not snapLineFrame then
+			snapLineFrame = CreateFrame("Frame", nil, UIParent)
+			snapLineFrame:SetAllPoints()
+			snapLineFrame:SetFrameStrata("FULLSCREEN_DIALOG")
+		end
+		line = snapLineFrame:CreateTexture(nil, "OVERLAY")
+		line:SetTexture(ns.Media.blank)
+		snapLines[axis] = line
+	end
+	return line
+end
+
+local function hideSnapLines()
+	for _, line in pairs(snapLines) do
+		line:Hide()
+	end
+end
+
+local function showSnapLine(axis, value, attached)
+	local line = snapLine(axis)
+	local thickness = ns.PixelPerfect(2)
+	line:ClearAllPoints()
+	if axis == "x" then
+		local x = min(max(value - thickness / 2, 0), UIParent:GetWidth() - thickness)
+		line:SetWidth(thickness)
+		line:SetPoint("TOPLEFT", snapLineFrame, "TOPLEFT", x, 0)
+		line:SetPoint("BOTTOMLEFT", snapLineFrame, "BOTTOMLEFT", x, 0)
+	else
+		local y = min(max(value - thickness / 2, 0), UIParent:GetHeight() - thickness)
+		line:SetHeight(thickness)
+		line:SetPoint("BOTTOMLEFT", snapLineFrame, "BOTTOMLEFT", 0, y)
+		line:SetPoint("BOTTOMRIGHT", snapLineFrame, "BOTTOMRIGHT", 0, y)
+	end
+	line:SetVertexColor(unpack(attached and ATTACH_LINE_COLOR or SNAP_LINE_COLOR))
+	line:Show()
+end
+
+local updateSnapLines
+
 local dragging
 local dragFrame = CreateFrame("Frame")
 dragFrame:Hide()
 
 local function updateDrag()
 	local mover = dragging
-	local overlay = mover.overlay
-	local uiScale = UIParent:GetEffectiveScale()
-	local cursorX, cursorY = GetCursorPosition()
-	local dx = cursorX / uiScale - mover.cursorX
-	local dy = cursorY / uiScale - mover.cursorY
+	local cursorX, cursorY = cursorPosition()
+	local dx = cursorX - mover.cursorX
+	local dy = cursorY - mover.cursorY
 
-	mover.snapX, mover.snapY = nil, nil
+	mover.snapX, mover.snapY, mover.lineX, mover.lineY = nil, nil, nil, nil
 	if not IsShiftKeyDown() then
 		local offsetX, lineX, partX = snapOffset(linesX, mover.left + dx, mover.width)
 		local offsetY, lineY, partY = snapOffset(linesY, mover.bottom + dy, mover.height)
 		dx, dy = dx + offsetX, dy + offsetY
+		mover.lineX, mover.lineY = lineX, lineY
 		if lineX and lineX.mover then
 			mover.snapX = { line = lineX, part = partX, distance = abs(offsetX) }
 		end
@@ -314,16 +377,17 @@ local function updateDrag()
 		end
 	end
 
-	local factor = uiScale / (mover.frame or overlay):GetEffectiveScale()
+	local factor = uiToFrameFactor(mover)
 	local x = floor(mover.startX + dx * factor + 0.5)
 	local y = floor(mover.startY + dy * factor + 0.5)
 	mover.finalLeft = mover.left + (x - mover.startX) / factor
 	mover.finalBottom = mover.bottom + (y - mover.startY) / factor
+	updateSnapLines(mover)
 	if x ~= mover.lastX or y ~= mover.lastY then
 		mover.lastX, mover.lastY = x, y
 		local point, _, _, anchorPath, anchorPoint = unpack(ns:GetConfig(mover.path))
 		ns:SetConfig(mover.path, { point, x, y, anchorPath, anchorPoint })
-		showTooltip(overlay)
+		showTooltip(mover.overlay)
 	end
 end
 
@@ -351,7 +415,7 @@ local function anchorTo(mover, target, xPart, yPart, theirXPart, theirYPart)
 	if not left or not targetLeft then
 		return
 	end
-	local factor = UIParent:GetEffectiveScale() / (mover.frame or mover.overlay):GetEffectiveScale()
+	local factor = uiToFrameFactor(mover)
 	local x = (edge(left, width, xPart) - edge(targetLeft, targetWidth, theirXPart)) * factor
 	local y = (edge(bottom, height, yPart) - edge(targetBottom, targetHeight, theirYPart)) * factor
 	ns:SetConfig(mover.path, {
@@ -374,7 +438,7 @@ local function detach(mover)
 		return
 	end
 	local xPart, yPart = unpack(POINT_PARTS[point] or POINT_PARTS.CENTER)
-	local factor = UIParent:GetEffectiveScale() / (mover.frame or mover.overlay):GetEffectiveScale()
+	local factor = uiToFrameFactor(mover)
 	local x = (edge(left, width, xPart) - edge(0, UIParent:GetWidth(), xPart)) * factor
 	local y = (edge(bottom, height, yPart) - edge(0, UIParent:GetHeight(), yPart)) * factor
 	ns:SetConfig(mover.path, { point, floor(x + 0.5), floor(y + 0.5) })
@@ -395,7 +459,7 @@ local function isNear(mover, target, axis)
 	return low - targetHigh < ADJACENT_GAP and targetLow - high < ADJACENT_GAP
 end
 
-local function applySnapAnchor(mover)
+local function resolveSnaps(mover)
 	local snapX, snapY = mover.snapX, mover.snapY
 	if snapX and not isNear(mover, snapX.line.mover, "x") then
 		snapX = nil
@@ -418,6 +482,33 @@ local function applySnapAnchor(mover)
 	if target == mover or wouldLoop(mover.path, target.path) then
 		return
 	end
+	return target, snapX, snapY
+end
+
+function updateSnapLines(mover)
+	local lineX, lineY = mover.lineX, mover.lineY
+	if not lineX and not lineY then
+		hideSnapLines()
+		return
+	end
+	local _, snapX, snapY = resolveSnaps(mover)
+	if lineX then
+		showSnapLine("x", lineX.value, snapX ~= nil)
+	elseif snapLines.x then
+		snapLines.x:Hide()
+	end
+	if lineY then
+		showSnapLine("y", lineY.value, snapY ~= nil)
+	elseif snapLines.y then
+		snapLines.y:Hide()
+	end
+end
+
+local function applySnapAnchor(mover)
+	local target, snapX, snapY = resolveSnaps(mover)
+	if not target then
+		return
+	end
 
 	anchorTo(
 		mover,
@@ -429,14 +520,59 @@ local function applySnapAnchor(mover)
 	)
 end
 
-local function onMouseDown(overlay)
-	local uiScale = UIParent:GetEffectiveScale()
-	local cursorX, cursorY = GetCursorPosition()
-	overlay.mover.cursorX, overlay.mover.cursorY = cursorX / uiScale, cursorY / uiScale
+local selectMover
+
+local function loadedConfig()
+	return IsAddOnLoaded(CONFIG_ADDON) and _G[CONFIG_ADDON] or nil
+end
+
+local function loadConfig()
+	if not IsAddOnLoaded(CONFIG_ADDON) then
+		local loaded, reason = LoadAddOn(CONFIG_ADDON)
+		if not loaded then
+			ns.Print(L["cannot load FrostAtomUI_Config: %s"], _G["ADDON_" .. reason] or reason)
+			return nil
+		end
+	end
+	return _G[CONFIG_ADDON]
+end
+
+local function openSettings(path)
+	local config = loadConfig()
+	local mover = byPath[path]
+	if config and config.OpenElement then
+		config.OpenElement(path, mover and mover.overlay)
+	end
+end
+
+local function closeSettings()
+	local config = loadedConfig()
+	if config and config.CloseElement then
+		config.CloseElement()
+	end
+end
+
+local function openedSettings()
+	local config = loadedConfig()
+	return config and config.GetOpenElement and config.GetOpenElement()
+end
+
+local function onMouseDown(overlay, button)
+	local mover = overlay.mover
+	mover.cursorX, mover.cursorY = cursorPosition()
+	mover.dragged = false
+	if button == "LeftButton" then
+		selectMover(mover)
+		local opened = openedSettings()
+		if opened and opened ~= mover.path and selected == mover then
+			openSettings(mover.path)
+		end
+	end
 end
 
 local function onDragStart(overlay)
 	local mover = overlay.mover
+	mover.dragged = true
 	if mover.secure and InCombatLockdown() then
 		return
 	end
@@ -447,7 +583,8 @@ local function onDragStart(overlay)
 	mover.frameLeft, mover.frameBottom = frameRect(mover)
 	mover.finalLeft, mover.finalBottom = nil, nil
 	detach(mover)
-	mover.point, mover.startX, mover.startY = unpack(ns:GetConfig(mover.path))
+	local _, startX, startY = unpack(ns:GetConfig(mover.path))
+	mover.startX, mover.startY = startX, startY
 	mover.lastX, mover.lastY = mover.startX, mover.startY
 	collectSnapLines(mover)
 	dragging = mover
@@ -462,6 +599,7 @@ local function onDragStop(overlay)
 	updateDrag()
 	dragging = nil
 	dragFrame:Hide()
+	hideSnapLines()
 	applySnapAnchor(mover)
 	mover.finalLeft, mover.finalBottom, mover.frameLeft, mover.frameBottom = nil, nil, nil, nil
 	attach(mover)
@@ -472,8 +610,6 @@ end
 
 dragFrame:SetScript("OnUpdate", updateDrag)
 
--- resizing
-
 local resizing
 local resizeFrame = CreateFrame("Frame")
 resizeFrame:Hide()
@@ -481,10 +617,9 @@ resizeFrame:Hide()
 local function updateResize()
 	local mover = resizing
 	local resize = mover.resize
-	local uiScale = UIParent:GetEffectiveScale()
-	local cursorX, cursorY = GetCursorPosition()
-	local width = mover.startWidth + cursorX / uiScale - mover.cursorX
-	local height = mover.startHeight - (cursorY / uiScale - mover.cursorY)
+	local cursorX, cursorY = cursorPosition()
+	local width = mover.startWidth + cursorX - mover.cursorX
+	local height = mover.startHeight - (cursorY - mover.cursorY)
 
 	width = floor(max(resize.minWidth or MIN_WIDTH, min(resize.maxWidth or UIParent:GetWidth(), width)) + 0.5)
 	height = floor(max(resize.minHeight or MIN_HEIGHT, min(resize.maxHeight or UIParent:GetHeight(), height)) + 0.5)
@@ -505,9 +640,7 @@ local function onGripMouseDown(grip)
 	if mover.secure and InCombatLockdown() then
 		return
 	end
-	local uiScale = UIParent:GetEffectiveScale()
-	local cursorX, cursorY = GetCursorPosition()
-	mover.cursorX, mover.cursorY = cursorX / uiScale, cursorY / uiScale
+	mover.cursorX, mover.cursorY = cursorPosition()
 	local _, _, width, height = moverRect(mover)
 	mover.startWidth, mover.startHeight = mover.resize.get()
 	mover.startWidth = mover.startWidth or width
@@ -546,13 +679,14 @@ local function createGrip(overlay)
 	return grip
 end
 
--- overlays
-
 local function onClick(overlay, button)
+	local mover = overlay.mover
 	if button == "RightButton" then
-		ns:ResetConfig(overlay.mover.path)
-		attach(overlay.mover)
+		ns:ResetConfig(mover.path)
+		attach(mover)
 		showTooltip(overlay)
+	elseif not mover.dragged and selected == mover then
+		openSettings(mover.path)
 	end
 end
 
@@ -564,7 +698,11 @@ local function updateColors(mover, hover)
 	else
 		overlay:SetBackdropColor(unpack(anchored and ANCHORED_BACKDROP_COLOR or BACKDROP_COLOR))
 	end
-	overlay:SetBackdropBorderColor(unpack(anchored and ANCHORED_BORDER_COLOR or BORDER_COLOR))
+	if mover == selected then
+		overlay:SetBackdropBorderColor(unpack(SELECTED_BORDER_COLOR))
+	else
+		overlay:SetBackdropBorderColor(unpack(anchored and ANCHORED_BORDER_COLOR or BORDER_COLOR))
+	end
 	overlay.text:SetTextColor(unpack(anchored and ANCHORED_TEXT_COLOR or TEXT_COLOR))
 end
 
@@ -582,12 +720,12 @@ local function createOverlay(mover)
 	local overlay = CreateFrame("Button", nil, UIParent)
 	overlay.mover = mover
 	overlay:Hide()
-	overlay:SetFrameStrata("TOOLTIP")
+	overlay:SetFrameStrata(OVERLAY_STRATA)
 	overlay:SetMovable(true)
 	overlay:SetClampedToScreen(true)
 	overlay:EnableMouse(true)
 	overlay:RegisterForDrag("LeftButton")
-	overlay:RegisterForClicks("RightButtonUp")
+	overlay:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	overlay:SetBackdrop(ns.CreateBackdrop(8, 2))
 	overlay:SetBackdropColor(unpack(BACKDROP_COLOR))
 	overlay:SetScript("OnMouseDown", onMouseDown)
@@ -612,6 +750,105 @@ end
 local function refresh(mover)
 	updateColors(mover, mover.overlay:IsMouseOver())
 	attach(mover)
+end
+
+local nudgeButton
+
+local function nudge(_, button)
+	local mover = selected
+	if not mover then
+		return
+	end
+	local key = button:gsub("^SHIFT%-", "")
+	if key == "ESCAPE" then
+		selectMover(nil)
+		return
+	end
+	local step = NUDGE_KEYS[key]
+	if not step or (mover.secure and InCombatLockdown()) then
+		return
+	end
+	local distance = key ~= button and SHIFT_NUDGE or 1
+	detach(mover)
+	local point, x, y = unpack(ns:GetConfig(mover.path))
+	ns:SetConfig(mover.path, { point, x + step[1] * distance, y + step[2] * distance })
+	if mover.overlay:IsMouseOver() then
+		showTooltip(mover.overlay)
+	end
+end
+
+local function bindNudgeKeys()
+	if not nudgeButton then
+		nudgeButton = CreateFrame("Button", NUDGE_BUTTON, UIParent)
+		nudgeButton:RegisterForClicks("AnyDown")
+		nudgeButton:SetScript("OnClick", nudge)
+	end
+	ClearOverrideBindings(nudgeButton)
+	for key in pairs(NUDGE_KEYS) do
+		SetOverrideBindingClick(nudgeButton, true, key, NUDGE_BUTTON, key)
+		SetOverrideBindingClick(nudgeButton, true, "SHIFT-" .. key, NUDGE_BUTTON, "SHIFT-" .. key)
+	end
+	SetOverrideBindingClick(nudgeButton, true, "ESCAPE", NUDGE_BUTTON, "ESCAPE")
+end
+
+function selectMover(mover)
+	if mover == selected or (mover and InCombatLockdown()) then
+		return
+	end
+	local previous = selected
+	selected = mover
+	if previous and previous.overlay then
+		updateColors(previous, previous.overlay:IsMouseOver())
+	end
+	if mover then
+		updateColors(mover, mover.overlay:IsMouseOver())
+		if mover.overlay:IsMouseOver() then
+			showTooltip(mover.overlay)
+		end
+		bindNudgeKeys()
+	else
+		if nudgeButton then
+			ClearOverrideBindings(nudgeButton)
+		end
+		closeSettings()
+	end
+end
+
+function Movers.Select(path)
+	local mover = byPath[path]
+	if not unlocked or not mover or not mover.overlay then
+		return false
+	end
+	selectMover(mover)
+	if selected ~= mover then
+		return false
+	end
+	openSettings(path)
+	return true
+end
+
+function Movers.ClearSelection()
+	selectMover(nil)
+end
+
+function Movers.SetScale(frame, scale, keepPosition)
+	local old = frame:GetScale()
+	local mover = byFrame[frame]
+	if not keepPosition or not mover or abs(old - scale) < 0.0001 then
+		frame:SetScale(scale)
+		return
+	end
+	local point, x, y, anchorPath, anchorPoint = unpack(ns:GetConfig(mover.path))
+	local kept = mover.kept
+	if not kept or kept.x ~= x or kept.y ~= y then
+		kept = { visualX = x * old, visualY = y * old }
+		mover.kept = kept
+	end
+	kept.x = floor(kept.visualX / scale + 0.5)
+	kept.y = floor(kept.visualY / scale + 0.5)
+	frame:SetScale(scale)
+	ns:SetConfig(mover.path, { point, kept.x, kept.y, anchorPath, anchorPoint })
+	ns.ApplyPoint(frame, mover.path)
 end
 
 function Movers.Register(frame, path, label, options)
@@ -650,6 +887,9 @@ function Movers.Unregister(frame)
 	if not mover then
 		return
 	end
+	if mover == selected then
+		selectMover(nil)
+	end
 	byFrame[frame] = nil
 	byPath[mover.path] = nil
 	ns.tDeleteItem(movers, mover)
@@ -669,8 +909,6 @@ function ns.ModulePrototype:RegisterMover(frame, path, label, options)
 	return Movers.Register(frame, path, label, options)
 end
 
--- alignment grid
-
 local function createGrid()
 	grid = CreateFrame("Frame", nil, UIParent)
 	grid:SetAllPoints()
@@ -686,6 +924,20 @@ local function gridLine(index)
 	end
 	line:Show()
 	return line
+end
+
+local function drawGridLine(index, color, vertical, offset)
+	local line = gridLine(index)
+	line:SetTexture(unpack(color))
+	if vertical then
+		line:SetWidth(1)
+		line:SetPoint("TOP", grid, "TOP", offset, 0)
+		line:SetPoint("BOTTOM", grid, "BOTTOM", offset, 0)
+	else
+		line:SetHeight(1)
+		line:SetPoint("LEFT", grid, "LEFT", 0, offset)
+		line:SetPoint("RIGHT", grid, "RIGHT", 0, offset)
+	end
 end
 
 local function updateGrid()
@@ -704,35 +956,17 @@ local function updateGrid()
 	if ns.Config.general.showGrid then
 		for offset = -floor(centerX / size) * size, centerX, size do
 			index = index + 1
-			local line = gridLine(index)
-			line:SetTexture(unpack(GRID_COLOR))
-			line:SetWidth(1)
-			line:SetPoint("TOP", grid, "TOP", offset, 0)
-			line:SetPoint("BOTTOM", grid, "BOTTOM", offset, 0)
+			drawGridLine(index, GRID_COLOR, true, offset)
 		end
 		for offset = -floor(centerY / size) * size, centerY, size do
 			index = index + 1
-			local line = gridLine(index)
-			line:SetTexture(unpack(GRID_COLOR))
-			line:SetHeight(1)
-			line:SetPoint("LEFT", grid, "LEFT", 0, offset)
-			line:SetPoint("RIGHT", grid, "RIGHT", 0, offset)
+			drawGridLine(index, GRID_COLOR, false, offset)
 		end
 	end
 
-	index = index + 1
-	local vertical = gridLine(index)
-	vertical:SetTexture(unpack(GRID_CENTER_COLOR))
-	vertical:SetWidth(1)
-	vertical:SetPoint("TOP")
-	vertical:SetPoint("BOTTOM")
-
-	index = index + 1
-	local horizontal = gridLine(index)
-	horizontal:SetTexture(unpack(GRID_CENTER_COLOR))
-	horizontal:SetHeight(1)
-	horizontal:SetPoint("LEFT")
-	horizontal:SetPoint("RIGHT")
+	drawGridLine(index + 1, GRID_CENTER_COLOR, true, 0)
+	drawGridLine(index + 2, GRID_CENTER_COLOR, false, 0)
+	index = index + 2
 
 	for i = index + 1, #grid.lines do
 		grid.lines[i]:Hide()
@@ -740,21 +974,51 @@ local function updateGrid()
 	grid:Show()
 end
 
--- panel
+local function createLabel(parent, size, shade, text)
+	local label = parent:CreateFontString(nil, "OVERLAY")
+	ns.SetFont(label, size)
+	label:SetTextColor(shade, shade, shade)
+	label:SetText(text)
+	return label
+end
+
+local function unitFrames()
+	local UF = ns:GetModule("UnitFrames")
+	return UF.frames and #UF.frames > 0 and UF or nil
+end
+
+local function onTestModeClick(check)
+	local UF = unitFrames()
+	if not UF then
+		return
+	end
+	UF:SetTestMode(check:GetChecked() and true or false)
+	testModeOwned = UF.testing or false
+	check:SetChecked(UF.testing)
+end
 
 local function createPanel()
 	panel = CreateFrame("Frame", "FrostAtomUIMovers", UIParent)
-	panel:SetSize(260, 52)
 	panel:SetPoint("TOP", 0, -60)
-	panel:SetFrameStrata("TOOLTIP")
+	panel:SetFrameStrata(OVERLAY_STRATA)
 	panel:SetBackdrop(ns.CreateBackdrop(14, 3))
 	panel:SetBackdropColor(0, 0, 0, 0.85)
 
-	local hint = panel:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(hint, 11)
-	hint:SetTextColor(0.7, 0.7, 0.7)
+	local hint = createLabel(panel, 11, 0.7, L["Drag to move and snap, Shift drops snapping"])
 	hint:SetPoint("TOP", 0, -8)
-	hint:SetText(L["Drag to move and snap, Shift drops snapping"])
+
+	local nudgeHint = createLabel(panel, 11, 0.7, L["Click a frame to open its settings, arrow keys nudge it"])
+	nudgeHint:SetPoint("TOP", hint, "BOTTOM", 0, -4)
+
+	local check = CreateFrame("CheckButton", "FrostAtomUIMoversTestMode", panel, "UICheckButtonTemplate")
+	check:SetSize(22, 22)
+	check:SetScript("OnClick", onTestModeClick)
+	local checkLabel = createLabel(check, 11, 0.85, L["Show test unit frames"])
+	checkLabel:SetPoint("LEFT", check, "RIGHT", 2, 0)
+	check:SetPoint("TOPLEFT", panel, "TOP", -(22 + 2 + checkLabel:GetStringWidth()) / 2, -44)
+	panel.testCheck = check
+
+	panel:SetSize(max(260, hint:GetStringWidth() + 24, nudgeHint:GetStringWidth() + 24), 102)
 
 	local lock = CreateFrame("Button", nil, panel)
 	lock:SetSize(120, 20)
@@ -766,11 +1030,7 @@ local function createPanel()
 	lock:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
 	lock:SetScript("OnClick", Movers.Lock)
 
-	local text = lock:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(text, 12)
-	text:SetTextColor(0.8, 0.8, 0.8)
-	text:SetPoint("CENTER")
-	text:SetText(L["Lock frames"])
+	createLabel(lock, 12, 0.8, L["Lock frames"]):SetPoint("CENTER")
 end
 
 function Movers.Unlock()
@@ -784,6 +1044,13 @@ function Movers.Unlock()
 	unlocked = true
 	if not panel then
 		createPanel()
+	end
+	local UF = unitFrames()
+	if UF then
+		panel.testCheck:SetChecked(UF.testing)
+		panel.testCheck:Show()
+	else
+		panel.testCheck:Hide()
 	end
 	panel:Show()
 	updateGrid()
@@ -800,8 +1067,14 @@ function Movers.Lock()
 	if not unlocked then
 		return
 	end
+	selectMover(nil)
+	closeSettings()
 	unlocked = false
 	panel:Hide()
+	if testModeOwned and not InCombatLockdown() then
+		unitFrames():SetTestMode(false)
+	end
+	testModeOwned = false
 	if grid then
 		grid:Hide()
 	end
@@ -822,10 +1095,6 @@ end
 
 function Movers.IsUnlocked()
 	return unlocked
-end
-
-function Movers.Iterate()
-	return ipairs(movers)
 end
 
 Movers:RegisterEvent("PLAYER_REGEN_DISABLED", Movers.Lock)

@@ -5,23 +5,16 @@ local IsResting = IsResting
 local UnitIsPVP = UnitIsPVP
 local UnitIsPVPFreeForAll = UnitIsPVPFreeForAll
 local UnitFactionGroup = UnitFactionGroup
+local random = math.random
 
 local config = ns.Config.unitFrames
 
 local function updateResting(frame)
-	if config.showRestingIcon and IsResting() then
-		frame.resting:Show()
-	else
-		frame.resting:Hide()
-	end
+	ns.SetShown(frame.resting, config.showRestingIcon and IsResting())
 end
 
 local function testResting(frame)
-	if config.showRestingIcon and math.random(2) == 1 then
-		frame.resting:Show()
-	else
-		frame.resting:Hide()
-	end
+	ns.SetShown(frame.resting, config.showRestingIcon and random(2) == 1)
 end
 
 local function createResting(frame)
@@ -50,23 +43,23 @@ local function setPvp(pvp, variant)
 	end
 end
 
-local function updatePvp(frame)
-	local unit = frame.unit
-
-	local variant
+local function pvpVariant(unit)
 	if UnitIsPVPFreeForAll(unit) then
-		variant = "FFA"
+		return "FFA"
 	elseif UnitIsPVP(unit) then
 		local faction = UnitFactionGroup(unit)
 		if faction ~= "Neutral" then
-			variant = faction
+			return faction
 		end
 	end
-	setPvp(frame.pvp, variant)
+end
+
+local function updatePvp(frame)
+	setPvp(frame.pvp, pvpVariant(frame.unit))
 end
 
 local function testPvp(frame)
-	setPvp(frame.pvp, PVP_VARIANTS[math.random(#PVP_VARIANTS)])
+	setPvp(frame.pvp, PVP_VARIANTS[random(#PVP_VARIANTS)])
 end
 
 local function createPvp(frame)

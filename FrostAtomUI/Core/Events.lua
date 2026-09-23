@@ -26,10 +26,13 @@ local function retain(event)
 	registrations[event] = count + 1
 end
 
-local function release(event)
-	local count = registrations[event] - 1
-	registrations[event] = count
+local function release(event, count)
 	if count == 0 then
+		return
+	end
+	local remaining = registrations[event] - count
+	registrations[event] = remaining
+	if remaining == 0 then
 		eventFrame:UnregisterEvent(event)
 	end
 end
@@ -69,18 +72,18 @@ local function compact(list)
 	list.dirty = false
 end
 
-local function addRecord(list, owner, handler)
+local function addRecord(list, owner, event, handler)
 	if findRecord(list, owner, handler) then
-		return false
+		return
 	end
 	list[#list + 1] = { owner = owner, handler = handler }
-	return true
+	retain(event)
 end
 
 local function removeRecord(list, owner, handler)
 	local record, index = findRecord(list, owner, handler)
 	if not record then
-		return false
+		return 0
 	end
 	record.removed = true
 	if list.firing == 0 then
@@ -88,7 +91,7 @@ local function removeRecord(list, owner, handler)
 	else
 		list.dirty = true
 	end
-	return true
+	return 1
 end
 
 local function removeOwner(list, owner)
@@ -108,6 +111,13 @@ local function removeOwner(list, owner)
 		end
 	end
 	return removed
+end
+
+local function removeFromList(list, owner, event, handler)
+	if handler then
+		return removeRecord(list, owner, resolveHandler(owner, event, handler))
+	end
+	return removeOwner(list, owner)
 end
 
 local function fireList(list, ...)
@@ -140,24 +150,13 @@ function EventMixin:RegisterEvent(event, handler)
 		list = newList()
 		callbacks[event] = list
 	end
-	if addRecord(list, self, handler) then
-		retain(event)
-	end
+	addRecord(list, self, event, handler)
 end
 
 function EventMixin:UnregisterEvent(event, handler)
 	local list = callbacks[event]
-	if not list then
-		return
-	end
-	local removed
-	if handler then
-		removed = removeRecord(list, self, resolveHandler(self, event, handler)) and 1 or 0
-	else
-		removed = removeOwner(list, self)
-	end
-	for _ = 1, removed do
-		release(event)
+	if list then
+		release(event, removeFromList(list, self, event, handler))
 	end
 end
 
@@ -176,9 +175,15 @@ function EventMixin:RegisterUnitEvent(event, unit, handler)
 		list = newList()
 		byUnit[unit] = list
 	end
-	if addRecord(list, self, handler) then
-		retain(event)
+	addRecord(list, self, event, handler)
+end
+
+local function removeOwnerFromUnits(byUnit, owner)
+	local removed = 0
+	for _, list in pairs(byUnit) do
+		removed = removed + removeOwner(list, owner)
 	end
+	return removed
 end
 
 function EventMixin:UnregisterUnitEvent(event, unit, handler)
@@ -186,38 +191,22 @@ function EventMixin:UnregisterUnitEvent(event, unit, handler)
 	if not byUnit then
 		return
 	end
-	local removed = 0
-	if unit then
-		local list = byUnit[unit]
-		if list then
-			if handler then
-				removed = removeRecord(list, self, resolveHandler(self, event, handler)) and 1 or 0
-			else
-				removed = removeOwner(list, self)
-			end
-		end
-	else
-		for _, list in pairs(byUnit) do
-			removed = removed + removeOwner(list, self)
-		end
+	if not unit then
+		release(event, removeOwnerFromUnits(byUnit, self))
+		return
 	end
-	for _ = 1, removed do
-		release(event)
+	local list = byUnit[unit]
+	if list then
+		release(event, removeFromList(list, self, event, handler))
 	end
 end
 
 function EventMixin:UnregisterAllEvents()
 	for event, list in pairs(callbacks) do
-		for _ = 1, removeOwner(list, self) do
-			release(event)
-		end
+		release(event, removeOwner(list, self))
 	end
 	for event, byUnit in pairs(unitCallbacks) do
-		for _, list in pairs(byUnit) do
-			for _ = 1, removeOwner(list, self) do
-				release(event)
-			end
-		end
+		release(event, removeOwnerFromUnits(byUnit, self))
 	end
 end
 

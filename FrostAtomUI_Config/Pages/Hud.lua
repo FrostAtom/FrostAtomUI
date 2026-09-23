@@ -4,7 +4,101 @@ local L = FrostAtomUI.L
 
 local Section = ns.Section
 
-local schema = {}
+ns.RegisterElement({
+	path = "combatAlert.point",
+	page = "hud",
+	name = L["Combat alert"],
+	enabledBy = "combatAlert.enabled",
+	schema = {
+		{ header = L["Text"] },
+		{ path = "combatAlert.font", label = L["Font"], type = "font" },
+		{ path = "combatAlert.enterText", label = L["Enter combat text"], type = "string" },
+		{ path = "combatAlert.leaveText", label = L["Leave combat text"], type = "string" },
+		{ header = L["Colors"] },
+		{ path = "combatAlert.enterColor", label = L["Enter combat color"], type = "color" },
+		{ path = "combatAlert.leaveColor", label = L["Leave combat color"], type = "color" },
+		{ header = L["Visibility"] },
+		{
+			path = "combatAlert.duration",
+			label = L["Show for (seconds)"],
+			type = "number",
+			min = 0.5,
+			max = 5,
+			step = 0.1,
+		},
+		{
+			path = "combatAlert.fadeTime",
+			label = L["Fade out (seconds)"],
+			type = "number",
+			min = 0.1,
+			max = 3,
+			step = 0.1,
+			desc = L["Fade duration after the message has been shown."],
+		},
+		{
+			label = L["Test"],
+			type = "execute",
+			text = L["Show"],
+			desc = L["Show the enter combat message once."],
+			func = function()
+				FrostAtomUI:GetModule("Misc"):TestCombatAlert()
+			end,
+		},
+	},
+})
+
+ns.RegisterElement({
+	path = "performance.point",
+	page = "hud",
+	name = L["FPS / latency"],
+	enabledBy = "performance.enabled",
+	schema = {
+		{ path = "performance.showFps", label = L["Show FPS"], type = "toggle" },
+		{ path = "performance.showLatency", label = L["Show latency"], type = "toggle" },
+		{ header = L["Text"] },
+		{ path = "performance.valueFont", label = L["Value font"], type = "font" },
+		{
+			path = "performance.unitFont",
+			label = L["Unit font"],
+			type = "font",
+			desc = L['The "fps" and "ms" labels.'],
+		},
+	},
+})
+
+ns.RegisterElement({
+	path = "experienceBar.point",
+	page = "hud",
+	name = L["Experience bar"],
+	enabledBy = "experienceBar.enabled",
+	schema = {
+		{ header = L["Size"] },
+		{ path = "experienceBar.width", label = L["Width"], type = "number", min = 100, max = 1200, step = 1 },
+		{ path = "experienceBar.height", label = L["Height"], type = "number", min = 2, max = 30, step = 1 },
+		{ header = L["Colors"] },
+		{ path = "experienceBar.xpColor", label = L["Experience"], type = "color" },
+		{
+			path = "experienceBar.restedColor",
+			label = L["Rested"],
+			type = "color",
+			alpha = true,
+			desc = L["Overlay showing how far the rested bonus reaches."],
+		},
+		{
+			path = "experienceBar.backgroundAlpha",
+			label = L["Background alpha"],
+			type = "number",
+			min = 0,
+			max = 1,
+			step = 0.05,
+		},
+	},
+})
+
+local schema = {
+	{ header = L["Frames"] },
+	{ type = "elements" },
+}
 
 Section(schema, L["Combat alert"], "combatAlert", {
 	{
@@ -13,22 +107,6 @@ Section(schema, L["Combat alert"], "combatAlert", {
 		type = "toggle",
 		desc = L["Flash a message when entering or leaving combat."],
 	},
-	{ path = "point", label = L["Position"], type = "point" },
-	{ path = "font", label = L["Font"], type = "font" },
-	{ path = "duration", label = L["Show for (seconds)"], type = "number", min = 0.5, max = 5, step = 0.1 },
-	{
-		path = "fadeTime",
-		label = L["Fade out (seconds)"],
-		type = "number",
-		min = 0.1,
-		max = 3,
-		step = 0.1,
-		desc = L["Fade duration after the message has been shown."],
-	},
-	{ path = "enterText", label = L["Enter combat text"], type = "string" },
-	{ path = "enterColor", label = L["Enter combat color"], type = "color" },
-	{ path = "leaveText", label = L["Leave combat text"], type = "string" },
-	{ path = "leaveColor", label = L["Leave combat color"], type = "color" },
 })
 
 Section(schema, L["FPS / latency"], "performance", {
@@ -38,17 +116,12 @@ Section(schema, L["FPS / latency"], "performance", {
 		type = "toggle",
 		desc = L["Framerate and world latency readout colored by tier."],
 	},
-	{ path = "point", label = L["Position"], type = "point" },
-	{ path = "showFps", label = L["Show FPS"], type = "toggle" },
-	{ path = "showLatency", label = L["Show latency"], type = "toggle" },
-	{ path = "valueFont", label = L["Value font"], type = "font" },
-	{ path = "unitFont", label = L["Unit font"], type = "font", desc = L['The "fps" and "ms" labels.'] },
 	{
 		path = "fpsRed",
 		label = L["FPS: red below"],
 		type = "number",
-		min = 1,
-		max = 200,
+		min = 10,
+		max = 120,
 		step = 1,
 		enabledBy = "performance.showFps",
 	},
@@ -56,8 +129,8 @@ Section(schema, L["FPS / latency"], "performance", {
 		path = "fpsOrange",
 		label = L["FPS: orange below"],
 		type = "number",
-		min = 1,
-		max = 200,
+		min = 10,
+		max = 150,
 		step = 1,
 		enabledBy = "performance.showFps",
 	},
@@ -65,7 +138,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		path = "fpsYellow",
 		label = L["FPS: yellow below"],
 		type = "number",
-		min = 1,
+		min = 10,
 		max = 300,
 		step = 1,
 		enabledBy = "performance.showFps",
@@ -75,8 +148,8 @@ Section(schema, L["FPS / latency"], "performance", {
 		path = "latencyYellow",
 		label = L["Latency: yellow from"],
 		type = "number",
-		min = 1,
-		max = 1000,
+		min = 10,
+		max = 500,
 		step = 5,
 		enabledBy = "performance.showLatency",
 		desc = L["Green below this value (ms)."],
@@ -85,7 +158,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		path = "latencyOrange",
 		label = L["Latency: orange from"],
 		type = "number",
-		min = 1,
+		min = 10,
 		max = 1000,
 		step = 5,
 		enabledBy = "performance.showLatency",
@@ -94,10 +167,25 @@ Section(schema, L["FPS / latency"], "performance", {
 		path = "latencyRed",
 		label = L["Latency: red from"],
 		type = "number",
-		min = 1,
+		min = 10,
 		max = 2000,
 		step = 5,
 		enabledBy = "performance.showLatency",
+	},
+})
+
+Section(schema, L["Experience bar"], "experienceBar", {
+	{
+		path = "enabled",
+		label = L["Enable"],
+		type = "toggle",
+		desc = L["Thin experience bar; hidden at max level unless a reputation is watched."],
+	},
+	{
+		path = "showReputation",
+		label = L["Show watched reputation at max level"],
+		type = "toggle",
+		desc = L["Track the reputation selected in the Reputation window instead of experience."],
 	},
 })
 
@@ -120,34 +208,6 @@ Section(schema, L["Low health flash"], "lowHealthFlash", {
 		max = 5,
 		step = 0.1,
 		desc = L["Higher pulses faster; 1 fades fully in and out in two seconds."],
-	},
-})
-
-Section(schema, L["Queue pop flash"], "queuePopFlash", {
-	{
-		path = "enabled",
-		label = L["Enable"],
-		type = "toggle",
-		desc = L["Flash the whole screen when an arena, battleground or dungeon invite appears."],
-	},
-	{ path = "color", label = L["Color"], type = "color" },
-	{
-		path = "intensity",
-		label = L["Brightness"],
-		type = "number",
-		min = 0.1,
-		max = 1,
-		step = 0.05,
-		desc = L["Peak opacity of the flash; it ramps up to this over the first 15 seconds."],
-	},
-	{
-		path = "pulseSpeed",
-		label = L["Pulse speed"],
-		type = "number",
-		min = 0.2,
-		max = 5,
-		step = 0.1,
-		desc = L["Flashes per second."],
 	},
 })
 
@@ -183,6 +243,6 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 ns.RegisterPage({
 	key = "hud",
 	name = L["HUD"],
-	order = 33,
+	order = 31,
 	schema = schema,
 })

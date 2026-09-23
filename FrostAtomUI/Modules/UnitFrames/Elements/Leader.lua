@@ -6,29 +6,20 @@ local IsPartyLeader = IsPartyLeader
 
 local config = ns.Config.unitFrames
 
+local function isLeader(leader)
+	if leader.partyIndex then
+		return GetPartyLeaderIndex() == leader.partyIndex
+	end
+	return IsPartyLeader()
+end
+
 local function update(frame)
 	local leader = frame.leader
-
-	local isLeader
-	if leader.partyIndex then
-		isLeader = GetPartyLeaderIndex() == leader.partyIndex
-	else
-		isLeader = IsPartyLeader()
-	end
-
-	if isLeader and config.showLeaderIcon then
-		leader:Show()
-	else
-		leader:Hide()
-	end
+	ns.SetShown(leader, isLeader(leader) and config.showLeaderIcon)
 end
 
 local function test(frame)
-	if frame.test.leader and config.showLeaderIcon then
-		frame.leader:Show()
-	else
-		frame.leader:Hide()
-	end
+	ns.SetShown(frame.leader, frame.test.leader and config.showLeaderIcon)
 end
 
 local function create(frame)

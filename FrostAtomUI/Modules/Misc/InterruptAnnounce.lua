@@ -51,13 +51,6 @@ Misc:RegisterEvent("PLAYER_LOGIN", function()
 end)
 Misc:WatchConfig("announce", applyConfig)
 
-Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
-	if db.InterruptAnnounce ~= nil then
-		ns:SetConfig("announce.interrupts", db.InterruptAnnounce and true or false)
-		db.InterruptAnnounce = nil
-	end
-end)
-
 SlashCmdList.FROSTATOMUI_INTERRUPT_ANNOUNCE = function()
 	local enabled = not ns.Config.announce.interrupts
 	ns:SetConfig("announce.interrupts", enabled)

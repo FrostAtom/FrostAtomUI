@@ -22,7 +22,6 @@ local L = setmetatable({}, {
 
 ns.L = L
 ns.CLIENT_LOCALE = GetLocale()
-ns.LOCALE = ns.CLIENT_LOCALE
 
 local translations = {}
 local handlers = {}
@@ -35,13 +34,13 @@ function ns.OnLocaleReady(handler)
 	handlers[#handlers + 1] = handler
 end
 
-local function available(locale)
+local function isAvailable(locale)
 	return locale == "enUS" or translations[locale] ~= nil
 end
 
 function ns.ApplyLocale(locale)
-	ns.LOCALE = locale and available(locale) and locale or ns.CLIENT_LOCALE
-	local entries = translations[ns.LOCALE]
+	local active = locale and isAvailable(locale) and locale or ns.CLIENT_LOCALE
+	local entries = translations[active]
 	if entries then
 		for key, value in pairs(entries) do
 			if type(value) == "string" then

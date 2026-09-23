@@ -4,6 +4,7 @@ local L = ns.L
 local RegisterStateDriver = RegisterStateDriver
 local GameTooltip = GameTooltip
 local GetNumShapeshiftForms = GetNumShapeshiftForms
+local GetCursorInfo = GetCursorInfo
 local InCombatLockdown = InCombatLockdown
 local max, min, ceil = math.max, math.min, math.ceil
 
@@ -15,6 +16,7 @@ local config = ns.Config.actionBar
 local BUTTONS_PER_BAR = 12
 local NUM_BARS = 5
 local BAR_KEYS = { "bar1", "bar2", "bar3", "bar4", "bar5", "stance", "pet" }
+local EQUIPPED_BORDER_SCALE = 62 / 36
 
 ActionBar.bars = {}
 ActionBar.petButtons = {}
@@ -63,11 +65,7 @@ end
 
 function ActionBar:StyleHotkey(hotkey)
 	ns.SetFont(hotkey, config.hotkeyFont.size, config.hotkeyFont.outline)
-	if config.showHotkeys then
-		hotkey:SetAlpha(1)
-	else
-		hotkey:SetAlpha(0)
-	end
+	hotkey:SetAlpha(config.showHotkeys and 1 or 0)
 end
 
 local TOOLTIP_REFRESH_INTERVAL = 0.2
@@ -102,9 +100,19 @@ function ActionBar:AttachTooltip(button, setTooltip)
 	button:SetScript("OnLeave", onTooltipLeave)
 end
 
-function ActionBar:CreateBar(page, onButtonCreated)
+local function cursorHoldsAction()
+	return GetCursorInfo() ~= nil
+end
+
+local function createBarFrame(buttons)
 	local bar = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
-	bar.buttons = {}
+	bar.fader = ns.CreateFader({ bar }, nil, cursorHoldsAction)
+	bar.buttons = buttons
+	return bar
+end
+
+function ActionBar:CreateBar(page, onButtonCreated)
+	local bar = createBarFrame({})
 	bar.limited = true
 	local firstAction = (page - 1) * BUTTONS_PER_BAR
 
@@ -142,7 +150,7 @@ local function setupPagedButton(button, index)
 end
 
 local function layoutBar(bar, barConfig, count, path)
-	local size, gap = barConfig.buttonSize, config.gap
+	local size, gap = barConfig.buttonSize, barConfig.spacing
 	local slot = size + gap
 	local columns = max(min(barConfig.columns, count), 1)
 	local rows = max(ceil(count / columns), 1)
@@ -152,7 +160,7 @@ local function layoutBar(bar, barConfig, count, path)
 		local button = buttons[i]
 		if i <= count then
 			button:SetSize(size, size)
-			button.equippedTexture:SetSize(size * 62 / 36, size * 62 / 36)
+			button.equippedTexture:SetSize(size * EQUIPPED_BORDER_SCALE, size * EQUIPPED_BORDER_SCALE)
 			button:ClearAllPoints()
 			button:SetPoint(ns.GridPoint("BOTTOMLEFT", i, columns, slot))
 			if bar.limited then
@@ -165,6 +173,7 @@ local function layoutBar(bar, barConfig, count, path)
 
 	bar:SetSize(columns * slot - gap, rows * slot - gap)
 	ns.ApplyPoint(bar, path)
+	bar.fader:Configure(barConfig.mouseover, barConfig.fadeAlpha)
 	if barConfig.enabled ~= nil then
 		if barConfig.enabled then
 			bar:Show()
@@ -219,12 +228,7 @@ function ActionBar:Layout(path)
 		self:LayoutBar(barKey)
 	end
 	self:StyleButtons()
-end
-
-local function createSmallBar(buttons)
-	local bar = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
-	bar.buttons = buttons
-	return bar
+	self:UpdateLockoutTracking()
 end
 
 function ActionBar:Initialize()
@@ -238,8 +242,8 @@ function ActionBar:Initialize()
 		self:CreateBar(page)
 	end
 
-	self.stanceBar = createSmallBar(self.shapeshiftButtons)
-	self.petBar = createSmallBar(self.petButtons)
+	self.stanceBar = createBarFrame(self.shapeshiftButtons)
+	self.petBar = createBarFrame(self.petButtons)
 	self:InitializeShapeshiftBar(self.stanceBar)
 	self:InitializePetBar(self.petBar)
 

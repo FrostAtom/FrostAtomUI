@@ -47,26 +47,33 @@ UF.ICON_TRIM = TRIM
 UF.classCoords = classCoords
 UF.specIcons = SPEC_ICONS
 
+function UF.SetClassTexture(texture, class, spec)
+	local coords = class and classCoords[class]
+	if not coords then
+		return false
+	end
+	local specIcon = spec and SPEC_ICONS[class] and SPEC_ICONS[class][spec]
+	if specIcon then
+		texture:SetTexture(specIcon)
+		texture:SetTexCoord(0, 1, 0, 1)
+	else
+		texture:SetTexture(CLASS_ICONS)
+		texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	end
+	return true
+end
+
 local function setIcon(frame, icon, class, spec)
 	icon:Show()
-	if not config.showClassIcon then
-		icon.texture:Hide()
-		icon.border:Hide()
+	local shown = config.showClassIcon
+	ns.SetShown(icon.texture, shown)
+	ns.SetShown(icon.border, shown)
+	if not shown then
 		frame:SetContentInset(0)
 		return
 	end
-	icon.texture:Show()
-	icon.border:Show()
 
-	local coords = class and classCoords[class]
-	local specIcon = coords and spec and SPEC_ICONS[class] and SPEC_ICONS[class][spec]
-	if specIcon then
-		icon.texture:SetTexture(specIcon)
-		icon.texture:SetTexCoord(0, 1, 0, 1)
-	elseif coords then
-		icon.texture:SetTexture(CLASS_ICONS)
-		icon.texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
-	else
+	if not UF.SetClassTexture(icon.texture, class, spec) then
 		SetPortraitTexture(icon.texture, frame.unit)
 		icon.texture:SetTexCoord(0, 1, 0, 1)
 	end

@@ -9,7 +9,7 @@ local UnitIsConnected, UnitIsDeadOrGhost = UnitIsConnected, UnitIsDeadOrGhost
 local UnitIsPlayer, UnitReaction = UnitIsPlayer, UnitReaction
 local GetGuildInfo = GetGuildInfo
 local floor, tonumber, tostring = math.floor, tonumber, tostring
-local concat, wipe = table.concat, wipe
+local concat = table.concat
 local DEAD, AFK, DND, OFFLINE = DEAD, AFK, DND, FRIENDS_LIST_OFFLINE
 
 local FormatValue = ns.FormatValue
@@ -156,7 +156,6 @@ local tags = {
 		end,
 	},
 }
-UF.tags = tags
 
 local colors = {
 	class = function(unit, data)
@@ -180,7 +179,6 @@ local colors = {
 		return REACTION_COLORS[reaction <= 3 and "hostile" or reaction == 4 and "neutral" or "friendly"]
 	end,
 }
-UF.tagColors = colors
 
 local function colorCode(r, g, b)
 	if type(r) == "table" then
@@ -190,13 +188,13 @@ local function colorCode(r, g, b)
 end
 
 local function parseTag(body)
-	local part = {}
+	local part
 	for token in body:gmatch("[^:]+") do
-		if not part.tag then
-			part.tag = tags[token] and token
-			if not part.tag then
+		if not part then
+			if not tags[token] then
 				return
 			end
+			part = { tag = token }
 		elseif tonumber(token) then
 			part.length = tonumber(token)
 		elseif token == "raw" then
@@ -207,7 +205,7 @@ local function parseTag(body)
 			part.code = "|cff" .. token:lower()
 		end
 	end
-	return part.tag and part
+	return part
 end
 
 local compiled = setmetatable({}, {
@@ -243,13 +241,14 @@ local compiled = setmetatable({}, {
 
 local buffer = {}
 
-function UF.RenderTags(template, unit, data)
+local function renderTags(template, unit, data)
 	local parts = compiled[template]
-	wipe(buffer)
+	local n = 0
 	for i = 1, #parts do
 		local part = parts[i]
 		if type(part) == "string" then
-			buffer[#buffer + 1] = part
+			n = n + 1
+			buffer[n] = part
 		else
 			local text = tags[part.tag].func(unit, data, part.raw)
 			if part.length then
@@ -257,25 +256,23 @@ function UF.RenderTags(template, unit, data)
 			end
 			local code = part.code or (part.color and colorCode(part.color(unit, data)))
 			if code then
-				buffer[#buffer + 1] = code
-				buffer[#buffer + 1] = text
-				buffer[#buffer + 1] = "|r"
+				buffer[n + 1] = code
+				buffer[n + 2] = text
+				buffer[n + 3] = "|r"
+				n = n + 3
 			else
-				buffer[#buffer + 1] = text
+				n = n + 1
+				buffer[n] = text
 			end
 		end
 	end
-	return concat(buffer)
-end
-
-function UF.TagsUse(template, key)
-	return compiled[template][key]
+	return concat(buffer, "", 1, n)
 end
 
 local TEXT_KEYS = { left = "leftText", right = "rightText", power = "powerText" }
 local HOVER_KEYS = { left = "leftTextHover", right = "rightTextHover", power = "powerTextHover" }
 
-function UF.TextTemplate(frame, fontString, side)
+local function textTemplate(frame, fontString, side)
 	local template = fontString.template
 	if template then
 		return template
@@ -290,5 +287,12 @@ function UF.TextTemplate(frame, fontString, side)
 end
 
 function UF.UpdateText(frame, fontString, side)
-	fontString:SetText(UF.RenderTags(UF.TextTemplate(frame, fontString, side), frame.unit, frame.test))
+	fontString:SetText(renderTags(textTemplate(frame, fontString, side), frame.unit, frame.test))
+end
+
+function UF.UpdateTextIfUses(frame, fontString, side, key)
+	local template = textTemplate(frame, fontString, side)
+	if compiled[template][key] then
+		fontString:SetText(renderTags(template, frame.unit, frame.test))
+	end
 end

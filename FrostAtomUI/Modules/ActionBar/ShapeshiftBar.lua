@@ -6,7 +6,6 @@ local GetShapeshiftForm = GetShapeshiftForm
 local GetShapeshiftFormInfo = GetShapeshiftFormInfo
 local GetShapeshiftFormCooldown = GetShapeshiftFormCooldown
 local GetSpellInfo = GetSpellInfo
-local GetBindingKey = GetBindingKey
 local InCombatLockdown = InCombatLockdown
 local GameTooltip = GameTooltip
 local NUM_SHAPESHIFT_SLOTS = NUM_SHAPESHIFT_SLOTS
@@ -18,6 +17,7 @@ local config = ns.Config.actionBar
 local PLACEHOLDER_TEXTURE = "Interface\\Icons\\Spell_Nature_WispSplode"
 
 local buttons = ActionBar.shapeshiftButtons
+local updateHotkey = ActionBar.UpdateHotkey
 
 local function setTooltip(button)
 	local id = button:GetID()
@@ -25,16 +25,6 @@ local function setTooltip(button)
 		GameTooltip:SetShapeshift(id)
 	else
 		GameTooltip:Hide()
-	end
-end
-
-local function updateHotkey(button)
-	local key = GetBindingKey(button.bindingName)
-	if key then
-		button.hotkey:SetText(ActionBar.AbbreviateKey(key))
-		button.hotkey:Show()
-	else
-		button.hotkey:Hide()
 	end
 end
 
@@ -91,9 +81,7 @@ function ActionBar:UpdateShapeshiftVisibility()
 	for i = 1, NUM_SHAPESHIFT_SLOTS do
 		local button = buttons[i]
 		local shouldShow = i <= numForms
-		local isShown = button:IsShown() and true or false
-
-		if shouldShow ~= isShown then
+		if shouldShow ~= (button:IsShown() and true or false) then
 			if InCombatLockdown() then
 				self:RegisterEvent("PLAYER_REGEN_ENABLED", "UpdateShapeshiftVisibility")
 				return

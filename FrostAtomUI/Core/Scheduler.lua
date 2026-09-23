@@ -42,10 +42,6 @@ function Scheduler.RemoveTicker(key)
 	end
 end
 
-function Scheduler.HasTicker(key)
-	return tickerIndex[key] ~= nil
-end
-
 function Scheduler.After(delay, callback, arg)
 	timerCount = timerCount + 1
 	timers[timerCount] = { at = GetTime() + delay, callback = callback, arg = arg }
@@ -60,10 +56,6 @@ function Scheduler.Defer(key, callback)
 	deferred[deferredCount] = key
 	deferredIndex[key] = callback
 	wake()
-end
-
-function Scheduler.Cancel(key)
-	deferredIndex[key] = nil
 end
 
 local function runTickers(now)

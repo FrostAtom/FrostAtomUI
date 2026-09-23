@@ -67,27 +67,20 @@ local function onUpdate(_, elapsed)
 	end
 end
 
-local function setShown(region, shown)
-	if shown then
-		region:Show()
-	else
-		region:Hide()
-	end
+local function styleReadout(value, label, shown, config)
+	local valueFont, unitFont = config.valueFont, config.unitFont
+	ns.SetFont(value, valueFont.size, valueFont.outline, true)
+	ns.SetFont(label, unitFont.size, unitFont.outline, true)
+	label:SetText(label.unit)
+	ns.SetShown(value, shown)
+	ns.SetShown(label, shown)
 end
 
 local function applyConfig()
 	local config = ns.Config.performance
-	local valueFont, unitFont = config.valueFont, config.unitFont
-	ns.SetFont(fpsValue, valueFont.size, valueFont.outline, true)
-	ns.SetFont(latencyValue, valueFont.size, valueFont.outline, true)
-	ns.SetFont(fpsLabel, unitFont.size, unitFont.outline, true)
-	ns.SetFont(latencyLabel, unitFont.size, unitFont.outline, true)
-	fpsLabel:SetText(fpsLabel.unit)
-	latencyLabel:SetText(latencyLabel.unit)
-	setShown(fpsValue, config.showFps)
-	setShown(fpsLabel, config.showFps)
-	setShown(latencyValue, config.showLatency)
-	setShown(latencyLabel, config.showLatency)
+	local valueFont = config.valueFont
+	styleReadout(fpsValue, fpsLabel, config.showFps, config)
+	styleReadout(latencyValue, latencyLabel, config.showLatency, config)
 
 	local lineHeight = valueFont.size + 2
 	fpsValue:SetText("888")

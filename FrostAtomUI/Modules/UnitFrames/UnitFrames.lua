@@ -14,14 +14,15 @@ local CLASS_ICON_INSET = 2
 local CLASS_ICON_GAP = 2
 local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
-local TARGET_AURAS_PER_ROW = 8
 local TARGET_AURA_ROWS = 2
+local BAR_BACKGROUND_DIM = 0.3
 local RIGHT_CLICK_ACTIONS = { menu = "menu", focus = "focus" }
 local config = ns.Config.unitFrames
 
 UF.BORDER_INSET = BORDER_INSET
 UF.CLASS_ICON_INSET = CLASS_ICON_INSET
 UF.CASTBAR_ICON_GAP = CASTBAR_ICON_GAP
+UF.BAR_BACKGROUND_DIM = BAR_BACKGROUND_DIM
 UF.backdrop = ns.CreateBackdrop(14, 3)
 
 UF.classColors = {}
@@ -76,6 +77,25 @@ function UF.SetBackdropColors(frame)
 	frame:SetBackdropBorderColor(unpack(config.borderColor))
 end
 
+function UF.SetBarColor(bar, r, g, b)
+	bar:SetStatusBarColor(r, g, b)
+	bar.bg:SetVertexColor(r * BAR_BACKGROUND_DIM, g * BAR_BACKGROUND_DIM, b * BAR_BACKGROUND_DIM)
+end
+
+function UF.SetCastbarSize(castbar, width, height)
+	castbar:SetSize(width, height)
+	castbar.icon:SetSize(height, height)
+end
+
+local function isArenaUnit(unit)
+	return unit:find("^arena%d$") ~= nil
+end
+
+local function fitRow(width, size, gap)
+	local perRow = max(floor((width + gap) / (size + gap)), 1)
+	return perRow, (width + gap) / perRow - gap
+end
+
 local function layoutGrid(grid, shown)
 	for i = shown + 1, #grid do
 		grid[i]:Hide()
@@ -114,10 +134,22 @@ local function setGridIconSize(grid, size)
 	layoutGrid(grid, shown)
 end
 
-local function setGridLayout(grid, width, size)
-	grid.perRow = max(floor((width + grid.gap) / (size + grid.gap)), 1)
+local function setGridShape(grid, perRow, anchor)
+	if grid.perRow == perRow and grid.anchor == anchor then
+		return
+	end
+	grid.perRow = perRow
+	grid.anchor = anchor
+	local size = grid.size
 	grid.size = nil
-	setGridIconSize(grid, (width + grid.gap) / grid.perRow - grid.gap)
+	setGridIconSize(grid, size)
+end
+
+local function setGridLayout(grid, width, size)
+	local perRow, fittedSize = fitRow(width, size, grid.gap)
+	grid.perRow = perRow
+	grid.size = nil
+	setGridIconSize(grid, fittedSize)
 end
 
 function UF:CreateIconGrid(frame, options)
@@ -129,8 +161,7 @@ function UF:CreateIconGrid(frame, options)
 	grid.gap = options.gap or 1
 	grid.perRow = options.perRow or 8
 	if options.width then
-		grid.perRow = max(floor((options.width + grid.gap) / (grid.size + grid.gap)), 1)
-		grid.size = (options.width + grid.gap) / grid.perRow - grid.gap
+		grid.perRow, grid.size = fitRow(options.width, grid.size, grid.gap)
 	end
 	grid.anchor = options.anchor or "TOPLEFT"
 	grid.max = options.max
@@ -138,6 +169,7 @@ function UF:CreateIconGrid(frame, options)
 	grid.Layout = layoutGrid
 	grid.SetIconSize = setGridIconSize
 	grid.SetLayout = setGridLayout
+	grid.SetShape = setGridShape
 	grid.rows = 0
 	grid:SetSize(grid.perRow * (grid.size + grid.gap) - grid.gap, 1)
 
@@ -209,21 +241,17 @@ local function capitalize(text)
 	return (text:gsub("^%l", string.upper))
 end
 
-local HOVER_ELEMENTS = { "health", "power", "name" }
+local TEXT_ELEMENTS = { "health", "power", "name" }
 
 local function setHovered(frame, hovered)
 	frame.hovered = hovered
-	if hovered and config.hoverHighlight then
-		frame.hover:Show()
-	else
-		frame.hover:Hide()
-	end
+	ns.SetShown(frame.hover, hovered and config.hoverHighlight)
 	local method = UF.testing and "test" or frame:IsShown() and "update"
 	if not method then
 		return
 	end
-	for i = 1, #HOVER_ELEMENTS do
-		local key = HOVER_ELEMENTS[i]
+	for i = 1, #TEXT_ELEMENTS do
+		local key = TEXT_ELEMENTS[i]
 		if frame[key] then
 			elements[key][method](frame)
 		end
@@ -252,7 +280,7 @@ function UF:CreateBase(unit)
 
 	frame:SetAttribute("unit", unit)
 	frame:SetAttribute("*type1", "target")
-	if unit:find("^arena%d$") then
+	if isArenaUnit(unit) then
 		frame:SetAttribute("*type2", "focus")
 	else
 		frame:SetAttribute("*type2", RIGHT_CLICK_ACTIONS[config.rightClick])
@@ -299,7 +327,7 @@ function UnitFrameMixin:SetWatched(watched)
 	end
 end
 
-local TEXT_ELEMENTS = { "health", "power", "name" }
+local CASTBAR_TEXTS = { "timer", "name", "target" }
 
 function UF:ApplyColors()
 	for i = 1, #self.frames do
@@ -317,8 +345,9 @@ function UF:ApplyColors()
 		local castbar = frame.castbar
 		if castbar then
 			UF.SetBackdropColors(castbar)
-			ns.SetFont(castbar.timer, config.castbarFont.size, config.castbarFont.outline)
-			ns.SetFont(castbar.name, config.castbarFont.size, config.castbarFont.outline)
+			for j = 1, #CASTBAR_TEXTS do
+				ns.SetFont(castbar[CASTBAR_TEXTS[j]], config.castbarFont.size, config.castbarFont.outline)
+			end
 		end
 		frame.hover.texture:SetVertexColor(1, 1, 1, config.hoverAlpha)
 		if self.testing then
@@ -333,7 +362,7 @@ function UF:ApplyClicks()
 	local action = RIGHT_CLICK_ACTIONS[config.rightClick]
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
-		if not frame.unit:find("^arena%d$") then
+		if not isArenaUnit(frame.unit) then
 			frame:SetAttribute("*type2", action)
 		end
 	end
@@ -411,13 +440,12 @@ end
 
 function UF:CreateSideCastbar(frame, side, width, height)
 	local castbar = self:AddElement(frame, "castbar", side)
-	castbar:SetSize(width, height)
 	if side == "RIGHT" then
 		castbar:SetPoint("TOPLEFT", frame, "TOPRIGHT", BORDER_INSET, 0)
 	else
 		castbar:SetPoint("TOPRIGHT", frame, "TOPLEFT", -BORDER_INSET, 0)
 	end
-	castbar.icon:SetSize(height, height)
+	UF.SetCastbarSize(castbar, width, height)
 	return castbar
 end
 
@@ -456,15 +484,20 @@ function UF:CreateTargetOfTarget(unit, size)
 	return frame
 end
 
+local function targetAuraSize(width, perRow)
+	return width / perRow - 1
+end
+
 function UF:CreateTarget(unit, width, height)
 	local frame = self:CreateRectangle(unit, width, height, "RIGHT")
 
 	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
 
+	local perRow = config.targetAuraPerRow
 	local auraOptions = {
-		size = width / TARGET_AURAS_PER_ROW - 1,
+		size = targetAuraSize(width, perRow),
 		width = width,
-		max = TARGET_AURAS_PER_ROW * TARGET_AURA_ROWS,
+		max = perRow * TARGET_AURA_ROWS,
 	}
 	local debuffs = self:AddElement(frame, "debuffs", auraOptions)
 	debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP)
@@ -492,10 +525,14 @@ end
 function UF:ResizeTarget(frame, width, height)
 	frame:SetFrameSize(width, height)
 	frame.targetOfTarget:SetFrameSize(height, height)
-	frame.debuffs:SetLayout(width, width / TARGET_AURAS_PER_ROW - 1)
-	frame.buffs:SetLayout(width, width / TARGET_AURAS_PER_ROW - 1)
+	local perRow = config.targetAuraPerRow
+	local auraSize, auraLimit = targetAuraSize(width, perRow), perRow * TARGET_AURA_ROWS
+	local debuffs, buffs = frame.debuffs, frame.buffs
+	debuffs:SetLayout(width, auraSize)
+	buffs:SetLayout(width, auraSize)
+	debuffs:SetLimit(auraLimit)
+	buffs:SetLimit(auraLimit)
 
-	local debuffs = frame.debuffs
 	debuffs:OnRowsChanged(debuffs.rows)
 	local gridHeight = TARGET_AURA_ROWS * (debuffs.size + debuffs.gap) - debuffs.gap
 	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2

@@ -10,15 +10,11 @@ ns.Auras = Auras
 
 local cache = {}
 
-local function newSet(unit, filter)
-	return { unit = unit, filter = filter, n = 0, dirty = true }
-end
-
 local function scan(set)
 	local unit, filter = set.unit, set.filter
 	local n = 0
 	for i = 1, MAX_AURAS do
-		local name, rank, icon, count, debuffType, duration, expires, caster, stealable, _, spellId =
+		local name, _, icon, count, debuffType, duration, expires, caster, stealable, _, spellId =
 			UnitAura(unit, i, filter)
 		if not name then
 			break
@@ -26,11 +22,10 @@ local function scan(set)
 		n = i
 		local aura = set[i]
 		if not aura then
-			aura = { index = i }
+			aura = {}
 			set[i] = aura
 		end
 		aura.name = name
-		aura.rank = rank
 		aura.icon = icon
 		aura.count = count
 		aura.debuffType = debuffType
@@ -52,7 +47,7 @@ function Auras.Get(unit, filter)
 	end
 	local set = byFilter[filter]
 	if not set then
-		set = newSet(unit, filter)
+		set = { unit = unit, filter = filter, n = 0, dirty = true }
 		byFilter[filter] = set
 	end
 
@@ -69,16 +64,6 @@ function Auras.Find(unit, spellId, filter)
 	for i = 1, n do
 		local aura = set[i]
 		if aura.spellId == spellId then
-			return aura
-		end
-	end
-end
-
-function Auras.FindByName(unit, name, filter)
-	local set, n = Auras.Get(unit, filter)
-	for i = 1, n do
-		local aura = set[i]
-		if aura.name == name then
 			return aura
 		end
 	end

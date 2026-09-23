@@ -37,6 +37,7 @@ local MICRO_BUTTONS = {
 }
 
 local BACKPACK_SIZE = 32
+local BACKPACK_BORDER_SIZE = BACKPACK_SIZE * 64 / 36
 local MICRO_MENU_WIDTH = 252
 local MICRO_MENU_HEIGHT = 40
 
@@ -60,14 +61,18 @@ function ActionBar:HideBlizzard()
 		bar.Hide = noop
 	end
 
-	DestroyFrame(MainMenuBar)
-	DestroyFrame(MainMenuExpBar)
-	DestroyFrame(ReputationWatchBar)
-	DestroyFrame(BonusActionBarFrame)
-	DestroyFrame(PossessBarFrame)
-	DestroyFrame(PetActionBarFrame)
-	DestroyFrame(VehicleMenuBar)
-	DestroyFrame(MainMenuBarArtFrame)
+	for _, frame in ipairs({
+		MainMenuBar,
+		MainMenuExpBar,
+		ReputationWatchBar,
+		BonusActionBarFrame,
+		PossessBarFrame,
+		PetActionBarFrame,
+		VehicleMenuBar,
+		MainMenuBarArtFrame,
+	}) do
+		DestroyFrame(frame)
+	end
 	MainMenuBarArtFrame:RegisterEvent("KNOWN_CURRENCY_TYPES_UPDATE")
 	MainMenuBarArtFrame:RegisterEvent("CURRENCY_DISPLAY_UPDATE")
 
@@ -126,15 +131,15 @@ function ActionBar:HideBlizzard()
 
 	MainMenuBarBackpackButton:SetParent(UIParent)
 	MainMenuBarBackpackButton:SetSize(BACKPACK_SIZE, BACKPACK_SIZE)
-	MainMenuBarBackpackButtonNormalTexture:SetSize(BACKPACK_SIZE * 64 / 36, BACKPACK_SIZE * 64 / 36)
+	MainMenuBarBackpackButtonNormalTexture:SetSize(BACKPACK_BORDER_SIZE, BACKPACK_BORDER_SIZE)
 	self:AnchorToConfig(MainMenuBarBackpackButton, "actionBar.bagButton", "Bag button")
 
 	local microMenuFader = ns.CreateFader({ microMenu })
 	local bagFader = ns.CreateFader({ MainMenuBarBackpackButton })
 
-	local function applyMenus()
+	local function applyMenus(_, path)
 		local config = ns.Config.actionBar
-		microMenu:SetScale(config.microMenuScale)
+		ns.Movers.SetScale(microMenu, config.microMenuScale, path == "actionBar.microMenuScale")
 		microMenuFader:Configure(config.microMenuMouseover, config.menuFadeAlpha)
 		bagFader:Configure(config.bagButtonMouseover, config.menuFadeAlpha)
 	end

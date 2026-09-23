@@ -48,6 +48,8 @@ local function makeData(frame)
 
 	data.dead = unit ~= "player" and random(10) == 1
 	data.health = floor(data.healthMax * random(15, 100) / 100)
+	data.incoming = random(2) == 1 and floor(data.healthMax * random(5, 25) / 100) or 0
+	data.absorb = random(3) == 1 and floor(data.healthMax * random(5, 20) / 100) or 0
 	data.powerMax = POWER_MAX[data.powerType]
 	data.power = floor(data.powerMax * random(0, 100) / 100)
 

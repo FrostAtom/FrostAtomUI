@@ -22,6 +22,7 @@ local OWN_SPELL_IDS = {
 	12323, -- Piercing Howl
 	47437, -- Demoralizing Shout
 	47502, -- Thunder Clap
+	58567, -- Sunder Armor
 }
 local ownSpellNames = {}
 for i = 1, #OWN_SPELL_IDS do

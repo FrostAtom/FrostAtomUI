@@ -1,8 +1,7 @@
 local ADDON_NAME, ns = ...
 
-local L = FrostAtomUI.L
-
 local ui = FrostAtomUI
+local L = ui.L
 
 local WINDOW_NAME = ADDON_NAME .. "ProfileText"
 local WINDOW_WIDTH, WINDOW_HEIGHT = 520, 320
@@ -11,25 +10,9 @@ local PADDING = 12
 local window
 
 local function createWindow()
-	window = CreateFrame("Frame", WINDOW_NAME, UIParent)
-	window:Hide()
+	window = ns.CreateWindow(WINDOW_NAME, "FULLSCREEN_DIALOG", 0.9)
 	window:SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
 	window:SetPoint("CENTER")
-	window:SetFrameStrata("FULLSCREEN_DIALOG")
-	window:EnableMouse(true)
-	window:SetMovable(true)
-	window:SetClampedToScreen(true)
-	window:RegisterForDrag("LeftButton")
-	window:SetScript("OnDragStart", window.StartMoving)
-	window:SetScript("OnDragStop", window.StopMovingOrSizing)
-	window:SetBackdrop(ui.CreateBackdrop(14, 3))
-	window:SetBackdropColor(0, 0, 0, 0.9)
-	tinsert(UISpecialFrames, WINDOW_NAME)
-
-	local title = window:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(title, 13, "OUTLINE", true)
-	title:SetPoint("TOPLEFT", PADDING, -PADDING - 4)
-	window.title = title
 
 	local close = ns.CreateButton(window, L["Close"], 80)
 	close:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
@@ -56,7 +39,7 @@ local function createWindow()
 	box:SetTextInsets(4, 4, 4, 4)
 	ui.SetFont(box, 12)
 	box:SetScript("OnEscapePressed", box.ClearFocus)
-	box:SetScript("OnTextChanged", function(self)
+	box:SetScript("OnTextChanged", function()
 		scroll:UpdateScrollChildRect()
 	end)
 	scroll:SetScrollChild(box)
@@ -66,11 +49,15 @@ local function createWindow()
 	window.box = box
 end
 
-local function showExport()
+local function prepareWindow(title)
 	if not window then
 		createWindow()
 	end
-	window.title:SetText(L["Export profile: %s"]:format(ui:GetActiveProfile()))
+	window.heading:SetText(title:format(ui:GetActiveProfile()))
+end
+
+local function showExport()
+	prepareWindow(L["Export profile: %s"])
 	window.action:Hide()
 	window.box:SetText(ui:ExportProfile())
 	window:Show()
@@ -79,10 +66,7 @@ local function showExport()
 end
 
 local function showImport()
-	if not window then
-		createWindow()
-	end
-	window.title:SetText(L["Import into profile: %s"]:format(ui:GetActiveProfile()))
+	prepareWindow(L["Import into profile: %s"])
 	window.action:Show()
 	window.action:SetScript("OnClick", function()
 		local text = window.box:GetText()
@@ -100,18 +84,26 @@ local function showImport()
 	window.box:SetFocus()
 end
 
-local function profileOptions(skipActive)
+local function profileOptions(excluded)
 	local options = {}
 	for _, name in ipairs(ui:GetProfileNames()) do
-		if not skipActive or name ~= ui:GetActiveProfile() then
+		if name ~= excluded then
 			options[#options + 1] = { name, name }
 		end
 	end
 	return options
 end
 
+local function otherProfileOptions()
+	return profileOptions(ui:GetActiveProfile())
+end
+
 local function noOtherProfiles()
-	return #profileOptions(true) == 0
+	return #otherProfileOptions() == 0
+end
+
+local function switchProfile(name)
+	ui:SetProfile(name)
 end
 
 local schema = {
@@ -122,15 +114,11 @@ local schema = {
 	{
 		label = L["Profile"],
 		type = "select",
-		values = function()
-			return profileOptions()
-		end,
+		values = profileOptions,
 		get = function()
 			return ui:GetActiveProfile()
 		end,
-		set = function(name)
-			ui:SetProfile(name)
-		end,
+		set = switchProfile,
 		desc = L["Switch this character to another profile."],
 	},
 	{
@@ -141,18 +129,14 @@ local schema = {
 		get = function()
 			return ""
 		end,
-		set = function(name)
-			ui:SetProfile(name)
-		end,
+		set = switchProfile,
 		desc = L["Type a name and press Enter to create an empty profile and switch to it."],
 	},
 	{
 		label = L["Copy from"],
 		type = "select",
 		placeholder = L["Select profile..."],
-		values = function()
-			return profileOptions(true)
-		end,
+		values = otherProfileOptions,
 		get = function() end,
 		set = function(name)
 			ns.Confirm(L["Overwrite the active profile with settings from %q?"]:format(name), function()
@@ -166,9 +150,7 @@ local schema = {
 		label = L["Delete profile"],
 		type = "select",
 		placeholder = L["Select profile..."],
-		values = function()
-			return profileOptions(true)
-		end,
+		values = otherProfileOptions,
 		get = function() end,
 		set = function(name)
 			ns.Confirm(L["Delete profile %q? Characters using it fall back to Default."]:format(name), function()

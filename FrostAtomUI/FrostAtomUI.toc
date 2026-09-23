@@ -1,12 +1,17 @@
-﻿## Interface: 30300
+## Interface: 30300
 ## Title: FrostAtom UI
 ## Notes: Personal UI replacement: action bars, unit frames, nameplates, chat, minimap and PvP helpers.
 ## Title-ruRU: FrostAtom UI
 ## Notes-ruRU: Замена интерфейса: панели команд, рамки юнитов, индикаторы имён, чат, мини-карта и PvP-помощники.
 ## Author: frostatom
-## Version: 1.3.0
+## Version: 1.4.0
 ## X-Build: 2026-09-23
 ## SavedVariables: FrostAtomUIDB
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\ChatThrottleLib\ChatThrottleLib.lua
+Libs\LibHealComm-4.0\LibHealComm-4.0.lua
 
 # Core: namespace, utilities, event dispatcher, saved variables, settings
 Core\Init.lua
@@ -28,6 +33,9 @@ Modules\CooldownTimer.lua
 Modules\CooldownData.lua
 Modules\Talents.lua
 Modules\CooldownTracker.lua
+Modules\DRData.lua
+Modules\DiminishingReturns.lua
+Modules\HealPrediction.lua
 
 # Action bars
 Modules\ActionBar\ActionBar.lua
@@ -59,6 +67,8 @@ Modules\UnitFrames\Elements\Status.lua
 Modules\UnitFrames\Elements\Auras.lua
 Modules\UnitFrames\Elements\Cast.lua
 Modules\UnitFrames\Elements\LoseControl.lua
+Modules\UnitFrames\Elements\Diminish.lua
+Modules\UnitFrames\Elements\Unseen.lua
 Modules\UnitFrames\Layout.lua
 Modules\UnitFrames\Test.lua
 Modules\UnitFrames\Blizzard.lua
@@ -70,7 +80,9 @@ Modules\NamePlates\Auras.lua
 Modules\NamePlates\Healers.lua
 
 Modules\PlayerPlate.lua
-Modules\AuraTracker.lua
+Modules\Trackers.lua
+Modules\LossOfControl.lua
+Modules\ExternalDefensives.lua
 Modules\Runes.lua
 Modules\Totems.lua
 Modules\TemporaryEnchant.lua
@@ -86,6 +98,7 @@ Modules\Chat\WhisperBlock.lua
 Modules\Chat\History.lua
 Modules\Chat\Bubbles.lua
 Modules\Chat\ChannelColors.lua
+Modules\Chat\ScrollButton.lua
 
 # Everything else
 Modules\Misc\Tweaks.lua
@@ -98,9 +111,12 @@ Modules\Misc\LowHealthFlash.lua
 Modules\Misc\QueuePopFlash.lua
 Modules\Misc\Arena.lua
 Modules\Misc\ArenaHistory.lua
+Modules\Misc\MatchResults.lua
+Modules\Misc\DeathRecap.lua
 Modules\Misc\SoloQueue.lua
 Modules\Misc\Announcers.lua
 Modules\Misc\InterruptAnnounce.lua
+Modules\Misc\SoundAlerts.lua
 Modules\Misc\Battleground.lua
 Modules\Misc\Merchant.lua
 Modules\Misc\Equipment.lua

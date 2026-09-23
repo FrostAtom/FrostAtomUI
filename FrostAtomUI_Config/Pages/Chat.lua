@@ -3,6 +3,7 @@ local _, ns = ...
 local L = FrostAtomUI.L
 
 local Section = ns.Section
+local NotClass = ns.NotClass
 
 local schema = {
 	{
@@ -19,6 +20,14 @@ local schema = {
 		reload = true,
 		desc = L["Flat backdrop, hidden buttons, auto-hiding tabs. Message features below work either way."],
 	},
+	{
+		path = "chat.lockFrames",
+		label = L["Lock frames"],
+		type = "toggle",
+		reload = true,
+		desc = L["Tabs cannot be dragged and frames cannot be resized; the main frame uses the position and size set in its frame settings. Off leaves positions to Blizzard's chat settings."],
+	},
+	{ type = "elements" },
 	{ header = L["Messages"] },
 	{
 		path = "chat.timestamps",
@@ -40,27 +49,12 @@ local schema = {
 		},
 	},
 	{
-		path = "chat.stickyChannels",
-		label = L["Sticky channels"],
-		type = "toggle",
-		desc = L["The edit box keeps the last used channel (whisper, party, guild, ...) for the next message."],
-	},
-	{
-		path = "chat.maxLines",
-		label = L["Lines kept per frame"],
-		type = "number",
-		min = 100,
-		max = 5000,
-		step = 100,
-		reload = true,
-		desc = L["Scrollback and /copy buffer size."],
-	},
-	{ path = "chat.urlLinks", label = L["Clickable URLs"], type = "toggle", desc = L["Click a link to copy it."] },
-	{
-		path = "chat.stripRealm",
-		label = L["Hide realm in names"],
-		type = "toggle",
-		desc = L["Show cross-realm players without the -Realm suffix."],
+		path = "chat.timestampColor",
+		new = "1.4.0",
+		label = L["Timestamp color"],
+		type = "color",
+		enabledBy = "chat.timestamps",
+		desc = L["Applies to new lines."],
 	},
 	{
 		path = "chat.shortChannelNames",
@@ -74,11 +68,43 @@ local schema = {
 		type = "toggle",
 		desc = L["Color player names by class in every chat type."],
 	},
+	{
+		path = "chat.stripRealm",
+		label = L["Hide realm in names"],
+		type = "toggle",
+		desc = L["Show cross-realm players without the -Realm suffix."],
+	},
+	{ path = "chat.urlLinks", label = L["Clickable URLs"], type = "toggle", desc = L["Click a link to copy it."] },
+	{
+		path = "chat.stickyChannels",
+		label = L["Sticky channels"],
+		type = "toggle",
+		desc = L["The edit box keeps the last used channel (whisper, party, guild, ...) for the next message."],
+	},
+	{
+		path = "chat.whisperSoundThrottle",
+		new = "1.4.0",
+		label = L["Limit whisper sound per sender"],
+		type = "toggle",
+		desc = L["Play the whisper sound at most once per interval for each sender instead of Blizzard's global 5 minute silence."],
+	},
+	{
+		path = "chat.whisperSoundInterval",
+		new = "1.4.0",
+		label = L["Whisper sound interval (seconds)"],
+		type = "number",
+		min = 0,
+		max = 600,
+		step = 10,
+		enabledBy = "chat.whisperSoundThrottle",
+		desc = L["0 plays the sound for every whisper."],
+	},
 	{ header = L["Filters"] },
 	{
 		path = "chat.filterSystemSpam",
 		label = L["Filter server spam"],
 		type = "toggle",
+		hidden = not FrostAtomUI.IS_WOWCIRCLE,
 		desc = L["Hide queue announcer and website advertisements."],
 	},
 	{
@@ -87,7 +113,24 @@ local schema = {
 		type = "toggle",
 		desc = L["Hide loot method, raid join / leave and countdown messages inside arenas."],
 	},
+	{
+		path = "chat.batchBattlegroundJoins",
+		new = "1.4.0",
+		label = L["Group battleground join / leave messages"],
+		type = "toggle",
+		desc = L["During the first minute of a battleground, print one summary line every 5 seconds instead of a line per player. Leave messages are hidden after the match ends."],
+	},
 	{ header = L["History"] },
+	{
+		path = "chat.maxLines",
+		label = L["Lines kept per frame"],
+		type = "number",
+		min = 100,
+		max = 5000,
+		step = 100,
+		reload = true,
+		desc = L["Scrollback and /copy buffer size."],
+	},
 	{
 		path = "chat.savedHistoryLines",
 		label = L["Restored lines"],
@@ -105,65 +148,6 @@ local schema = {
 		max = 100,
 		step = 5,
 		desc = L["Edit box up / down arrow history kept between sessions. 0 disables."],
-	},
-	{ header = L["Frame"] },
-	{
-		path = "chat.lockFrames",
-		label = L["Lock frames"],
-		type = "toggle",
-		reload = true,
-		desc = L["Tabs cannot be dragged and frames cannot be resized; the main frame uses the position below. " .. "Off leaves positions to Blizzard's chat settings."],
-	},
-	{ path = "chat.point", label = L["Position"], type = "point", enabledBy = "chat.lockFrames" },
-	{
-		path = "chat.width",
-		label = L["Width"],
-		type = "number",
-		min = 200,
-		max = 1000,
-		step = 1,
-		enabledBy = "chat.lockFrames",
-	},
-	{
-		path = "chat.height",
-		label = L["Height"],
-		type = "number",
-		min = 80,
-		max = 800,
-		step = 1,
-		enabledBy = "chat.lockFrames",
-	},
-	{
-		path = "chat.fadeMessages",
-		label = L["Fade out messages"],
-		type = "toggle",
-		desc = L["Off keeps every line visible until it scrolls out of the window."],
-	},
-	{
-		path = "chat.fadeTime",
-		label = L["Fade after (seconds)"],
-		type = "number",
-		min = 5,
-		max = 600,
-		step = 5,
-		desc = L["Lines fade out after this many seconds of inactivity."],
-		enabledBy = "chat.fadeMessages",
-	},
-	{ path = "chat.backgroundAlpha", label = L["Background alpha"], type = "number", min = 0, max = 1, step = 0.05 },
-	{
-		path = "chat.mouseover",
-		label = L["Show on mouseover"],
-		type = "toggle",
-		desc = L["Keep the chat faded until the cursor is over it or the edit box is open."],
-	},
-	{
-		path = "chat.fadeAlpha",
-		label = L["Faded alpha"],
-		type = "number",
-		min = 0,
-		max = 1,
-		step = 0.05,
-		enabledBy = "chat.mouseover",
 	},
 	{
 		path = "chat.copyWindowWidth",
@@ -264,7 +248,7 @@ Section(schema, L["Announcements"], "announce", {
 		path = "auraMastery",
 		label = L["Announce Aura Mastery"],
 		type = "toggle",
-		hidden = FrostAtomUI.PLAYER_CLASS ~= "PALADIN",
+		hidden = NotClass("PALADIN"),
 		desc = L["Raid warning / party message when Aura Mastery is used with Concentration Aura."],
 	},
 	{
@@ -273,29 +257,99 @@ Section(schema, L["Announcements"], "announce", {
 		type = "string",
 		width = 260,
 		maxLetters = 80,
-		hidden = FrostAtomUI.PLAYER_CLASS ~= "PALADIN",
+		hidden = NotClass("PALADIN"),
 		enabledBy = "announce.auraMastery",
 		desc = L["Sent twice to raid warning or party chat."],
 	},
 })
 
-for _, entry in ipairs(schema) do
-	local path = entry.path
-	if path and path ~= "chat.enabled" and path:sub(1, 5) == "chat." then
-		local enabledBy = entry.enabledBy
-		if type(enabledBy) == "table" then
-			enabledBy[#enabledBy + 1] = "chat.enabled"
-		elseif enabledBy then
-			entry.enabledBy = { enabledBy, "chat.enabled" }
-		else
-			entry.enabledBy = "chat.enabled"
+local chatFrame = {
+	{ header = L["Size"] },
+	{
+		path = "chat.width",
+		label = L["Width"],
+		type = "number",
+		min = 200,
+		max = 1200,
+		step = 1,
+		enabledBy = "chat.lockFrames",
+	},
+	{
+		path = "chat.height",
+		label = L["Height"],
+		type = "number",
+		min = 60,
+		max = 800,
+		step = 1,
+		enabledBy = "chat.lockFrames",
+	},
+	{ header = L["Appearance"] },
+	{ path = "chat.backgroundAlpha", label = L["Background alpha"], type = "number", min = 0, max = 1, step = 0.05 },
+	{
+		path = "chat.scrollToBottomButton",
+		new = "1.4.0",
+		label = L["Jump to bottom button"],
+		type = "toggle",
+		enabledBy = "chat.skin",
+		desc = L["Show an arrow while the chat is scrolled up; it flashes on new messages and scrolls down on click."],
+	},
+	{ header = L["Visibility"] },
+	{
+		path = "chat.fadeMessages",
+		label = L["Fade out messages"],
+		type = "toggle",
+		desc = L["Off keeps every line visible until it scrolls out of the window."],
+	},
+	{
+		path = "chat.fadeTime",
+		label = L["Fade after (seconds)"],
+		type = "number",
+		min = 5,
+		max = 600,
+		step = 5,
+		desc = L["Lines fade out after this many seconds of inactivity."],
+		enabledBy = "chat.fadeMessages",
+	},
+	{
+		path = "chat.mouseover",
+		label = L["Show on mouseover"],
+		type = "toggle",
+		desc = L["Keep the chat faded until the cursor is over it or the edit box is open."],
+	},
+	{
+		path = "chat.fadeAlpha",
+		label = L["Faded alpha"],
+		type = "number",
+		min = 0,
+		max = 1,
+		step = 0.05,
+		enabledBy = "chat.mouseover",
+	},
+}
+
+local function requireChat(entries)
+	for _, entry in ipairs(entries) do
+		local path = entry.path
+		if path and path ~= "chat.enabled" and path:sub(1, 5) == "chat." then
+			ns.AddRequirement(entry, "chat.enabled")
 		end
 	end
 end
+
+requireChat(schema)
+requireChat(chatFrame)
 
 ns.RegisterPage({
 	key = "chat",
 	name = L["Chat"],
 	order = 35,
 	schema = schema,
+})
+
+ns.RegisterElement({
+	path = "chat.point",
+	page = "chat",
+	name = L["Chat frame"],
+	enabledBy = "chat.enabled",
+	schema = chatFrame,
 })

@@ -2,6 +2,33 @@ local _, ns = ...
 
 local L = FrostAtomUI.L
 
+ns.RegisterElement({
+	path = "bags.inventory",
+	page = "bags",
+	name = L["Inventory"],
+	enabledBy = "bags.enabled",
+	schema = {
+		{
+			path = "bags.inventoryColumns",
+			label = L["Columns"],
+			type = "number",
+			min = 4,
+			max = 24,
+			step = 1,
+		},
+	},
+})
+
+ns.RegisterElement({
+	path = "bags.bank",
+	page = "bags",
+	name = L["Bank"],
+	enabledBy = "bags.enabled",
+	schema = {
+		{ path = "bags.bankColumns", label = L["Columns"], type = "number", min = 4, max = 24, step = 1 },
+	},
+})
+
 ns.RegisterPage({
 	key = "bags",
 	name = L["Bags"],
@@ -15,6 +42,8 @@ ns.RegisterPage({
 			reload = true,
 			desc = L["Replace Blizzard bags."],
 		},
+		{ type = "elements" },
+		{ header = L["General"] },
 		{
 			path = "bags.autoOpen",
 			label = L["Open at merchant / mail / bank"],
@@ -22,10 +51,8 @@ ns.RegisterPage({
 			desc = L["Open the inventory when a merchant, mailbox, auction house, trade or bank window opens."],
 		},
 		{ path = "bags.playSounds", label = L["Open / close sounds"], type = "toggle" },
-		{ header = L["Positions"] },
-		{ path = "bags.inventory", label = L["Inventory"], type = "point" },
-		{ path = "bags.bank", label = L["Bank"], type = "point" },
 		{ header = L["Layout"] },
+		{ description = L["Shared by the inventory and the bank; columns are set for each window separately."] },
 		{ path = "bags.buttonSize", label = L["Button size"], type = "number", min = 20, max = 50, step = 1 },
 		{
 			path = "bags.spacing",
@@ -45,15 +72,6 @@ ns.RegisterPage({
 			step = 1,
 			desc = L["Space between the frame border and its contents."],
 		},
-		{
-			path = "bags.inventoryColumns",
-			label = L["Inventory columns"],
-			type = "number",
-			min = 4,
-			max = 24,
-			step = 1,
-		},
-		{ path = "bags.bankColumns", label = L["Bank columns"], type = "number", min = 4, max = 30, step = 1 },
 		{
 			path = "bags.backgroundAlpha",
 			label = L["Background alpha"],
@@ -76,12 +94,6 @@ ns.RegisterPage({
 			desc = L["Glow on items picked up since the bags were last closed."],
 		},
 		{
-			path = "bags.questItemColor",
-			label = L["Quest item border"],
-			type = "color",
-			desc = L["Border color of quest items instead of the quality color."],
-		},
-		{
 			path = "bags.searchFadeAlpha",
 			label = L["Search fade alpha"],
 			type = "number",
@@ -93,5 +105,12 @@ ns.RegisterPage({
 		{ header = L["Text"] },
 		{ path = "bags.countFont", label = L["Stack count font"], type = "font" },
 		{ path = "bags.levelFont", label = L["Item level font"], type = "font", enabledBy = "bags.showItemLevel" },
+		{ header = L["Colors"] },
+		{
+			path = "bags.questItemColor",
+			label = L["Quest item border"],
+			type = "color",
+			desc = L["Border color of quest items instead of the quality color."],
+		},
 	},
 })

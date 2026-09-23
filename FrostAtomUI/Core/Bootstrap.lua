@@ -13,7 +13,7 @@ local function collect()
 	heapAfterCollect = collectgarbage("count")
 end
 
-local function run(name, module, handler)
+local function runInitializer(name, module, handler)
 	local ok, err = pcall(handler, module)
 	if not ok then
 		geterrorhandler()(("[%s] Initialize failed: %s"):format(name, tostring(err)))
@@ -25,7 +25,7 @@ function ns.InitializeModules()
 		local enabled = not module.configKey or ns.Config[module.configKey].enabled
 		if module.Initialize then
 			if enabled then
-				run(name, module, module.Initialize)
+				runInitializer(name, module, module.Initialize)
 			end
 			module.Initialize = nil
 		end
@@ -33,7 +33,7 @@ function ns.InitializeModules()
 		if initializers then
 			if enabled then
 				for i = 1, #initializers do
-					run(name, module, initializers[i])
+					runInitializer(name, module, initializers[i])
 				end
 			end
 			module.initializers = nil

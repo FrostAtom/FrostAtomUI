@@ -5,15 +5,10 @@ local UnitIsUnit = UnitIsUnit
 
 local config = ns.Config.unitFrames
 
+local BORDER_COLOR_KEYS = { target = "targetBorderColor", focus = "focusBorderColor" }
+
 local function setHighlight(frame, kind)
-	local color
-	if kind == "target" then
-		color = config.targetBorderColor
-	elseif kind == "focus" then
-		color = config.focusBorderColor
-	else
-		color = config.borderColor
-	end
+	local color = config[BORDER_COLOR_KEYS[kind] or "borderColor"]
 	frame:SetBackdropBorderColor(color[1], color[2], color[3], color[4])
 end
 
@@ -31,7 +26,7 @@ end
 local TEST_KINDS = { "target", "focus", false, false, false, false }
 
 local function test(frame)
-	setHighlight(frame, TEST_KINDS[math.random(#TEST_KINDS)] or nil)
+	setHighlight(frame, TEST_KINDS[math.random(#TEST_KINDS)])
 end
 
 local function create(frame)

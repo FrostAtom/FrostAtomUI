@@ -31,6 +31,8 @@ local config = ns.Config.tooltip
 
 local TOOLTIPS = { ItemRefTooltip, GameTooltip, ShoppingTooltip1, ShoppingTooltip2, ShoppingTooltip3 }
 local TITLE_ICON = "|T%s:20:20:0:0:64:64:5:59:5:59:20|t %s"
+local LEVEL_LINE_PATTERN = "^" .. LEVEL .. " "
+local PLAYER_SUFFIX_PATTERN = " %(" .. PLAYER .. "%)$"
 
 local labelHex
 
@@ -67,7 +69,7 @@ end
 local leftLines = lineCache("TextLeft")
 local rightLines = lineCache("TextRight")
 
-local function titleLine(tooltip, index)
+local function leftLine(tooltip, index)
 	return leftLines[tooltip][index or 1]
 end
 
@@ -82,7 +84,7 @@ end
 
 local function findLine(tooltip, pattern)
 	for i = 2, tooltip:NumLines() do
-		local text = titleLine(tooltip, i):GetText()
+		local text = leftLine(tooltip, i):GetText()
 		if text and text:find(pattern) then
 			return i
 		end
@@ -99,7 +101,7 @@ local function onTooltipSetSpell(tooltip)
 		return
 	end
 
-	local title = titleLine(tooltip)
+	local title = leftLine(tooltip)
 	if title then
 		title:SetFormattedText(TITLE_ICON, texture, title:GetText())
 	end
@@ -121,7 +123,7 @@ local function onTooltipSetItem(tooltip)
 	end
 
 	for i = 1, 2 do
-		local title = titleLine(tooltip, i)
+		local title = leftLine(tooltip, i)
 		local text = title and title:GetText()
 		if text and text:find(itemName, 1, true) then
 			title:SetFormattedText(TITLE_ICON, GetItemIcon(link), text)
@@ -157,6 +159,10 @@ end
 
 hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
 	if not config.enabled then
+		return
+	end
+	if config.anchorCursor then
+		tooltip:SetOwner(parent, "ANCHOR_CURSOR")
 		return
 	end
 	tooltip:SetOwner(parent, "ANCHOR_NONE")
@@ -201,7 +207,7 @@ local inspectGuid, inspectUnit, inspectTime, inspectRetries
 local function addItemLevel(tooltip, average)
 	local _, _, _, hex = ns.AverageItemLevelColor(average)
 	local text = L["ilvl %s%.1f|r"]:format(hex, average)
-	local line = findLine(tooltip, "^" .. LEVEL .. " ")
+	local line = findLine(tooltip, LEVEL_LINE_PATTERN)
 	if line then
 		setRightText(tooltip, line, text)
 	else
@@ -300,22 +306,22 @@ local function onTooltipSetUnit(tooltip)
 		return
 	end
 
-	local title = titleLine(tooltip)
+	local title = leftLine(tooltip)
 	if title then
 		title:SetText(colorize(unit, title:GetText() or UnitName(unit)))
 	end
 	local isPlayer = UnitIsPlayer(unit)
 	if isPlayer then
 		local guild = GetGuildInfo(unit)
-		local second = titleLine(tooltip, 2)
+		local second = leftLine(tooltip, 2)
 		local secondText = guild and second and second:GetText()
 		if secondText and secondText:find(guild, 1, true) then
 			second:SetFormattedText("<|cff00ff10%s|r>", guild)
 		end
-		local levelIndex = findLine(tooltip, "^" .. LEVEL .. " ")
+		local levelIndex = findLine(tooltip, LEVEL_LINE_PATTERN)
 		if levelIndex then
-			local levelLine = titleLine(tooltip, levelIndex)
-			levelLine:SetText((levelLine:GetText():gsub(" %(" .. PLAYER .. "%)$", "")))
+			local levelLine = leftLine(tooltip, levelIndex)
+			levelLine:SetText((levelLine:GetText():gsub(PLAYER_SUFFIX_PATTERN, "")))
 		end
 		if config.showItemLevel then
 			unitItemLevel(tooltip, unit)
@@ -339,7 +345,7 @@ local function onTooltipSetUnit(tooltip)
 	end
 
 	local target = unit .. "target"
-	if unit ~= "player" and UnitExists(target) then
+	if config.showTarget and unit ~= "player" and UnitExists(target) then
 		local name = UnitIsUnit(target, "player") and L["|cffff0000<YOU>|r"] or colorize(target, UnitName(target))
 		tooltip:AddDoubleLine(L["Target"], name)
 	end
@@ -375,7 +381,7 @@ healthText:SetPoint("CENTER")
 
 GameTooltipStatusBar:HookScript("OnValueChanged", function(bar, value)
 	local _, max = bar:GetMinMaxValues()
-	if not value or max == 0 or not config.enabled then
+	if not value or max == 0 or not config.enabled or not config.showHealthText then
 		healthText:SetText("")
 	elseif max == 1 then
 		healthText:SetFormattedText("%d%%", value * 100)

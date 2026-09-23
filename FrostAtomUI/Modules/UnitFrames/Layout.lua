@@ -6,8 +6,12 @@ local MAX_PARTY_FRAMES = 3
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
-local LOSE_CONTROL_FONT_SCALE = 0.32
-local RESIZE_KEYS = { powerRatio = true, groupDebuffSize = true, partyBuffSize = true }
+local PLAYER_DEBUFF_GAP_SCALE = 0.2
+local BOSS_CASTBAR_SCALE = 0.5
+local BOSS_CASTBAR_ICON_GAP = 2
+local GROUP_CASTBAR_WIDTH_SCALE = 0.8
+local RESIZE_KEYS = { powerRatio = true, groupDebuffSize = true, partyBuffSize = true, targetAuraPerRow = true }
+local AURA_GROWTH_ANCHORS = { LEFT = "TOPRIGHT", RIGHT = "TOPLEFT" }
 
 local ARENA_COOLDOWN_SKIP = {
 	[42292] = true, -- PvP Trinket
@@ -19,7 +23,10 @@ local player, castbar, pet, target, focus
 local party, arena, bosses = {}, {}, {}
 local partyPets, arenaPets = {}, {}
 
-local function setGroupPoints(frames, path, spacing)
+local function setGroupPoints(frames, path, spacing, growth)
+	if growth == "UP" then
+		spacing = -spacing
+	end
 	for i = 1, #frames do
 		ns.ApplyPoint(frames[i], path, (i - 1) * spacing)
 	end
@@ -35,9 +42,32 @@ local function applyPositions()
 	ns.ApplyPoint(focus.targetOfTarget, "unitFrames.focusTarget")
 	ns.ApplyPoint(player.buffs, "unitFrames.playerAuras")
 	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
-	setGroupPoints(party, "unitFrames.party", config.groupSpacing)
-	setGroupPoints(arena, "unitFrames.arena", config.groupSpacing)
+	setGroupPoints(party, "unitFrames.party", config.partySpacing, config.partyGrowth)
+	setGroupPoints(arena, "unitFrames.arena", config.arenaSpacing, config.arenaGrowth)
 	setGroupPoints(bosses, "unitFrames.boss", config.bossSpacing)
+end
+
+local function playerAuraAnchor(config)
+	return AURA_GROWTH_ANCHORS[config.playerAuraGrowth] or "TOPRIGHT"
+end
+
+local function anchorPlayerDebuffs(config)
+	player.debuffs:SetPoint(
+		"TOPRIGHT",
+		player.buffs,
+		"BOTTOMRIGHT",
+		0,
+		-config.playerAuraSize * PLAYER_DEBUFF_GAP_SCALE
+	)
+end
+
+local function sizePlayerCastbar(config)
+	UF.SetCastbarSize(castbar, config.playerCastbarWidth, config.playerCastbarHeight)
+end
+
+local function sizeBossCastbar(boss, config)
+	local height = config.bossHeight * BOSS_CASTBAR_SCALE
+	UF.SetCastbarSize(boss.castbar, config.bossWidth - height - BOSS_CASTBAR_ICON_GAP, height)
 end
 
 local function applySizes()
@@ -50,17 +80,15 @@ local function applySizes()
 		arena[i].cooldowns:SetIconSize(config.arenaCooldownSize)
 		local trinket = arena[i].trinket
 		trinket:SetIconSize(trinketConfig.size)
-		if trinketConfig.enabled then
-			trinket:Show()
-		else
-			trinket:Hide()
-		end
+		ns.SetShown(trinket, trinketConfig.enabled)
 	end
-	castbar:SetSize(config.playerCastbarWidth, config.playerCastbarHeight)
-	castbar.icon:SetSize(config.playerCastbarHeight, config.playerCastbarHeight)
+	sizePlayerCastbar(config)
+	local auraAnchor = playerAuraAnchor(config)
+	player.buffs:SetShape(config.playerAuraPerRow, auraAnchor)
+	player.debuffs:SetShape(config.playerAuraPerRow, auraAnchor)
 	player.buffs:SetIconSize(config.playerAuraSize)
 	player.debuffs:SetIconSize(config.playerAuraSize)
-	player.debuffs:SetPoint("TOPRIGHT", player.buffs, "BOTTOMRIGHT", 0, -config.playerAuraSize * 0.2)
+	anchorPlayerDebuffs(config)
 end
 
 local function resizeGroupFrame(frame, groupPet, width, height)
@@ -70,8 +98,7 @@ local function resizeGroupFrame(frame, groupPet, width, height)
 	if frame.buffs then
 		frame.buffs:SetLayout(width, config.partyBuffSize)
 	end
-	frame.castbar:SetSize(width * 0.8, height)
-	frame.castbar.icon:SetSize(height, height)
+	UF.SetCastbarSize(frame.castbar, width * GROUP_CASTBAR_WIDTH_SCALE, height)
 	groupPet:SetFrameSize(height, height)
 end
 
@@ -111,8 +138,7 @@ local function applyFrameSizes(self, path)
 	for i = 1, #bosses do
 		local boss = bosses[i]
 		boss:SetFrameSize(config.bossWidth, config.bossHeight)
-		boss.castbar:SetSize(config.bossWidth - config.bossHeight * 0.5 - 2, config.bossHeight * 0.5)
-		boss.castbar.icon:SetSize(config.bossHeight * 0.5, config.bossHeight * 0.5)
+		sizeBossCastbar(boss, config)
 	end
 end
 
@@ -124,18 +150,15 @@ end
 
 local function setGroupCooldowns(frames, shown)
 	for i = 1, #frames do
-		local cooldowns = frames[i].cooldowns
-		if shown then
-			cooldowns:Show()
-		else
-			cooldowns:Hide()
-		end
+		ns.SetShown(frames[i].cooldowns, shown)
 	end
 end
 
 local function applyVisibility()
 	local config = ns.Config.unitFrames
 	pet:SetWatched(config.showPet)
+	target.targetOfTarget:SetWatched(config.showTargetOfTarget)
+	focus.targetOfTarget:SetWatched(config.showFocusTarget)
 	setGroupWatched(party, config.showParty)
 	setGroupWatched(partyPets, config.showParty and config.showPet)
 	setGroupWatched(arena, config.showArena)
@@ -145,24 +168,22 @@ local function applyVisibility()
 	setGroupCooldowns(arena, config.showArenaCooldowns)
 end
 
-local function setLoseControlSize(loseControl, size)
-	loseControl:SetSize(size, size)
-	ns.SetFont(loseControl.timer, size * LOSE_CONTROL_FONT_SCALE, "OUTLINE")
-end
-
 local function applyElements()
 	local config = ns.Config.unitFrames
-	setLoseControlSize(player.losecontrol, config.loseControlSize)
-	ns.ApplyPoint(player.losecontrol, "unitFrames.loseControlPoint")
 	target.combopoints:SetPointSize(config.comboPointSize)
+	UF.SetCastbarShown(castbar, config.showPlayerCastbar)
+	UF.SetCastbarShown(target.castbar, config.showTargetCastbar)
+	UF.SetCastbarShown(focus.castbar, config.showFocusCastbar)
 	for i = 1, #party do
 		anchorGroupGrids(party[i])
 		party[i].debuffs:SetLimit(config.groupDebuffMax)
 		party[i].buffs:SetLimit(config.partyBuffMax)
+		UF.SetCastbarShown(party[i].castbar, config.showPartyCastbar)
 	end
 	for i = 1, #arena do
 		anchorGroupGrids(arena[i])
 		arena[i].debuffs:SetLimit(config.groupDebuffMax)
+		UF.SetCastbarShown(arena[i].castbar, config.showArenaCastbar)
 	end
 end
 
@@ -183,47 +204,57 @@ local function frameResize(widthKey, heightKey, minWidth, minHeight)
 	}
 end
 
+local function addLeader(self, frame)
+	local leader = self:AddElement(frame, "leader")
+	leader:SetPoint("TOPRIGHT", frame.classicon, -1, -1)
+end
+
+local function addRaidIconAbove(self, frame)
+	local raidIcon = self:AddElement(frame, "raidicon")
+	raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
+end
+
+local function addPvp(self, frame)
+	local pvp = self:AddElement(frame, "pvp")
+	pvp:SetPoint("CENTER", frame, "BOTTOMRIGHT", -8, 0)
+end
+
 local function createPlayer(self, config)
 	player = self:CreateRectangle("player", config.playerWidth, config.playerHeight, "LEFT")
 	ns.ApplyPoint(player, "unitFrames.player")
 
-	local leader = self:AddElement(player, "leader")
-	leader:SetPoint("TOPRIGHT", player.classicon, -1, -1)
+	addLeader(self, player)
 
-	local auraOptions = { size = config.playerAuraSize, gap = 2, anchor = "TOPRIGHT" }
+	local auraOptions = {
+		size = config.playerAuraSize,
+		gap = 2,
+		perRow = config.playerAuraPerRow,
+		anchor = playerAuraAnchor(config),
+	}
 	local buffs = self:AddElement(player, "buffs", auraOptions)
 	ns.ApplyPoint(buffs, "unitFrames.playerAuras")
 
-	local debuffs = self:AddElement(player, "debuffs", auraOptions)
-	debuffs:SetPoint("TOPRIGHT", buffs, "BOTTOMRIGHT", 0, -config.playerAuraSize * 0.2)
+	self:AddElement(player, "debuffs", auraOptions)
+	anchorPlayerDebuffs(config)
 
 	castbar = self:AddElement(player, "castbar")
-	castbar:SetSize(config.playerCastbarWidth, config.playerCastbarHeight)
+	sizePlayerCastbar(config)
 	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
-	castbar.icon:SetSize(config.playerCastbarHeight, config.playerCastbarHeight)
 
-	local loseControl = self:AddElement(player, "losecontrol")
-	setLoseControlSize(loseControl, config.loseControlSize)
-	ns.ApplyPoint(loseControl, "unitFrames.loseControlPoint")
-
-	local raidIcon = self:AddElement(player, "raidicon")
-	raidIcon:SetPoint("BOTTOM", player, "TOP", 0, -4)
+	addRaidIconAbove(self, player)
 
 	local resting = self:AddElement(player, "resting")
 	resting:SetPoint("CENTER", player, "TOPRIGHT", -8, 0)
 
-	local pvp = self:AddElement(player, "pvp")
-	pvp:SetPoint("CENTER", player, "BOTTOMRIGHT", -8, 0)
+	addPvp(self, player)
 
 	self:AddElement(player, "dispel")
 
 	pet = self:CreatePet("pet", config.playerHeight)
 	ns.ApplyPoint(pet, "unitFrames.pet")
-
-	return player
 end
 
-local function createTargets(self, player, config)
+local function createTargets(self, config)
 	local targetOfTarget
 	target, targetOfTarget = self:CreateTarget("target", config.playerWidth, config.playerHeight)
 	ns.ApplyPoint(target, "unitFrames.target")
@@ -241,17 +272,12 @@ local function createTargets(self, player, config)
 	focus:RegisterEvent("PLAYER_FOCUS_CHANGED", "QueueUpdate")
 	focusTarget:RegisterEvent("PLAYER_FOCUS_CHANGED", "QueueUpdate")
 
-	local function addTargetElements(frame)
-		local raidIcon = self:AddElement(frame, "raidicon")
-		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
-
-		local pvp = self:AddElement(frame, "pvp")
-		pvp:SetPoint("CENTER", frame, "BOTTOMRIGHT", -8, 0)
-
+	for _, frame in ipairs({ target, focus }) do
+		addRaidIconAbove(self, frame)
+		addPvp(self, frame)
 		self:AddElement(frame, "dispel")
+		self:AddElement(frame, "diminish")
 	end
-	addTargetElements(target)
-	addTargetElements(focus)
 end
 
 local function createParty(self, config)
@@ -261,24 +287,20 @@ local function createParty(self, config)
 	local buffOptions = { size = config.partyBuffSize, width = width, max = config.partyBuffMax }
 
 	for i = 1, MAX_PARTY_FRAMES do
-		local unit = "party" .. i
-		local frame = self:CreateRectangle(unit, width, height, "LEFT")
+		local frame = self:CreateRectangle("party" .. i, width, height, "LEFT")
 		party[i] = frame
-		frame:SetPoint(point, x, y - (i - 1) * config.groupSpacing)
+		frame:SetPoint(point, x, y - (i - 1) * config.partySpacing)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
 
-		local leader = self:AddElement(frame, "leader")
-		leader:SetPoint("TOPRIGHT", frame.classicon, -1, -1)
-
-		local raidIcon = self:AddElement(frame, "raidicon")
-		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
+		addLeader(self, frame)
+		addRaidIconAbove(self, frame)
 
 		self:AddElement(frame, "debuffs", debuffOptions)
 		self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
 		self:AddElement(frame, "buffs", buffOptions)
 		anchorGroupGrids(frame)
 
-		self:CreateSideCastbar(frame, "RIGHT", width * 0.8, height)
+		self:CreateSideCastbar(frame, "RIGHT", width * GROUP_CASTBAR_WIDTH_SCALE, height)
 
 		self:AddElement(frame, "losecontrol")
 
@@ -308,16 +330,15 @@ local function createArena(self, config)
 	for i = 1, MAX_ARENA_OPPONENTS do
 		local frame = self:CreateRectangle("arena" .. i, width, height, "RIGHT")
 		arena[i] = frame
-		frame:SetPoint(point, x, y - (i - 1) * config.groupSpacing)
+		frame:SetPoint(point, x, y - (i - 1) * config.arenaSpacing)
 
 		self:AddElement(frame, "debuffs", debuffOptions)
 
-		self:CreateSideCastbar(frame, "LEFT", width * 0.8, height)
+		self:CreateSideCastbar(frame, "LEFT", width * GROUP_CASTBAR_WIDTH_SCALE, height)
 
 		self:AddElement(frame, "losecontrol")
 
-		local raidIcon = self:AddElement(frame, "raidicon")
-		raidIcon:SetPoint("BOTTOM", frame, "TOP", 0, -4)
+		addRaidIconAbove(self, frame)
 
 		self:AddElement(frame, "range")
 		self:AddElement(frame, "highlight")
@@ -328,6 +349,8 @@ local function createArena(self, config)
 
 		local trinket = self:AddElement(frame, "trinket", { size = trinketSize })
 		trinket:SetPoint("LEFT", pet, "RIGHT", 2, 0)
+
+		self:AddElement(frame, "diminish")
 
 		self:AddElement(
 			frame,
@@ -342,8 +365,7 @@ local function createBosses(self, config)
 	local point, x, y = unpack(config.boss)
 
 	for i = 1, MAX_BOSS_FRAMES do
-		local unit = "boss" .. i
-		local frame = self:CreateRectangle(unit, config.bossWidth, config.bossHeight)
+		local frame = self:CreateRectangle("boss" .. i, config.bossWidth, config.bossHeight)
 		bosses[i] = frame
 		frame:SetPoint(point, x, y - (i - 1) * config.bossSpacing)
 		frame:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", "QueueUpdate")
@@ -351,10 +373,9 @@ local function createBosses(self, config)
 		local raidIcon = self:AddElement(frame, "raidicon")
 		raidIcon:SetPoint("RIGHT", frame, "LEFT", -4, 0)
 
-		local castbar = self:AddElement(frame, "castbar")
-		castbar:SetSize(config.bossWidth - config.bossHeight * 0.5 - 2, config.bossHeight * 0.5)
-		castbar:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -2)
-		castbar.icon:SetSize(config.bossHeight * 0.5, config.bossHeight * 0.5)
+		local bossCastbar = self:AddElement(frame, "castbar")
+		sizeBossCastbar(frame, config)
+		bossCastbar:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -2)
 	end
 end
 
@@ -362,7 +383,8 @@ function UF:Initialize()
 	local config = ns.Config.unitFrames
 
 	self:HideBlizzard()
-	createTargets(self, createPlayer(self, config), config)
+	createPlayer(self, config)
+	createTargets(self, config)
 	createParty(self, config)
 	createArena(self, config)
 	createBosses(self, config)
@@ -383,7 +405,7 @@ function UF:Initialize()
 			local buffs, debuffs = player.buffs, player.debuffs
 			local size = ns.Config.unitFrames.playerAuraSize
 			local rows = max(buffs.rows, 1) + max(debuffs.rows, 1)
-			return buffs:GetWidth(), rows * (size + buffs.gap) - buffs.gap + size * 0.2
+			return buffs:GetWidth(), rows * (size + buffs.gap) - buffs.gap + size * PLAYER_DEBUFF_GAP_SCALE
 		end,
 	})
 	self:RegisterMover(party[1], "unitFrames.party", "Party", {
@@ -397,12 +419,6 @@ function UF:Initialize()
 	self:RegisterMover(bosses[1], "unitFrames.boss", "Boss", {
 		secure = true,
 		resize = frameResize("bossWidth", "bossHeight", 80, 20),
-	})
-	self:RegisterMover(player.losecontrol, "unitFrames.loseControlPoint", "Lose control", {
-		size = function()
-			local size = ns.Config.unitFrames.loseControlSize
-			return size, size
-		end,
 	})
 	applyPositions()
 	applyElements()

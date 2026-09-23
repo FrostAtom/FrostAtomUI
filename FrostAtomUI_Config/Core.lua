@@ -3,8 +3,8 @@ local ADDON_NAME, ns = ...
 local ui = FrostAtomUI
 local L = ui.L
 
-local floor, max, min = math.floor, math.max, math.min
-local tinsert, tremove, sort = tinsert, table.remove, table.sort
+local floor, max, min, ceil = math.floor, math.max, math.min, math.ceil
+local tinsert, sort = tinsert, table.sort
 
 local FRAME_NAME = ADDON_NAME .. "Frame"
 local WIDTH, HEIGHT = 720, 580
@@ -22,15 +22,28 @@ local CONTROL_X = LABEL_WIDTH + 8
 local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
 local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
 local DISABLED_ALPHA = 0.4
+local CHILD_INDENT = 14
+local NEW_COLOR = { 1, 0.82, 0 }
+local REVERT_SECONDS = 8
+local ELEMENT_WIDTH = 558
+local ELEMENT_GAP = 8
+local ELEMENT_MIN_HEIGHT = 140
+local ELEMENT_MAX_HEIGHT = 560
+local ELEMENT_FOOTER_HEIGHT = 28
+local ELEMENT_STRATA = "FULLSCREEN"
+local POPUP_STRATA = "FULLSCREEN_DIALOG"
+local FONT_SIZE_MIN, FONT_SIZE_MAX = 6, 32
 
 local ANCHORS = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" }
 local OUTLINES = { { "", L["None"] }, { "OUTLINE", L["Outline"] }, { "THICKOUTLINE", L["Thick outline"] } }
 
-ns.ANCHORS = ANCHORS
-ns.OUTLINES = OUTLINES
-
 local pages = {}
+local elements = {}
+local elementsByPath = {}
+local elementMatchers = {}
+local elementInstances = {}
 local frame
+local elementFrame
 local currentPage
 local lastNavPage
 local refreshing = false
@@ -38,36 +51,123 @@ local widgetCount = 0
 
 local searchPage = { key = "search", name = L["Search"], schema = {}, noReset = true }
 
-function ns.RegisterPage(page)
-	for _, entry in ipairs(page.schema) do
-		entry.page = page
+local function adoptEntries(schema, owner)
+	for _, entry in ipairs(schema) do
+		entry.page = owner
 	end
+end
+
+function ns.RegisterPage(page)
+	adoptEntries(page.schema, page)
 	tinsert(pages, page)
 	sort(pages, function(a, b)
 		return a.order < b.order
 	end)
 end
 
-function ns.Section(schema, header, prefix, entries, hidden)
-	if hidden then
-		return schema
+function ns.RegisterElement(element)
+	if element.match then
+		tinsert(elementMatchers, element)
+		return
 	end
-	local enable = prefix .. ".enabled"
-	schema[#schema + 1] = { header = header }
+	element.key = "element:" .. element.path
+	element.schema = element.schema or {}
+	adoptEntries(element.schema, element)
+	tinsert(elements, element)
+	elementsByPath[element.path] = element
+end
+
+local function instantiateMatcher(matcher, path)
+	local name = matcher.name
+	if type(name) == "function" then
+		name = name(path)
+	end
+	local element = {
+		key = "element:" .. path,
+		path = path,
+		page = matcher.page,
+		name = name,
+		schema = matcher.build and matcher.build(path) or {},
+		noReset = true,
+	}
+	adoptEntries(element.schema, element)
+	elementInstances[path] = element
+	return element
+end
+
+local function elementFor(path)
+	local element = elementsByPath[path] or elementInstances[path]
+	if element then
+		return element
+	end
+	for _, matcher in ipairs(elementMatchers) do
+		if path:match(matcher.match) then
+			return instantiateMatcher(matcher, path)
+		end
+	end
+	return { key = "element:" .. path, path = path, name = ui.Movers.GetLabel(path), schema = {} }
+end
+
+local function elementButton(element, page, enabledBy)
+	return {
+		type = "execute",
+		label = element.name,
+		text = L["Edit"],
+		width = 100,
+		desc = L["Open this frame in move mode together with its settings."],
+		enabledBy = element.enabledBy or enabledBy,
+		page = page,
+		func = function()
+			ns.EditElement(element.path)
+		end,
+	}
+end
+
+local function addRequirement(entry, enabledBy)
+	entry.enabledBy = entry.enabledBy and { enabledBy, entry.enabledBy } or enabledBy
+end
+ns.AddRequirement = addRequirement
+
+function ns.Requires(enabledBy, entries)
+	for _, entry in ipairs(entries) do
+		if entry.path then
+			addRequirement(entry, enabledBy)
+		end
+	end
+	return entries
+end
+
+local function prefixPaths(prefix, entries)
 	for _, entry in ipairs(entries) do
 		if entry.path then
 			entry.path = prefix .. "." .. entry.path
 		end
+	end
+end
+
+function ns.ElementSchema(prefix, entries)
+	prefixPaths(prefix, entries)
+	return ns.Requires(prefix .. ".enabled", entries)
+end
+
+function ns.Section(schema, header, prefix, entries, hidden, new)
+	if hidden then
+		return schema
+	end
+	local enable = prefix .. ".enabled"
+	prefixPaths(prefix, entries)
+	schema[#schema + 1] = { header = header, new = new }
+	for _, entry in ipairs(entries) do
 		if entry.path ~= enable then
-			if entry.enabledBy then
-				entry.enabledBy = { enable, entry.enabledBy }
-			else
-				entry.enabledBy = enable
-			end
+			addRequirement(entry, enable)
 		end
 		schema[#schema + 1] = entry
 	end
 	return schema
+end
+
+function ns.NotClass(class)
+	return ui.PLAYER_CLASS ~= class
 end
 
 local function nextName()
@@ -91,6 +191,95 @@ local function setEnabledAlpha(region, enabled)
 	region:SetAlpha(enabled and 1 or DISABLED_ALPHA)
 end
 
+local function setControlEnabled(control, enabled)
+	if enabled then
+		control:Enable()
+	else
+		control:Disable()
+	end
+end
+
+local function setMouseEnabled(region, enabled)
+	region:EnableMouse(enabled)
+	setEnabledAlpha(region, enabled)
+end
+
+local function versionValue(version)
+	local major, minor, patch = tostring(version or ""):match("^(%d+)%.?(%d*)%.?(%d*)")
+	if not major then
+		return 0
+	end
+	return tonumber(major) * 1000000 + (tonumber(minor) or 0) * 1000 + (tonumber(patch) or 0)
+end
+
+local releaseValue = floor(versionValue(GetAddOnMetadata("FrostAtomUI", "Version")) / 1000) * 1000
+local seenAtOpen = {}
+
+local function seenStore()
+	local db = ui.db
+	db.seenNew = db.seenNew or {}
+	return db.seenNew
+end
+
+local function isUnseen(new, pageKey, seen)
+	if not new then
+		return false
+	end
+	local value = versionValue(new)
+	return value >= releaseValue and value > versionValue(seen[pageKey])
+end
+
+local function isNewEntry(entry)
+	local page = entry.page
+	return page and isUnseen(entry.new, page.key, seenAtOpen) or false
+end
+
+local function newestUnseen(page)
+	local seen = seenStore()
+	local newest = isUnseen(page.new, page.key, seen) and page.new or nil
+	for _, entry in ipairs(page.schema) do
+		if isUnseen(entry.new, page.key, seen) and versionValue(entry.new) > versionValue(newest) then
+			newest = entry.new
+		end
+	end
+	return newest
+end
+
+local function markSeen(page)
+	local newest = newestUnseen(page)
+	if newest then
+		seenStore()[page.key] = newest
+	end
+end
+
+local function addNewBadge(parent, anchor, offset)
+	local badge = parent:CreateFontString(nil, "OVERLAY")
+	ui.SetFont(badge, 9, "OUTLINE")
+	badge:SetTextColor(unpack(NEW_COLOR))
+	badge:SetText(L["NEW"])
+	badge:SetPoint("LEFT", anchor, "LEFT", offset, 0)
+	return badge
+end
+
+local function hasParentToggle(paths)
+	if type(paths) == "table" then
+		for i = 1, #paths do
+			if hasParentToggle(paths[i]) then
+				return true
+			end
+		end
+		return false
+	end
+	return paths ~= nil and not paths:find("enabled$")
+end
+
+local function isChildEntry(entry)
+	if entry.indent ~= nil then
+		return entry.indent
+	end
+	return hasParentToggle(entry.enabledBy) or hasParentToggle(entry.enabledByAny)
+end
+
 local function showTooltip(row)
 	local entry = row.entry
 	if not entry.desc then
@@ -102,9 +291,9 @@ local function showTooltip(row)
 	GameTooltip:Show()
 end
 
-local function createButton(parent, text, width, height)
+local function createButton(parent, text, width)
 	local button = CreateFrame("Button", nil, parent)
-	button:SetSize(width, height or 20)
+	button:SetSize(width, 20)
 	button:SetBackdrop(ui.CreateBackdrop(8))
 	button:SetBackdropColor(0, 0, 0, 0.5)
 	button:SetBackdropBorderColor(0.6, 0.6, 0.6)
@@ -118,6 +307,39 @@ local function createButton(parent, text, width, height)
 	return button
 end
 ns.CreateButton = createButton
+
+local function createWindow(name, strata, backgroundAlpha)
+	local window = CreateFrame("Frame", name, UIParent)
+	window:Hide()
+	window:SetFrameStrata(strata)
+	window:EnableMouse(true)
+	window:SetMovable(true)
+	window:SetClampedToScreen(true)
+	window:RegisterForDrag("LeftButton")
+	window:SetScript("OnDragStart", window.StartMoving)
+	window:SetScript("OnDragStop", window.StopMovingOrSizing)
+	window:SetBackdrop(ui.CreateBackdrop(14, 3))
+	window:SetBackdropColor(0, 0, 0, backgroundAlpha)
+	tinsert(UISpecialFrames, name)
+
+	local heading = window:CreateFontString(nil, "OVERLAY")
+	ui.SetFont(heading, 13, "OUTLINE", true)
+	heading:SetPoint("TOPLEFT", PADDING, -PADDING - 4)
+	window.heading = heading
+	return window
+end
+ns.CreateWindow = createWindow
+
+local function createCloseButton(window)
+	local close = CreateFrame("Button", nil, window)
+	close:SetSize(26, 26)
+	close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
+	close:SetNormalTexture(CLOSE_ICON)
+	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
+	close:SetScript("OnClick", function()
+		window:Hide()
+	end)
+end
 
 local function createEditBox(parent, width, numeric)
 	local box = CreateFrame("EditBox", nextName(), parent, "InputBoxTemplate")
@@ -140,8 +362,7 @@ local function createEditBox(parent, width, numeric)
 end
 
 local function setEditBoxEnabled(box, enabled)
-	box:EnableMouse(enabled)
-	setEnabledAlpha(box, enabled)
+	setMouseEnabled(box, enabled)
 	if not enabled then
 		box:ClearFocus()
 	end
@@ -183,6 +404,13 @@ local function createDropdown(parent, width, getValues, onSelect)
 	return dropdown
 end
 
+local function createCheckButton(parent, x)
+	local check = CreateFrame("CheckButton", nextName(), parent, "UICheckButtonTemplate")
+	check:SetSize(24, 24)
+	check:SetPoint("LEFT", x, 0)
+	return check
+end
+
 local function createRow(parent, entry)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetHeight(ROW_HEIGHT)
@@ -193,14 +421,19 @@ local function createRow(parent, entry)
 	row:SetScript("OnEnter", showTooltip)
 	row:SetScript("OnLeave", GameTooltip_Hide)
 
+	local indent = isChildEntry(entry) and CHILD_INDENT or 0
 	local label = row:CreateFontString(nil, "OVERLAY")
 	ui.SetFont(label, 12)
 	label:SetTextColor(0.85, 0.85, 0.85)
-	label:SetPoint("LEFT", 0, 0)
-	label:SetWidth(LABEL_WIDTH)
+	label:SetPoint("LEFT", indent, 0)
+	label:SetWidth(LABEL_WIDTH - indent)
 	label:SetJustifyH("LEFT")
 	label:SetText(entry.label)
 	row.label = label
+
+	if isNewEntry(entry) then
+		addNewBadge(row, label, min(label:GetStringWidth(), LABEL_WIDTH - indent) + 4)
+	end
 	return row
 end
 
@@ -211,9 +444,63 @@ local function get(entry)
 	return ui:GetConfig(entry.path)
 end
 
-local function set(entry, value)
-	if get(entry) == value then
+local function applyValue(entry, value)
+	if entry.set then
+		entry.set(value)
+	else
+		ui:SetConfig(entry.path, value)
+	end
+end
+
+local revertEntry, revertValue
+
+local function revertText(seconds)
+	return L["Keep these settings? Reverting in %d s."]:format(seconds)
+end
+
+StaticPopupDialogs["FROSTATOMUI_CONFIG_REVERT"] = {
+	text = "%s",
+	button1 = L["Keep"],
+	button2 = L["Revert"],
+	OnAccept = function()
+		revertEntry, revertValue = nil, nil
+	end,
+	OnUpdate = function(dialog)
+		_G[dialog:GetName() .. "Text"]:SetText(revertText(ceil(dialog.timeleft)))
+	end,
+	OnHide = function()
+		local entry, value = revertEntry, revertValue
+		revertEntry, revertValue = nil, nil
+		if entry then
+			applyValue(entry, value)
+		end
+	end,
+	timeout = REVERT_SECONDS,
+	whileDead = 1,
+	hideOnEscape = 1,
+}
+
+local function confirmRevert(entry, previous)
+	local name = StaticPopup_Visible("FROSTATOMUI_CONFIG_REVERT")
+	if name and revertEntry == entry then
+		_G[name].timeleft = REVERT_SECONDS
 		return
+	end
+	if name then
+		revertEntry = nil
+		StaticPopup_Hide("FROSTATOMUI_CONFIG_REVERT")
+	end
+	revertEntry, revertValue = entry, previous
+	StaticPopup_Show("FROSTATOMUI_CONFIG_REVERT", revertText(REVERT_SECONDS))
+end
+
+local function set(entry, value)
+	local previous = get(entry)
+	if previous == value then
+		return
+	end
+	if entry.confirmRevert then
+		confirmRevert(entry, type(previous) == "table" and CopyTable(previous) or previous)
 	end
 	if entry.set then
 		entry.set(value)
@@ -221,11 +508,64 @@ local function set(entry, value)
 	end
 	ui:SetConfig(entry.path, value)
 	if entry.reload then
-		frame.reloadButton:Show()
+		if frame then
+			frame.reloadButton:Show()
+		end
 		if entry.type == "toggle" then
 			ns.Confirm(L["This change takes effect after a UI reload. Reload now?"], ReloadUI)
 		end
 	end
+end
+
+local function createSliderBox(row, entry, sliderWidth, boxWidth, boxGap, showRange)
+	local slider = CreateFrame("Slider", nextName(), row, "OptionsSliderTemplate")
+	slider:SetPoint("LEFT", CONTROL_X, 0)
+	slider:SetWidth(sliderWidth)
+	slider:SetMinMaxValues(entry.min, entry.max)
+	slider:SetValueStep(entry.step)
+	local sliderName = slider:GetName()
+	_G[sliderName .. "Low"]:SetText(showRange and formatNumber(entry.min, entry.step) or "")
+	_G[sliderName .. "High"]:SetText(showRange and formatNumber(entry.max, entry.step) or "")
+	_G[sliderName .. "Text"]:SetText("")
+
+	local box = createEditBox(row, boxWidth, true)
+	box:SetPoint("LEFT", slider, "RIGHT", boxGap, 0)
+
+	local function commit(value)
+		set(entry, round(max(entry.min, min(entry.max, value)), entry.step))
+	end
+
+	slider:SetScript("OnValueChanged", function(_, value)
+		if not refreshing then
+			commit(value)
+		end
+	end)
+	slider:EnableMouseWheel(true)
+	slider:SetScript("OnMouseWheel", function(self, delta)
+		if self:IsEnabled() then
+			commit(self:GetValue() + delta * entry.step)
+		end
+	end)
+	box.OnCommit = function(self)
+		local value = tonumber(self:GetText())
+		if value then
+			commit(value)
+		else
+			row.Refresh()
+		end
+	end
+
+	local function refresh()
+		local value = get(entry)
+		slider:SetValue(value)
+		box:SetText(formatNumber(value, entry.step))
+		box:SetCursorPosition(0)
+	end
+	local function setEnabled(enabled)
+		setControlEnabled(slider, enabled)
+		setEditBoxEnabled(box, enabled)
+	end
+	return box, refresh, setEnabled
 end
 
 local creators = {}
@@ -240,6 +580,9 @@ function creators.header(parent, entry)
 	ui.SetFont(label, 13, "OUTLINE", true)
 	label:SetPoint("BOTTOMLEFT", 0, 4)
 	label:SetText(entry.header)
+	if isNewEntry(entry) then
+		addNewBadge(header, label, label:GetStringWidth() + 6)
+	end
 
 	local line = header:CreateTexture(nil, "ARTWORK")
 	line:SetTexture(1, 1, 1, 0.15)
@@ -268,9 +611,7 @@ end
 function creators.toggle(parent, entry)
 	local row = createRow(parent, entry)
 
-	local check = CreateFrame("CheckButton", nextName(), row, "UICheckButtonTemplate")
-	check:SetSize(24, 24)
-	check:SetPoint("LEFT", CONTROL_X - 4, 0)
+	local check = createCheckButton(row, CONTROL_X - 4)
 	check:SetScript("OnClick", function(self)
 		set(entry, self:GetChecked() and true or false)
 	end)
@@ -279,67 +620,17 @@ function creators.toggle(parent, entry)
 		check:SetChecked(get(entry))
 	end
 	row.SetEnabled = function(_, enabled)
-		if enabled then
-			check:Enable()
-		else
-			check:Disable()
-		end
+		setControlEnabled(check, enabled)
 	end
 	return row
 end
 
 function creators.number(parent, entry)
 	local row = createRow(parent, entry)
-
-	local slider = CreateFrame("Slider", nextName(), row, "OptionsSliderTemplate")
-	slider:SetPoint("LEFT", CONTROL_X, 0)
-	slider:SetWidth(180)
-	slider:SetMinMaxValues(entry.min, entry.max)
-	slider:SetValueStep(entry.step)
-	_G[slider:GetName() .. "Low"]:SetText(formatNumber(entry.min, entry.step))
-	_G[slider:GetName() .. "High"]:SetText(formatNumber(entry.max, entry.step))
-	_G[slider:GetName() .. "Text"]:SetText("")
-
-	local box = createEditBox(row, 54, true)
-	box:SetPoint("LEFT", slider, "RIGHT", 16, 0)
-
-	local function commit(value)
-		set(entry, round(max(entry.min, min(entry.max, value)), entry.step))
-	end
-
-	slider:SetScript("OnValueChanged", function(_, value)
-		if not refreshing then
-			commit(value)
-		end
-	end)
-	slider:EnableMouseWheel(true)
-	slider:SetScript("OnMouseWheel", function(self, delta)
-		if self:IsEnabled() then
-			commit(self:GetValue() + delta * entry.step)
-		end
-	end)
-	box.OnCommit = function(self)
-		local value = tonumber(self:GetText())
-		if value then
-			commit(value)
-		else
-			row.Refresh()
-		end
-	end
-
-	row.Refresh = function()
-		local value = get(entry)
-		slider:SetValue(value)
-		box:SetText(formatNumber(value, entry.step))
-		box:SetCursorPosition(0)
-	end
+	local _, refresh, setEnabled = createSliderBox(row, entry, 180, 54, 16, true)
+	row.Refresh = refresh
 	row.SetEnabled = function(_, enabled)
-		if enabled then
-			slider:Enable()
-		else
-			slider:Disable()
-		end
-		setEditBoxEnabled(box, enabled)
+		setEnabled(enabled)
 	end
 	return row
 end
@@ -391,9 +682,7 @@ function creators.multiselect(parent, entry)
 	local checks = {}
 	local x = CONTROL_X - 4
 	for i, option in ipairs(entry.values) do
-		local check = CreateFrame("CheckButton", nextName(), row, "UICheckButtonTemplate")
-		check:SetSize(24, 24)
-		check:SetPoint("LEFT", x, 0)
+		local check = createCheckButton(row, x)
 		local label = check:CreateFontString(nil, "OVERLAY")
 		ui.SetFont(label, 12)
 		label:SetTextColor(0.85, 0.85, 0.85)
@@ -415,11 +704,7 @@ function creators.multiselect(parent, entry)
 	end
 	row.SetEnabled = function(_, enabled)
 		for _, check in ipairs(checks) do
-			if enabled then
-				check:Enable()
-			else
-				check:Disable()
-			end
+			setControlEnabled(check, enabled)
 			setEnabledAlpha(check.label, enabled)
 		end
 	end
@@ -428,43 +713,10 @@ end
 
 function creators.font(parent, entry)
 	local row = createRow(parent, entry)
-	local sizeEntry = { path = entry.path .. ".size", min = 6, max = 32, step = 1 }
+	local sizeEntry = { path = entry.path .. ".size", min = FONT_SIZE_MIN, max = FONT_SIZE_MAX, step = 1 }
 	local outlineEntry = { path = entry.path .. ".outline" }
 
-	local slider = CreateFrame("Slider", nextName(), row, "OptionsSliderTemplate")
-	slider:SetPoint("LEFT", CONTROL_X, 0)
-	slider:SetWidth(120)
-	slider:SetMinMaxValues(sizeEntry.min, sizeEntry.max)
-	slider:SetValueStep(1)
-	_G[slider:GetName() .. "Low"]:SetText("")
-	_G[slider:GetName() .. "High"]:SetText("")
-	_G[slider:GetName() .. "Text"]:SetText("")
-
-	local box = createEditBox(row, 40, true)
-	box:SetPoint("LEFT", slider, "RIGHT", 10, 0)
-
-	local function commitSize(value)
-		set(sizeEntry, round(max(sizeEntry.min, min(sizeEntry.max, value)), 1))
-	end
-	slider:SetScript("OnValueChanged", function(_, value)
-		if not refreshing then
-			commitSize(value)
-		end
-	end)
-	slider:EnableMouseWheel(true)
-	slider:SetScript("OnMouseWheel", function(self, delta)
-		if self:IsEnabled() then
-			commitSize(self:GetValue() + delta)
-		end
-	end)
-	box.OnCommit = function(self)
-		local value = tonumber(self:GetText())
-		if value then
-			commitSize(value)
-		else
-			row.Refresh()
-		end
-	end
+	local box, refreshSize, setSizeEnabled = createSliderBox(row, sizeEntry, 120, 40, 10, false)
 
 	local dropdown = createDropdown(row, 100, function()
 		return OUTLINES
@@ -474,19 +726,11 @@ function creators.font(parent, entry)
 	dropdown:SetPoint("LEFT", box, "RIGHT", -6, -2)
 
 	row.Refresh = function()
-		local size = get(sizeEntry)
-		slider:SetValue(size)
-		box:SetText(tostring(size))
-		box:SetCursorPosition(0)
+		refreshSize()
 		dropdown:Select(get(outlineEntry) or "")
 	end
 	row.SetEnabled = function(_, enabled)
-		if enabled then
-			slider:Enable()
-		else
-			slider:Disable()
-		end
-		setEditBoxEnabled(box, enabled)
+		setSizeEnabled(enabled)
 		dropdown:SetEnabled(enabled)
 	end
 	return row
@@ -536,6 +780,7 @@ function creators.color(parent, entry)
 			apply(previous[1], previous[2], previous[3], previous[4])
 		end
 		ColorPickerFrame:SetColorRGB(r, g, b)
+		ColorPickerFrame:SetFrameStrata(POPUP_STRATA)
 		ColorPickerFrame:Hide()
 		ColorPickerFrame:Show()
 	end)
@@ -550,36 +795,32 @@ function creators.color(parent, entry)
 		local r, g, b, a = current()
 		fill:SetVertexColor(r, g, b, a)
 		hex:SetText(("%02x%02x%02x"):format(r * 255, g * 255, b * 255))
-		if ui:IsDefaultConfig(entry.path) then
-			reset:Hide()
-		else
-			reset:Show()
-		end
+		ui.SetShown(reset, not ui:IsDefaultConfig(entry.path))
 	end
 	row.SetEnabled = function(_, enabled)
-		swatch:EnableMouse(enabled)
-		setEnabledAlpha(swatch, enabled)
-		reset:EnableMouse(enabled)
-		setEnabledAlpha(reset, enabled)
+		setMouseEnabled(swatch, enabled)
+		setMouseEnabled(reset, enabled)
 	end
 	return row
 end
 
+local function anchorOptions()
+	local options = {}
+	for i = 1, #ANCHORS do
+		options[i] = { ANCHORS[i], ANCHORS[i] }
+	end
+	return options
+end
+
 function creators.point(parent, entry)
 	local row = createRow(parent, entry)
+	local dropdown, commit
 
-	local dropdown = createDropdown(row, 100, function()
-		local options = {}
-		for i = 1, #ANCHORS do
-			options[i] = { ANCHORS[i], ANCHORS[i] }
-		end
-		return options
-	end, function(anchor)
-		row.dropdown.selected = anchor
-		row.commit()
+	dropdown = createDropdown(row, 100, anchorOptions, function(anchor)
+		dropdown.selected = anchor
+		commit()
 	end)
 	dropdown:SetPoint("LEFT", CONTROL_X - 20, -2)
-	row.dropdown = dropdown
 
 	local xBox = createEditBox(row, 54, true)
 	xBox:SetPoint("LEFT", dropdown, "RIGHT", 4, 2)
@@ -607,7 +848,7 @@ function creators.point(parent, entry)
 	end)
 	detach:SetScript("OnLeave", GameTooltip_Hide)
 
-	row.commit = function()
+	commit = function()
 		local x, y = tonumber(xBox:GetText()), tonumber(yBox:GetText())
 		if not x or not y then
 			row.Refresh()
@@ -620,8 +861,8 @@ function creators.point(parent, entry)
 			ui:SetConfig(entry.path, { point, x, y, value[4], value[5] })
 		end
 	end
-	xBox.OnCommit = row.commit
-	yBox.OnCommit = row.commit
+	xBox.OnCommit = commit
+	yBox.OnCommit = commit
 
 	row.Refresh = function()
 		local point, x, y, anchorPath, anchorPoint = unpack(get(entry))
@@ -631,8 +872,9 @@ function creators.point(parent, entry)
 		xBox:SetCursorPosition(0)
 		yBox:SetCursorPosition(0)
 		if anchorPath then
-			anchor:SetText(L["of %s"]:format(ui.Movers.GetLabel(anchorPath)))
-			anchor.tooltip = L["Offsets are relative to %s %s."]:format(ui.Movers.GetLabel(anchorPath), anchorPoint)
+			local anchorLabel = ui.Movers.GetLabel(anchorPath)
+			anchor:SetText(L["of %s"]:format(anchorLabel))
+			anchor.tooltip = L["Offsets are relative to %s %s."]:format(anchorLabel, anchorPoint)
 			detach:Show()
 		else
 			anchor:SetText("")
@@ -643,8 +885,7 @@ function creators.point(parent, entry)
 		dropdown:SetEnabled(enabled)
 		setEditBoxEnabled(xBox, enabled)
 		setEditBoxEnabled(yBox, enabled)
-		detach:EnableMouse(enabled)
-		setEnabledAlpha(detach, enabled)
+		setMouseEnabled(detach, enabled)
 	end
 	return row
 end
@@ -662,141 +903,50 @@ function creators.execute(parent, entry)
 	end)
 	row.Refresh = function() end
 	row.SetEnabled = function(_, enabled)
-		button:EnableMouse(enabled)
-		setEnabledAlpha(button, enabled)
+		setMouseEnabled(button, enabled)
 	end
 	return row
 end
 
-local function listItems(entry)
-	return get(entry) or {}
-end
-
-local function copyList(list)
-	local result = {}
-	for i = 1, #list do
-		result[i] = list[i]
-	end
-	return result
-end
-
-function creators.list(parent, entry)
+function creators.custom(parent, entry)
 	local row = createRow(parent, entry)
-
-	local box = createEditBox(row, 80, true)
-	box:SetPoint("LEFT", CONTROL_X, 0)
-
-	local add = createButton(row, entry.addText or L["Add"], 60)
-	add:SetPoint("LEFT", box, "RIGHT", 8, 0)
-
-	local function commit()
-		local id = tonumber(box:GetText())
-		if not id then
-			return
-		end
-		local item = entry.create(id)
-		if not item then
-			ui.Print(L["unknown ID %d"], id)
-			return
-		end
-		local list = copyList(listItems(entry))
-		list[#list + 1] = item
-		box:SetText("")
-		ui:SetConfig(entry.path, list)
+	if entry.height then
+		row:SetHeight(entry.height)
 	end
-	box.OnCommit = function() end
-	box:SetScript("OnEnterPressed", function(self)
-		self:ClearFocus()
-		commit()
-	end)
-	add:SetScript("OnClick", commit)
-
-	row.Refresh = function() end
+	entry.build(row)
+	row.Refresh = function()
+		if entry.refresh then
+			entry.refresh(row)
+		end
+	end
 	row.SetEnabled = function(_, enabled)
-		setEditBoxEnabled(box, enabled)
-		add:EnableMouse(enabled)
-		setEnabledAlpha(add, enabled)
+		if entry.setEnabled then
+			entry.setEnabled(row, enabled)
+		end
 	end
 	return row
-end
-
-function creators.listItem(parent, entry)
-	local row = createRow(parent, entry)
-	row.label:SetPoint("LEFT", 28, 0)
-	row.label:SetTextColor(1, 1, 1)
-
-	local icon = row:CreateTexture(nil, "ARTWORK")
-	icon:SetSize(20, 20)
-	icon:SetPoint("LEFT", 2, 0)
-	icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-	icon:SetTexture(entry.icon)
-
-	local remove = createButton(row, L["Remove"], 70)
-	remove:SetPoint("RIGHT", 0, 0)
-	remove:SetScript("OnClick", function()
-		local list = copyList(listItems(entry.list))
-		tremove(list, entry.index)
-		ui:SetConfig(entry.list.path, list)
-	end)
-
-	row.Refresh = function() end
-	row.SetEnabled = function(_, enabled)
-		remove:EnableMouse(enabled)
-		setEnabledAlpha(remove, enabled)
-	end
-	return row
-end
-
-local function expandList(schema, entry)
-	local items = listItems(entry)
-	for index = 1, #items do
-		local item = items[index]
-		local prefix = entry.path .. "." .. index .. "."
-		local label, icon = entry.describe(item)
-		schema[#schema + 1] =
-			{ type = "listItem", label = label, icon = icon, list = entry, index = index, page = entry.page }
-		for _, field in ipairs(entry.fields) do
-			local sub = {}
-			for key, value in pairs(field) do
-				sub[key] = value
-			end
-			sub.path = prefix .. field.key
-			sub.enabledBy = entry.enabledBy
-			sub.page = entry.page
-			schema[#schema + 1] = sub
-		end
-	end
 end
 
 local function expandSchema(page)
 	local schema = {}
-	local counts = {}
-	for _, entry in ipairs(page.schema) do
-		schema[#schema + 1] = entry
-		if entry.type == "list" then
-			expandList(schema, entry)
-			counts[#counts + 1] = #listItems(entry)
-		end
+	local source = page.schema
+	if page.buildSchema then
+		source = page.buildSchema()
+		page.lastSignature = page.signature()
+		adoptEntries(source, page)
 	end
-	page.listCounts = counts
-	return schema
-end
-
-local function listCountsChanged(page)
-	local counts = page.listCounts
-	if not counts then
-		return false
-	end
-	local i = 0
-	for _, entry in ipairs(page.schema) do
-		if entry.type == "list" then
-			i = i + 1
-			if counts[i] ~= #listItems(entry) then
-				return true
+	for _, entry in ipairs(source) do
+		if entry.type == "elements" then
+			for _, element in ipairs(elements) do
+				if element.page == page.key and not element.hidden then
+					schema[#schema + 1] = elementButton(element, page, entry.enabledBy)
+				end
 			end
+		else
+			schema[#schema + 1] = entry
 		end
 	end
-	return false
+	return schema
 end
 
 local confirmAction
@@ -808,6 +958,9 @@ StaticPopupDialogs["FROSTATOMUI_CONFIG_CONFIRM"] = {
 	OnAccept = function()
 		confirmAction()
 	end,
+	OnHide = function(dialog)
+		dialog:SetFrameStrata("DIALOG")
+	end,
 	timeout = 0,
 	whileDead = 1,
 	hideOnEscape = 1,
@@ -815,13 +968,16 @@ StaticPopupDialogs["FROSTATOMUI_CONFIG_CONFIRM"] = {
 
 function ns.Confirm(text, action)
 	confirmAction = action
-	StaticPopup_Show("FROSTATOMUI_CONFIG_CONFIRM", text)
+	local dialog = StaticPopup_Show("FROSTATOMUI_CONFIG_CONFIRM", text)
+	if dialog then
+		dialog:SetFrameStrata(POPUP_STRATA)
+	end
 end
 
 local function isEnabledBy(enabledBy)
 	if type(enabledBy) == "table" then
 		for i = 1, #enabledBy do
-			if not ui:GetConfig(enabledBy[i]) then
+			if not isEnabledBy(enabledBy[i]) then
 				return false
 			end
 		end
@@ -851,39 +1007,19 @@ local function isEntryEnabled(entry)
 	end
 	local page = entry.page
 	local enable = page and page.enable
-	if enable and entry.path ~= enable and not ui:GetConfig(enable) then
-		return false
-	end
-	return true
+	return not (enable and entry.path ~= enable and not ui:GetConfig(enable))
 end
 
-local buildPage
-
-local function refreshPage(page)
-	if not page.rows then
-		return
-	end
-	if listCountsChanged(page) then
-		local scroll = frame.scroll:GetVerticalScroll()
-		page.content:Hide()
-		buildPage(page)
-		frame.scroll:SetScrollChild(page.content)
-		page.content:Show()
-		frame.scroll:SetVerticalScroll(scroll)
-	end
-	refreshing = true
-	for _, row in ipairs(page.rows) do
-		row.Refresh()
-		local enabled = isEntryEnabled(row.entry)
-		row:SetEnabled(enabled)
-		setEnabledAlpha(row.label, enabled)
-	end
-	refreshing = false
+local function showContent(page, scroll, offset)
+	scroll:SetScrollChild(page.content)
+	page.content:Show()
+	scroll:SetVerticalScroll(offset)
 end
 
-function buildPage(page)
-	local content = CreateFrame("Frame", nil, frame.scroll)
-	content:SetWidth(frame.scroll:GetWidth())
+local function buildPage(page)
+	local scroll = page.scroll or frame.scroll
+	local content = CreateFrame("Frame", nil, scroll)
+	content:SetWidth(page.width or scroll:GetWidth())
 	content:Hide()
 	page.content = content
 	page.rows = {}
@@ -908,16 +1044,64 @@ function buildPage(page)
 	content:SetHeight(offset + PADDING)
 end
 
-local function resetPage(page)
-	for _, entry in ipairs(page.schema) do
+local function rebuildPage(page)
+	local scroll = page.scroll or frame.scroll
+	local offset = scroll:GetVerticalScroll()
+	page.content:Hide()
+	buildPage(page)
+	showContent(page, scroll, offset)
+end
+
+local function refreshPage(page)
+	if not page.rows then
+		return
+	end
+	if page.signature and page.signature() ~= page.lastSignature then
+		rebuildPage(page)
+	end
+	refreshing = true
+	for _, row in ipairs(page.rows) do
+		row.Refresh()
+		local enabled = isEntryEnabled(row.entry)
+		row:SetEnabled(enabled)
+		setEnabledAlpha(row.label, enabled)
+	end
+	refreshing = false
+end
+
+function ns.RefreshPage()
+	if frame and frame:IsShown() then
+		refreshPage(currentPage)
+	end
+end
+
+local function resetSchema(schema)
+	for _, entry in ipairs(schema) do
 		if entry.path then
 			ui:ResetConfig(entry.path)
 		end
 	end
 end
 
+local function resetElement(element)
+	resetSchema(element.schema)
+	ui:ResetConfig(element.path)
+end
+
+local function resetPage(page)
+	resetSchema(page.schema)
+	for _, element in ipairs(elements) do
+		if element.page == page.key then
+			resetElement(element)
+		end
+	end
+end
+
 local function showPage(page)
 	if currentPage then
+		if currentPage.onHide then
+			currentPage.onHide()
+		end
 		currentPage.content:Hide()
 		if currentPage.button then
 			currentPage.button:UnlockHighlight()
@@ -927,19 +1111,18 @@ local function showPage(page)
 	if not page.content then
 		buildPage(page)
 	end
-	frame.scroll:SetScrollChild(page.content)
-	frame.scroll:SetVerticalScroll(0)
-	page.content:Show()
+	showContent(page, frame.scroll, 0)
 	if page.button then
 		page.button:LockHighlight()
 		lastNavPage = page
+		markSeen(page)
+		page.button.newBadge:Hide()
 	end
 	frame.title:SetText(page.name)
-	if page.noReset then
-		frame.resetPageButton:Hide()
-	else
-		frame.resetPageButton:Show()
+	if page.onShow then
+		page.onShow()
 	end
+	ui.SetShown(frame.resetPageButton, not page.noReset)
 	refreshPage(page)
 end
 
@@ -961,21 +1144,39 @@ local function matchesQuery(entry, query)
 	return desc and desc:lower():find(query, 1, true) and true or false
 end
 
+local function collectEntries(schema, entries, title, query)
+	local count = 0
+	local header, headerAdded
+	for _, entry in ipairs(entries) do
+		if entry.header then
+			header, headerAdded = entry.header, false
+		elseif not entry.hidden and matchesQuery(entry, query) then
+			if not headerAdded then
+				headerAdded = true
+				schema[#schema + 1] = { header = header and (title .. " / " .. header) or title }
+			end
+			schema[#schema + 1] = entry
+			count = count + 1
+		end
+	end
+	return count
+end
+
 local function collectSearch(query)
 	local schema = {}
 	local count = 0
 	for _, page in ipairs(pages) do
-		local header, headerAdded
-		for _, entry in ipairs(page.schema) do
-			if entry.header then
-				header, headerAdded = entry.header, false
-			elseif not entry.hidden and matchesQuery(entry, query) then
-				if not headerAdded then
-					headerAdded = true
-					schema[#schema + 1] = { header = header and (page.name .. " / " .. header) or page.name }
+		count = count + collectEntries(schema, page.schema, page.name, query)
+		for _, element in ipairs(elements) do
+			if element.page == page.key and not element.hidden then
+				local title = page.name .. " / " .. element.name
+				local found = collectEntries(schema, element.schema, title, query)
+				if found == 0 and element.name:lower():find(query, 1, true) then
+					schema[#schema + 1] = { header = title }
+					schema[#schema + 1] = elementButton(element, page)
+					found = 1
 				end
-				schema[#schema + 1] = entry
-				count = count + 1
+				count = count + found
 			end
 		end
 	end
@@ -1025,11 +1226,7 @@ local function createSearchBox()
 	box:SetMaxLetters(40)
 	box.OnCommit = function() end
 	box:SetScript("OnTextChanged", function(self)
-		if self:GetText() == "" then
-			self.placeholder:Show()
-		else
-			self.placeholder:Hide()
-		end
+		ui.SetShown(self.placeholder, self:GetText() == "")
 		scheduleSearch()
 	end)
 	box:SetScript("OnEnterPressed", function(self)
@@ -1064,6 +1261,9 @@ local function createNavButton(page, index)
 	text:SetPoint("LEFT", 10, 0)
 	text:SetText(page.name)
 
+	button.newBadge = addNewBadge(button, text, text:GetStringWidth() + 6)
+	ui.SetShown(button.newBadge, newestUnseen(page))
+
 	button:SetScript("OnClick", function()
 		frame.searchBox:SetText("")
 		selectPage(page)
@@ -1071,38 +1271,37 @@ local function createNavButton(page, index)
 	page.button = button
 end
 
+local seenLoaded = false
+
+local function initSeen()
+	if seenLoaded then
+		return
+	end
+	seenLoaded = true
+	for key, version in pairs(seenStore()) do
+		seenAtOpen[key] = version
+	end
+end
+
 local function createFrame()
-	frame = CreateFrame("Frame", FRAME_NAME, UIParent)
-	frame:Hide()
+	initSeen()
+
+	frame = createWindow(FRAME_NAME, "DIALOG", 0.85)
 	frame:SetSize(WIDTH, HEIGHT)
 	frame:SetPoint("CENTER")
-	frame:SetFrameStrata("DIALOG")
-	frame:EnableMouse(true)
-	frame:SetMovable(true)
-	frame:SetClampedToScreen(true)
-	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
 	frame:SetScript("OnShow", function()
+		if currentPage and currentPage.onShow then
+			currentPage.onShow()
+		end
 		refreshPage(currentPage)
 	end)
-	frame:SetBackdrop(ui.CreateBackdrop(14, 3))
-	frame:SetBackdropColor(0, 0, 0, 0.85)
-	tinsert(UISpecialFrames, FRAME_NAME)
-
-	local heading = frame:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(heading, 13, "OUTLINE", true)
-	heading:SetPoint("TOPLEFT", PADDING, -PADDING - 4)
-	heading:SetText("FrostAtom UI")
-
-	local close = CreateFrame("Button", nil, frame)
-	close:SetSize(26, 26)
-	close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
-	close:SetNormalTexture(CLOSE_ICON)
-	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
-	close:SetScript("OnClick", function()
-		frame:Hide()
+	frame:SetScript("OnHide", function()
+		if currentPage and currentPage.onHide then
+			currentPage.onHide()
+		end
 	end)
+	frame.heading:SetText("FrostAtom UI")
+	createCloseButton(frame)
 
 	local nav = CreateFrame("Frame", nil, frame)
 	nav:SetPoint("TOPLEFT", PADDING, -(PADDING + TITLE_HEIGHT))
@@ -1140,6 +1339,11 @@ local function createFrame()
 
 	local resetPageButton = createButton(frame, L["Reset page"], 100)
 	resetPageButton:SetPoint("TOPRIGHT", -PADDING - 26, -PADDING - 1)
+	resetPageButton:SetScript("OnClick", function()
+		ns.Confirm(L["Reset %s settings to defaults?"]:format(currentPage.name), function()
+			resetPage(currentPage)
+		end)
+	end)
 	frame.resetPageButton = resetPageButton
 
 	local reloadButton = createButton(frame, L["Reload UI"], 90)
@@ -1148,11 +1352,6 @@ local function createFrame()
 	reloadButton:SetScript("OnClick", ReloadUI)
 	reloadButton:Hide()
 	frame.reloadButton = reloadButton
-	resetPageButton:SetScript("OnClick", function()
-		ns.Confirm(L["Reset %s settings to defaults?"]:format(currentPage.name), function()
-			resetPage(currentPage)
-		end)
-	end)
 
 	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "Scroll", frame, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", nav, "TOPRIGHT", 0, -TITLE_HEIGHT + 8)
@@ -1164,41 +1363,206 @@ local function createFrame()
 		createNavButton(page, i)
 	end
 
-	local watcher = ui.Mixin({}, ui.EventMixin)
-	local function refreshShown()
-		if frame:IsShown() then
-			refreshPage(currentPage)
+	selectPage(pages[1])
+end
+
+local function placeElementFrame(anchor)
+	elementFrame:ClearAllPoints()
+	local left, right = anchor and anchor:GetLeft(), anchor and anchor:GetRight()
+	if not left then
+		elementFrame:SetPoint("CENTER")
+		return
+	end
+	local scale = anchor:GetEffectiveScale() / elementFrame:GetEffectiveScale()
+	local top = anchor:GetTop() * scale
+	local screenWidth = UIParent:GetWidth() * UIParent:GetEffectiveScale() / elementFrame:GetEffectiveScale()
+	local width = elementFrame:GetWidth()
+	local x
+	if right * scale + ELEMENT_GAP + width <= screenWidth then
+		x = right * scale + ELEMENT_GAP
+	elseif left * scale - ELEMENT_GAP - width >= 0 then
+		x = left * scale - ELEMENT_GAP - width
+	else
+		x = (screenWidth - width) / 2
+	end
+	elementFrame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x, top)
+end
+
+local function createElementFrame()
+	initSeen()
+	elementFrame = createWindow(FRAME_NAME .. "Element", ELEMENT_STRATA, 0.9)
+	elementFrame:SetSize(ELEMENT_WIDTH, 200)
+	elementFrame:SetToplevel(true)
+	elementFrame:SetScript("OnDragStart", function(self)
+		self.userPlaced = true
+		self:StartMoving()
+	end)
+	elementFrame:SetScript("OnHide", function(self)
+		self.userPlaced = nil
+		ui.Movers.ClearSelection()
+	end)
+
+	local title = elementFrame.heading
+	title:SetPoint("RIGHT", -PADDING - 26, 0)
+	title:SetJustifyH("LEFT")
+	elementFrame.title = title
+	createCloseButton(elementFrame)
+
+	local resetPosition = createButton(elementFrame, L["Reset position"], 120)
+	resetPosition:SetPoint("BOTTOMLEFT", PADDING, PADDING)
+	resetPosition:SetScript("OnClick", function()
+		ui:ResetConfig(elementFrame.view.element.path)
+	end)
+	elementFrame.resetPosition = resetPosition
+
+	local resetAll = createButton(elementFrame, L["Reset all"], 100)
+	resetAll:SetPoint("LEFT", resetPosition, "RIGHT", 8, 0)
+	resetAll:SetScript("OnClick", function()
+		local element = elementFrame.view.element
+		ns.Confirm(L["Reset %s settings to defaults?"]:format(element.name), function()
+			resetElement(element)
+		end)
+	end)
+	elementFrame.resetAll = resetAll
+
+	local more = createButton(elementFrame, L["All settings"], 120)
+	more:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
+	more:SetScript("OnClick", function()
+		local pageKey = elementFrame.view.element.page
+		ui.Movers.Lock()
+		ns.Toggle(pageKey)
+	end)
+	elementFrame.more = more
+
+	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "ElementScroll", elementFrame, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", 0, -(PADDING + TITLE_HEIGHT) + 8)
+	scroll:SetPoint("BOTTOMRIGHT", -PADDING - 18, PADDING + ELEMENT_FOOTER_HEIGHT)
+	elementFrame.scroll = scroll
+end
+
+local function elementView(element)
+	local view = element.view
+	if view then
+		return view
+	end
+	local schema = {}
+	for _, entry in ipairs(element.schema) do
+		schema[#schema + 1] = entry
+	end
+	view = {
+		key = element.key,
+		element = element,
+		scroll = elementFrame.scroll,
+		width = ELEMENT_WIDTH - PADDING - 18,
+		schema = schema,
+	}
+	schema[#schema + 1] = { header = L["Position"], page = view }
+	schema[#schema + 1] = {
+		type = "point",
+		path = element.path,
+		label = L["Anchor and offset"],
+		desc = L["Drag the frame to move it; snapping to another frame attaches it to that frame."],
+		page = view,
+	}
+	element.view = view
+	return view
+end
+
+function ns.OpenElement(path, anchor)
+	if not elementFrame then
+		createElementFrame()
+	end
+	local element = elementFor(path)
+	local view = elementView(element)
+	if elementFrame:IsShown() and elementFrame.view == view then
+		refreshPage(view)
+		return
+	end
+	if elementFrame.view and elementFrame.view.content then
+		elementFrame.view.content:Hide()
+	end
+	elementFrame.view = view
+	elementFrame.title:SetText(element.name)
+	if not view.content then
+		buildPage(view)
+	end
+	showContent(view, elementFrame.scroll, 0)
+	markSeen(element)
+	ui.SetShown(elementFrame.more, element.page ~= nil)
+	ui.SetShown(elementFrame.resetPosition, not element.noReset)
+	ui.SetShown(elementFrame.resetAll, not element.noReset)
+
+	local height = PADDING + TITLE_HEIGHT - 8 + view.content:GetHeight() + PADDING + ELEMENT_FOOTER_HEIGHT
+	elementFrame:SetHeight(max(ELEMENT_MIN_HEIGHT, min(ELEMENT_MAX_HEIGHT, height)))
+	if not elementFrame.userPlaced or not elementFrame:IsShown() then
+		placeElementFrame(anchor)
+	end
+	elementFrame:Show()
+	refreshPage(view)
+end
+
+function ns.CloseElement()
+	if elementFrame and elementFrame:IsShown() then
+		elementFrame:Hide()
+	end
+end
+
+function ns.GetOpenElement()
+	local view = elementFrame and elementFrame:IsShown() and elementFrame.view
+	return view and view.element.path or nil
+end
+
+function ns.EditElement(path)
+	if frame then
+		frame:Hide()
+	end
+	ui.Movers.Unlock()
+	if not ui.Movers.IsUnlocked() then
+		return
+	end
+	if not ui.Movers.Select(path) then
+		ns.OpenElement(path)
+	end
+end
+
+local function refreshShown()
+	if frame and frame:IsShown() then
+		refreshPage(currentPage)
+	end
+	if elementFrame and elementFrame:IsShown() then
+		refreshPage(elementFrame.view)
+	end
+end
+
+local watcher = ui.Mixin({}, ui.EventMixin)
+watcher:RegisterEvent(ui.CONFIG_CHANGED, refreshShown)
+watcher:RegisterEvent(ui.PROFILES_CHANGED, refreshShown)
+
+local function pageByKey(key)
+	for _, page in ipairs(pages) do
+		if page.key == key then
+			return page
 		end
 	end
-	watcher:RegisterEvent(ui.CONFIG_CHANGED, refreshShown)
-	watcher:RegisterEvent(ui.PROFILES_CHANGED, refreshShown)
-
-	selectPage(pages[1])
 end
 
 function ns.Toggle(pageKey)
 	if not frame then
 		createFrame()
 	end
-	if pageKey then
-		for _, page in ipairs(pages) do
-			if page.key == pageKey then
-				frame.searchBox:SetText("")
-				selectPage(page)
-				frame:Show()
-				return
-			end
-		end
-		frame.searchBox:SetText(pageKey)
-		runSearch()
-		frame:Show()
+	if not pageKey then
+		ui.SetShown(frame, not frame:IsShown())
 		return
 	end
-	if frame:IsShown() then
-		frame:Hide()
+	local page = pageByKey(pageKey)
+	if page then
+		frame.searchBox:SetText("")
+		selectPage(page)
 	else
-		frame:Show()
+		frame.searchBox:SetText(pageKey)
+		runSearch()
 	end
+	frame:Show()
 end
 
 _G[ADDON_NAME] = ns

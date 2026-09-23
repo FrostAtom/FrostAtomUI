@@ -3,7 +3,7 @@
 
 std = "lua51"
 max_line_length = 120
-exclude_files = { "node_modules/" }
+exclude_files = { "node_modules/", "FrostAtomUI/Libs/" }
 
 -- Code is loaded as an addon chunk: `local ADDON_NAME, ns = ...`
 allow_defined_top = false
@@ -17,6 +17,7 @@ read_globals = {
 	-- WoW API (only what the addon uses)
 	"CreateFrame", "GetTime", "GetGameTime", "GetCVar", "SetCVar", "InCombatLockdown",
 	"GetFramerate", "GetNetStats",
+	"CanGuildBankRepair", "GetGuildBankWithdrawMoney", "GetGuildBankMoney",
 	"GetScreenWidth", "GetScreenHeight", "GetCursorPosition", "GetMouseFocus",
 	"UIParent", "WorldFrame", "Minimap", "GameTooltip", "ItemRefTooltip",
 	"ShoppingTooltip1", "ShoppingTooltip2", "ShoppingTooltip3",
@@ -24,9 +25,9 @@ read_globals = {
 	"UnitClass", "UnitName", "UnitGUID", "UnitExists", "UnitIsUnit", "UnitIsPlayer",
 	"UnitIsConnected", "UnitIsDeadOrGhost", "UnitAffectingCombat", "UnitInRaid",
 	"UnitHealth", "UnitHealthMax", "UnitPower", "UnitPowerMax", "UnitPowerType",
-	"UnitAura", "UnitBuff", "UnitCastingInfo", "UnitChannelInfo", "CancelUnitBuff",
+	"UnitAura", "UnitBuff", "UnitDebuff", "LibStub", "UnitCastingInfo", "UnitChannelInfo", "CancelUnitBuff",
 	"GetSpellInfo", "GetSpellTexture", "GetItemInfo", "GetItemIcon",
-	"COMBATLOG_OBJECT_TYPE_PLAYER", "COMBATLOG_OBJECT_TYPE_PET",
+	"COMBATLOG_OBJECT_TYPE_PLAYER", "COMBATLOG_OBJECT_TYPE_PET", "COMBATLOG_OBJECT_REACTION_HOSTILE",
 	"GetActionTexture", "GetActionCooldown", "GetActionCount", "GetActionText",
 	"HasAction", "IsActionInRange", "IsUsableAction", "IsEquippedAction", "IsCurrentAction",
 	"IsAutoRepeatAction", "IsConsumableAction", "IsStackableAction", "PickupAction", "PlaceAction",
@@ -41,11 +42,11 @@ read_globals = {
 	"SendChatMessage", "SendSystemMessage", "IsInInstance", "GetZoneText",
 	"GetNumBattlefieldScores", "GetBattlefieldScore", "GetBattlefieldTeamInfo",
 	"GetBattlefieldWinner", "IsActiveBattlefieldArena", "GetBattlefieldStatus", "GetBattlefieldTimeWaited",
-	"GetBattlefieldInstanceRunTime", "GetRealZoneText", "AcceptBattlefieldPort", "LeaveBattlefield",
+	"GetBattlefieldInstanceRunTime", "GetNumArenaOpponents", "GetRealZoneText", "AcceptBattlefieldPort", "LeaveBattlefield",
 	"CombatLogClearEntries", "ToggleCalendar", "collectgarbage", "geterrorhandler", "GetLocale",
 	"GetComboPoints", "UnitHasVehicleUI", "GetRaidTargetIndex", "SetRaidTargetIconTexture",
 	"UnitInRange", "CheckInteractDistance", "UnitLevel", "UnitXP", "UnitXPMax", "GetXPExhaustion",
-	"GetWatchedFactionInfo", "UnitCanAssist",
+	"GetWatchedFactionInfo", "UnitCanAssist", "UnitCanAttack", "GetPlayerInfoByGUID",
 	"IsResting", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitFactionGroup", "GetTotemInfo",
 	"RequestBattlefieldScoreData", "UnitReaction", "GetGuildInfo", "GetItemCount",
 	"CanMerchantRepair", "GetRepairAllCost", "RepairAllItems", "GetMoney", "GetContainerNumSlots",

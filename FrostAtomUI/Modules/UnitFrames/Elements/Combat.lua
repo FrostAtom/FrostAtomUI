@@ -8,19 +8,11 @@ local config = ns.Config.unitFrames
 
 local function update(frame)
 	local unit = frame.unit
-	if config.showCombatIcon and UnitIsConnected(unit) and UnitAffectingCombat(unit) then
-		frame.combat:Show()
-	else
-		frame.combat:Hide()
-	end
+	ns.SetShown(frame.combat, config.showCombatIcon and UnitIsConnected(unit) and UnitAffectingCombat(unit))
 end
 
 local function test(frame)
-	if config.showCombatIcon and math.random(2) == 1 then
-		frame.combat:Show()
-	else
-		frame.combat:Hide()
-	end
+	ns.SetShown(frame.combat, config.showCombatIcon and math.random(2) == 1)
 end
 
 local function create(frame)

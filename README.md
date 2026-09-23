@@ -47,7 +47,7 @@ all in one addon, ready to play right after install.
   (red through amber to green, same softness at every percent) — separately for unit frames,
   nameplates and the player plate.
 - Debuffs you can dispel tint the health bar; buffs you can purge get a highlight frame.
-- Crowd-control icon ("lose control") on top of every frame, class icons, range fading for party members.
+- Crowd-control icon on top of the target, focus, party and arena frames, class icons, range fading for party members.
 - Right-click menu on every frame (whisper, invite, focus, inspect, …).
 
 | Party | Arena |
@@ -96,7 +96,7 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 - Messages fade out after a time you set, or never — with fading off every line stays until it scrolls away.
 - Type `/wt ` (or `/tt `) and press Space to whisper your current target; `/gr ` to switch to the
   group channel (raid / party / say, whichever applies).
-- Arena queue spam ("Number of groups in queue…", rating searches) is folded into short one-liners,
+- WoW Circle: arena queue spam ("Number of groups in queue…", rating searches) is folded into short one-liners,
   and preparation spam inside the arena (loot mode, raid joins, countdown, "X has died") is hidden.
 - Restyled chat bubbles with raid icons (`{skull}`, `{x}`, …).
 
@@ -107,7 +107,7 @@ combat or hurt, with your castbar right under it. Warriors also see the equipped
 | ![Minimap](docs/screenshots/minimap.png) | ![Bags](docs/screenshots/bags.png) |
 
 - Square minimap in the top-right corner: wheel to zoom, right-click for tracking, middle-click for the calendar.
-- **Solo queue button** in the minimap's bottom-right corner: click to join the solo 3v3 queue, click again to
+- **Solo queue button** (WoW Circle) in the minimap's bottom-right corner: click to join the solo 3v3 queue, click again to
   leave it, enter the arena in one click once the match is ready, and leave the arena in one click while inside.
   The rating range the queue is currently searching in is shown under the button (gold once a team is found)
   instead of the "Searching team" chat message.

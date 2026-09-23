@@ -156,6 +156,12 @@ Misc:OnInitialize(function()
 		scroll:SetVerticalScroll(min(max(y, 0), maxScrollY))
 	end
 
+	local function scaleAll(frames, scale)
+		for i = 1, #frames do
+			frames[i]:SetScale(scale)
+		end
+	end
+
 	local function setZoom(scale)
 		zoom = scale
 		local inverse = 1 / scale
@@ -168,18 +174,10 @@ Misc:OnInitialize(function()
 		WorldMapPlayer:SetScale(inverse)
 		WorldMapCorpse:SetScale(inverse)
 		WorldMapDeathRelease:SetScale(inverse)
-		for i = 1, #flagFrames do
-			flagFrames[i]:SetScale(inverse)
-		end
-		for i = 1, #partyFrames do
-			partyFrames[i]:SetScale(inverse)
-		end
-		for i = 1, #raidFrames do
-			raidFrames[i]:SetScale(inverse)
-		end
-		for i = 1, #MAP_VEHICLES do
-			MAP_VEHICLES[i]:SetScale(inverse)
-		end
+		scaleAll(flagFrames, inverse)
+		scaleAll(partyFrames, inverse)
+		scaleAll(raidFrames, inverse)
+		scaleAll(MAP_VEHICLES, inverse)
 
 		maxScrollX = MAP_WIDTH - MAP_WIDTH * inverse
 		maxScrollY = MAP_HEIGHT - MAP_HEIGHT * inverse
@@ -199,6 +197,14 @@ Misc:OnInitialize(function()
 			frame:SetPoint(point, relativeTo, relativePoint, x, y)
 		end
 	end
+
+	local SCROLL_ANCHORED_FRAMES = {
+		WorldMapQuestScrollFrame,
+		WorldMapQuestDetailScrollFrame,
+		WorldMapTrackQuest,
+		WorldMapQuestShowObjectives,
+		WorldMapFrameTitle,
+	}
 
 	local coords = CreateFrame("Frame", nil, WorldMapFrame)
 	coords:SetFrameLevel(WORLDMAP_POI_FRAMELEVEL)
@@ -263,11 +269,9 @@ Misc:OnInitialize(function()
 		WorldMapPOIFrame:SetParent(WorldMapDetailFrame)
 		WorldMapPlayer:SetParent(WorldMapDetailFrame)
 
-		reanchor(WorldMapQuestScrollFrame, scroll)
-		reanchor(WorldMapQuestDetailScrollFrame, scroll)
-		reanchor(WorldMapTrackQuest, scroll)
-		reanchor(WorldMapQuestShowObjectives, scroll)
-		reanchor(WorldMapFrameTitle, scroll)
+		for i = 1, #SCROLL_ANCHORED_FRAMES do
+			reanchor(SCROLL_ANCHORED_FRAMES[i], scroll)
+		end
 
 		setZoom(zoom)
 		setScroll(scroll:GetHorizontalScroll(), scroll:GetVerticalScroll())
@@ -346,7 +350,13 @@ Misc:OnInitialize(function()
 		end
 	end
 
-	local function placeUnit(frame, x, y, mapWidth, mapHeight)
+	local mapWidth, mapHeight = 0, 0
+
+	local function isOffMap(x, y)
+		return x == 0 and y == 0
+	end
+
+	local function placeUnit(frame, x, y)
 		frame:SetPoint("CENTER", WorldMapDetailFrame, "TOPLEFT", x * mapWidth, -y * mapHeight)
 		frame:Show()
 	end
@@ -363,17 +373,17 @@ Misc:OnInitialize(function()
 		end
 	end
 
-	local function onUpdate(self)
-		local scale = self:GetEffectiveScale()
+	local function updateCursorHighlight(button)
+		local scale = button:GetEffectiveScale()
 		local x, y = GetCursorPosition()
 		x, y = x / scale, y / scale
-		local width, height = self:GetWidth(), self:GetHeight()
-		local centerX, centerY = self:GetCenter()
+		local width, height = button:GetWidth(), button:GetHeight()
+		local centerX, centerY = button:GetCenter()
 		local adjustedX = (x - (centerX - width / 2)) / width
 		local adjustedY = (centerY + height / 2 - y) / height
 
 		local name, fileName, texPercentX, texPercentY, textureX, textureY, scrollChildX, scrollChildY
-		if self:IsMouseOver() and scroll:IsMouseOver() then
+		if button:IsMouseOver() and scroll:IsMouseOver() then
 			name, fileName, texPercentX, texPercentY, textureX, textureY, scrollChildX, scrollChildY =
 				UpdateMapHighlight(adjustedX, adjustedY)
 			cursorText:SetFormattedText(COORD_FORMAT, L["Cursor"], adjustedX * 100, adjustedY * 100)
@@ -385,131 +395,146 @@ Misc:OnInitialize(function()
 		if not WorldMapFrame.poiHighlight then
 			WorldMapFrameAreaLabel:SetText(name)
 		end
-		if fileName then
-			WorldMapHighlight:SetTexCoord(0, texPercentX, 0, texPercentY)
-			WorldMapHighlight:SetTexture(highlightTextures[fileName])
-			textureX = textureX * width
-			textureY = textureY * height
-			if textureX > 0 and textureY > 0 then
-				WorldMapHighlight:SetSize(textureX, textureY)
-				WorldMapHighlight:SetPoint(
-					"TOPLEFT",
-					WorldMapDetailFrame,
-					"TOPLEFT",
-					scrollChildX * width,
-					-scrollChildY * height
-				)
-				WorldMapHighlight:Show()
-			end
-		else
+		if not fileName then
 			WorldMapHighlight:Hide()
+			return
 		end
+		WorldMapHighlight:SetTexCoord(0, texPercentX, 0, texPercentY)
+		WorldMapHighlight:SetTexture(highlightTextures[fileName])
+		textureX = textureX * width
+		textureY = textureY * height
+		if textureX > 0 and textureY > 0 then
+			WorldMapHighlight:SetSize(textureX, textureY)
+			WorldMapHighlight:SetPoint(
+				"TOPLEFT",
+				WorldMapDetailFrame,
+				"TOPLEFT",
+				scrollChildX * width,
+				-scrollChildY * height
+			)
+			WorldMapHighlight:Show()
+		end
+	end
 
-		local mapWidth, mapHeight = WorldMapDetailFrame:GetWidth() * zoom, WorldMapDetailFrame:GetHeight() * zoom
-
+	local function updatePlayerMarker()
 		UpdateWorldMapArrowFrames()
 		ShowWorldMapArrowFrame(nil)
 		local playerX, playerY = GetPlayerMapPosition("player")
-		if playerX == 0 and playerY == 0 then
+		if isOffMap(playerX, playerY) then
 			WorldMapPlayer:Hide()
 			playerText:SetText("")
 		else
 			WorldMapPlayer.arrow:SetRotation(PlayerArrowFrame:GetFacing())
-			placeUnit(WorldMapPlayer, playerX, playerY, mapWidth, mapHeight)
+			placeUnit(WorldMapPlayer, playerX, playerY)
 			playerText:SetFormattedText(COORD_FORMAT, L["Player"], playerX * 100, playerY * 100)
 		end
+	end
 
-		local playerCount = 0
-		if GetNumRaidMembers() > 0 then
-			for i = 1, #partyFrames do
-				partyFrames[i]:Hide()
-			end
-			for i = 1, #raidFrames do
-				local unit = raidUnits[i]
-				local unitX, unitY = GetPlayerMapPosition(unit)
-				local frame = raidFrames[playerCount + 1]
-				if (unitX == 0 and unitY == 0) or UnitIsUnit(unit, "player") then
-					frame:Hide()
-				else
-					frame.name = nil
-					frame.unit = unit
-					colorUnitIcon(frame, unit)
-					placeUnit(frame, unitX, unitY, mapWidth, mapHeight)
-					playerCount = playerCount + 1
-				end
-			end
-		else
-			for i = 1, #partyFrames do
-				local unit = partyUnits[i]
-				local unitX, unitY = GetPlayerMapPosition(unit)
-				local frame = partyFrames[i]
-				if unitX == 0 and unitY == 0 then
-					frame:Hide()
-				else
-					colorUnitIcon(frame, unit)
-					placeUnit(frame, unitX, unitY, mapWidth, mapHeight)
-				end
+	local function updateRaidMarkers()
+		for i = 1, #partyFrames do
+			partyFrames[i]:Hide()
+		end
+		local shown = 0
+		for i = 1, #raidFrames do
+			local unit = raidUnits[i]
+			local unitX, unitY = GetPlayerMapPosition(unit)
+			local frame = raidFrames[shown + 1]
+			if isOffMap(unitX, unitY) or UnitIsUnit(unit, "player") then
+				frame:Hide()
+			else
+				frame.name = nil
+				frame.unit = unit
+				colorUnitIcon(frame, unit)
+				placeUnit(frame, unitX, unitY)
+				shown = shown + 1
 			end
 		end
+		return shown
+	end
 
-		for i = playerCount + 1, #raidFrames do
-			local unitX, unitY, unitName = GetBattlefieldPosition(i - playerCount)
+	local function updatePartyMarkers()
+		for i = 1, #partyFrames do
+			local unit = partyUnits[i]
+			local unitX, unitY = GetPlayerMapPosition(unit)
+			local frame = partyFrames[i]
+			if isOffMap(unitX, unitY) then
+				frame:Hide()
+			else
+				colorUnitIcon(frame, unit)
+				placeUnit(frame, unitX, unitY)
+			end
+		end
+	end
+
+	local function updateBattlefieldMarkers(raidShown)
+		for i = raidShown + 1, #raidFrames do
+			local unitX, unitY, unitName = GetBattlefieldPosition(i - raidShown)
 			local frame = raidFrames[i]
-			if unitX == 0 and unitY == 0 then
+			if isOffMap(unitX, unitY) then
 				frame:Hide()
 			else
 				frame.name = unitName
 				frame.unit = nil
 				frame.icon:SetTexture(UNIT_ICON_DEFAULT)
 				frame.icon:SetVertexColor(1, 1, 1)
-				placeUnit(frame, unitX, unitY, mapWidth, mapHeight)
+				placeUnit(frame, unitX, unitY)
 			end
 		end
+	end
 
+	local function updateFlagMarkers()
 		local numFlags = GetNumBattlefieldFlagPositions()
 		for i = 1, #flagFrames do
 			local frame = flagFrames[i]
-			if i > numFlags then
+			local flagX, flagY, flagToken = 0, 0, nil
+			if i <= numFlags then
+				flagX, flagY, flagToken = GetBattlefieldFlagPosition(i)
+			end
+			if isOffMap(flagX, flagY) then
 				frame:Hide()
 			else
-				local flagX, flagY, flagToken = GetBattlefieldFlagPosition(i)
-				if flagX == 0 and flagY == 0 then
-					frame:Hide()
-				else
-					flagTextures[i]:SetTexture(flagTexturePaths[flagToken])
-					placeUnit(frame, flagX, flagY, mapWidth, mapHeight)
-				end
+				flagTextures[i]:SetTexture(flagTexturePaths[flagToken])
+				placeUnit(frame, flagX, flagY)
 			end
 		end
+	end
 
+	local function updateDeathMarkers()
 		local corpseX, corpseY = GetCorpseMapPosition()
-		if corpseX == 0 and corpseY == 0 then
+		if isOffMap(corpseX, corpseY) then
 			WorldMapCorpse:Hide()
 		else
-			placeUnit(WorldMapCorpse, corpseX, corpseY, mapWidth, mapHeight)
+			placeUnit(WorldMapCorpse, corpseX, corpseY)
 		end
 
 		local releaseX, releaseY = GetDeathReleasePosition()
-		if (releaseX == 0 and releaseY == 0) or UnitIsGhost("player") then
+		if isOffMap(releaseX, releaseY) or UnitIsGhost("player") then
 			WorldMapDeathRelease:Hide()
 		else
-			placeUnit(WorldMapDeathRelease, releaseX, releaseY, mapWidth, mapHeight)
+			placeUnit(WorldMapDeathRelease, releaseX, releaseY)
 		end
+	end
 
+	local function vehicleFrame(index)
+		local frame = MAP_VEHICLES[index]
+		if not frame then
+			local vehicleName = "WorldMapVehicles" .. index
+			frame = CreateFrame("Frame", vehicleName, WorldMapButton, "WorldMapVehicleTemplate")
+			frame.texture = _G[vehicleName .. "Texture"]
+			frame:SetScale(1 / zoom)
+			MAP_VEHICLES[index] = frame
+		end
+		return frame
+	end
+
+	local function updateVehicleMarkers()
 		local numVehicles = 0
 		local continent = GetCurrentMapContinent()
 		if not (continent == WORLDMAP_WORLD_ID or (continent ~= -1 and GetCurrentMapZone() == 0)) then
 			numVehicles = GetNumBattlefieldVehicles()
 		end
 		for i = 1, numVehicles do
-			local frame = MAP_VEHICLES[i]
-			if not frame then
-				local vehicleName = "WorldMapVehicles" .. i
-				frame = CreateFrame("Frame", vehicleName, WorldMapButton, "WorldMapVehicleTemplate")
-				frame.texture = _G[vehicleName .. "Texture"]
-				frame:SetScale(1 / zoom)
-				MAP_VEHICLES[i] = frame
-			end
+			local frame = vehicleFrame(i)
 			local vehicleX, vehicleY, unitName, isPossessed, vehicleType, orientation, isPlayer, isAlive =
 				GetBattlefieldVehicleInfo(i)
 			local vehicleTexture = vehicleX and isAlive and not isPlayer and VEHICLE_TEXTURES[vehicleType]
@@ -518,7 +543,7 @@ Misc:OnInitialize(function()
 				frame.texture:SetTexture(WorldMap_GetVehicleTexture(vehicleType, isPossessed))
 				frame:SetSize(vehicleTexture.width, vehicleTexture.height)
 				frame.name = unitName
-				placeUnit(frame, vehicleX, vehicleY, mapWidth, mapHeight)
+				placeUnit(frame, vehicleX, vehicleY)
 			else
 				frame:Hide()
 			end
@@ -526,6 +551,23 @@ Misc:OnInitialize(function()
 		for i = numVehicles + 1, #MAP_VEHICLES do
 			MAP_VEHICLES[i]:Hide()
 		end
+	end
+
+	local function onUpdate(self)
+		updateCursorHighlight(self)
+
+		mapWidth, mapHeight = WorldMapDetailFrame:GetWidth() * zoom, WorldMapDetailFrame:GetHeight() * zoom
+		updatePlayerMarker()
+		local raidShown = 0
+		if GetNumRaidMembers() > 0 then
+			raidShown = updateRaidMarkers()
+		else
+			updatePartyMarkers()
+		end
+		updateBattlefieldMarkers(raidShown)
+		updateFlagMarkers()
+		updateDeathMarkers()
+		updateVehicleMarkers()
 
 		if panning then
 			onPan()

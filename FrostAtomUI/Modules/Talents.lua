@@ -37,6 +37,11 @@ local ARENA_REINSPECT_INTERVAL = 12
 local ARENA_REINSPECT_COUNT = 6
 local PARTY_UNITS = { "party1", "party2", "party3", "party4" }
 local INSPECT_UNITS = { "party1", "party2", "party3", "party4", "target", "focus", "mouseover" }
+local GUID_LOOKUP_UNITS = {}
+for i = 1, #INSPECT_UNITS do
+	GUID_LOOKUP_UNITS[i] = INSPECT_UNITS[i]
+	GUID_LOOKUP_UNITS[#INSPECT_UNITS + i] = INSPECT_UNITS[i] .. "target"
+end
 local HOSTILE_SCAN_UNITS = { arena1 = true, arena2 = true, arena3 = true, target = true, focus = true }
 
 local TREE1_TALENTS = {
@@ -115,7 +120,7 @@ local pending = {}
 local retries = {}
 local lastRequestGUID, lastRequestTime, lastRequestClass = nil, 0, nil
 
-local function tree1Matches(class)
+local function inspectDataMatchesClass(class)
 	local id = class and TREE1_TALENTS[class]
 	local expected = id and GetSpellInfo(id)
 	if not expected then
@@ -157,7 +162,7 @@ local function readTalents(isInspect, into)
 	return spent, group, bestTab
 end
 
-local function store(guid, talents, spec)
+local function storeTalents(guid, talents, spec)
 	data[guid] = talents
 	dataTime[guid] = GetTime()
 	specs[guid] = spec
@@ -182,7 +187,7 @@ local function readPlayer()
 			talents[glyphSpell] = true
 		end
 	end
-	store(guid, talents, spec)
+	storeTalents(guid, talents, spec)
 end
 
 function Talents:Get(guid)
@@ -260,27 +265,21 @@ queue.sinceArenaTick = 0
 queue.arenaTicks = 0
 
 local function guidToUnit(guid)
-	for i = 1, #INSPECT_UNITS do
-		local unit = INSPECT_UNITS[i]
-		if UnitGUID(unit) == guid then
-			return unit
-		end
-	end
-	for i = 1, #INSPECT_UNITS do
-		local unit = INSPECT_UNITS[i] .. "target"
+	for i = 1, #GUID_LOOKUP_UNITS do
+		local unit = GUID_LOOKUP_UNITS[i]
 		if UnitGUID(unit) == guid then
 			return unit
 		end
 	end
 end
 
-local function inspectable(unit)
+local function isInspectable(unit)
 	return UnitExists(unit) and UnitIsPlayer(unit) and UnitLevel(unit) >= 10 and not UnitCanAttack("player", unit)
 end
 
 local function enqueue(unit, force)
 	local guid = UnitGUID(unit)
-	if not guid or guid == UnitGUID("player") or not inspectable(unit) then
+	if not guid or guid == UnitGUID("player") or not isInspectable(unit) then
 		return
 	end
 	if force or not data[guid] or GetTime() - dataTime[guid] > CACHE_TIME then
@@ -376,11 +375,11 @@ function Talents:INSPECT_TALENT_READY()
 	end
 	local talents = {}
 	local spent, _, spec = readTalents(true, talents)
-	if spent == 0 or not tree1Matches(lastRequestClass) then
+	if spent == 0 or not inspectDataMatchesClass(lastRequestClass) then
 		retry(guid)
 		return
 	end
-	store(guid, talents, spec)
+	storeTalents(guid, talents, spec)
 end
 
 local function scanAuras(unit)
@@ -463,9 +462,13 @@ function Talents:Initialize()
 	self:RegisterEvent("INSPECT_TALENT_READY")
 	self:RegisterEvent("UNIT_AURA")
 	self:RegisterEvent("ARENA_OPPONENT_UPDATE")
-	self:RegisterEvent("PLAYER_TALENT_UPDATE", readPlayer)
-	self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED", readPlayer)
-	self:RegisterEvent("GLYPH_ADDED", readPlayer)
-	self:RegisterEvent("GLYPH_REMOVED", readPlayer)
-	self:RegisterEvent("GLYPH_UPDATED", readPlayer)
+	for _, event in ipairs({
+		"PLAYER_TALENT_UPDATE",
+		"ACTIVE_TALENT_GROUP_CHANGED",
+		"GLYPH_ADDED",
+		"GLYPH_REMOVED",
+		"GLYPH_UPDATED",
+	}) do
+		self:RegisterEvent(event, readPlayer)
+	end
 end

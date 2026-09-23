@@ -287,7 +287,6 @@ local function onAuraRemoved(guid, spellId, destGUID)
 	if not info then
 		return
 	end
-
 	local entries = cooldowns[guid]
 	local entry = entries and entries[id]
 	if not entry then
@@ -369,22 +368,22 @@ local OWNER_PETS = {
 
 local petOwners = {}
 
-local function cachePet(owner)
+local function cachePetOwner(owner)
 	local petGUID = UnitGUID(OWNER_PETS[owner])
 	if petGUID then
 		petOwners[petGUID] = UnitGUID(owner)
 	end
 end
 
-local function cachePets()
+local function cachePetOwners()
 	for owner in pairs(OWNER_PETS) do
-		cachePet(owner)
+		cachePetOwner(owner)
 	end
 end
 
-local function cacheAllPets()
+local function rebuildPetOwners()
 	wipe(petOwners)
-	cachePets()
+	cachePetOwners()
 end
 
 local function petOwnerGUID(petGUID)
@@ -392,7 +391,7 @@ local function petOwnerGUID(petGUID)
 	if owner ~= nil then
 		return owner or nil
 	end
-	cachePets()
+	cachePetOwners()
 	owner = petOwners[petGUID]
 	if not owner then
 		petOwners[petGUID] = false
@@ -461,12 +460,12 @@ end
 
 function CooldownTracker:PLAYER_ENTERING_WORLD()
 	self:Reset()
-	cacheAllPets()
+	rebuildPetOwners()
 end
 
 function CooldownTracker:UNIT_PET(unit)
 	if OWNER_PETS[unit] then
-		cachePet(unit)
+		cachePetOwner(unit)
 	end
 end
 
@@ -474,8 +473,8 @@ function CooldownTracker:Initialize()
 	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 	self:RegisterEvent("UNIT_PET")
-	self:RegisterEvent("PARTY_MEMBERS_CHANGED", cacheAllPets)
-	self:RegisterEvent("ARENA_OPPONENT_UPDATE", cacheAllPets)
+	self:RegisterEvent("PARTY_MEMBERS_CHANGED", rebuildPetOwners)
+	self:RegisterEvent("ARENA_OPPONENT_UPDATE", rebuildPetOwners)
 end
 
 local TEST_UNITS = { "party1", "party2", "party3", "party4", "arena1", "arena2", "arena3" }

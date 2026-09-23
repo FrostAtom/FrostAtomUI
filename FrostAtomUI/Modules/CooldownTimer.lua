@@ -5,35 +5,49 @@ local L = ns.L
 local ceil = math.ceil
 local GetTime = GetTime
 
+local Media = ns.Media
 local CooldownTimer = ns:NewModule("CooldownTimer")
 
-local MIN_DURATION = 1.5
 local UPDATE_INTERVAL = 0.1
+local FLASH_DURATION = 0.75
+local FLASH_PEAK = 0.3
+local FLASH_ALPHA = 0.8
+local HOURS_COLOR = { 0.6, 0.6, 0.6 }
 
-local COLOR_URGENT, COLOR_SECONDS, COLOR_MINUTES, COLOR_HOURS = 1, 2, 3, 4
+local config = ns.Config.cooldownTimer
+local minDuration, decimalThreshold = config.minDuration, config.decimalThreshold
+local expiringColor, secondsColor, minutesColor = config.expiringColor, config.secondsColor, config.minutesColor
+local colorGeneration = 0
 
-local function setTimerColor(timer, state, r, g, b)
-	if timer.colorState ~= state then
-		timer.colorState = state
-		timer:SetTextColor(r, g, b)
+local function setTimerColor(timer, color)
+	if timer.color ~= color or timer.colorGeneration ~= colorGeneration then
+		timer.color = color
+		timer.colorGeneration = colorGeneration
+		timer:SetTextColor(color[1], color[2], color[3])
 	end
 end
 
 local function setTimerText(timer, remain)
-	if remain <= 3 then
-		setTimerColor(timer, COLOR_URGENT, 1, 0, 0)
+	if remain <= decimalThreshold then
+		setTimerColor(timer, expiringColor)
 		timer:SetFormattedText("%.1f", remain)
 	elseif remain <= 60 then
-		setTimerColor(timer, COLOR_SECONDS, 1, 1, 0)
+		setTimerColor(timer, secondsColor)
 		timer:SetFormattedText("%d", ceil(remain))
 	elseif remain <= 3600 then
-		setTimerColor(timer, COLOR_MINUTES, 1, 1, 1)
+		setTimerColor(timer, minutesColor)
 		timer:SetFormattedText(L["%dm"], ceil(remain / 60))
 	else
-		setTimerColor(timer, COLOR_HOURS, 0.6, 0.6, 0.6)
+		setTimerColor(timer, HOURS_COLOR)
 		timer:SetFormattedText(L["%dh"], ceil(remain / 3600))
 	end
 end
+
+CooldownTimer:WatchConfig("cooldownTimer", function()
+	minDuration, decimalThreshold = config.minDuration, config.decimalThreshold
+	expiringColor, secondsColor, minutesColor = config.expiringColor, config.secondsColor, config.minutesColor
+	colorGeneration = colorGeneration + 1
+end)
 
 CooldownTimer.SetTimerText = setTimerText
 
@@ -63,6 +77,16 @@ local function deactivateAt(index)
 	activeCount = activeCount - 1
 end
 
+local function updateFlash(flash, remain)
+	local progress = 1 - remain / FLASH_DURATION
+	if progress < FLASH_PEAK then
+		flash:SetAlpha(FLASH_ALPHA * progress / FLASH_PEAK)
+	else
+		flash:SetAlpha(FLASH_ALPHA * (1 - progress) / (1 - FLASH_PEAK))
+	end
+	flash:Show()
+end
+
 ticker:SetScript("OnUpdate", function(self)
 	local now = GetTime()
 	local i = 1
@@ -74,10 +98,16 @@ ticker:SetScript("OnUpdate", function(self)
 				cooldown.nextTick = now + UPDATE_INTERVAL
 				setTimerText(cooldown.timer, remain)
 			end
+			if remain < FLASH_DURATION and cooldown.flashArmed then
+				updateFlash(cooldown.flash, remain)
+			end
 			i = i + 1
 		else
 			cooldown.endTime = nil
 			cooldown.timer:Hide()
+			if cooldown.flash then
+				cooldown.flash:Hide()
+			end
 			deactivateAt(i)
 		end
 	end
@@ -87,7 +117,12 @@ ticker:SetScript("OnUpdate", function(self)
 end)
 
 local function onSetCooldown(cooldown, startTime, duration)
-	if duration > MIN_DURATION then
+	local flash = cooldown.flash
+	if flash then
+		flash:Hide()
+		cooldown.flashArmed = cooldown.flashConfig[cooldown.flashKey] and duration > FLASH_DURATION
+	end
+	if duration > minDuration then
 		cooldown.endTime = startTime + duration
 		cooldown.nextTick = 0
 		cooldown.timer:Show()
@@ -110,4 +145,15 @@ function CooldownTimer:Attach(cooldown, fontSize, parent)
 	cooldown.timer = timer
 
 	hooksecurefunc(cooldown, "SetCooldown", onSetCooldown)
+end
+
+function CooldownTimer:AttachFlash(cooldown, icon, config, key)
+	local flash = icon:GetParent():CreateTexture(nil, "OVERLAY")
+	flash:SetAllPoints(icon)
+	flash:SetTexture(Media.blank)
+	flash:SetBlendMode("ADD")
+	flash:Hide()
+	cooldown.flash = flash
+	cooldown.flashConfig = config
+	cooldown.flashKey = key
 end

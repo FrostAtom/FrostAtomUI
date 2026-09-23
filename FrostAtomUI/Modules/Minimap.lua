@@ -30,9 +30,9 @@ local DEFAULT_ZONE_COLOR = { 1, 0.82, 0 }
 local LFG_BUTTON_SIZE = 33
 
 local clock, zoneText, lfgHolder, fader
-local icons = {}
+local cornerIcons = {}
 
-local function skinIcon(frame, icon, border, texture, point, dx, dy)
+local function skinCornerIcon(frame, icon, border, texture, point, dx, dy)
 	border:Hide()
 	icon:ClearAllPoints()
 	icon:SetAllPoints()
@@ -40,7 +40,11 @@ local function skinIcon(frame, icon, border, texture, point, dx, dy)
 		icon:SetTexture(texture)
 	end
 	icon:SetTexCoord(0, 1, 0, 1)
-	icons[#icons + 1] = { frame = frame, point = point, dx = dx, dy = dy }
+	cornerIcons[#cornerIcons + 1] = { frame = frame, point = point, dx = dx, dy = dy }
+end
+
+local function getLfgSize()
+	return config.lfgSize, config.lfgSize
 end
 
 local function updateClock()
@@ -98,8 +102,8 @@ local function applyConfig()
 		MiniMapTracking:Hide()
 	end
 
-	for i = 1, #icons do
-		local icon = icons[i]
+	for i = 1, #cornerIcons do
+		local icon = cornerIcons[i]
 		icon.frame:SetSize(iconSize, iconSize)
 		icon.frame:ClearAllPoints()
 		icon.frame:SetPoint(icon.point, icon.dx * ICON_INSET, icon.dy * ICON_INSET)
@@ -146,12 +150,10 @@ function MinimapModule:Initialize()
 	local untilNextTick = 0
 	Minimap:SetScript("OnUpdate", function(_, elapsed)
 		untilNextTick = untilNextTick - elapsed
-		if untilNextTick > 0 then
-			return
+		if untilNextTick <= 0 then
+			untilNextTick = CLOCK_UPDATE_INTERVAL
+			updateClock()
 		end
-		untilNextTick = CLOCK_UPDATE_INTERVAL
-
-		updateClock()
 	end)
 
 	GameTimeCalendarInvitesTexture:ClearAllPoints()
@@ -162,8 +164,8 @@ function MinimapModule:Initialize()
 	MiniMapInstanceDifficulty:SetParent(Minimap)
 	MiniMapInstanceDifficulty:SetPoint("TOPRIGHT", 3, 2)
 
-	skinIcon(MiniMapMailFrame, MiniMapMailIcon, MiniMapMailBorder, MAIL_ICON, "TOPLEFT", 1, -1)
-	skinIcon(
+	skinCornerIcon(MiniMapMailFrame, MiniMapMailIcon, MiniMapMailBorder, MAIL_ICON, "TOPLEFT", 1, -1)
+	skinCornerIcon(
 		MiniMapBattlefieldFrame,
 		MiniMapBattlefieldIcon,
 		MiniMapBattlefieldBorder,
@@ -183,7 +185,7 @@ function MinimapModule:Initialize()
 	MiniMapTrackingButton:SetScript("OnMouseDown", nil)
 	MiniMapTrackingButton:SetScript("OnMouseUp", nil)
 	MiniMapTrackingButtonBorder:Hide()
-	skinIcon(MiniMapTracking, MiniMapTrackingIcon, MiniMapTrackingBackground, nil, "BOTTOMRIGHT", -1, 1)
+	skinCornerIcon(MiniMapTracking, MiniMapTrackingIcon, MiniMapTrackingBackground, nil, "BOTTOMRIGHT", -1, 1)
 
 	hooksecurefunc("Minimap_UpdateRotationSetting", function()
 		MinimapNorthTag:Hide()
@@ -215,26 +217,21 @@ function MinimapModule:Initialize()
 
 	applyConfig()
 	self:RegisterMover(lfgHolder, "minimap.lfgPoint", "Queue eye", {
-		size = function()
-			return config.lfgSize, config.lfgSize
-		end,
+		size = getLfgSize,
 		resize = {
 			square = true,
 			minWidth = 16,
 			maxWidth = 96,
-			get = function()
-				return config.lfgSize, config.lfgSize
-			end,
+			get = getLfgSize,
 			set = function(size)
 				ns:SetConfig("minimap.lfgSize", size)
 			end,
 		},
 	})
 	self:WatchConfig("minimap", applyConfig)
-	self:RegisterEvent("ZONE_CHANGED", updateZoneText)
-	self:RegisterEvent("ZONE_CHANGED_INDOORS", updateZoneText)
-	self:RegisterEvent("ZONE_CHANGED_NEW_AREA", updateZoneText)
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", updateZoneText)
+	for _, event in ipairs({ "ZONE_CHANGED", "ZONE_CHANGED_INDOORS", "ZONE_CHANGED_NEW_AREA", "PLAYER_ENTERING_WORLD" }) do
+		self:RegisterEvent(event, updateZoneText)
+	end
 	self:RegisterMover(Minimap, "minimap.point", "Minimap", {
 		resize = {
 			square = true,

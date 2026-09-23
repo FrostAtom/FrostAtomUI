@@ -4,9 +4,11 @@ local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
 local UnitPowerType = UnitPowerType
 local UnitAffectingCombat = UnitAffectingCombat
+local UnitGUID, UnitIsDeadOrGhost = UnitGUID, UnitIsDeadOrGhost
 
 local PlayerPlate = ns:NewModule("PlayerPlate")
 local UF = ns:GetModule("UnitFrames")
+local Prediction = ns.HealPrediction
 
 local TEXT_INSET = 2
 local BORDER_INSET = UF.BORDER_INSET
@@ -36,6 +38,7 @@ end
 
 local health = createBar()
 health:SetPoint("TOP", 0, -BORDER_INSET)
+Prediction.CreateBars(health)
 
 local power = createBar()
 
@@ -55,14 +58,29 @@ local function healthColor()
 	return unpack(config.healthColor)
 end
 
+local function updatePrediction()
+	local config = ns.Config.playerPlate
+	if UnitIsDeadOrGhost("player") then
+		Prediction.SetValues(health, 0, 0, false)
+	else
+		Prediction.Refresh(health, UnitGUID("player"), "player", config.healPrediction, config.absorbs)
+	end
+end
+
 local function updateHealth()
+	local config = ns.Config.playerPlate
 	local current, max = UnitHealth("player"), UnitHealthMax("player")
 	health:SetMinMaxValues(0, max)
 	health:SetValue(current)
-	health.text:SetFormattedText("%d%%", max > 0 and current / max * 100 or 0)
-	if ns.Config.playerPlate.healthColorMode == "health" then
+	if config.healthText == "value" then
+		health.text:SetText(ns.FormatValue(current))
+	else
+		health.text:SetFormattedText("%d%%", max > 0 and current / max * 100 or 0)
+	end
+	if config.healthColorMode == "health" then
 		setBarColor(health, healthColor())
 	end
+	updatePrediction()
 end
 
 local function updatePower()
@@ -92,6 +110,7 @@ plate:SetScript("OnUpdate", function(self, elapsed)
 		self.lastHealth = currentHealth
 		updateHealth()
 	end
+	Prediction.Follow(health)
 	if currentPower ~= self.lastPower then
 		self.lastPower = currentPower
 		updatePower()
@@ -122,41 +141,49 @@ local function show()
 	plate:Show()
 end
 
-local function applyConfig()
-	local config = ns.Config.playerPlate
-	plate:SetSize(
-		config.width + BORDER_INSET * 2,
-		config.healthHeight + config.gap + config.powerHeight + BORDER_INSET * 2
-	)
-	UF.SetBackdropColors(plate)
-	health:SetSize(config.width, config.healthHeight)
-	power:SetSize(config.width, config.powerHeight)
-	power:ClearAllPoints()
-	power:SetPoint("TOP", health, "BOTTOM", 0, -config.gap)
-
-	local font = config.font
-	ns.SetFont(health.text, font.size, font.outline)
-	ns.SetFont(power.text, font.size, font.outline)
-	health.text:SetTextColor(unpack(frameConfig.textColor))
-	power.text:SetTextColor(unpack(frameConfig.textColor))
-	if config.showText then
-		health.text:Show()
-		power.text:Show()
-	else
-		health.text:Hide()
-		power.text:Hide()
-	end
-
-	setBarColor(health, healthColor())
-
+local function showIfWanted()
 	if isWanted() then
 		show()
 	end
 end
 
+local function styleText(text, font, shown)
+	ns.SetFont(text, font.size, font.outline)
+	text:SetTextColor(unpack(frameConfig.textColor))
+	if shown then
+		text:Show()
+	else
+		text:Hide()
+	end
+end
+
+local function applyConfig()
+	local config = ns.Config.playerPlate
+	local powerSpace = config.showPower and config.gap + config.powerHeight or 0
+	plate:SetSize(config.width + BORDER_INSET * 2, config.healthHeight + powerSpace + BORDER_INSET * 2)
+	UF.SetBackdropColors(plate)
+	health:SetSize(config.width, config.healthHeight)
+	power:SetSize(config.width, config.powerHeight)
+	power:ClearAllPoints()
+	power:SetPoint("TOP", health, "BOTTOM", 0, -config.gap)
+	if config.showPower then
+		power:Show()
+	else
+		power:Hide()
+	end
+	plate.lastHealth = nil
+
+	styleText(health.text, config.font, config.showText)
+	styleText(power.text, config.font, config.showText)
+
+	setBarColor(health, healthColor())
+	updatePrediction()
+	showIfWanted()
+end
+
 local function onPlayerEvent(_, unit)
-	if unit == "player" and isWanted() then
-		show()
+	if unit == "player" then
+		showIfWanted()
 	end
 end
 
@@ -170,11 +197,12 @@ function PlayerPlate:Initialize()
 			show()
 		end
 	end)
-	self:RegisterEvent("UNIT_HEALTH", onPlayerEvent)
-	self:RegisterEvent("UNIT_MAXHEALTH", onPlayerEvent)
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-		if isWanted() then
-			show()
+	self:RegisterEvent(Prediction.CHANGED, function(_, guid)
+		if plate:IsShown() and guid == UnitGUID("player") then
+			updatePrediction()
 		end
 	end)
+	self:RegisterEvent("UNIT_HEALTH", onPlayerEvent)
+	self:RegisterEvent("UNIT_MAXHEALTH", onPlayerEvent)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", showIfWanted)
 end

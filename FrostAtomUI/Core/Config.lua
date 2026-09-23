@@ -4,6 +4,54 @@ local L = ns.L
 local InCombatLockdown, SetCVar = InCombatLockdown, SetCVar
 local sort, concat, strchar = table.sort, table.concat, string.char
 
+local function auraIcon(spells, mine, unit)
+	return {
+		type = "aura",
+		spells = spells,
+		unit = unit or "player",
+		debuff = unit ~= nil and unit ~= "player",
+		mine = mine or false,
+		show = "present",
+		minStacks = 0,
+		range = false,
+		usable = true,
+		duration = 45,
+		category = "stun",
+	}
+end
+
+local function trackerGroup(name, class, point, size, spacing, icons)
+	return {
+		enabled = true,
+		name = name,
+		class = class,
+		point = point,
+		size = size,
+		spacing = spacing,
+		columns = 8,
+		collapse = false,
+		combat = "any",
+		zone = "any",
+		talentGroup = 0,
+		inactiveAlpha = 0.35,
+		timer = true,
+		icons = icons,
+	}
+end
+
+local function actionBarDefaults(enabled, point, buttons, columns, buttonSize)
+	return {
+		enabled = enabled,
+		point = point,
+		buttons = buttons,
+		columns = columns,
+		buttonSize = buttonSize,
+		spacing = 2,
+		mouseover = false,
+		fadeAlpha = 0.1,
+	}
+end
+
 ns.Defaults = {
 	general = {
 		font = "Fonts\\ARIALN.ttf",
@@ -15,16 +63,23 @@ ns.Defaults = {
 		gridSize = 32,
 	},
 
+	cooldownTimer = {
+		minDuration = 1.5,
+		decimalThreshold = 3,
+		expiringColor = { 1, 0, 0 },
+		secondsColor = { 1, 1, 0 },
+		minutesColor = { 1, 1, 1 },
+	},
+
 	actionBar = {
 		enabled = true,
-		gap = 2,
-		bar1 = { point = { "BOTTOM", 0, 2 }, buttons = 12, columns = 12, buttonSize = 36 },
-		bar2 = { enabled = true, point = { "BOTTOM", 0, 40 }, buttons = 12, columns = 12, buttonSize = 36 },
-		bar3 = { enabled = true, point = { "BOTTOM", 0, 78 }, buttons = 12, columns = 12, buttonSize = 36 },
-		bar4 = { enabled = true, point = { "BOTTOM", -316, 2 }, buttons = 12, columns = 4, buttonSize = 36 },
-		bar5 = { enabled = true, point = { "BOTTOM", 316, 2 }, buttons = 12, columns = 4, buttonSize = 36 },
-		stance = { point = { "BOTTOM", -150, 116 }, columns = 10, buttonSize = 30 },
-		pet = { point = { "BOTTOM", 68, 116 }, columns = 10, buttonSize = 30 },
+		bar1 = actionBarDefaults(nil, { "BOTTOM", 0, 2 }, 12, 12, 36),
+		bar2 = actionBarDefaults(true, { "BOTTOM", 0, 40 }, 12, 12, 36),
+		bar3 = actionBarDefaults(true, { "BOTTOM", 0, 78 }, 12, 12, 36),
+		bar4 = actionBarDefaults(true, { "BOTTOM", -316, 2 }, 12, 4, 36),
+		bar5 = actionBarDefaults(true, { "BOTTOM", 316, 2 }, 12, 4, 36),
+		stance = actionBarDefaults(nil, { "BOTTOM", -150, 116 }, nil, 10, 30),
+		pet = actionBarDefaults(nil, { "BOTTOM", 68, 116 }, nil, 10, 30),
 		microMenu = { "BOTTOMRIGHT", -2, 2 },
 		microMenuScale = 1,
 		microMenuMouseover = false,
@@ -42,6 +97,12 @@ ns.Defaults = {
 		rangeColor = { 1, 0, 0 },
 		manaColor = { 0.5, 0.5, 1 },
 		unusableColor = { 0.4, 0.4, 0.4 },
+		rangeIconTint = true,
+		rangeHotkey = true,
+		lossOfControl = true,
+		interruptLockout = true,
+		lossOfControlColor = { 0.5, 0, 0, 0.6 },
+		desaturateOnCooldown = false,
 	},
 
 	unitFrames = {
@@ -56,12 +117,16 @@ ns.Defaults = {
 		playerAuras = { "TOPRIGHT", -168, -10 },
 		party = { "LEFT", 150, 230 },
 		arena = { "RIGHT", -150, 230 },
-		groupSpacing = 160,
+		partySpacing = 160,
+		arenaSpacing = 160,
+		partyGrowth = "DOWN",
+		arenaGrowth = "DOWN",
 		boss = { "RIGHT", -150, 300 },
 		bossSpacing = 60,
 		outOfRangeAlpha = 0.75,
 		showPartyCooldowns = true,
 		showArenaCooldowns = true,
+		cooldownReadyFlash = true,
 		partyCooldownSize = 24,
 		arenaCooldownSize = 24,
 		showParty = true,
@@ -78,6 +143,14 @@ ns.Defaults = {
 		playerCastbarWidth = 240,
 		playerCastbarHeight = 34,
 		playerAuraSize = 34,
+		playerAuraPerRow = 8,
+		playerAuraGrowth = "LEFT",
+		targetAuraPerRow = 8,
+		showPlayerCastbar = true,
+		showTargetCastbar = true,
+		showFocusCastbar = true,
+		showPartyCastbar = true,
+		showArenaCastbar = true,
 		healthColorMode = "class",
 		textColor = { 1, 1, 1 },
 		backdropColor = { 0, 0, 0, 0.6 },
@@ -86,6 +159,13 @@ ns.Defaults = {
 		focusBorderColor = { 0.3, 0.65, 1 },
 		castbarColor = { 0.75, 0.4, 0 },
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
+		castbarTargetName = true,
+		castbarTargetingYou = true,
+		castbarTargetingYouColor = { 1, 0.2, 0.1 },
+		castbarImportant = true,
+		castbarImportantColor = { 1, 0.85, 0.3 },
+		castbarInterrupter = true,
+		castbarFinishFlash = true,
 		textFont = { size = 10, outline = "OUTLINE" },
 		castbarFont = { size = 12, outline = "OUTLINE" },
 		leftText = "[name]",
@@ -101,14 +181,18 @@ ns.Defaults = {
 		showPvpIcon = true,
 		showRaidIcon = true,
 		showPet = true,
+		showTargetOfTarget = true,
+		showFocusTarget = true,
 		showLoseControl = true,
-		loseControlPoint = { "CENTER", 0, 0 },
-		loseControlSize = 32,
 		rightClick = "menu",
 		hoverHighlight = true,
 		hoverAlpha = 0.08,
 		healthCutaway = true,
 		healthCutawayColor = { 1, 0.9, 0.8, 0.6 },
+		healPrediction = true,
+		healPredictionColor = { 0, 0.85, 0.55, 0.5 },
+		absorbs = true,
+		absorbColor = { 0.7, 0.9, 1, 0.45 },
 		powerRatio = 0.2,
 		gridGap = 6,
 		groupDebuffSize = 32,
@@ -132,9 +216,14 @@ ns.Defaults = {
 		classColorNames = true,
 		filterSystemSpam = true,
 		filterArenaSpam = true,
+		batchBattlegroundJoins = true,
+		scrollToBottomButton = true,
+		whisperSoundThrottle = true,
+		whisperSoundInterval = 60,
 		lockFrames = true,
 		stickyChannels = true,
 		timestampFormat = "%H:%M",
+		timestampColor = { 0.5, 0.5, 0.5 },
 		maxLines = 1000,
 		savedHistoryLines = 100,
 		savedCommands = 50,
@@ -166,6 +255,7 @@ ns.Defaults = {
 		barHeight = 12,
 		castbarHeight = 12,
 		castbarIconSize = 18,
+		totemIcons = true,
 		totemIconSize = 24,
 		raidIconSize = 22,
 		showTargetPercent = true,
@@ -178,15 +268,21 @@ ns.Defaults = {
 		percentFont = { size = 9, outline = "OUTLINE" },
 		castbarColor = { 0.75, 0.4, 0 },
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
+		castbarTargetName = true,
+		castbarTargetingYou = true,
+		castbarImportant = true,
+		castbarInterrupter = true,
+		castbarFinishFlash = true,
+		castbarShield = true,
 		showAuras = true,
 		showAuraTimer = true,
 		showAuraCount = true,
 		ownDebuffs = true,
-		auraSize = 20,
+		auraSize = 30,
 		auraGap = 2,
 		auraRowGap = 3,
 		maxAuraIcons = 6,
-		auraFont = { size = 10, outline = "OUTLINE" },
+		auraFont = { size = 15, outline = "OUTLINE" },
 		showHealers = true,
 		healerIconSize = 16,
 		healerThreshold = 2,
@@ -200,12 +296,16 @@ ns.Defaults = {
 		healthHeight = 14,
 		powerHeight = 6,
 		gap = 0,
+		showPower = true,
 		showText = true,
+		healthText = "percent",
 		font = { size = 10, outline = "OUTLINE" },
 		healthColorMode = "class",
 		healthColor = { 0, 0.8, 0 },
 		alwaysShow = false,
 		fadeTime = 0.5,
+		healPrediction = true,
+		absorbs = true,
 	},
 	shieldIndicator = {
 		enabled = true,
@@ -234,65 +334,66 @@ ns.Defaults = {
 		timerFont = { size = 11, outline = "OUTLINE" },
 	},
 
-	auraTracker = {
+	trackers = {
 		enabled = true,
-		scale = 1,
-		auras = {
-			WARRIOR = {
-				{ spell = 60503, unit = "player", point = { "CENTER", 18, -72 }, size = 36 }, -- Taste for Blood
-				{ spell = 52437, unit = "player", point = { "CENTER", -18, -72 }, size = 36 }, -- Sudden Death
-			},
-			PALADIN = {
-				{ spell = 54149, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- Infusion of Light
-				{ spell = 54153, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Judgements of the Pure
-				{ spell = 53563, unit = "player", isMine = true, point = { "CENTER", -108, 36 }, size = 36 }, -- Beacon of Light
-				{ spell = 53601, unit = "player", isMine = true, point = { "CENTER", -72, 36 }, size = 36 }, -- Sacred Shield
-				{ spell = 58597, unit = "player", point = { "CENTER", 0, -36 }, size = 40 }, -- Sacred Shield proc
-			},
-			PRIEST = {
-				{ spell = 48168, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Inner Fire
-			},
-			DEATHKNIGHT = {
-				{ spell = 55379, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- meta gem haste proc
-				{
-					spell = 55078,
-					unit = "target",
-					debuff = true,
-					isMine = true,
-					point = { "CENTER", -48, -42 },
-					size = 30,
-				}, -- Blood Plague
-				{
-					spell = 55095,
-					unit = "target",
-					debuff = true,
-					isMine = true,
-					point = { "CENTER", -16, -42 },
-					size = 30,
-				}, -- Frost Fever
-				{
-					spell = 51735,
-					unit = "target",
-					debuff = true,
-					isMine = true,
-					point = { "CENTER", 16, -42 },
-					size = 30,
-				}, -- Ebon Plague
-				{
-					spell = 50536,
-					unit = "target",
-					debuff = true,
-					isMine = true,
-					point = { "CENTER", 48, -42 },
-					size = 30,
-				}, -- Unholy Blight
-			},
-			SHAMAN = {
-				{ spell = 57960, unit = "player", point = { "CENTER", 72, 36 }, size = 36 }, -- Water Shield
-				{ spell = 70806, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }, -- 2p T10 resto proc
-				{ spell = 8178, unit = "player", isMine = true, point = { "CENTER", -108, 36 }, size = 36 }, -- Grounding Totem
-			},
+		groups = {
+			trackerGroup("Warrior procs", "WARRIOR", { "CENTER", 0, -72 }, 36, 0, {
+				auraIcon("52437"), -- Sudden Death
+				auraIcon("60503"), -- Taste for Blood
+			}),
+			trackerGroup("Infusion of Light", "PALADIN", { "CENTER", 0, -72 }, 36, 2, {
+				auraIcon("54149"), -- Infusion of Light
+			}),
+			trackerGroup("Judgements of the Pure", "PALADIN", { "CENTER", 72, 36 }, 36, 2, {
+				auraIcon("54153"), -- Judgements of the Pure
+			}),
+			trackerGroup("Beacon / Sacred Shield", "PALADIN", { "CENTER", -90, 36 }, 36, 0, {
+				auraIcon("53563", true), -- Beacon of Light
+				auraIcon("53601", true), -- Sacred Shield
+			}),
+			trackerGroup("Sacred Shield proc", "PALADIN", { "CENTER", 0, -36 }, 40, 2, {
+				auraIcon("58597"), -- Sacred Shield
+			}),
+			trackerGroup("Inner Fire", "PRIEST", { "CENTER", 72, 36 }, 36, 2, {
+				auraIcon("48168"), -- Inner Fire
+			}),
+			trackerGroup("Haste proc", "DEATHKNIGHT", { "CENTER", 0, -72 }, 36, 2, {
+				auraIcon("55379"), -- Skyflare Swiftness
+			}),
+			trackerGroup("Diseases", "DEATHKNIGHT", { "CENTER", 0, -42 }, 30, 2, {
+				auraIcon("55078", true, "target"), -- Blood Plague
+				auraIcon("55095", true, "target"), -- Frost Fever
+				auraIcon("51735", true, "target"), -- Ebon Plague
+				auraIcon("50536", true, "target"), -- Unholy Blight
+			}),
+			trackerGroup("Water Shield", "SHAMAN", { "CENTER", 72, 36 }, 36, 2, {
+				auraIcon("57960"), -- Water Shield
+			}),
+			trackerGroup("Resto proc", "SHAMAN", { "CENTER", 0, -72 }, 36, 2, {
+				auraIcon("70806"), -- Rapid Currents
+			}),
+			trackerGroup("Grounding Totem", "SHAMAN", { "CENTER", -108, 36 }, 36, 2, {
+				auraIcon("8178", true), -- Grounding Totem Effect
+			}),
 		},
+	},
+
+	lossOfControl = {
+		enabled = true,
+		point = { "CENTER", 0, 80 },
+		scale = 1,
+		background = true,
+		lockouts = true,
+		categories = { silence = true, disarm = true, root = true },
+		sound = false,
+	},
+
+	externalDefensives = {
+		enabled = true,
+		point = { "CENTER", 0, -200 },
+		size = 36,
+		gap = 3,
+		maxIcons = 6,
 	},
 
 	temporaryEnchant = {
@@ -300,6 +401,8 @@ ns.Defaults = {
 		point = { "TOPRIGHT", -155, -163 },
 		size = 30,
 		gap = 2,
+		showTimer = true,
+		timerFont = { size = 11, outline = "OUTLINE" },
 	},
 
 	lowHealthFlash = {
@@ -313,6 +416,23 @@ ns.Defaults = {
 		color = { 0.1, 1, 0.2 },
 		intensity = 0.7,
 		pulseSpeed = 1.5,
+	},
+
+	soundAlerts = {
+		enabled = true,
+		throttle = 1.5,
+		targeted = true,
+		targetedArenaOnly = true,
+		targetedText = true,
+		targetedSound = "RaidBossEmoteWarning",
+		interruptible = true,
+		interruptibleFocus = true,
+		interruptibleSound = "TellMessage",
+		dispellable = true,
+		dispellableMinDuration = 3,
+		dispellableSound = "MapPing",
+		interruptSuccess = false,
+		interruptSuccessSound = "LOOTWINDOWCOINSOUND",
 	},
 
 	cursorTrail = {
@@ -349,6 +469,7 @@ ns.Defaults = {
 		enabled = true,
 		sellGreys = true,
 		autoRepair = true,
+		guildRepair = false,
 		shiftToSkip = true,
 	},
 
@@ -369,6 +490,8 @@ ns.Defaults = {
 	tweaks = {
 		enabled = true,
 		hideErrors = true,
+		dedupErrors = true,
+		filterCooldownErrors = true,
 		scriptErrors = true,
 		hideGroundClutter = true,
 		cameraDistanceMax = 50,
@@ -402,6 +525,26 @@ ns.Defaults = {
 
 	arenaTrinket = { enabled = true, size = 30 },
 
+	diminishingReturns = {
+		enabled = true,
+		arena = true,
+		target = false,
+		focus = false,
+		size = 24,
+		spacing = 2,
+		arenaSide = "LEFT",
+		arenaOffsetX = -4,
+		arenaOffsetY = 0,
+		targetSide = "TOP",
+		targetOffsetX = 0,
+		targetOffsetY = 4,
+		halfColor = { 0.2, 1, 0.2 },
+		quarterColor = { 1, 0.65, 0 },
+		immuneColor = { 1, 0.1, 0.1 },
+	},
+
+	arenaUnseen = { enabled = true, alpha = 0.55, prep = true },
+
 	arena = {
 		enabled = true,
 		countdown = true,
@@ -418,6 +561,21 @@ ns.Defaults = {
 	battleground = {
 		enabled = true,
 		raidWarnings = true,
+		closeWarnings = true,
+	},
+
+	matchResults = {
+		enabled = true,
+		replaceScoreboard = true,
+		battlegrounds = true,
+		point = { "TOP", 0, -120 },
+	},
+
+	queueInvite = {
+		enabled = true,
+		countdown = true,
+		font = { size = 20, outline = "OUTLINE" },
+		sound = true,
 	},
 
 	soloQueue = {
@@ -448,6 +606,14 @@ ns.Defaults = {
 		listFont = { size = 12, outline = "" },
 		winColor = { 0.3, 1, 0.3 },
 		lossColor = { 1, 0.3, 0.3 },
+	},
+
+	deathRecap = {
+		enabled = true,
+		point = { "CENTER", 420, 60 },
+		entries = 5,
+		chatLink = true,
+		autoOpen = true,
 	},
 
 	combatAlert = {
@@ -485,7 +651,10 @@ ns.Defaults = {
 		showItemLevel = true,
 		showItemCount = true,
 		showTargetedBy = true,
+		showTarget = true,
 		labelColor = { 0.2, 0.4, 1 },
+		anchorCursor = false,
+		showHealthText = true,
 	},
 
 	minimap = {
@@ -597,15 +766,23 @@ local function assign(node, key, value)
 	end
 end
 
+local function listPathOf(path)
+	return path:match("^(.-)%.%d+%.") or path:match("^(.-)%.%d+$")
+end
+
+local function saveWholeList(listPath)
+	local listNode, listKey = walk(ns.Config, listPath)
+	local store, storeKey = walk(saved, listPath, true)
+	assign(store, storeKey, listNode[listKey])
+end
+
 function ns:SetConfig(path, value)
 	local node, key = walk(ns.Config, path, true)
 	assign(node, key, value)
 
-	local listPath = path:match("^(.-)%.%d+%.") or path:match("^(.-)%.%d+$")
+	local listPath = listPathOf(path)
 	if listPath then
-		local listNode, listKey = walk(ns.Config, listPath)
-		local store, storeKey = walk(saved, listPath, true)
-		assign(store, storeKey, listNode[listKey])
+		saveWholeList(listPath)
 	else
 		local store, storeKey = walk(saved, path, true)
 		assign(store, storeKey, value)
@@ -639,11 +816,9 @@ function ns:ResetConfig(path)
 	local defaults, defaultKey = walk(ns.Defaults, path)
 	assign(node, key, defaults and defaults[defaultKey])
 
-	local listPath = path:match("^(.-)%.%d+%.") or path:match("^(.-)%.%d+$")
+	local listPath = listPathOf(path)
 	if listPath then
-		local listNode, listKey = walk(ns.Config, listPath)
-		local store, storeKey = walk(saved, listPath, true)
-		assign(store, storeKey, listNode[listKey])
+		saveWholeList(listPath)
 	else
 		local store, storeKey = walk(saved, path)
 		if store then
@@ -685,6 +860,17 @@ local function charKey()
 	return UnitName("player") .. " - " .. GetRealmName()
 end
 
+local function rebuildFromSaved()
+	reset(ns.Config, ns.Defaults)
+	merge(ns.Config, saved)
+end
+
+local function replaceSaved(profile)
+	wipe(saved)
+	merge(saved, profile)
+	rebuildFromSaved()
+end
+
 local function activate(name)
 	local profiles = ns.db.profiles
 	profiles[name] = profiles[name] or {}
@@ -692,8 +878,7 @@ local function activate(name)
 	prune(saved, ns.Defaults)
 	activeProfile = name
 	ns.db.charProfile[charKey()] = name
-	reset(ns.Config, ns.Defaults)
-	merge(ns.Config, saved)
+	rebuildFromSaved()
 end
 
 function ns:GetActiveProfile()
@@ -724,10 +909,7 @@ function ns:CopyProfile(source)
 	if not profile or source == activeProfile then
 		return
 	end
-	wipe(saved)
-	merge(saved, profile)
-	reset(ns.Config, ns.Defaults)
-	merge(ns.Config, saved)
+	replaceSaved(profile)
 	ns:Fire(ns.CONFIG_CHANGED)
 end
 
@@ -784,8 +966,8 @@ local function unescape(body)
 				out[#out + 1] = strchar(tonumber(digits))
 				i = i + 1 + #digits
 			else
-				local next = body:sub(i + 1, i + 1)
-				out[#out + 1] = ESCAPES[next] or next
+				local escaped = body:sub(i + 1, i + 1)
+				out[#out + 1] = ESCAPES[escaped] or escaped
 				i = i + 2
 			end
 		else
@@ -875,17 +1057,75 @@ function ns:ImportProfile(text)
 		return false, L["malformed profile string"]
 	end
 	prune(data, ns.Defaults)
-	wipe(saved)
-	merge(saved, data)
-	reset(ns.Config, ns.Defaults)
-	merge(ns.Config, saved)
+	replaceSaved(data)
 	ns:Fire(ns.CONFIG_CHANGED)
 	return true
 end
 
 local HEALTH_COLOR_SECTIONS = { unitFrames = "health", namePlates = "health", playerPlate = "custom" }
 
-local function migrate(profile)
+local function migrateAuraTracker(profile)
+	local old = profile.auraTracker
+	if not old then
+		return
+	end
+	profile.auraTracker = nil
+	local trackers = profile.trackers or {}
+	profile.trackers = trackers
+	if old.enabled == false then
+		trackers.enabled = false
+	end
+	if not old.auras or trackers.groups then
+		return
+	end
+	local groups = {}
+	for _, group in ipairs(ns.Defaults.trackers.groups) do
+		if not old.auras[group.class] then
+			groups[#groups + 1] = copy(group)
+		end
+	end
+	for class, auras in pairs(old.auras) do
+		for _, aura in ipairs(auras) do
+			local spell = tostring(aura.spell)
+			local icon = auraIcon(spell, aura.isMine, aura.unit)
+			icon.debuff = aura.debuff and true or false
+			local group =
+				trackerGroup(GetSpellInfo(aura.spell) or spell, class, aura.point, aura.size or 36, 2, { icon })
+			group.enabled = aura.enabled ~= false
+			groups[#groups + 1] = group
+		end
+	end
+	trackers.groups = groups
+end
+
+local ACTION_BAR_KEYS = { "bar1", "bar2", "bar3", "bar4", "bar5", "stance", "pet" }
+
+local function migrateActionBarGap(profile)
+	local actionBar = profile.actionBar
+	local gap = actionBar and actionBar.gap
+	if gap == nil then
+		return
+	end
+	actionBar.gap = nil
+	for _, key in ipairs(ACTION_BAR_KEYS) do
+		local bar = actionBar[key] or {}
+		actionBar[key] = bar
+		if bar.spacing == nil then
+			bar.spacing = gap
+		end
+	end
+end
+
+local function migrateGroupSpacing(profile)
+	local unitFrames = profile.unitFrames
+	if unitFrames and unitFrames.groupSpacing ~= nil then
+		unitFrames.partySpacing = unitFrames.partySpacing or unitFrames.groupSpacing
+		unitFrames.arenaSpacing = unitFrames.arenaSpacing or unitFrames.groupSpacing
+		unitFrames.groupSpacing = nil
+	end
+end
+
+local function migrateClassColorHealth(profile)
 	for name, fallback in pairs(HEALTH_COLOR_SECTIONS) do
 		local section = profile[name]
 		if section and section.classColorHealth ~= nil then
@@ -893,6 +1133,13 @@ local function migrate(profile)
 			section.classColorHealth = nil
 		end
 	end
+end
+
+local function migrate(profile)
+	migrateAuraTracker(profile)
+	migrateActionBarGap(profile)
+	migrateGroupSpacing(profile)
+	migrateClassColorHealth(profile)
 end
 
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
@@ -910,12 +1157,12 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 	ns:Fire(ns.CONFIG_CHANGED)
 end)
 
-local function matches(path, prefix)
+local function changeAffects(path, prefix)
 	return not path or path == prefix or path:sub(1, #prefix + 1) == prefix .. "."
 end
 
 Config:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
-	if matches(path, "general") then
+	if changeAffects(path, "general") then
 		applyGeneral()
 	end
 end)
@@ -952,7 +1199,7 @@ end
 function ns.ModulePrototype:WatchConfig(prefix, handler, secure)
 	local watcher = { owner = self, handler = handler, secure = secure }
 	self:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
-		if not matches(path, prefix) then
+		if not changeAffects(path, prefix) then
 			return
 		end
 		if watcher.path == nil then

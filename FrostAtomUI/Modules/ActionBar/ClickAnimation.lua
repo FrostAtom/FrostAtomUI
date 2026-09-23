@@ -65,13 +65,6 @@ for i = 1, PREALLOCATED do
 	pool[i] = createAnimationFrame()
 end
 
-ActionBar:RegisterEvent(ns.DB_LOADED, function(_, db)
-	if db.video_record ~= nil then
-		ns:SetConfig("actionBar.clickAnimation", not db.video_record)
-		db.video_record = nil
-	end
-end)
-
 SlashCmdList.FROSTATOMUI_VIDEORECORD = function()
 	local enabled = not config.clickAnimation
 	ns:SetConfig("actionBar.clickAnimation", enabled)

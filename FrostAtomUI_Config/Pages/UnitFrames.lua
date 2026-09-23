@@ -2,6 +2,8 @@ local _, ns = ...
 
 local L = FrostAtomUI.L
 
+local Requires = ns.Requires
+
 local function size(path, label, min, max, desc, enabledBy)
 	return {
 		path = path,
@@ -38,6 +40,356 @@ local RIGHT_CLICK_VALUES = {
 	{ "none", L["Nothing"] },
 }
 
+local VERTICAL_GROWTH_VALUES = {
+	{ "DOWN", L["Down"] },
+	{ "UP", L["Up"] },
+}
+
+local HORIZONTAL_GROWTH_VALUES = {
+	{ "LEFT", L["To the left"] },
+	{ "RIGHT", L["To the right"] },
+}
+
+local function testFramesButton()
+	return {
+		label = L["Test frames"],
+		type = "execute",
+		text = L["Toggle"],
+		desc = L["Show every frame with fake units to preview the layout."],
+		func = function()
+			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
+		end,
+	}
+end
+
+local function testCooldownsButton()
+	return {
+		label = L["Test cooldowns"],
+		type = "execute",
+		text = L["Toggle"],
+		desc = L["Start fake cooldowns on party and arena frames to preview the layout."],
+		func = function()
+			SlashCmdList.FROSTATOMUI_COOLDOWN_TEST()
+		end,
+	}
+end
+
+local function mainFrameSize()
+	return {
+		{ header = L["Size"] },
+		size("unitFrames.playerWidth", L["Player / target width"], 120, 320, L["Also focus."]),
+		size(
+			"unitFrames.playerHeight",
+			L["Player / target height"],
+			30,
+			80,
+			L["Also focus, pet and target of target."]
+		),
+	}
+end
+
+local function targetAurasPerRow()
+	return {
+		path = "unitFrames.targetAuraPerRow",
+		new = "1.4.0",
+		label = L["Auras per row"],
+		type = "number",
+		min = 4,
+		max = 12,
+		step = 1,
+		desc = L["Buffs and debuffs under the target and focus frames, up to two rows each. More per row means smaller icons."],
+	}
+end
+
+local function castbarToggle(path)
+	return { path = path, new = "1.4.0", label = L["Show castbar"], type = "toggle" }
+end
+
+local function groupDebuffEntries()
+	return {
+		size(
+			"unitFrames.groupDebuffSize",
+			L["Party / arena debuff size"],
+			16,
+			60,
+			L["Rounded so a whole number of icons fits the frame width."]
+		),
+		size(
+			"unitFrames.groupDebuffMax",
+			L["Party / arena debuff limit"],
+			1,
+			40,
+			L["Most debuffs shown per frame; the rest are dropped."]
+		),
+		size(
+			"unitFrames.gridGap",
+			L["Party / arena icon gap"],
+			0,
+			20,
+			L["Space between the frame, its debuffs, buffs and cooldown icons."]
+		),
+	}
+end
+
+local function groupLayout(prefix, spacingPath, growthPath)
+	return {
+		{ header = L["Layout"] },
+		size("unitFrames." .. prefix .. "Width", L["Width"], 120, 320),
+		size("unitFrames." .. prefix .. "Height", L["Height"], 30, 80),
+		size(spacingPath, L["Spacing"], 40, 300, L["Vertical distance between the tops of consecutive frames."]),
+		{
+			path = growthPath,
+			new = "1.4.0",
+			label = L["Growth direction"],
+			type = "select",
+			values = VERTICAL_GROWTH_VALUES,
+		},
+	}
+end
+
+local function concat(...)
+	local list = {}
+	for i = 1, select("#", ...) do
+		for _, entry in ipairs((select(i, ...))) do
+			list[#list + 1] = entry
+		end
+	end
+	return list
+end
+
+ns.RegisterElement({
+	path = "unitFrames.player",
+	page = "unitframes",
+	name = L["Player"],
+	enabledBy = "unitFrames.enabled",
+	schema = concat(mainFrameSize(), {
+		{ header = L["Indicators"] },
+		{ path = "unitFrames.showRestingIcon", label = L["Resting icon"], type = "toggle" },
+	}),
+})
+
+ns.RegisterElement({
+	path = "unitFrames.target",
+	page = "unitframes",
+	name = L["Target"],
+	enabledBy = "unitFrames.enabled",
+	schema = concat(mainFrameSize(), {
+		targetAurasPerRow(),
+		{ header = L["Castbar"] },
+		castbarToggle("unitFrames.showTargetCastbar"),
+		{ header = L["Combo points"] },
+		size("unitFrames.comboPointSize", L["Combo point size"], 4, 20, L["Dots above the target frame."]),
+		{ path = "unitFrames.comboPointColor", label = L["Combo points (full)"], type = "color" },
+		{ path = "unitFrames.comboPointPartialColor", label = L["Combo points"], type = "color" },
+	}),
+})
+
+ns.RegisterElement({
+	path = "unitFrames.focus",
+	page = "unitframes",
+	name = L["Focus"],
+	enabledBy = "unitFrames.enabled",
+	schema = concat(mainFrameSize(), {
+		targetAurasPerRow(),
+		{ header = L["Castbar"] },
+		castbarToggle("unitFrames.showFocusCastbar"),
+	}),
+})
+
+ns.RegisterElement({
+	path = "unitFrames.pet",
+	page = "unitframes",
+	name = L["Pet"],
+	enabledBy = { "unitFrames.enabled", "unitFrames.showPet" },
+	schema = {
+		{
+			path = "unitFrames.showPet",
+			label = L["Show pet frames"],
+			type = "toggle",
+			desc = L["Square pet frames next to the player, party and arena frames."],
+		},
+	},
+})
+
+ns.RegisterElement({
+	path = "unitFrames.targetOfTarget",
+	page = "unitframes",
+	name = L["Target of target"],
+	enabledBy = { "unitFrames.enabled", "unitFrames.showTargetOfTarget" },
+	schema = {
+		{ path = "unitFrames.showTargetOfTarget", new = "1.4.0", label = L["Show target of target"], type = "toggle" },
+	},
+})
+
+ns.RegisterElement({
+	path = "unitFrames.focusTarget",
+	page = "unitframes",
+	name = L["Target of focus"],
+	enabledBy = { "unitFrames.enabled", "unitFrames.showFocusTarget" },
+	schema = {
+		{ path = "unitFrames.showFocusTarget", new = "1.4.0", label = L["Show target of focus"], type = "toggle" },
+	},
+})
+
+ns.RegisterElement({
+	path = "unitFrames.playerCastbar",
+	page = "unitframes",
+	name = L["Player castbar"],
+	enabledBy = "unitFrames.enabled",
+	schema = {
+		castbarToggle("unitFrames.showPlayerCastbar"),
+		{ header = L["Size"] },
+		size("unitFrames.playerCastbarWidth", L["Width"], 100, 500, nil, "unitFrames.showPlayerCastbar"),
+		size("unitFrames.playerCastbarHeight", L["Height"], 10, 50, nil, "unitFrames.showPlayerCastbar"),
+	},
+})
+
+ns.RegisterElement({
+	path = "unitFrames.playerAuras",
+	page = "unitframes",
+	name = L["Player buffs / debuffs"],
+	enabledBy = "unitFrames.enabled",
+	schema = {
+		{ header = L["Layout"] },
+		size("unitFrames.playerAuraSize", L["Icon size"], 16, 60),
+		{
+			path = "unitFrames.playerAuraPerRow",
+			new = "1.4.0",
+			label = L["Icons per row"],
+			type = "number",
+			min = 4,
+			max = 20,
+			step = 1,
+		},
+		{
+			path = "unitFrames.playerAuraGrowth",
+			new = "1.4.0",
+			label = L["Growth direction"],
+			type = "select",
+			values = HORIZONTAL_GROWTH_VALUES,
+			desc = L["Debuffs go below the buffs."],
+		},
+	},
+})
+
+ns.RegisterElement({
+	path = "unitFrames.party",
+	page = "unitframes",
+	name = L["Party"],
+	enabledBy = { "unitFrames.enabled", "unitFrames.showParty" },
+	schema = Requires(
+		"unitFrames.showParty",
+		concat(
+			groupLayout("party", "unitFrames.partySpacing", "unitFrames.partyGrowth"),
+			{
+				{ header = L["Auras"] },
+			},
+			groupDebuffEntries(),
+			{
+				size(
+					"unitFrames.partyBuffSize",
+					L["Party buff size"],
+					10,
+					40,
+					L["Rounded so a whole number of icons fits the frame width."]
+				),
+				size(
+					"unitFrames.partyBuffMax",
+					L["Party buff limit"],
+					1,
+					40,
+					L["Most buffs shown per party frame; the rest are dropped."]
+				),
+				{ header = L["Cooldowns"] },
+				{
+					path = "unitFrames.showPartyCooldowns",
+					label = L["Show party cooldowns"],
+					type = "toggle",
+					desc = L["Tracked cooldown icons to the right of party debuffs."],
+				},
+				size(
+					"unitFrames.partyCooldownSize",
+					L["Party cooldown size"],
+					12,
+					48,
+					nil,
+					"unitFrames.showPartyCooldowns"
+				),
+				{ header = L["Castbar"] },
+				castbarToggle("unitFrames.showPartyCastbar"),
+				{ header = L["Test"] },
+				testFramesButton(),
+				testCooldownsButton(),
+			}
+		)
+	),
+})
+
+ns.RegisterElement({
+	path = "unitFrames.arena",
+	page = "unitframes",
+	name = L["Arena"],
+	enabledBy = { "unitFrames.enabled", "unitFrames.showArena" },
+	schema = Requires(
+		"unitFrames.showArena",
+		concat(
+			groupLayout("arena", "unitFrames.arenaSpacing", "unitFrames.arenaGrowth"),
+			{
+				{ header = L["Auras"] },
+			},
+			groupDebuffEntries(),
+			{
+				{ header = L["Cooldowns"] },
+				{
+					path = "unitFrames.showArenaCooldowns",
+					label = L["Show arena cooldowns"],
+					type = "toggle",
+					desc = L["Tracked cooldown icons to the left of arena debuffs."],
+				},
+				size(
+					"unitFrames.arenaCooldownSize",
+					L["Arena cooldown size"],
+					12,
+					48,
+					nil,
+					"unitFrames.showArenaCooldowns"
+				),
+				{
+					path = "arenaTrinket.enabled",
+					label = L["Show arena trinkets"],
+					type = "toggle",
+					desc = L["PvP trinket cooldown icon next to each arena frame."],
+				},
+				size("arenaTrinket.size", L["Arena trinket size"], 16, 60, nil, "arenaTrinket.enabled"),
+				{ header = L["Castbar"] },
+				castbarToggle("unitFrames.showArenaCastbar"),
+				{ header = L["Test"] },
+				testFramesButton(),
+				testCooldownsButton(),
+			}
+		)
+	),
+})
+
+ns.RegisterElement({
+	path = "unitFrames.boss",
+	page = "unitframes",
+	name = L["Boss"],
+	enabledBy = { "unitFrames.enabled", "unitFrames.showBoss" },
+	schema = Requires("unitFrames.showBoss", {
+		{ header = L["Layout"] },
+		size("unitFrames.bossWidth", L["Width"], 120, 320),
+		size("unitFrames.bossHeight", L["Height"], 30, 80),
+		size(
+			"unitFrames.bossSpacing",
+			L["Spacing"],
+			40,
+			200,
+			L["Vertical distance between the tops of consecutive boss frames."]
+		),
+	}),
+})
+
 ns.RegisterPage({
 	key = "unitframes",
 	name = L["Unit frames"],
@@ -60,20 +412,8 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Square pet frames next to the player, party and arena frames."],
 		},
-		{
-			path = "unitFrames.showPartyCooldowns",
-			label = L["Show party cooldowns"],
-			type = "toggle",
-			enabledBy = "unitFrames.showParty",
-			desc = L["Tracked cooldown icons to the right of party debuffs."],
-		},
-		{
-			path = "unitFrames.showArenaCooldowns",
-			label = L["Show arena cooldowns"],
-			type = "toggle",
-			enabledBy = "unitFrames.showArena",
-			desc = L["Tracked cooldown icons to the left of arena debuffs."],
-		},
+		{ path = "unitFrames.showTargetOfTarget", new = "1.4.0", label = L["Show target of target"], type = "toggle" },
+		{ path = "unitFrames.showFocusTarget", new = "1.4.0", label = L["Show target of focus"], type = "toggle" },
 		{
 			path = "unitFrames.rightClick",
 			label = L["Right click"],
@@ -96,6 +436,17 @@ ns.RegisterPage({
 			step = 0.02,
 			enabledBy = "unitFrames.hoverHighlight",
 		},
+		testFramesButton(),
+		{ header = L["Frames"] },
+		{ type = "elements" },
+		{ header = L["Health bar"] },
+		{
+			path = "unitFrames.healthColorMode",
+			label = L["Health bar color"],
+			type = "select",
+			values = HEALTH_COLOR_VALUES,
+			desc = L["Class color for players (everything else keeps the health gradient), or a color mixed from the current health percent for every unit."],
+		},
 		{
 			path = "unitFrames.healthCutaway",
 			label = L["Health loss flash"],
@@ -103,23 +454,72 @@ ns.RegisterPage({
 			desc = L["Fading strip over the part of the health bar that was just lost."],
 		},
 		{
-			label = L["Test frames"],
-			type = "execute",
-			text = L["Toggle"],
-			desc = L["Show every frame with fake units to preview the layout."],
-			func = function()
-				SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
-			end,
+			path = "unitFrames.healPrediction",
+			new = "1.4.0",
+			label = L["Incoming heals"],
+			type = "toggle",
+			desc = L["Segment after the health fill for heals being cast on the unit. Tracks your own casts and those of party members and arena opponents; amounts are learned from their landed heals."],
 		},
 		{
-			label = L["Test cooldowns"],
-			type = "execute",
-			text = L["Toggle"],
-			desc = L["Start fake cooldowns on party and arena frames to preview the layout."],
-			func = function()
-				SlashCmdList.FROSTATOMUI_COOLDOWN_TEST()
-			end,
+			path = "unitFrames.absorbs",
+			new = "1.4.0",
+			label = L["Absorb shields"],
+			type = "toggle",
+			desc = L["Estimated remaining absorb from known shields (Power Word: Shield, Ice Barrier, Sacred Shield and others), reduced by the damage they absorb. A glow at the bar edge marks a shield that is up but larger than the missing health or of unknown size."],
 		},
+		{
+			path = "unitFrames.powerRatio",
+			label = L["Power bar height"],
+			type = "number",
+			min = 0.1,
+			max = 0.5,
+			step = 0.05,
+			desc = L["Fraction of the frame height taken by the power bar."],
+		},
+		{ header = L["Arena"] },
+		{
+			path = "arenaUnseen.enabled",
+			new = "1.4.0",
+			label = L["Keep unseen arena opponents"],
+			type = "toggle",
+			enabledBy = "unitFrames.showArena",
+			desc = L["Keep the arena frame of a stealthed or out-of-sight opponent, faded with greyed bars frozen at the last known values and a stealth icon next to it."],
+		},
+		{
+			path = "arenaUnseen.alpha",
+			new = "1.4.0",
+			label = L["Unseen opponent alpha"],
+			type = "number",
+			min = 0.1,
+			max = 1,
+			step = 0.05,
+			enabledBy = { "unitFrames.showArena", "arenaUnseen.enabled" },
+		},
+		{
+			path = "arenaUnseen.prep",
+			new = "1.4.0",
+			label = L["Arena preparation frames"],
+			type = "toggle",
+			enabledBy = "unitFrames.showArena",
+			desc = L["Placeholder frames for the expected opponents before the gates open, filled with class, spec and name as soon as an opponent is seen."],
+		},
+		{ header = L["Cooldowns"] },
+		{
+			path = "unitFrames.cooldownReadyFlash",
+			new = "1.4.0",
+			label = L["Cooldown ready flash"],
+			type = "toggle",
+			enabledByAny = { "unitFrames.showPartyCooldowns", "unitFrames.showArenaCooldowns" },
+			desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
+		},
+		{
+			path = "unitFrames.cooldownGlowColor",
+			label = L["Cooldown glow"],
+			type = "color",
+			enabledByAny = { "unitFrames.showPartyCooldowns", "unitFrames.showArenaCooldowns" },
+			desc = L["Glow around a cooldown icon while the spell's effect is still active."],
+		},
+		testCooldownsButton(),
 		{ header = L["Indicators"] },
 		{
 			path = "unitFrames.showClassIcon",
@@ -135,12 +535,6 @@ ns.RegisterPage({
 		},
 		{ path = "unitFrames.showCombatIcon", label = L["Combat icon"], type = "toggle" },
 		{
-			path = "unitFrames.showRestingIcon",
-			label = L["Resting icon"],
-			type = "toggle",
-			desc = L["Player frame only."],
-		},
-		{
 			path = "unitFrames.showPvpIcon",
 			label = L["PvP flag icon"],
 			type = "toggle",
@@ -152,222 +546,43 @@ ns.RegisterPage({
 			path = "unitFrames.showLoseControl",
 			label = L["Crowd control icon"],
 			type = "toggle",
-			desc = L["Icon and timer of the longest crowd control effect over the class icon; a separate large icon for the player."],
+			desc = L["Icon and timer of the longest crowd control effect over the class icon of target, focus, party and arena frames."],
 		},
+		{ header = L["Castbar"] },
 		{
-			path = "unitFrames.loseControlPoint",
-			label = L["Player crowd control position"],
-			type = "point",
-			enabledBy = "unitFrames.showLoseControl",
-		},
-		size("unitFrames.loseControlSize", L["Player crowd control size"], 20, 100, nil, "unitFrames.showLoseControl"),
-		{ header = L["Positions"] },
-		{ path = "unitFrames.player", label = L["Player"], type = "point" },
-		{ path = "unitFrames.target", label = L["Target"], type = "point" },
-		{ path = "unitFrames.focus", label = L["Focus"], type = "point" },
-		{
-			path = "unitFrames.pet",
-			label = L["Pet"],
-			type = "point",
-			enabledBy = "unitFrames.showPet",
-			desc = L["Attached to the player frame by default."],
-		},
-		{
-			path = "unitFrames.targetOfTarget",
-			label = L["Target of target"],
-			type = "point",
-			desc = L["Attached to the target frame by default."],
-		},
-		{
-			path = "unitFrames.focusTarget",
-			label = L["Target of focus"],
-			type = "point",
-			desc = L["Attached to the focus frame by default."],
-		},
-		{
-			path = "unitFrames.playerCastbar",
-			label = L["Player castbar"],
-			type = "point",
-			desc = L["Relative to the bottom of the player plate."],
-		},
-		{
-			path = "unitFrames.playerAuras",
-			label = L["Player buffs / debuffs"],
-			type = "point",
-			desc = L["Buffs grow to the left from this point, debuffs go below the buffs."],
-		},
-		{ path = "unitFrames.party", label = L["Party"], type = "point", enabledBy = "unitFrames.showParty" },
-		{ path = "unitFrames.arena", label = L["Arena"], type = "point", enabledBy = "unitFrames.showArena" },
-		{
-			path = "unitFrames.groupSpacing",
-			label = L["Party / arena spacing"],
-			type = "number",
-			min = 40,
-			max = 300,
-			step = 1,
-			desc = L["Vertical distance between the tops of consecutive party or arena frames."],
-		},
-		{ path = "unitFrames.boss", label = L["Boss"], type = "point", enabledBy = "unitFrames.showBoss" },
-		{
-			path = "unitFrames.bossSpacing",
-			label = L["Boss spacing"],
-			type = "number",
-			min = 40,
-			max = 200,
-			step = 1,
-			desc = L["Vertical distance between the tops of consecutive boss frames."],
-			enabledBy = "unitFrames.showBoss",
-		},
-		{ header = L["Frame sizes"] },
-		size("unitFrames.playerWidth", L["Player / target width"], 120, 320, L["Also focus."]),
-		size(
-			"unitFrames.playerHeight",
-			L["Player / target height"],
-			30,
-			80,
-			L["Also focus, pet and target of target."]
-		),
-		size("unitFrames.partyWidth", L["Party width"], 120, 320, nil, "unitFrames.showParty"),
-		size("unitFrames.partyHeight", L["Party height"], 30, 80, nil, "unitFrames.showParty"),
-		size("unitFrames.arenaWidth", L["Arena width"], 120, 320, nil, "unitFrames.showArena"),
-		size("unitFrames.arenaHeight", L["Arena height"], 30, 80, nil, "unitFrames.showArena"),
-		size("unitFrames.bossWidth", L["Boss width"], 120, 320, nil, "unitFrames.showBoss"),
-		size("unitFrames.bossHeight", L["Boss height"], 30, 80, nil, "unitFrames.showBoss"),
-		{
-			path = "unitFrames.powerRatio",
-			label = L["Power bar height"],
-			type = "number",
-			min = 0.1,
-			max = 0.5,
-			step = 0.05,
-			desc = L["Fraction of the frame height taken by the power bar."],
-		},
-		{ header = L["Element sizes"] },
-		{
-			path = "unitFrames.playerCastbarWidth",
-			label = L["Player castbar width"],
-			type = "number",
-			min = 100,
-			max = 500,
-			step = 1,
-		},
-		{
-			path = "unitFrames.playerCastbarHeight",
-			label = L["Player castbar height"],
-			type = "number",
-			min = 10,
-			max = 50,
-			step = 1,
-		},
-		{
-			path = "unitFrames.playerAuraSize",
-			label = L["Player aura size"],
-			type = "number",
-			min = 16,
-			max = 60,
-			step = 1,
-		},
-		size("unitFrames.comboPointSize", L["Combo point size"], 4, 20, L["Dots above the target frame."]),
-		size(
-			"unitFrames.groupDebuffSize",
-			L["Party / arena debuff size"],
-			16,
-			60,
-			L["Rounded so a whole number of icons fits the frame width."]
-		),
-		size(
-			"unitFrames.groupDebuffMax",
-			L["Party / arena debuff limit"],
-			1,
-			40,
-			L["Most debuffs shown per frame; the rest are dropped."]
-		),
-		size(
-			"unitFrames.partyBuffSize",
-			L["Party buff size"],
-			10,
-			40,
-			L["Rounded so a whole number of icons fits the frame width."],
-			"unitFrames.showParty"
-		),
-		size(
-			"unitFrames.partyBuffMax",
-			L["Party buff limit"],
-			1,
-			40,
-			L["Most buffs shown per party frame; the rest are dropped."],
-			"unitFrames.showParty"
-		),
-		size(
-			"unitFrames.gridGap",
-			L["Party / arena icon gap"],
-			0,
-			20,
-			L["Space between the frame, its debuffs, buffs and cooldown icons."]
-		),
-		{
-			path = "unitFrames.partyCooldownSize",
-			label = L["Party cooldown size"],
-			type = "number",
-			min = 12,
-			max = 48,
-			step = 1,
-			enabledBy = "unitFrames.showPartyCooldowns",
-		},
-		{
-			path = "unitFrames.arenaCooldownSize",
-			label = L["Arena cooldown size"],
-			type = "number",
-			min = 12,
-			max = 48,
-			step = 1,
-			enabledBy = "unitFrames.showArenaCooldowns",
-		},
-		{
-			path = "arenaTrinket.enabled",
-			label = L["Show arena trinkets"],
+			path = "unitFrames.castbarTargetName",
+			new = "1.4.0",
+			label = L["Show cast target"],
 			type = "toggle",
-			enabledBy = "unitFrames.showArena",
-			desc = L["PvP trinket cooldown icon next to each arena frame."],
+			desc = L["Class-colored name of the caster's target on the right of the castbar."],
 		},
 		{
-			path = "arenaTrinket.size",
-			label = L["Arena trinket size"],
-			type = "number",
-			min = 16,
-			max = 60,
-			step = 1,
-			enabledBy = { "unitFrames.showArena", "arenaTrinket.enabled" },
+			path = "unitFrames.castbarTargetingYou",
+			new = "1.4.0",
+			label = L["Highlight casts on you"],
+			type = "toggle",
+			desc = L["Colored castbar border while an enemy casts at you."],
 		},
-		{ header = L["Colors"] },
 		{
-			path = "unitFrames.healthColorMode",
-			label = L["Health bar color"],
-			type = "select",
-			values = HEALTH_COLOR_VALUES,
-			desc = L["Class color for players (everything else keeps the health gradient), or a color mixed from the current health percent for every unit."],
+			path = "unitFrames.castbarImportant",
+			new = "1.4.0",
+			label = L["Pulse important casts"],
+			type = "toggle",
+			desc = L["Pulsing glow around the castbar for crowd control and heals."],
 		},
-		{ path = "unitFrames.textColor", label = L["Text"], type = "color" },
-		{ path = "unitFrames.backdropColor", label = L["Backdrop"], type = "color", alpha = true },
-		{ path = "unitFrames.borderColor", label = L["Border"], type = "color" },
-		{ path = "unitFrames.targetBorderColor", label = L["Border (target)"], type = "color" },
-		{ path = "unitFrames.focusBorderColor", label = L["Border (focus)"], type = "color" },
-		{ path = "unitFrames.castbarColor", label = L["Castbar"], type = "color" },
-		{ path = "unitFrames.castbarLockedColor", label = L["Castbar (not interruptible)"], type = "color" },
 		{
-			path = "unitFrames.healthCutawayColor",
-			label = L["Health loss flash"],
-			type = "color",
-			alpha = true,
-			enabledBy = "unitFrames.healthCutaway",
+			path = "unitFrames.castbarInterrupter",
+			new = "1.4.0",
+			label = L["Show who interrupted"],
+			type = "toggle",
+			desc = L["Keep an interrupted castbar red for a second with the interrupter's name."],
 		},
-		{ path = "unitFrames.comboPointColor", label = L["Combo points (full)"], type = "color" },
-		{ path = "unitFrames.comboPointPartialColor", label = L["Combo points"], type = "color" },
 		{
-			path = "unitFrames.cooldownGlowColor",
-			label = L["Cooldown glow"],
-			type = "color",
-			desc = L["Glow around a cooldown icon while the spell's effect is still active."],
+			path = "unitFrames.castbarFinishFlash",
+			new = "1.4.0",
+			label = L["Flash on finished cast"],
+			type = "toggle",
+			desc = L["Short white flash when a cast completes."],
 		},
 		{ header = L["Text"] },
 		{ description = TAGS_DESC },
@@ -384,6 +599,63 @@ ns.RegisterPage({
 		text("unitFrames.rightTextHover", L["Right text (mouseover)"], L["Empty to keep the right text on mouseover."]),
 		text("unitFrames.powerText", L["Power text"], L["Right side of the power bar."]),
 		text("unitFrames.powerTextHover", L["Power text (mouseover)"], L["Empty to keep the power text on mouseover."]),
+		{ header = L["Colors"] },
+		{ path = "unitFrames.textColor", label = L["Text"], type = "color" },
+		{ path = "unitFrames.backdropColor", label = L["Backdrop"], type = "color", alpha = true },
+		{ path = "unitFrames.borderColor", label = L["Border"], type = "color" },
+		{
+			path = "unitFrames.targetBorderColor",
+			label = L["Border (target)"],
+			type = "color",
+			desc = L["Border of the party or arena frame of your current target."],
+		},
+		{
+			path = "unitFrames.focusBorderColor",
+			label = L["Border (focus)"],
+			type = "color",
+			desc = L["Border of the party or arena frame of your current focus."],
+		},
+		{ path = "unitFrames.castbarColor", label = L["Castbar"], type = "color" },
+		{ path = "unitFrames.castbarLockedColor", label = L["Castbar (not interruptible)"], type = "color" },
+		{
+			path = "unitFrames.castbarTargetingYouColor",
+			new = "1.4.0",
+			label = L["Castbar border (targeting you)"],
+			type = "color",
+			enabledBy = "unitFrames.castbarTargetingYou",
+			desc = L["Also used by nameplates."],
+		},
+		{
+			path = "unitFrames.castbarImportantColor",
+			new = "1.4.0",
+			label = L["Castbar glow (important cast)"],
+			type = "color",
+			enabledBy = "unitFrames.castbarImportant",
+			desc = L["Also used by nameplates."],
+		},
+		{
+			path = "unitFrames.healthCutawayColor",
+			label = L["Health loss flash"],
+			type = "color",
+			alpha = true,
+			enabledBy = "unitFrames.healthCutaway",
+		},
+		{
+			path = "unitFrames.healPredictionColor",
+			new = "1.4.0",
+			label = L["Incoming heals"],
+			type = "color",
+			alpha = true,
+			enabledByAny = { "unitFrames.healPrediction", "playerPlate.healPrediction" },
+		},
+		{
+			path = "unitFrames.absorbColor",
+			new = "1.4.0",
+			label = L["Absorb shields"],
+			type = "color",
+			alpha = true,
+			enabledByAny = { "unitFrames.absorbs", "playerPlate.absorbs" },
+		},
 		{ header = L["Visibility"] },
 		{
 			path = "unitFrames.outOfRangeAlpha",

@@ -10,11 +10,14 @@ local UnitIsPlayer = UnitIsPlayer
 local UnitClass = UnitClass
 
 local HealthColor = ns.HealthColor
+local Prediction = ns.HealPrediction
+local setColor = UF.SetBarColor
 local classColors = UF.classBarColors
 local config = ns.Config.unitFrames
 
+local BG_DIM = UF.BAR_BACKGROUND_DIM
 local DEAD_R, DEAD_G, DEAD_B = HealthColor(0)
-local DEAD_BG_R, DEAD_BG_G, DEAD_BG_B = DEAD_R * 0.3, DEAD_G * 0.3, DEAD_B * 0.3
+local DEAD_BG_R, DEAD_BG_G, DEAD_BG_B = DEAD_R * BG_DIM, DEAD_G * BG_DIM, DEAD_B * BG_DIM
 
 local CUTAWAY_FADE_SPEED = 2.5
 
@@ -32,18 +35,18 @@ local function showCutaway(health, from, to, max)
 	cutaway:Show()
 end
 
-local function setColor(health, r, g, b)
-	health:SetStatusBarColor(r, g, b)
-	health.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
-end
-
-local function setDead(health, setValue)
+local function setEmpty(health, setValue, text, ...)
 	health:SetMinMaxValues(0, 1)
 	setValue(health, 0)
 	health.colorClass = nil
-	health.bg:SetVertexColor(DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
-	health.text:SetText(L["RIP"])
+	health.bg:SetVertexColor(...)
+	health.text:SetText(text)
 	health.lastCurrent = nil
+	Prediction.SetValues(health, 0, 0, false)
+end
+
+local function setDead(health, setValue)
+	setEmpty(health, setValue, L["RIP"], DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
 end
 
 local function setAlive(health, setValue, current, max, class)
@@ -67,11 +70,11 @@ local function setAlive(health, setValue, current, max, class)
 	end
 	local frame = health:GetParent()
 	UF.UpdateText(frame, health.text, "right")
-	if frame.name and UF.TagsUse(UF.TextTemplate(frame, frame.name, "left"), "health") then
-		UF.UpdateText(frame, frame.name, "left")
+	if frame.name then
+		UF.UpdateTextIfUses(frame, frame.name, "left", "health")
 	end
-	if frame.power and UF.TagsUse(UF.TextTemplate(frame, frame.power.text, "power"), "health") then
-		UF.UpdateText(frame, frame.power.text, "power")
+	if frame.power then
+		UF.UpdateTextIfUses(frame, frame.power.text, "power", "health")
 	end
 end
 
@@ -90,17 +93,25 @@ local function update(frame)
 	end
 
 	if not UnitIsConnected(unit) then
-		health:SetMinMaxValues(0, 1)
-		setValue(health, 0)
-		health.colorClass = nil
-		health.bg:SetVertexColor(frame:GetBackdropColor())
-		health.text:SetText(L["offline"])
-		health.lastCurrent = nil
+		setEmpty(health, setValue, L["offline"], frame:GetBackdropColor())
 	elseif UnitIsDeadOrGhost(unit) then
 		setDead(health, setValue)
 	else
 		local _, class = UnitClass(unit)
 		setAlive(health, setValue, UnitHealth(unit), UnitHealthMax(unit), UnitIsPlayer(unit) and class)
+		Prediction.Refresh(health, guid, unit, config.healPrediction, config.absorbs)
+	end
+end
+
+local function onPredictionChanged(frame, guid)
+	local health = frame.health
+	if
+		guid == health.guid
+		and frame:IsShown()
+		and UnitIsConnected(frame.unit)
+		and not UnitIsDeadOrGhost(frame.unit)
+	then
+		Prediction.Refresh(health, guid, frame.unit, config.healPrediction, config.absorbs)
 	end
 end
 
@@ -113,6 +124,8 @@ local function test(frame)
 		setDead(health, health.SnapValue)
 	else
 		setAlive(health, health.SnapValue, data.health, data.healthMax, data.class)
+		local absorb = config.absorbs and data.absorb or 0
+		Prediction.SetValues(health, config.healPrediction and data.incoming or 0, absorb, absorb > 0)
 	end
 end
 
@@ -122,6 +135,7 @@ local function onUpdate(health, elapsed)
 		health.lastValue = current
 		update(health:GetParent())
 	end
+	Prediction.Follow(health)
 
 	local cutaway = health.cutaway
 	if cutaway:IsShown() then
@@ -149,12 +163,15 @@ local function create(frame)
 	health.cutaway:SetTexture(ns.Media.blank)
 	health.cutaway:Hide()
 
+	Prediction.CreateBars(health)
+
 	health.text = health:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(health.text, config.textFont.size, config.textFont.outline)
 	health.text:SetTextColor(unpack(UF.textColor))
 
 	health:SetScript("OnUpdate", onUpdate)
 	frame:RegisterUnitEvent("UNIT_MAXHEALTH", update)
+	frame:RegisterEvent(Prediction.CHANGED, onPredictionChanged)
 
 	return health
 end

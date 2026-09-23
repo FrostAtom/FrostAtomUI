@@ -1,9 +1,11 @@
 local _, ns = ...
 
-local L = FrostAtomUI.L
-
 local ui = FrostAtomUI
+local L = ui.L
+
 local Section = ns.Section
+local ElementSchema = ns.ElementSchema
+local NotClass = ns.NotClass
 
 local HEALTH_COLOR_VALUES = {
 	{ "class", L["Class color"] },
@@ -11,11 +13,15 @@ local HEALTH_COLOR_VALUES = {
 	{ "custom", L["Fixed color"] },
 }
 
-local function notClass(class)
-	return ui.PLAYER_CLASS ~= class
-end
+local HEALTH_TEXT_VALUES = {
+	{ "percent", L["Percent"] },
+	{ "value", L["Current health"] },
+}
 
-local schema = {}
+local schema = {
+	{ header = L["Frames"] },
+	{ type = "elements" },
+}
 
 Section(schema, L["Player plate"], "playerPlate", {
 	{
@@ -42,34 +48,6 @@ Section(schema, L["Player plate"], "playerPlate", {
 			return ui:GetConfig("playerPlate.alwaysShow")
 		end,
 	},
-	{ path = "point", label = L["Position"], type = "point" },
-	{ path = "width", label = L["Width"], type = "number", min = 60, max = 400, step = 1 },
-	{ path = "healthHeight", label = L["Health bar height"], type = "number", min = 3, max = 40, step = 1 },
-	{ path = "powerHeight", label = L["Power bar height"], type = "number", min = 2, max = 40, step = 1 },
-	{ path = "gap", label = L["Bar spacing"], type = "number", min = 0, max = 20, step = 1 },
-	{
-		path = "showText",
-		label = L["Show values"],
-		type = "toggle",
-		desc = L["Current health and power numbers on the bars."],
-	},
-	{ path = "font", label = L["Font"], type = "font" },
-	{
-		path = "healthColorMode",
-		label = L["Health bar color"],
-		type = "select",
-		values = HEALTH_COLOR_VALUES,
-		desc = L["Your class color, a color mixed from the current health percent, or a fixed color."],
-	},
-	{
-		path = "healthColor",
-		label = L["Health color"],
-		type = "color",
-		desc = L["Used with the fixed color mode."],
-		disabled = function()
-			return ui:GetConfig("playerPlate.healthColorMode") ~= "custom"
-		end,
-	},
 })
 
 Section(schema, L["Shield indicator"], "shieldIndicator", {
@@ -79,9 +57,7 @@ Section(schema, L["Shield indicator"], "shieldIndicator", {
 		type = "toggle",
 		desc = L["Show the equipped shield icon next to the player plate."],
 	},
-	{ path = "point", label = L["Position"], type = "point" },
-	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 64, step = 1 },
-}, notClass("WARRIOR"))
+}, NotClass("WARRIOR"))
 
 Section(schema, L["Runes"], "runes", {
 	{
@@ -91,16 +67,7 @@ Section(schema, L["Runes"], "runes", {
 		reload = true,
 		desc = L["Replace the Blizzard rune frame."],
 	},
-	{ path = "point", label = L["Position"], type = "point" },
-	{ path = "width", label = L["Rune width"], type = "number", min = 10, max = 100, step = 1 },
-	{ path = "height", label = L["Rune height"], type = "number", min = 4, max = 40, step = 1 },
-	{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
-	{ path = "bloodColor", label = L["Blood"], type = "color" },
-	{ path = "unholyColor", label = L["Unholy"], type = "color" },
-	{ path = "frostColor", label = L["Frost"], type = "color" },
-	{ path = "deathColor", label = L["Death"], type = "color", desc = L["Runes converted to death runes."] },
-	{ path = "emptyColor", label = L["Empty"], type = "color", desc = L["Runes on cooldown."] },
-}, notClass("DEATHKNIGHT"))
+}, NotClass("DEATHKNIGHT"))
 
 Section(schema, L["Totems"], "totems", {
 	{
@@ -109,50 +76,7 @@ Section(schema, L["Totems"], "totems", {
 		type = "toggle",
 		desc = L["Totem icons with timers, right-click to destroy."],
 	},
-	{ path = "point", label = L["Position"], type = "point" },
-	{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
-	{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
-	{ path = "timerFont", label = L["Timer font"], type = "font" },
-}, notClass("SHAMAN"))
-
-Section(schema, L["Aura tracker"], "auraTracker", {
-	{
-		path = "enabled",
-		label = L["Enable"],
-		type = "toggle",
-		desc = L["Class-specific proc and buff icons around the character."],
-	},
-	{ path = "scale", label = L["Scale"], type = "number", min = 0.5, max = 2, step = 0.05 },
-	{
-		path = "auras." .. ui.PLAYER_CLASS,
-		label = L["Add spell ID"],
-		type = "list",
-		desc = L["Track an aura by spell ID. Press Enter or Add."],
-		create = function(id)
-			if not GetSpellInfo(id) then
-				return nil
-			end
-			return { spell = id, unit = "player", point = { "CENTER", 0, -72 }, size = 36 }
-		end,
-		describe = function(item)
-			local name, _, icon = GetSpellInfo(item.spell)
-			return ("%s (%d)"):format(name or "?", item.spell), icon
-		end,
-		fields = {
-			{
-				key = "unit",
-				label = L["Unit"],
-				type = "select",
-				values = { { "player", L["Player"] }, { "target", L["Target"] }, { "focus", L["Focus"] } },
-				desc = L["Whose auras to scan for this spell."],
-			},
-			{ key = "debuff", label = L["Debuff"], type = "toggle", desc = L["Look for a debuff instead of a buff."] },
-			{ key = "isMine", label = L["Only mine"], type = "toggle", desc = L["Only auras applied by you."] },
-			{ key = "size", label = L["Size"], type = "number", min = 16, max = 80, step = 1 },
-			{ key = "point", label = L["Position"], type = "point" },
-		},
-	},
-})
+}, NotClass("SHAMAN"))
 
 Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 	{
@@ -162,9 +86,6 @@ Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 		reload = true,
 		desc = L["Replace the Blizzard temporary enchant icons, right-click to cancel."],
 	},
-	{ path = "point", label = L["Position"], type = "point" },
-	{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
-	{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
 })
 
 ns.RegisterPage({
@@ -172,4 +93,159 @@ ns.RegisterPage({
 	name = L["Player resources"],
 	order = 30,
 	schema = schema,
+})
+
+ns.RegisterElement({
+	path = "playerPlate.point",
+	page = "player",
+	name = L["Player plate"],
+	enabledBy = "playerPlate.enabled",
+	schema = ElementSchema("playerPlate", {
+		{ header = L["Bars"] },
+		{
+			path = "showPower",
+			new = "1.4.0",
+			label = L["Show power bar"],
+			type = "toggle",
+			desc = L["Mana, rage, energy or runic power below the health bar."],
+		},
+		{
+			path = "healPrediction",
+			new = "1.4.0",
+			label = L["Incoming heals"],
+			type = "toggle",
+			desc = L["Segment after the health fill for heals being cast on you. Colors are shared with the unit frames."],
+		},
+		{
+			path = "absorbs",
+			new = "1.4.0",
+			label = L["Absorb shields"],
+			type = "toggle",
+			desc = L["Estimated size of absorb shields on you, with a glow at the bar edge while a shield is up. Colors are shared with the unit frames."],
+		},
+		{ header = L["Size"] },
+		{ path = "width", label = L["Width"], type = "number", min = 60, max = 400, step = 1 },
+		{ path = "healthHeight", label = L["Health bar height"], type = "number", min = 3, max = 40, step = 1 },
+		{
+			path = "powerHeight",
+			label = L["Power bar height"],
+			type = "number",
+			min = 2,
+			max = 40,
+			step = 1,
+			enabledBy = "playerPlate.showPower",
+		},
+		{
+			path = "gap",
+			label = L["Bar spacing"],
+			type = "number",
+			min = 0,
+			max = 20,
+			step = 1,
+			desc = L["Gap between the health and power bars."],
+			enabledBy = "playerPlate.showPower",
+		},
+		{ header = L["Text"] },
+		{
+			path = "showText",
+			label = L["Show values"],
+			type = "toggle",
+			desc = L["Health and power numbers on the bars."],
+		},
+		{
+			path = "healthText",
+			new = "1.4.0",
+			label = L["Health text"],
+			type = "select",
+			values = HEALTH_TEXT_VALUES,
+			enabledBy = "playerPlate.showText",
+		},
+		{ path = "font", label = L["Font"], type = "font", enabledBy = "playerPlate.showText" },
+		{ header = L["Colors"] },
+		{
+			path = "healthColorMode",
+			label = L["Health bar color"],
+			type = "select",
+			values = HEALTH_COLOR_VALUES,
+			desc = L["Your class color, a color mixed from the current health percent, or a fixed color."],
+		},
+		{
+			path = "healthColor",
+			label = L["Health color"],
+			type = "color",
+			desc = L["Used with the fixed color mode."],
+			disabled = function()
+				return ui:GetConfig("playerPlate.healthColorMode") ~= "custom"
+			end,
+		},
+	}),
+})
+
+ns.RegisterElement({
+	path = "shieldIndicator.point",
+	page = "player",
+	name = L["Shield indicator"],
+	enabledBy = "shieldIndicator.enabled",
+	hidden = NotClass("WARRIOR"),
+	schema = ElementSchema("shieldIndicator", {
+		{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 64, step = 1 },
+	}),
+})
+
+ns.RegisterElement({
+	path = "runes.point",
+	page = "player",
+	name = L["Runes"],
+	enabledBy = "runes.enabled",
+	hidden = NotClass("DEATHKNIGHT"),
+	schema = ElementSchema("runes", {
+		{ header = L["Size"] },
+		{ path = "width", label = L["Rune width"], type = "number", min = 10, max = 100, step = 1 },
+		{ path = "height", label = L["Rune height"], type = "number", min = 4, max = 40, step = 1 },
+		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+		{ header = L["Colors"] },
+		{ path = "bloodColor", label = L["Blood"], type = "color" },
+		{ path = "unholyColor", label = L["Unholy"], type = "color" },
+		{ path = "frostColor", label = L["Frost"], type = "color" },
+		{ path = "deathColor", label = L["Death"], type = "color", desc = L["Runes converted to death runes."] },
+		{ path = "emptyColor", label = L["Empty"], type = "color", desc = L["Runes on cooldown."] },
+	}),
+})
+
+ns.RegisterElement({
+	path = "totems.point",
+	page = "player",
+	name = L["Totems"],
+	enabledBy = "totems.enabled",
+	hidden = NotClass("SHAMAN"),
+	schema = ElementSchema("totems", {
+		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
+		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+		{ path = "timerFont", label = L["Timer font"], type = "font" },
+	}),
+})
+
+ns.RegisterElement({
+	path = "temporaryEnchant.point",
+	page = "player",
+	name = L["Weapon enchants"],
+	enabledBy = "temporaryEnchant.enabled",
+	schema = ElementSchema("temporaryEnchant", {
+		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
+		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+		{
+			path = "showTimer",
+			new = "1.4.0",
+			label = L["Show timer"],
+			type = "toggle",
+			desc = L["Remaining enchant time on the icons."],
+		},
+		{
+			path = "timerFont",
+			new = "1.4.0",
+			label = L["Timer font"],
+			type = "font",
+			enabledBy = "temporaryEnchant.showTimer",
+		},
+	}),
 })

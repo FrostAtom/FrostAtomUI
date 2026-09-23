@@ -8,9 +8,11 @@ local GetTime = GetTime
 local SendChatMessage = SendChatMessage
 local ChatFrame_AddMessageEventFilter = ChatFrame_AddMessageEventFilter
 local ChatFrame_RemoveMessageEventFilter = ChatFrame_RemoveMessageEventFilter
+local PlaySound = PlaySound
 local date = date
 local strtrim = strtrim
-local tremove = table.remove
+local tremove, tconcat = table.remove, table.concat
+local huge = math.huge
 
 local Chat = ns:GetModule("Chat")
 
@@ -18,11 +20,15 @@ local REPLY_COOLDOWN = 0.25
 local MAX_STORED_MESSAGES = 200
 local TIME_FORMAT = "%m/%d/%y %H:%M:%S"
 
-local config = ns.Config.chat.whisperBlock
+local chatConfig = ns.Config.chat
+local config = chatConfig.whisperBlock
 local blocked = false
 local blockedMessages = {}
 local whitelist = {}
 local lastReplyTime = 0
+local printLines = {}
+local soundThrottled = false
+local soundPlayedAt = {}
 
 local function replyText()
 	local reply = config.reply
@@ -38,18 +44,16 @@ local function isFriend(name)
 	return false
 end
 
-local lines = {}
-
 local function printMessages(sender)
-	wipe(lines)
+	wipe(printLines)
 	for i = 1, #blockedMessages do
 		local entry = blockedMessages[i]
 		if not sender or entry.sender == sender then
-			lines[#lines + 1] = L["%s (at %s): %s"]:format(entry.sender, entry.time, entry.text)
+			printLines[#printLines + 1] = L["%s (at %s): %s"]:format(entry.sender, entry.time, entry.text)
 		end
 	end
-	if #lines > 0 then
-		ns.Print(L["blocked whispers:\n%s"], table.concat(lines, "\n"))
+	if #printLines > 0 then
+		ns.Print(L["blocked whispers:\n%s"], tconcat(printLines, "\n"))
 	end
 end
 
@@ -61,8 +65,12 @@ local function printStatus()
 	end
 end
 
+local function isBlocked(sender)
+	return blocked and not ((config.friendsBypass and isFriend(sender)) or whitelist[sender])
+end
+
 local function onWhisper(_, _, message, sender)
-	if (config.friendsBypass and isFriend(sender)) or whitelist[sender] then
+	if not isBlocked(sender) then
 		return
 	end
 
@@ -117,31 +125,54 @@ local function applyConfig()
 	printStatus()
 end
 
-Chat:RegisterEvent(ns.DB_LOADED, function(_, db)
-	if db.pm_blocked ~= nil then
-		ns:SetConfig("chat.whisperBlock.enabled", db.pm_blocked and true or false)
-		db.pm_blocked = nil
+local function holdBlizzardTellSound(chatFrame)
+	chatFrame.tellTimer = huge
+end
+
+local function onWhisperSound(_, _, sender)
+	if isBlocked(sender) then
+		return
 	end
-	if db.pm_reply ~= nil then
-		ns:SetConfig("chat.whisperBlock.reply", db.pm_reply)
-		db.pm_reply = nil
+	local now = GetTime()
+	local last = soundPlayedAt[sender]
+	if last and now - last < chatConfig.whisperSoundInterval then
+		return
 	end
-end)
+	soundPlayedAt[sender] = now
+	PlaySound("TellMessage")
+end
+
+local function applyWhisperSound()
+	local enabled = chatConfig.whisperSoundThrottle
+	if enabled == soundThrottled then
+		return
+	end
+	soundThrottled = enabled
+	if enabled then
+		ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", holdBlizzardTellSound)
+		Chat:RegisterEvent("CHAT_MSG_WHISPER", onWhisperSound)
+	else
+		ChatFrame_RemoveMessageEventFilter("CHAT_MSG_WHISPER", holdBlizzardTellSound)
+		Chat:UnregisterEvent("CHAT_MSG_WHISPER", onWhisperSound)
+		local now = GetTime()
+		for i = 1, NUM_CHAT_WINDOWS do
+			_G["ChatFrame" .. i].tellTimer = now
+		end
+	end
+end
 
 Chat:OnInitialize(function(self)
 	local db = ns.db
 	blockedMessages = db.pm_messages or blockedMessages
 	db.pm_messages = blockedMessages
-	for i = #blockedMessages, 1, -1 do
-		if type(blockedMessages[i]) ~= "table" then
-			tremove(blockedMessages, i)
-		end
-	end
 
 	if config.enabled then
 		applyConfig()
 	end
 	self:WatchConfig("chat.whisperBlock", applyConfig)
+
+	applyWhisperSound()
+	self:WatchConfig("chat.whisperSoundThrottle", applyWhisperSound)
 end)
 
 SlashCmdList.FROSTATOMUI_NODM = function(args)

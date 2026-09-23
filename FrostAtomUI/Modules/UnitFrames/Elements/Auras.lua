@@ -137,6 +137,15 @@ local function createIcon(container, index)
 	return icon
 end
 
+local function acquireIcon(container, index)
+	local icon = container[index]
+	if not icon then
+		icon = createIcon(container, index)
+		container[index] = icon
+	end
+	return icon
+end
+
 local function setIcon(icon, texture, count, debuffType, duration, endTime, stealable)
 	icon.texture:SetTexture(texture)
 
@@ -183,12 +192,15 @@ local function updateContainer(container)
 	local shown = min(count, container.limit)
 	for i = 1, shown do
 		local aura = auras[i]
-		local icon = container[i]
-		if not icon then
-			icon = createIcon(container, i)
-			container[i] = icon
-		end
-		setIcon(icon, aura.icon, aura.count, aura.debuffType, aura.duration, aura.expires, aura.stealable)
+		setIcon(
+			acquireIcon(container, i),
+			aura.icon,
+			aura.count,
+			aura.debuffType,
+			aura.duration,
+			aura.expires,
+			aura.stealable
+		)
 	end
 
 	container:Layout(shown)
@@ -198,11 +210,7 @@ local function testContainer(container, spells)
 	local now = GetTime()
 	local shown = random(0, min(container.limit, container.perRow * 2))
 	for i = 1, shown do
-		local icon = container[i]
-		if not icon then
-			icon = createIcon(container, i)
-			container[i] = icon
-		end
+		local icon = acquireIcon(container, i)
 		local _, _, texture = GetSpellInfo(spells[random(#spells)])
 		local duration = random(3) == 1 and 0 or random(8, 60)
 		local count = random(3) == 1 and random(2, 5) or 1

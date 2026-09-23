@@ -139,13 +139,7 @@ local function applyDeclines()
 	end
 end
 
-Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
-	if db.NoDuel ~= nil then
-		ns:SetConfig("popups.declineDuels", db.NoDuel and true or false)
-		db.NoDuel = nil
-	end
-	applyDeclines()
-end)
+Misc:RegisterEvent(ns.DB_LOADED, applyDeclines)
 
 local function toggleDecline(key, label, args)
 	local enabled, status = ns.ParseToggle(args, ns.Config.popups[key])

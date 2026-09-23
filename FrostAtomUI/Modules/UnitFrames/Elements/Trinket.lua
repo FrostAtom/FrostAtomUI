@@ -8,6 +8,8 @@ local random = math.random
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local TRINKET_ICON = "Interface\\Icons\\INV_Jewelry_TrinketPVP_02"
+local DEFAULT_SIZE = 30
+local TIMER_FONT_SCALE = 0.4
 
 local TRINKET_SPELLS = {
 	[42292] = 120, -- PvP Trinket
@@ -24,11 +26,7 @@ for spellId, cooldown in pairs(TRINKET_SPELLS) do
 end
 
 local function update(frame)
-	if ns.Config.arenaTrinket.enabled then
-		frame.trinket:Show()
-	else
-		frame.trinket:Hide()
-	end
+	ns.SetShown(frame.trinket, ns.Config.arenaTrinket.enabled)
 end
 
 local function test(frame)
@@ -59,11 +57,11 @@ end
 
 local function setIconSize(trinket, size)
 	trinket:SetSize(size, size)
-	ns.SetFont(trinket.cooldown.timer, size * 0.4, "OUTLINE")
+	ns.SetFont(trinket.cooldown.timer, size * TIMER_FONT_SCALE, "OUTLINE")
 end
 
 local function create(frame, options)
-	local size = options and options.size or 30
+	local size = options and options.size or DEFAULT_SIZE
 
 	local trinket = CreateFrame("Frame", nil, frame)
 	trinket:SetSize(size, size)
@@ -75,7 +73,7 @@ local function create(frame, options)
 
 	trinket.cooldown = CreateFrame("Cooldown", nil, trinket)
 	trinket.cooldown:SetAllPoints()
-	CooldownTimer:Attach(trinket.cooldown, size * 0.4)
+	CooldownTimer:Attach(trinket.cooldown, size * TIMER_FONT_SCALE)
 
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", onSpellSucceeded)
 	frame:RegisterEvent("ARENA_OPPONENT_UPDATE", onOpponentUpdate)
