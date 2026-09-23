@@ -65,6 +65,7 @@ local MIN_COLUMNS = 4
 local MAX_COLUMNS = 24
 local CURRENCY_ICON_SIZE = 14
 local CURRENCY_SPACING = 10
+local MONEY_ICON_OVERHANG = 7
 
 local INVENTORY_BAGS = { BACKPACK_CONTAINER, 1, 2, 3, 4 }
 local BANK_BAGS = { BANK_CONTAINER, 5, 6, 7, 8, 9, 10, 11 }
@@ -500,7 +501,7 @@ function ContainerMixin:LayoutChrome()
 	self.itemArea:ClearAllPoints()
 	self.itemArea:SetPoint("TOPLEFT", padding, -(padding + HEADER_HEIGHT + ROW_GAP))
 	self.moneyText:ClearAllPoints()
-	self.moneyText:SetPoint("RIGHT", self, "BOTTOMRIGHT", -padding, padding + FOOTER_HEIGHT / 2)
+	self.moneyText:SetPoint("RIGHT", self, "BOTTOMRIGHT", -padding - MONEY_ICON_OVERHANG, padding + FOOTER_HEIGHT / 2)
 	local bagButtons = self.bagButtons
 	for i = 1, #bagButtons do
 		bagButtons[i]:ClearAllPoints()
