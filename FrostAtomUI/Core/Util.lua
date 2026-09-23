@@ -249,6 +249,7 @@ function ns.PixelPerfect(size)
 end
 
 local PRINT_PREFIX = "|cff177cbf[" .. ADDON_NAME .. "]|r: "
+ns.PRINT_PREFIX = PRINT_PREFIX
 
 function ns.Print(format, ...)
 	print(PRINT_PREFIX .. format:format(...))

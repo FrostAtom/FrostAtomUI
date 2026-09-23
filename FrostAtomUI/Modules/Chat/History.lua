@@ -1,13 +1,11 @@
 local _, ns = ...
 
-local gsub = string.gsub
+local gsub, find = string.gsub, string.find
 local tconcat, tinsert, tremove = table.concat, table.insert, table.remove
 local max = math.max
 
 local Chat = ns:GetModule("Chat")
 local config = ns.Config.chat
-
-local DIVIDER = "|cff7f7f7f" .. ("-"):rep(60) .. "|r"
 
 local COPY_FRAME_NAME = "FrostAtomUICopyChat"
 local COPY_TEXT_MARGIN = 40
@@ -16,14 +14,19 @@ local COPY_BUTTON_ALPHA = 0.4
 
 local commandHistory = {}
 
+local function isOwnPrint(text)
+	return find(text, ns.PRINT_PREFIX, 1, true) ~= nil
+end
+
 local function restoreHistory(db)
 	local saved = db.chat_history
-	if saved and #saved > 0 then
+	if saved then
 		for i = 1, #saved do
 			local line = saved[i]
-			Chat.AddStoredLine(ChatFrame1, line[1], line[2], line[3], line[4])
+			if not isOwnPrint(line[1]) then
+				Chat.AddStoredLine(ChatFrame1, line[1], line[2], line[3], line[4])
+			end
 		end
-		Chat.AddStoredLine(ChatFrame1, DIVIDER)
 	end
 
 	commandHistory = db.command_history or commandHistory
@@ -39,7 +42,7 @@ local function saveHistory()
 	local saved = {}
 	for i = max(1, count - config.savedHistoryLines + 1), count do
 		local line = Chat.GetLine(ChatFrame1, i)
-		if line[1] ~= DIVIDER then
+		if not isOwnPrint(line[1]) then
 			saved[#saved + 1] = { line[1], line[2], line[3], line[4] }
 		end
 	end
