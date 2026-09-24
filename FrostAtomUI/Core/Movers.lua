@@ -69,6 +69,22 @@ local unlocked = false
 local panel, grid
 local selected
 local testModeOwned = false
+local sizeHooked = {}
+local refreshKey = {}
+
+local function runRefresh()
+	Movers.Refresh()
+end
+
+local function deferRefresh()
+	ns.Defer(refreshKey, runRefresh)
+end
+
+local function queueRefresh()
+	if unlocked then
+		ns.Defer(refreshKey, deferRefresh)
+	end
+end
 
 local function humanize(path)
 	local words = {}
@@ -937,6 +953,10 @@ function Movers.Register(frame, path, label, options)
 	end
 	if frame then
 		byFrame[frame] = mover
+		if not sizeHooked[frame] then
+			sizeHooked[frame] = true
+			frame:HookScript("OnSizeChanged", queueRefresh)
+		end
 	end
 	byPath[path] = mover
 	mover.frame = frame
@@ -1403,6 +1423,7 @@ Movers:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
 	if not path or path:find("^general%.") then
 		updateGrid()
 	end
+	queueRefresh()
 	local toggled = not path or path:find("enabled$") ~= nil
 	for _, mover in ipairs(movers) do
 		if not path or path == mover.path then

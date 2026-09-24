@@ -32,7 +32,7 @@ local function fadeDisabled(mouseoverPath, combatPath)
 	end
 end
 
-local function barElement(name, key, hasToggle, hasCount, new)
+local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 	local prefix = "actionBar." .. key
 	local enabledBy
 	local schema = { { header = L["Layout"] } }
@@ -110,6 +110,10 @@ local function barElement(name, key, hasToggle, hasCount, new)
 		enabledBy = enabledBy,
 		disabled = fadeDisabled(prefix .. ".mouseover", prefix .. ".combat"),
 	}
+	for _, entry in ipairs(extra or {}) do
+		entry.enabledBy = entry.path and enabledBy
+		schema[#schema + 1] = entry
+	end
 
 	ns.RegisterElement({
 		path = prefix .. ".point",
@@ -117,6 +121,7 @@ local function barElement(name, key, hasToggle, hasCount, new)
 		name = name,
 		new = new,
 		enabledBy = ENABLE,
+		hidden = hidden,
 		schema = schema,
 	})
 end
@@ -129,6 +134,35 @@ barElement(L["Bar 5"], "bar5", true, true)
 barElement(L["Bar 6"], "bar6", true, true, "1.4.0")
 barElement(L["Stance bar"], "stance", false, false)
 barElement(L["Pet bar"], "pet", false, false)
+barElement(L["Totem bar"], "totemBar", true, false, "1.4.1", ns.NotClass("SHAMAN"), {
+	{ header = L["Totem menu"] },
+	{
+		path = "actionBar.totemBar.flyoutButtonSize",
+		label = L["Button size"],
+		type = "number",
+		min = 16,
+		max = 60,
+		step = 1,
+		desc = L["Menu that opens above a totem slot or the summon button."],
+	},
+	{
+		path = "actionBar.totemBar.flyoutRows",
+		label = L["Buttons per column"],
+		type = "number",
+		min = 1,
+		max = 12,
+		step = 1,
+	},
+	{
+		path = "actionBar.totemBar.flyoutSpacing",
+		label = L["Spacing"],
+		type = "number",
+		min = 0,
+		max = 12,
+		step = 1,
+		desc = L["Gap between buttons."],
+	},
+})
 
 ns.RegisterElement({
 	path = "actionBar.vehicleExit.point",

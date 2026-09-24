@@ -208,6 +208,8 @@ function ActionBar:LayoutBar(key)
 	local path = "actionBar." .. key .. ".point"
 	if key == "vehicleExit" then
 		self:LayoutVehicleExit()
+	elseif key == "totemBar" then
+		self:LayoutTotemBar()
 	elseif key == "pet" then
 		layoutBar(self.petBar, barConfig, #self.petButtons, path)
 	elseif key == "stance" then
@@ -255,6 +257,7 @@ function ActionBar:Layout(path)
 		self:LayoutBar(barKey)
 	end
 	self:LayoutVehicleExit()
+	self:LayoutTotemBar()
 	self:StyleButtons()
 	self:UpdateLockoutTracking()
 end

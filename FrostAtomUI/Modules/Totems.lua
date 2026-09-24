@@ -6,6 +6,7 @@ local Totems = ns:NewModule("Totems")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
 local MAX_TOTEMS = MAX_TOTEMS or 4
+local SLOT_ORDER = TOTEM_PRIORITIES or { 2, 1, 3, 4 }
 
 local buttons = {}
 local holder
@@ -43,14 +44,23 @@ local function createButton(slot, parent)
 	button:SetAttribute("type", "destroytotem")
 	button:SetAttribute("totem-slot", slot)
 
-	button.icon = button:CreateTexture(nil, "BORDER")
+	button.icon = button:CreateTexture(nil, "BACKGROUND")
 	button.icon:SetAllPoints()
-	button.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+	button.border = button:CreateTexture(nil, "ARTWORK")
+	button.border:SetTexture(ns.Media.buttonNormal)
+	button.border:SetAllPoints()
 
 	button.cooldown = CreateFrame("Cooldown", nil, button)
 	button.cooldown:SetAllPoints()
 	button.cooldown:SetReverse(true)
-	CooldownTimer:Attach(button.cooldown)
+	button.cooldown:SetDrawEdge(true)
+	button.cooldown:SetFrameLevel(button:GetFrameLevel())
+
+	local text = CreateFrame("Frame", nil, button)
+	text:SetAllPoints()
+	text:SetFrameLevel(button:GetFrameLevel() + 1)
+	CooldownTimer:Attach(button.cooldown, nil, text)
 
 	buttons[slot] = button
 end
@@ -59,11 +69,11 @@ local function applyConfig()
 	local config = ns.Config.totems
 	local size, gap, font = config.size, config.gap, config.timerFont
 	holder:SetSize(MAX_TOTEMS * (size + gap) - gap, size)
-	for slot = 1, MAX_TOTEMS do
+	for index, slot in ipairs(SLOT_ORDER) do
 		local button = buttons[slot]
 		button:SetSize(size, size)
 		button:ClearAllPoints()
-		button:SetPoint("LEFT", (slot - 1) * (size + gap), 0)
+		button:SetPoint("LEFT", (index - 1) * (size + gap), 0)
 		ns.SetFont(button.cooldown.timer, font.size, font.outline)
 	end
 	if config.enabled then

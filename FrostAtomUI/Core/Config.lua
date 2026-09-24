@@ -83,7 +83,11 @@ ns.Defaults = {
 		stance = actionBarDefaults(nil, { "BOTTOM", -150, 116 }, nil, 10, 30),
 		pet = actionBarDefaults(nil, { "BOTTOM", 68, 116 }, nil, 10, 30),
 		vehicleExit = { point = { "BOTTOM", 250, 116 }, buttonSize = 36 },
-		totemBar = { "BOTTOM", -150, 154 },
+		totemBar = ns.Mixin(actionBarDefaults(true, { "BOTTOM", -150, 154 }, nil, 6, 30), {
+			flyoutButtonSize = 24,
+			flyoutSpacing = 2,
+			flyoutRows = 10,
+		}),
 		microMenu = { "BOTTOMRIGHT", -2, 2 },
 		microMenuScale = 1,
 		microMenuMouseover = false,
@@ -1381,6 +1385,29 @@ local function migrateActionBarGap(profile)
 	end
 end
 
+local TOTEM_BAR_PATH = "actionBar.totemBar"
+
+local function renameAnchor(value, from, to)
+	for _, child in pairs(value) do
+		if type(child) == "table" then
+			if child[4] == from and type(child[1]) == "string" then
+				child[4] = to
+			end
+			renameAnchor(child, from, to)
+		end
+	end
+end
+
+local function migrateTotemBar(profile)
+	local actionBar = profile.actionBar
+	local totemBar = actionBar and actionBar.totemBar
+	if not totemBar or totemBar[1] == nil then
+		return
+	end
+	actionBar.totemBar = { point = totemBar }
+	renameAnchor(profile, TOTEM_BAR_PATH, TOTEM_BAR_PATH .. ".point")
+end
+
 local GROUP_GROWTH_OFFSETS = {
 	DOWN = { 0, -1 },
 	UP = { 0, 1 },
@@ -1504,6 +1531,7 @@ end
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
+	migrateTotemBar(profile)
 	migrateGroupSpacing(profile)
 	migrateCastbarHeight(profile)
 	migrateClassColorHealth(profile)
