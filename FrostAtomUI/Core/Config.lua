@@ -81,6 +81,7 @@ ns.Defaults = {
 		bar4 = actionBarDefaults(true, { "BOTTOM", -316, 2 }, 12, 4, 36),
 		bar5 = actionBarDefaults(true, { "BOTTOM", 316, 2 }, 12, 4, 36),
 		bar6 = actionBarDefaults(false, { "RIGHT", -2, 0 }, 12, 1, 36),
+		extraBars = {},
 		stance = actionBarDefaults(nil, { "BOTTOM", -150, 116 }, nil, 10, 30),
 		pet = actionBarDefaults(nil, { "BOTTOM", 68, 116 }, nil, 10, 30),
 		vehicleExit = { point = { "BOTTOM", 250, 116 }, buttonSize = 36 },
