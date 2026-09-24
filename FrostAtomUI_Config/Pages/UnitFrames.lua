@@ -107,6 +107,20 @@ local function targetAurasPerRow()
 	}
 end
 
+local function auraOrder()
+	return {
+		path = "unitFrames.auraOrder",
+		new = "1.4.1",
+		label = L["Aura order"],
+		type = "select",
+		values = {
+			{ "debuffs", L["Debuffs on top"] },
+			{ "buffs", L["Buffs on top"] },
+		},
+		desc = L["Which block comes first under the target, focus and party frames."],
+	}
+end
+
 local function ownAuraScale()
 	return {
 		path = "unitFrames.ownAuraScale",
@@ -241,6 +255,7 @@ ns.RegisterElement({
 	schema = concat(mainFrameSize(), {
 		targetAurasPerRow(),
 		ownAuraScale(),
+		auraOrder(),
 		{ header = L["Castbar"] },
 		castbarToggle("unitFrames.showTargetCastbar"),
 		{ header = L["Combo points"] },
@@ -258,6 +273,7 @@ ns.RegisterElement({
 	schema = concat(mainFrameSize(), {
 		targetAurasPerRow(),
 		ownAuraScale(),
+		auraOrder(),
 		{ header = L["Castbar"] },
 		castbarToggle("unitFrames.showFocusCastbar"),
 	}),
@@ -417,6 +433,7 @@ ns.RegisterElement({
 			groupLayout("party", "unitFrames.partySpacing", "unitFrames.partyGrowth", true),
 			{
 				{ header = L["Auras"] },
+				auraOrder(),
 			},
 			groupDebuffEntries(),
 			{
@@ -623,6 +640,7 @@ ns.RegisterPage({
 			desc = L["Placeholder frames for the expected opponents before the gates open, filled with class, spec and name as soon as an opponent is seen."],
 		},
 		{ header = L["Auras"] },
+		auraOrder(),
 		{
 			path = "unitFrames.auraTimers",
 			new = "1.4.1",

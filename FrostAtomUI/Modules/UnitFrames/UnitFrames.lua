@@ -24,6 +24,7 @@ local config = ns.Config.unitFrames
 UF.BORDER_INSET = BORDER_INSET
 UF.CLASS_ICON_INSET = CLASS_ICON_INSET
 UF.CASTBAR_ICON_GAP = CASTBAR_ICON_GAP
+UF.CASTBAR_GAP = CASTBAR_GAP
 UF.BAR_BACKGROUND_DIM = BAR_BACKGROUND_DIM
 UF.backdrop = ns.CreateBackdrop(14, 3)
 
@@ -184,6 +185,29 @@ function UF:CreateIconGrid(frame, options)
 	grid:SetSize(grid.perRow * (grid.size + grid.gap) - grid.gap, 1)
 
 	return grid
+end
+
+function UF.StackAuraGrids(frame, point, gap)
+	local first, second = frame.debuffs, frame.buffs
+	if second and config.auraOrder == "buffs" then
+		first, second = second, first
+	end
+	local relative = point:gsub("^TOP", "BOTTOM")
+	first:ClearAllPoints()
+	first:SetPoint(point, frame, relative, 0, -gap)
+	if not second then
+		return
+	end
+	second.OnRowsChanged = nil
+	first.OnRowsChanged = function(grid, rows)
+		second:ClearAllPoints()
+		if rows > 0 then
+			second:SetPoint(point, grid, relative, 0, -gap)
+		else
+			second:SetPoint(point, frame, relative, 0, -gap)
+		end
+	end
+	first:OnRowsChanged(first.rows)
 end
 
 function UF.GridIconPoint(grid, index)
@@ -608,20 +632,8 @@ function UF:CreateTarget(unit, width, height)
 		width = width,
 		max = perRow * TARGET_AURA_ROWS,
 	}
-	local debuffs = self:AddElement(frame, "debuffs", auraOptions)
-	debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP)
-
-	local buffs = self:AddElement(frame, "buffs", auraOptions)
-	buffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -CASTBAR_GAP)
-	debuffs.OnRowsChanged = function(grid, rows)
-		buffs:SetPoint(
-			"TOPLEFT",
-			frame,
-			"BOTTOMLEFT",
-			0,
-			-CASTBAR_GAP - (rows > 0 and grid:GetHeight() + CASTBAR_GAP or 0)
-		)
-	end
+	self:AddElement(frame, "debuffs", auraOptions)
+	self:AddElement(frame, "buffs", auraOptions)
 
 	self:AddElement(frame, "castbar")
 	self:AddElement(frame, "losecontrol")
@@ -642,7 +654,7 @@ function UF:ResizeTarget(frame, width, height)
 	debuffs:SetLimit(auraLimit)
 	buffs:SetLimit(auraLimit)
 
-	debuffs:OnRowsChanged(debuffs.rows)
+	UF.StackAuraGrids(frame, "TOPLEFT", CASTBAR_GAP)
 	local rowSize = debuffs.RowSize and debuffs:RowSize() or debuffs.size
 	local gridHeight = TARGET_AURA_ROWS * (rowSize + debuffs.gap) - debuffs.gap
 	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2

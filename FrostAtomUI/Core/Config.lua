@@ -158,6 +158,7 @@ ns.Defaults = {
 		auraTimerMaxDuration = 600,
 		targetAuraPerRow = 8,
 		ownAuraScale = 1,
+		auraOrder = "debuffs",
 		showPlayerCastbar = true,
 		showTargetCastbar = true,
 		showFocusCastbar = true,

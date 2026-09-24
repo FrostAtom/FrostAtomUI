@@ -117,18 +117,7 @@ local function resizeGroupFrame(frame, groupPet, width, height)
 end
 
 local function anchorGroupGrids(frame)
-	local gap = ns.Config.unitFrames.gridGap
-	local debuffs, buffs = frame.debuffs, frame.buffs
-	debuffs:ClearAllPoints()
-	if frame.iconSide == "LEFT" then
-		debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -gap)
-	else
-		debuffs:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -gap)
-	end
-	if buffs then
-		buffs:ClearAllPoints()
-		buffs:SetPoint("TOPLEFT", debuffs, "BOTTOMLEFT", 0, -gap)
-	end
+	UF.StackAuraGrids(frame, frame.iconSide == "LEFT" and "TOPLEFT" or "TOPRIGHT", ns.Config.unitFrames.gridGap)
 end
 
 local function applyFrameSizes(self, path)
@@ -177,6 +166,8 @@ local function applyElements()
 	UF.SetCastbarShown(castbar, config.showPlayerCastbar)
 	UF.SetCastbarShown(target.castbar, config.showTargetCastbar)
 	UF.SetCastbarShown(focus.castbar, config.showFocusCastbar)
+	UF.StackAuraGrids(target, "TOPLEFT", UF.CASTBAR_GAP)
+	UF.StackAuraGrids(focus, "TOPLEFT", UF.CASTBAR_GAP)
 	UF.SetPetPowerShown(pet, config.petPower)
 	for i = 1, #partyPets do
 		UF.SetPetPowerShown(partyPets[i], config.petPower)
