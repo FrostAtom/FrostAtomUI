@@ -15,6 +15,7 @@ local FOOTER_TOP = 50
 local SCROLL_LEFT, SCROLL_TOP, SCROLL_RIGHT, SCROLL_BOTTOM = 8, -40, -27, 6
 local CONTENT_WIDTH = WIDTH - PANEL_X + PANEL_RIGHT - SCROLL_LEFT + SCROLL_RIGHT
 local NAV_BUTTON_HEIGHT = 18
+local NAV_GROUP_GAP = 8
 local FOOTER_BUTTON_WIDTH = 96
 local SEARCH_DELAY = 0.2
 local ROW_HEIGHT = 26
@@ -221,6 +222,21 @@ local function formatNumber(value, step)
 	return (text:gsub("%.$", ""))
 end
 
+local function formatValue(entry, value)
+	if entry.percent then
+		return formatNumber(value * 100, entry.step * 100) .. "%"
+	end
+	return formatNumber(value, entry.step)
+end
+
+local function parseValue(entry, text)
+	local value = tonumber((text:gsub("%%", "")))
+	if value and entry.percent then
+		return value / 100
+	end
+	return value
+end
+
 local fontObjects = {}
 
 local function font(name)
@@ -385,11 +401,14 @@ local function isChildEntry(entry)
 	return hasParentToggle(entry.enabledBy) or hasParentToggle(entry.enabledByAny)
 end
 
+local requirementText
+
 local function rowEnter(row)
 	row.highlight:Show()
 	local entry = row.entry
 	local range = entry.type == "number"
-	if not entry.desc and not range and not entry.reload then
+	local requirement = row.disabled and requirementText(entry)
+	if not entry.desc and not range and not entry.reload and not requirement then
 		return
 	end
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
@@ -397,12 +416,15 @@ local function rowEnter(row)
 	if entry.desc then
 		GameTooltip:AddLine(entry.desc, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
 	end
+	if requirement then
+		GameTooltip:AddLine(requirement, RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b, true)
+	end
 	if entry.reload then
 		GameTooltip:AddLine(L["Requires a UI reload."], RELOAD_COLOR.r, RELOAD_COLOR.g, RELOAD_COLOR.b, true)
 	end
 	if range then
 		GameTooltip:AddLine(
-			("%s - %s"):format(formatNumber(entry.min, entry.step), formatNumber(entry.max, entry.step)),
+			("%s - %s"):format(formatValue(entry, entry.min), formatValue(entry, entry.max)),
 			GRAY_FONT_COLOR.r,
 			GRAY_FONT_COLOR.g,
 			GRAY_FONT_COLOR.b
@@ -643,7 +665,7 @@ local function createSliderBox(row, entry, sliderWidth)
 		end
 	end)
 	box.OnCommit = function(self)
-		local value = tonumber(self:GetText())
+		local value = parseValue(entry, self:GetText())
 		if value then
 			commit(value)
 		else
@@ -654,7 +676,7 @@ local function createSliderBox(row, entry, sliderWidth)
 	local function refresh()
 		local value = get(entry)
 		slider:SetValue(value)
-		box:SetText(formatNumber(value, entry.step))
+		box:SetText(formatValue(entry, value))
 		box:SetCursorPosition(0)
 	end
 	local function setEnabled(enabled)
@@ -899,7 +921,7 @@ function creators.color(parent, entry)
 	local function apply(r, g, b, a)
 		local color = get(entry)
 		if r ~= color[1] or g ~= color[2] or b ~= color[3] or (entry.alpha and a ~= (color[4] or 1)) then
-			ui:SetConfig(entry.path, entry.alpha and { r, g, b, a } or { r, g, b })
+			set(entry, entry.alpha and { r, g, b, a } or { r, g, b })
 		end
 	end
 
@@ -1293,25 +1315,202 @@ local function isEnabledByAny(paths)
 	return false
 end
 
-local function isEntryEnabled(entry)
-	if entry.disabled and entry.disabled() then
+local pageByKey, isEntryEnabled
+
+do
+	local function listPaths(paths, list)
+		list = list or {}
+		if type(paths) == "table" then
+			for i = 1, #paths do
+				listPaths(paths[i], list)
+			end
+		elseif paths then
+			list[#list + 1] = paths
+		end
+		return list
+	end
+
+	local function contains(list, value)
+		for i = 1, #list do
+			if list[i] == value then
+				return true
+			end
+		end
 		return false
 	end
-	if entry.enabledBy and not isEnabledBy(entry.enabledBy) then
-		return false
+
+	function pageByKey(key)
+		for _, page in ipairs(pages) do
+			if page.key == key then
+				return page
+			end
+		end
 	end
-	if entry.enabledByAny and not isEnabledByAny(entry.enabledByAny) then
-		return false
+
+	local function ownerRequirements(entry)
+		local owner = entry.page
+		if not owner or owner.element then
+			return {}
+		end
+		local paths = {}
+		if owner.enable then
+			paths[1] = owner.enable
+		elseif owner.path and owner.key == "element:" .. owner.path then
+			local page = pageByKey(owner.page)
+			if page and page.enable then
+				paths[1] = page.enable
+			end
+			listPaths(owner.enabledBy, paths)
+		end
+		local result = {}
+		for i = 1, #paths do
+			if paths[i] ~= entry.path and not contains(result, paths[i]) then
+				result[#result + 1] = paths[i]
+			end
+		end
+		return result
 	end
-	local page = entry.page
-	local enable = page and page.enable
-	return not (enable and entry.path ~= enable and not ui:GetConfig(enable))
+
+	function isEntryEnabled(entry)
+		if entry.disabled and entry.disabled() then
+			return false
+		end
+		if entry.enabledBy and not isEnabledBy(entry.enabledBy) then
+			return false
+		end
+		if entry.enabledByAny and not isEnabledByAny(entry.enabledByAny) then
+			return false
+		end
+		local owner = ownerRequirements(entry)
+		return #owner == 0 or isEnabledBy(owner)
+	end
+
+	local pathOwners
+
+	local function indexSchema(schema, pageName)
+		local header
+		for _, entry in ipairs(schema) do
+			if entry.header then
+				header = entry.header
+			elseif entry.type == "multiselect" and entry.path then
+				for _, option in ipairs(entry.values) do
+					local path = entry.path .. "." .. option[1]
+					if not pathOwners[path] then
+						pathOwners[path] = { name = ("%s: %s"):format(entry.label, option[2]), page = pageName }
+					end
+				end
+			elseif entry.path and entry.label and not pathOwners[entry.path] then
+				local name = entry.label
+				if name == L["Enable"] or name == L["Show"] then
+					name = header or pageName
+				end
+				pathOwners[entry.path] = { name = name, page = pageName }
+			end
+		end
+	end
+
+	local function pathName(path, entry)
+		if not pathOwners then
+			pathOwners = {}
+			for _, page in ipairs(pages) do
+				indexSchema(page.buildSchema and page.buildSchema() or page.schema, page.name)
+			end
+			for _, element in ipairs(elements) do
+				indexSchema(element.schema, element.name)
+			end
+		end
+		local owner = pathOwners[path]
+		if not owner then
+			return nil
+		end
+		local page = entry.page
+		local here = page and (page.element or page).name
+		if owner.page ~= here and owner.name ~= owner.page then
+			return ("%s (%s)"):format(owner.name, owner.page)
+		end
+		return owner.name
+	end
+
+	local function unmetNames(paths, entry, names)
+		for _, path in ipairs(listPaths(paths)) do
+			if not ui:GetConfig(path) then
+				local name = pathName(path, entry)
+				if name and not contains(names, name) then
+					names[#names + 1] = name
+				end
+			end
+		end
+		return names
+	end
+
+	function requirementText(entry)
+		if entry.disabled and entry.disabled() and entry.disabledDesc then
+			return entry.disabledDesc
+		end
+		local names = unmetNames(ownerRequirements(entry), entry, {})
+		unmetNames(entry.enabledBy, entry, names)
+		if entry.enabledByAny and not isEnabledByAny(entry.enabledByAny) then
+			local any = {}
+			for _, path in ipairs(entry.enabledByAny) do
+				local name = pathName(path, entry)
+				if name and not contains(any, name) then
+					any[#any + 1] = name
+				end
+			end
+			if #any > 0 then
+				names[#names + 1] = table.concat(any, L[" or "])
+			end
+		end
+		if #names == 0 then
+			return nil
+		end
+		return L["Requires: %s"]:format(table.concat(names, ", "))
+	end
 end
 
 local function showContent(page, scroll, offset)
 	scroll:SetScrollChild(page.content)
 	page.content:Show()
 	scroll:SetVerticalScroll(offset)
+end
+
+local function showAdvanced()
+	return ui.db.showAdvancedSettings and true or false
+end
+
+local visibleEntries
+
+do
+	local function isControl(entry)
+		return not entry.header and not entry.description
+	end
+
+	function visibleEntries(schema, all)
+		local advanced = all or showAdvanced()
+		local result = {}
+		local header, pending
+		for _, entry in ipairs(schema) do
+			if entry.hidden or (entry.advanced and not advanced) then
+				if entry.header then
+					header, pending = nil, nil
+				end
+			elseif entry.header then
+				header, pending = entry, {}
+			elseif header and not isControl(entry) then
+				pending[#pending + 1] = entry
+			else
+				if header then
+					result[#result + 1] = header
+					for i = 1, #pending do
+						result[#result + 1] = pending[i]
+					end
+					header, pending = nil, nil
+				end
+				result[#result + 1] = entry
+			end
+		end
+		return result
+	end
 end
 
 local function buildPage(page)
@@ -1324,20 +1523,18 @@ local function buildPage(page)
 
 	local offset = CONTENT_TOP
 	local first = true
-	for _, entry in ipairs(expandSchema(page)) do
-		if not entry.hidden then
-			local kind = entry.type or (entry.header and "header") or (entry.description and "description")
-			local row = creators[kind](content, entry)
-			if kind == "header" and not first then
-				offset = offset + SECTION_GAP
-			end
-			row:SetPoint("TOP", 0, -offset)
-			offset = offset + row:GetHeight()
-			if row.Refresh then
-				tinsert(page.rows, row)
-			end
-			first = false
+	for _, entry in ipairs(visibleEntries(expandSchema(page), page == searchPage)) do
+		local kind = entry.type or (entry.header and "header") or (entry.description and "description")
+		local row = creators[kind](content, entry)
+		if kind == "header" and not first then
+			offset = offset + SECTION_GAP
 		end
+		row:SetPoint("TOP", 0, -offset)
+		offset = offset + row:GetHeight()
+		if row.Refresh then
+			tinsert(page.rows, row)
+		end
+		first = false
 	end
 	content:SetHeight(offset + CONTENT_BOTTOM)
 end
@@ -1348,6 +1545,79 @@ local function rebuildPage(page)
 	page.content:Hide()
 	buildPage(page)
 	showContent(page, scroll, offset)
+end
+
+local showPage, createAdvancedCheck
+
+do
+	local function discardPage(page)
+		if page.content then
+			page.content:Hide()
+			page.content, page.rows = nil, nil
+		end
+	end
+
+	local function setShowAdvanced(shown)
+		ui.db.showAdvancedSettings = shown or nil
+		for _, page in ipairs(pages) do
+			discardPage(page)
+		end
+		for _, element in pairs(elementsByPath) do
+			if element.view then
+				discardPage(element.view)
+			end
+		end
+		for _, element in pairs(elementInstances) do
+			if element.view then
+				discardPage(element.view)
+			end
+		end
+		if frame and currentPage and currentPage ~= searchPage then
+			local page = currentPage
+			currentPage = nil
+			showPage(page)
+		end
+		if elementFrame and elementFrame:IsShown() then
+			local view, placed = elementFrame.view, elementFrame.userPlaced
+			elementFrame.view, elementFrame.userPlaced = nil, true
+			ns.OpenElement(view.element.path)
+			elementFrame.userPlaced = placed
+		end
+	end
+
+	function createAdvancedCheck(parent)
+		local check = createCheckButton(parent, "InterfaceOptionsSmallCheckButtonTemplate")
+		local label = _G[check:GetName() .. "Text"]
+		label:SetFontObject(font("GameFontHighlightSmall"))
+		label:SetText(L["Advanced"])
+		check:SetHitRectInsets(0, -label:GetStringWidth(), 0, 0)
+		check:SetScript("OnShow", function(self)
+			self:SetChecked(showAdvanced())
+		end)
+		check:SetScript("OnClick", function(self)
+			playCheckSound(self)
+			setShowAdvanced(self:GetChecked() and true or false)
+		end)
+		check:SetScript("OnEnter", function(self)
+			GameTooltip:SetOwner(self, "ANCHOR_TOP")
+			GameTooltip:SetText(
+				L["Advanced settings"],
+				HIGHLIGHT_FONT_COLOR.r,
+				HIGHLIGHT_FONT_COLOR.g,
+				HIGHLIGHT_FONT_COLOR.b
+			)
+			GameTooltip:AddLine(
+				L["Show fine-tuning settings most players never change. Search always finds them."],
+				NORMAL_FONT_COLOR.r,
+				NORMAL_FONT_COLOR.g,
+				NORMAL_FONT_COLOR.b,
+				true
+			)
+			GameTooltip:Show()
+		end)
+		check:SetScript("OnLeave", GameTooltip_Hide)
+		return check
+	end
 end
 
 local function refreshPage(page)
@@ -1361,6 +1631,7 @@ local function refreshPage(page)
 	for _, row in ipairs(page.rows) do
 		row.Refresh()
 		local enabled = isEntryEnabled(row.entry)
+		row.disabled = not enabled
 		row:SetEnabled(enabled)
 		setTextEnabled(row.label, enabled)
 	end
@@ -1375,7 +1646,7 @@ end
 
 local function resetSchema(schema)
 	for _, entry in ipairs(schema) do
-		if entry.path then
+		if entry.path and not entry.noReset then
 			ui:ResetConfig(entry.path)
 		end
 	end
@@ -1418,7 +1689,7 @@ local function showPageTitle(page)
 	ui.SetShown(frame.pageGlyph, glyph)
 end
 
-local function showPage(page)
+function showPage(page)
 	if currentPage then
 		if currentPage.onHide then
 			currentPage.onHide()
@@ -1457,142 +1728,151 @@ local function selectPage(page)
 	end
 end
 
-local CYRILLIC_LOWER = {}
-for byte = 0x80, 0xAF do
-	local upper = "\208" .. string.char(byte)
-	if byte < 0x90 then
-		CYRILLIC_LOWER[upper] = "\209" .. string.char(byte + 0x10)
-	elseif byte < 0xA0 then
-		CYRILLIC_LOWER[upper] = "\208" .. string.char(byte + 0x20)
-	else
-		CYRILLIC_LOWER[upper] = "\209" .. string.char(byte - 0x20)
-	end
-end
+local lower, collectSearch, parseQuery
 
-local function lower(text)
-	return (text:lower():gsub("\208[\128-\175]", CYRILLIC_LOWER))
-end
-
-local SCORE_QUERY = 1000
-local SCORE_EXACT = 100
-local SCORE_PREFIX = 50
-local SCORE_LABEL = 20
-local SCORE_SECTION = 8
-local SCORE_DESC = 2
-
-local function tokenScore(label, section, desc, token)
-	if label == token then
-		return SCORE_EXACT
-	elseif label:sub(1, #token) == token then
-		return SCORE_PREFIX
-	elseif label:find(token, 1, true) then
-		return SCORE_LABEL
-	elseif section:find(token, 1, true) then
-		return SCORE_SECTION
-	elseif desc:find(token, 1, true) then
-		return SCORE_DESC
-	end
-	return 0
-end
-
-local function scoreText(label, section, desc, search)
-	local tokens = search.tokens
-	local score = label == search.query and SCORE_QUERY or 0
-	for i = 1, #tokens do
-		local points = tokenScore(label, section, desc, tokens[i])
-		if points == 0 then
-			return 0
+do
+	local CYRILLIC_LOWER = {}
+	for byte = 0x80, 0xAF do
+		local upper = "\208" .. string.char(byte)
+		if byte < 0x90 then
+			CYRILLIC_LOWER[upper] = "\209" .. string.char(byte + 0x10)
+		elseif byte < 0xA0 then
+			CYRILLIC_LOWER[upper] = "\208" .. string.char(byte + 0x20)
+		else
+			CYRILLIC_LOWER[upper] = "\209" .. string.char(byte - 0x20)
 		end
-		score = score + points
 	end
-	return score
-end
 
-local function scoreEntry(entry, section, search)
-	if not entry.label then
+	function lower(text)
+		return (text:lower():gsub("\208[\128-\175]", CYRILLIC_LOWER))
+	end
+
+	local SCORE_QUERY = 1000
+	local SCORE_EXACT = 100
+	local SCORE_PREFIX = 50
+	local SCORE_LABEL = 20
+	local SCORE_SECTION = 8
+	local SCORE_DESC = 2
+
+	local function tokenScore(label, section, desc, token)
+		if label == token then
+			return SCORE_EXACT
+		elseif label:sub(1, #token) == token then
+			return SCORE_PREFIX
+		elseif label:find(token, 1, true) then
+			return SCORE_LABEL
+		elseif section:find(token, 1, true) then
+			return SCORE_SECTION
+		elseif desc:find(token, 1, true) then
+			return SCORE_DESC
+		end
 		return 0
 	end
-	return scoreText(lower(entry.label), section, entry.desc and lower(entry.desc) or "", search)
-end
 
-local function addGroup(groups, title, order, glyph)
-	local group = { title = title, glyph = glyph, order = order, score = 0, results = {} }
-	groups[#groups + 1] = group
-	return group
-end
-
-local function addResult(group, entry, score)
-	local results = group.results
-	results[#results + 1] = { entry = entry, score = score, order = #results }
-	if score > group.score then
-		group.score = score
-	end
-end
-
-local function byScore(a, b)
-	if a.score ~= b.score then
-		return a.score > b.score
-	end
-	return a.order < b.order
-end
-
-local function collectEntries(groups, entries, title, context, search, glyph)
-	local group
-	local header, section = nil, context
-	for _, entry in ipairs(entries) do
-		if entry.header then
-			header, group = entry.header, nil
-			section = context .. " " .. lower(entry.header)
-		elseif not entry.hidden then
-			local score = scoreEntry(entry, section, search)
-			if score > 0 then
-				group = group or addGroup(groups, header and (title .. " / " .. header) or title, #groups, glyph)
-				addResult(group, entry, score)
+	local function scoreText(label, section, desc, search)
+		local tokens = search.tokens
+		local score = label == search.query and SCORE_QUERY or 0
+		for i = 1, #tokens do
+			local points = tokenScore(label, section, desc, tokens[i])
+			if points == 0 then
+				return 0
 			end
+			score = score + points
+		end
+		return score
+	end
+
+	local function scoreEntry(entry, section, search)
+		if not entry.label then
+			return 0
+		end
+		return scoreText(lower(entry.label), section, entry.desc and lower(entry.desc) or "", search)
+	end
+
+	local function addGroup(groups, title, order, glyph)
+		local group = { title = title, glyph = glyph, order = order, score = 0, results = {} }
+		groups[#groups + 1] = group
+		return group
+	end
+
+	local function addResult(group, entry, score)
+		local results = group.results
+		results[#results + 1] = { entry = entry, score = score, order = #results }
+		if score > group.score then
+			group.score = score
 		end
 	end
-end
 
-local function collectSearch(search)
-	local groups = {}
-	for _, page in ipairs(pages) do
-		local pageContext = lower(page.name)
-		collectEntries(groups, page.schema, page.name, pageContext, search, page.glyph)
-		for _, element in ipairs(elements) do
-			if element.page == page.key and not element.hidden then
-				local title = page.name .. " / " .. element.name
-				local context = pageContext .. " " .. lower(element.name)
-				local before = #groups
-				collectEntries(groups, element.schema, title, context, search, page.glyph)
-				if #groups == before then
-					local score = scoreText(lower(element.name), pageContext, "", search)
-					if score > 0 then
-						addResult(addGroup(groups, title, #groups, page.glyph), elementButton(element, page), score)
-					end
+	local function byScore(a, b)
+		if a.score ~= b.score then
+			return a.score > b.score
+		end
+		return a.order < b.order
+	end
+
+	local function collectEntries(groups, entries, title, context, search, glyph)
+		local group
+		local header, section = nil, context
+		for _, entry in ipairs(entries) do
+			if entry.header then
+				header, group = entry.header, nil
+				section = context .. " " .. lower(entry.header)
+			elseif not entry.hidden then
+				local score = scoreEntry(entry, section, search)
+				if score > 0 then
+					group = group or addGroup(groups, header and (title .. " / " .. header) or title, #groups, glyph)
+					addResult(group, entry, score)
 				end
 			end
 		end
 	end
 
-	sort(groups, byScore)
-	local schema, count = {}, 0
-	for _, group in ipairs(groups) do
-		schema[#schema + 1] = { header = group.title, glyph = group.glyph }
-		sort(group.results, byScore)
-		for _, result in ipairs(group.results) do
-			schema[#schema + 1] = result.entry
-			count = count + 1
+	function collectSearch(search)
+		local groups = {}
+		for _, page in ipairs(pages) do
+			local pageContext = lower(page.name)
+			local schema = page.schema
+			if page.buildSchema then
+				schema = page.buildSchema()
+				adoptEntries(schema, page)
+			end
+			collectEntries(groups, schema, page.name, pageContext, search, page.glyph)
+			for _, element in ipairs(elements) do
+				if element.page == page.key and not element.hidden then
+					local title = page.name .. " / " .. element.name
+					local context = pageContext .. " " .. lower(element.name)
+					local before = #groups
+					collectEntries(groups, element.schema, title, context, search, page.glyph)
+					if #groups == before then
+						local score = scoreText(lower(element.name), pageContext, "", search)
+						if score > 0 then
+							addResult(addGroup(groups, title, #groups, page.glyph), elementButton(element, page), score)
+						end
+					end
+				end
+			end
 		end
-	end
-	return schema, count
-end
 
-local function parseQuery(query)
-	local tokens = {}
-	for word in query:gmatch("%S+") do
-		tokens[#tokens + 1] = word
+		sort(groups, byScore)
+		local schema, count = {}, 0
+		for _, group in ipairs(groups) do
+			schema[#schema + 1] = { header = group.title, glyph = group.glyph }
+			sort(group.results, byScore)
+			for _, result in ipairs(group.results) do
+				schema[#schema + 1] = result.entry
+				count = count + 1
+			end
+		end
+		return schema, count
 	end
-	return { query = query, tokens = tokens }
+
+	function parseQuery(query)
+		local tokens = {}
+		for word in query:gmatch("%S+") do
+			tokens[#tokens + 1] = word
+		end
+		return { query = query, tokens = tokens }
+	end
 end
 
 local function runSearch()
@@ -1722,10 +2002,10 @@ local function createCategoryList()
 	frame.list = list
 end
 
-local function createNavButton(page, index)
+local function createNavButton(page, index, y)
 	local name = FRAME_NAME .. "Category" .. index
 	local button = CreateFrame("Button", name, frame.list, "OptionsListButtonTemplate")
-	button:SetPoint("TOPLEFT", 0, -8 - (index - 1) * NAV_BUTTON_HEIGHT)
+	button:SetPoint("TOPLEFT", 0, y)
 	setButtonFonts(button)
 	button:SetText(page.name)
 
@@ -1880,6 +2160,9 @@ local function createFrame()
 		end
 	end)
 
+	local advanced = createAdvancedCheck(frame)
+	advanced:SetPoint("LEFT", unlock, "RIGHT", 8, 0)
+
 	local okay = createButton(frame, L["Close"], FOOTER_BUTTON_WIDTH)
 	okay:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
 	okay:SetScript("OnClick", function()
@@ -1895,8 +2178,14 @@ local function createFrame()
 	frame.scroll = createPanelScroll(panel, FRAME_NAME .. "Scroll")
 
 	createSearchBox()
+	local y, group = -8, pages[1].group
 	for i, page in ipairs(pages) do
-		createNavButton(page, i)
+		if page.group ~= group then
+			group = page.group
+			y = y - NAV_GROUP_GAP
+		end
+		createNavButton(page, i, y)
+		y = y - NAV_BUTTON_HEIGHT
 	end
 
 	selectPage(pages[1])
@@ -1966,6 +2255,9 @@ local function createElementFrame()
 		end)
 	end)
 	elementFrame.resetAll = resetAll
+
+	local advanced = createAdvancedCheck(elementFrame)
+	advanced:SetPoint("LEFT", resetAll, "RIGHT", 8, 0)
 
 	local more = createButton(elementFrame, L["All settings"], 120, nil, nil, "sliders")
 	more:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
@@ -2090,14 +2382,6 @@ local watcher = ui.Mixin({}, ui.EventMixin)
 watcher:RegisterEvent(ui.CONFIG_CHANGED, refreshShown)
 watcher:RegisterEvent(ui.PROFILES_CHANGED, refreshShown)
 watcher:RegisterEvent("UPDATE_BINDINGS", refreshShown)
-
-local function pageByKey(key)
-	for _, page in ipairs(pages) do
-		if page.key == key then
-			return page
-		end
-	end
-end
 
 function ns.Toggle(pageKey)
 	if not frame then

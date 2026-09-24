@@ -81,7 +81,6 @@ local function spellToggle(id)
 	return {
 		label = ICON_FORMAT:format(icon or QUESTION_MARK, name or tostring(id)),
 		type = "toggle",
-		enabledBy = "groupCooldowns.enabled",
 		desc = L["Cooldown: %s."]:format(SecondsToTime(info.cooldown)),
 		get = function()
 			return GroupCooldowns.IsSpellShown(id)
@@ -117,30 +116,33 @@ end
 
 local function buildSchema()
 	local schema = {
+		{ path = "groupCooldowns.enabled", label = L["Enable"], type = "toggle" },
 		{
 			description = L["Cooldowns of party members and arena opponents, gathered in two panels under the party and arena frames. Every tracked ability is always shown: bright when ready, dark with a timer on cooldown, glowing while its effect is up. Rows group abilities by type, icons of one player stay together and the border shows the class. PvP trinkets are shown next to the party and arena frames instead."],
 		},
-		{ path = "groupCooldowns.enabled", label = L["Enable"], type = "toggle" },
 		{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 		{ type = "elements" },
 	}
 
-	Section(schema, L["Display"], "groupCooldowns", {
-		{ path = "friendly", label = L["Party cooldowns"], type = "toggle" },
-		{ path = "enemy", label = L["Arena opponent cooldowns"], type = "toggle" },
-		{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
-		{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
+	Section(schema, L["General"], "groupCooldowns", {
 		{
-			path = "perRow",
-			label = L["Icons per row"],
-			type = "number",
-			min = 1,
-			max = 12,
-			step = 1,
-			desc = L["A category with more icons continues on the next row down."],
+			path = "friendly",
+			label = L["Party cooldowns"],
+			type = "toggle",
+			desc = L["Panel with the cooldowns of your party members."],
 		},
-		{ path = "rowSpacing", label = L["Row spacing"], type = "number", min = 0, max = 20, step = 1 },
-		{ path = "labels", label = L["Category labels"], type = "toggle" },
+		{
+			path = "enemy",
+			label = L["Arena opponent cooldowns"],
+			type = "toggle",
+			desc = L["Panel with the cooldowns of arena opponents."],
+		},
+		{
+			path = "labels",
+			label = L["Category labels"],
+			type = "toggle",
+			desc = L["Category name beside each row of icons."],
+		},
 		{
 			path = "desaturate",
 			label = L["Desaturate on cooldown"],
@@ -160,6 +162,30 @@ local function buildSchema()
 			desc = L["Glow around a cooldown icon while the spell's effect is still active."],
 		},
 	}, nil, nil, "sliders")
+
+	Section(schema, L["Layout"], "groupCooldowns", {
+		{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
+		{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
+		{
+			path = "perRow",
+			label = L["Icons per row"],
+			type = "number",
+			min = 1,
+			max = 12,
+			step = 1,
+			desc = L["A category with more icons continues on the next row down."],
+		},
+		{
+			path = "rowSpacing",
+			label = L["Row spacing"],
+			type = "number",
+			min = 0,
+			max = 20,
+			step = 1,
+			advanced = true,
+			desc = L["Space between the rows of icons."],
+		},
+	}, nil, nil, "up-down-left-right")
 
 	schema[#schema + 1] = { header = L["Spells"], glyph = "book" }
 	schema[#schema + 1] = {
@@ -199,8 +225,10 @@ ns.RegisterPage({
 	key = "cooldowns",
 	name = L["Cooldowns"],
 	glyph = "hourglass-half",
-	order = 33.5,
+	order = 32,
+	group = "pvp",
 	new = "1.4.1",
+	enable = "groupCooldowns.enabled",
 	schema = { { path = "groupCooldowns", hidden = true } },
 	buildSchema = buildSchema,
 	signature = function()

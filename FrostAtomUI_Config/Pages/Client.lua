@@ -6,7 +6,16 @@ local Section = ns.Section
 
 local NEW = "1.4.1"
 
-local schema = {}
+local schema = {
+	{
+		path = "tweaks.enabled",
+		label = L["Enable tweaks"],
+		type = "toggle",
+		reload = true,
+		noReset = true,
+		desc = L["The same switch as Quality of life > Tweaks > Enable. Every setting on this page needs it."],
+	},
+}
 
 local function cameraKey(binding)
 	return {
@@ -98,6 +107,9 @@ Section(schema, L["Camera"], "tweaks", {
 		type = "toggle",
 		desc = L["The camera jumps to the new height right away when you shapeshift or mount instead of sliding."],
 	},
+}, nil, nil, "camera")
+
+Section(schema, L["Camera distance presets"], "tweaks", {
 	{
 		description = L["Keys that snap the camera to these distances. Also in Key Bindings > FrostAtomUI."],
 	},
@@ -131,7 +143,7 @@ Section(schema, L["Camera"], "tweaks", {
 		desc = L["Distance the Far camera distance key binding snaps to."],
 	},
 	cameraKey("FROSTATOMUI_CAMERA_FAR"),
-}, nil, nil, "camera")
+}, nil, nil, "magnifying-glass-plus")
 
 local function customMouseSpeedOff()
 	return FrostAtomUI:GetConfig("tweaks.mouseSpeedMode") ~= "custom"
@@ -162,21 +174,21 @@ Section(schema, L["Controls"], "tweaks", {
 	{
 		path = "keepShapeshift",
 		new = NEW,
-		label = L["Don't cancel shapeshift form on cast"],
+		label = L["Keep shapeshift form on cast"],
 		type = "toggle",
 		desc = L["A spell that can't be cast in the current form or stance shows an error instead of leaving the form."],
 	},
 	{
 		path = "keepMount",
 		new = NEW,
-		label = L["Don't dismount on cast"],
+		label = L["Stay mounted on cast"],
 		type = "toggle",
 		desc = L["Casting while mounted shows an error instead of dismounting. The game options only have this for flying."],
 	},
 	{
 		path = "keepSitting",
 		new = NEW,
-		label = L["Don't stand up on cast"],
+		label = L["Keep sitting on cast"],
 		type = "toggle",
 		desc = L["Casting while sitting shows an error instead of standing up, so a misclick doesn't interrupt eating or drinking."],
 	},
@@ -186,14 +198,14 @@ Section(schema, L["Graphics"], "tweaks", {
 	{
 		path = "hideScreenEffects",
 		new = NEW,
-		label = L["Disable full screen effects"],
+		label = L["Hide full screen effects"],
 		type = "toggle",
 		desc = L["Turns off glow, the grey death screen and the invisibility haze at once. Slightly raises FPS."],
 	},
 	{
 		path = "hideInvisibilityEffect",
 		new = NEW,
-		label = L["Disable invisibility haze"],
+		label = L["Hide invisibility haze"],
 		type = "toggle",
 		desc = L["Only the purple full screen haze while you are invisible, keeping glow."],
 	},
@@ -205,13 +217,20 @@ Section(schema, L["Graphics"], "tweaks", {
 		min = 0,
 		max = 1,
 		step = 0.05,
+		percent = true,
 		desc = L["Lights players and creatures up in dark zones and arenas. 0 keeps the zone lighting."],
 	},
 	{
 		path = "hideSunGlare",
-		label = L["Disable sun glare"],
+		label = L["Hide sun glare"],
 		type = "toggle",
 		desc = L["The bright glare when the camera faces the sun."],
+	},
+	{
+		path = "hideGroundClutter",
+		label = L["Hide ground clutter"],
+		type = "toggle",
+		desc = L["Grass and other ground decorations. Turning it off restores the game default."],
 	},
 	{
 		path = "hideSelectionCircle",
@@ -276,7 +295,7 @@ Section(schema, L["Performance"], "tweaks", {
 	},
 	{
 		path = "timingMethod",
-		label = L["Timer"],
+		label = L["Clock source"],
 		type = "select",
 		values = {
 			{ "", L["Game setting"] },
@@ -308,6 +327,7 @@ ns.RegisterPage({
 	name = L["Game client"],
 	glyph = "display",
 	new = NEW,
-	order = 46,
+	order = 62,
+	group = "system",
 	schema = schema,
 })

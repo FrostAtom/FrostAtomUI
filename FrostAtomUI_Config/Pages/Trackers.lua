@@ -110,10 +110,18 @@ ns.RegisterElement({
 			return spec
 		end
 		return {
-			{ header = L["Size"], glyph = "up-down-left-right" },
+			{ header = L["Layout"], glyph = "up-down-left-right" },
 			entry({ path = "size", label = L["Icon size"], type = "number", min = 12, max = 80, step = 1 }),
+			entry({
+				path = "columns",
+				label = L["Columns"],
+				type = "number",
+				min = 1,
+				max = 16,
+				step = 1,
+				desc = L["Icons per row; further icons continue on the next row."],
+			}),
 			entry({ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 20, step = 1 }),
-			entry({ path = "columns", label = L["Columns"], type = "number", min = 1, max = 16, step = 1 }),
 			entry({
 				path = "collapse",
 				label = L["Collapse hidden icons"],
@@ -121,7 +129,12 @@ ns.RegisterElement({
 				desc = L["Shift visible icons into the gaps of hidden ones."],
 			}),
 			{ header = L["Text"], glyph = "font" },
-			entry({ path = "timer", label = L["Timer text"], type = "toggle" }),
+			entry({
+				path = "timer",
+				label = L["Timer text"],
+				type = "toggle",
+				desc = L["Time left as a number on the icons."],
+			}),
 			{ header = L["Visibility"], glyph = "eye" },
 			entry({
 				path = "inactiveAlpha",
@@ -130,6 +143,7 @@ ns.RegisterElement({
 				min = 0,
 				max = 1,
 				step = 0.05,
+				percent = true,
 				desc = L['Opacity of "Always" icons while their condition is not met.'],
 			}),
 		}
@@ -515,10 +529,10 @@ end
 local function buildSchema()
 	validateSelection()
 	local schema = {
+		{ path = "trackers.enabled", label = L["Enable"], type = "toggle" },
 		{
 			description = L["Minimal TellMeWhen: groups of icons that watch buffs, debuffs, cooldowns, items, totems, internal cooldowns, enemy cooldowns and diminishing returns. Icons of the page are shown while it is open; move groups with Unlock frames."],
 		},
-		{ path = "trackers.enabled", label = L["Enable"], type = "toggle" },
 		{
 			label = L["Group"],
 			type = "select",
@@ -531,7 +545,6 @@ local function buildSchema()
 			set = function(value)
 				selectItem(value, nil)
 			end,
-			enabledBy = "trackers.enabled",
 		},
 		{
 			type = "custom",
@@ -552,8 +565,14 @@ local function buildSchema()
 	end
 
 	Section(schema, L["Group settings"], groupPath(groupIndex), {
-		{ path = "enabled", label = L["Enable group"], type = "toggle" },
-		{ path = "name", label = L["Name"], type = "string", maxLetters = 40 },
+		{ path = "enabled", label = L["Enable"], type = "toggle" },
+		{
+			path = "name",
+			label = L["Name"],
+			type = "string",
+			maxLetters = 40,
+			desc = L["Shown in the group list and on the group's mover."],
+		},
 		{
 			path = "class",
 			label = L["Class"],
@@ -570,15 +589,16 @@ local function buildSchema()
 			disabled = function()
 				return not groupLoaded(groupIndex)
 			end,
+			disabledDesc = L["The group is not loaded for your class."],
 			func = function()
 				ns.EditElement(groupPath(groupIndex) .. ".point")
 			end,
 		},
 		{
 			path = "combat",
-			label = L["Combat"],
+			label = L["Visible"],
 			type = "select",
-			values = { { "any", L["Always"] }, { "combat", L["In combat"] }, { "nocombat", L["Out of combat"] } },
+			values = ns.COMBAT_VISIBILITY_VALUES,
 		},
 		{
 			path = "zone",
@@ -590,12 +610,14 @@ local function buildSchema()
 				{ "pvp", L["Arena or battleground"] },
 				{ "world", L["Outside instances"] },
 			},
+			desc = L["Show the group only in these places."],
 		},
 		{
 			path = "talentGroup",
 			label = L["Talent spec"],
 			type = "select",
 			values = { { 0, L["Both"] }, { 1, L["Primary"] }, { 2, L["Secondary"] } },
+			desc = L["Show the group only while this talent spec is active."],
 		},
 	}, nil, nil, "sliders")
 
@@ -634,8 +656,10 @@ ns.RegisterPage({
 	key = "trackers",
 	name = L["Trackers"],
 	glyph = "list-check",
-	order = 32,
+	order = 34,
+	group = "pvp",
 	new = "1.4.0",
+	enable = "trackers.enabled",
 	schema = { { path = "trackers", hidden = true } },
 	buildSchema = buildSchema,
 	signature = signature,

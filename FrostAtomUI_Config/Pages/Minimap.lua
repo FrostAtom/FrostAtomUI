@@ -13,7 +13,6 @@ ns.RegisterElement({
 	schema = {
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "minimap.size", label = L["Size"], type = "number", min = 100, max = 400, step = 1 },
-		{ path = "minimap.borderColor", label = L["Border color"], type = "color" },
 		{
 			path = "minimap.iconSize",
 			label = L["Icon size"],
@@ -23,9 +22,10 @@ ns.RegisterElement({
 			step = 1,
 			desc = L["Mail, battleground and tracking icons on the minimap."],
 		},
+		{ header = L["Display"], glyph = "bars-staggered" },
 		{
 			path = "minimap.showTracking",
-			label = L["Show tracking icon"],
+			label = L["Tracking icon"],
 			type = "toggle",
 			desc = L["Tracking button in the bottom-right corner. Right-click the minimap opens the same menu."],
 		},
@@ -36,8 +36,18 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Gather addon buttons from the minimap edge into a panel opened by the + button on the left side of the minimap."],
 		},
-		{ header = L["Clock"], glyph = "clock" },
-		{ path = "minimap.showClock", label = L["Show clock"], type = "toggle" },
+		{
+			path = "minimap.showZoneText",
+			label = L["Zone name"],
+			type = "toggle",
+			desc = L["Current zone at the top of the minimap, colored by PvP status."],
+		},
+		{
+			path = "minimap.showClock",
+			label = L["Clock"],
+			type = "toggle",
+			desc = L["Local time at the bottom of the minimap."],
+		},
 		{
 			path = "minimap.clock24h",
 			label = L["24-hour clock"],
@@ -52,15 +62,16 @@ ns.RegisterElement({
 			enabledBy = "minimap.showClock",
 			desc = L["Relative to the minimap."],
 		},
-		{ path = "minimap.clockFont", label = L["Clock font"], type = "font", enabledBy = "minimap.showClock" },
-		{ header = L["Zone text"], glyph = "location-dot" },
-		{
-			path = "minimap.showZoneText",
-			label = L["Show zone name"],
-			type = "toggle",
-			desc = L["Current zone at the top of the minimap, colored by PvP status."],
-		},
+		{ header = L["Text"], glyph = "font" },
 		{ path = "minimap.zoneFont", label = L["Zone font"], type = "font", enabledBy = "minimap.showZoneText" },
+		{ path = "minimap.clockFont", label = L["Clock font"], type = "font", enabledBy = "minimap.showClock" },
+		{ header = L["Colors"], glyph = "palette" },
+		{
+			path = "minimap.borderColor",
+			label = L["Border color"],
+			type = "color",
+			desc = L["Thin border around the minimap."],
+		},
 		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "minimap.mouseover",
@@ -83,10 +94,12 @@ ns.RegisterElement({
 			min = 0,
 			max = 1,
 			step = 0.05,
+			percent = true,
 			disabled = function()
 				return not FrostAtomUI:GetConfig("minimap.mouseover")
 					and FrostAtomUI:GetConfig("minimap.combat") == "any"
 			end,
+			disabledDesc = L["Used only with Show on mouseover or when Visible is not Always."],
 		},
 	},
 })
@@ -110,18 +123,17 @@ ns.RegisterElement({
 	},
 })
 
-local schema = {}
-
-Section(schema, L["Minimap"], "minimap", {
+local schema = {
 	{
-		path = "enabled",
+		path = "minimap.enabled",
 		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = L["Square minimap, clock, hidden buttons."],
+		desc = L["Square minimap, clock, hidden buttons. The world map has its own switch below."],
 	},
-	{ type = "elements" },
-}, nil, nil, "map")
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
+	{ type = "elements", enabledBy = "minimap.enabled" },
+}
 
 Section(schema, L["World map"], "worldMap", {
 	{
@@ -138,34 +150,25 @@ Section(schema, L["World map"], "worldMap", {
 		min = 0.5,
 		max = 1,
 		step = 0.05,
+		percent = true,
 		desc = L["Fraction of the screen height the full-size map takes."],
 	},
-	{ path = "arrowSize", label = L["Player arrow size"], type = "number", min = 16, max = 64, step = 1 },
+	{
+		path = "arrowSize",
+		label = L["Player arrow size"],
+		type = "number",
+		min = 16,
+		max = 64,
+		step = 1,
+		desc = L["Your own arrow on the map."],
+	},
 	{
 		path = "showCoords",
-		label = L["Show coordinates"],
+		label = L["Coordinates"],
 		type = "toggle",
 		desc = L["Cursor and player coordinates."],
 	},
 	{ path = "coordFont", label = L["Coordinates font"], type = "font", enabledBy = "worldMap.showCoords" },
-	{
-		path = "zoomStep",
-		label = L["Zoom step"],
-		type = "number",
-		min = 0.05,
-		max = 0.5,
-		step = 0.05,
-		desc = L["Zoom change per mouse wheel notch, as a fraction of the current zoom."],
-	},
-	{
-		path = "maxZoom",
-		label = L["Maximum zoom"],
-		type = "number",
-		min = 1.5,
-		max = 8,
-		step = 0.5,
-		desc = L["Magnification limit for mouse wheel zoom."],
-	},
 	{
 		path = "fadeWhenMoving",
 		new = "1.4.1",
@@ -181,7 +184,29 @@ Section(schema, L["World map"], "worldMap", {
 		min = 0.1,
 		max = 1,
 		step = 0.05,
+		percent = true,
 		enabledBy = "worldMap.fadeWhenMoving",
+	},
+	{
+		path = "zoomStep",
+		label = L["Zoom step"],
+		type = "number",
+		min = 0.05,
+		max = 0.5,
+		step = 0.05,
+		percent = true,
+		advanced = true,
+		desc = L["Zoom change per mouse wheel notch, as a fraction of the current zoom."],
+	},
+	{
+		path = "maxZoom",
+		label = L["Maximum zoom"],
+		type = "number",
+		min = 1.5,
+		max = 8,
+		step = 0.5,
+		advanced = true,
+		desc = L["Magnification limit for mouse wheel zoom."],
 	},
 }, nil, nil, "map-location-dot")
 
@@ -189,6 +214,7 @@ ns.RegisterPage({
 	key = "minimap",
 	name = L["Minimap & map"],
 	glyph = "map",
-	order = 37,
+	order = 44,
+	group = "interface",
 	schema = schema,
 })

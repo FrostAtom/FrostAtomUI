@@ -130,16 +130,6 @@ local schema = {
 		end,
 		desc = L["Forget the answers given when another addon was found doing the same job as a FrostAtom UI module, and check the loaded addons again."],
 	},
-	{ header = L["Unit frames"], glyph = "id-badge" },
-	{
-		path = "dispelHighlightAlpha",
-		label = L["Dispel highlight alpha"],
-		type = "number",
-		min = 0,
-		max = 1,
-		step = 0.05,
-		desc = L["Border alpha on unit frames with a debuff you can dispel."],
-	},
 }
 
 ns.RegisterPage({
@@ -147,5 +137,6 @@ ns.RegisterPage({
 	name = L["General"],
 	glyph = "gear",
 	order = 10,
+	group = "core",
 	schema = schema,
 })
