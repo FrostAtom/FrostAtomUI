@@ -762,6 +762,7 @@ ns.Defaults = {
 		point = { "CENTER", 420, 60 },
 		entries = 5,
 		chatLink = true,
+		arenaDeaths = true,
 		autoOpen = true,
 	},
 

@@ -150,7 +150,8 @@ with its castbar, and defensive cooldowns other players put on you.*
 **Death recap** (`/recap`): the hits of your last 10 seconds — spell, caster and amount, the killing blow
 marked with a skull, the biggest hit in large red. Hover a line for the school, crit, overkill, absorbed/resisted/blocked
 amounts and your health at that moment. After a death a clickable *[Death recap]* link appears in chat;
-in arenas and battlegrounds the window opens by itself.
+in arenas and battlegrounds the window opens by itself. In arenas every player's death gets its own link too,
+teammates and enemies alike, opening the recap with their name in the title.
 
 ### 🧊 Cooldowns, trackers & auras
 

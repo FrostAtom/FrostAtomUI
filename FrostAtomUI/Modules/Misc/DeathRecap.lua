@@ -4,21 +4,28 @@ local L = ns.L
 
 local GetTime = GetTime
 local GetSpellInfo = GetSpellInfo
+local GetPlayerInfoByGUID = GetPlayerInfoByGUID
 local UnitGUID = UnitGUID
 local UnitHealth = UnitHealth
 local UnitHealthMax = UnitHealthMax
+local UnitIsFeignDeath = UnitIsFeignDeath
 local IsInInstance = IsInInstance
 local GameTooltip = GameTooltip
+local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+local COMBATLOG_OBJECT_TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local floor = math.floor
 local band = bit.band
 local concat = table.concat
 local format = string.format
+local gsub = string.gsub
 
 local Misc = ns:GetModule("Misc")
 
 local FRAME_NAME = "FrostAtomUIDeathRecap"
 local LINK_PREFIX = "farecap:"
-local CHAT_LINE = "%s |cffff4d4d|H" .. LINK_PREFIX .. "1|h[%s]|h|r"
+local CHAT_LINE = "%s |cffff4d4d|H" .. LINK_PREFIX .. "%d|h[%s]|h|r"
+local NAME_COLOR = "|cff%02x%02x%02x%s|r"
+local RECAPS_KEPT = 30
 local BUFFER_SIZE = 20
 local RECAP_WINDOW = 10
 local WIDTH = 340
@@ -91,16 +98,32 @@ local ENTRY_FIELDS = {
 }
 
 local playerGUID
-local buffer = {}
-local head = 0
+local buffers = {}
+local units = {}
+local trackArena = false
 
-local recap = {}
-local recapCount = 0
+local recaps = {}
+local lastRecapId = 0
+local shownId
 local deathTime = 0
 
 local frame
 
+local function unitFor(guid)
+	if guid == playerGUID then
+		return "player"
+	end
+	local unit = units[guid]
+	if unit and UnitGUID(unit) == guid then
+		return unit
+	end
+	unit = ns.UnitByGUID(guid)
+	units[guid] = unit
+	return unit
+end
+
 local function recordHit(
+	guid,
 	sourceName,
 	spellId,
 	spellName,
@@ -113,7 +136,13 @@ local function recordHit(
 	absorbed,
 	critical
 )
-	head = head % BUFFER_SIZE + 1
+	local buffer = buffers[guid]
+	if not buffer then
+		buffer = { head = 0 }
+		buffers[guid] = buffer
+	end
+	local head = buffer.head % BUFFER_SIZE + 1
+	buffer.head = head
 	local entry = buffer[head]
 	if not entry then
 		entry = {}
@@ -131,27 +160,56 @@ local function recordHit(
 	entry.blocked = blocked or 0
 	entry.absorbed = absorbed or 0
 	entry.critical = critical
-	entry.health = UnitHealth("player")
-	entry.healthMax = UnitHealthMax("player")
+	local unit = unitFor(guid)
+	entry.health = unit and UnitHealth(unit)
+	entry.healthMax = unit and UnitHealthMax(unit)
 end
 
-local function onCombatLogEvent(_, _, event, _, sourceName, _, destGUID, _, _, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+local onUnitDied
+
+local function onCombatLogEvent(
+	_,
+	_,
+	event,
+	_,
+	sourceName,
+	_,
+	destGUID,
+	destName,
+	destFlags,
+	a1,
+	a2,
+	a3,
+	a4,
+	a5,
+	a6,
+	a7,
+	a8,
+	a9,
+	a10
+)
 	if destGUID ~= playerGUID then
-		return
+		if not trackArena or band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == 0 then
+			return
+		end
+		if event == "UNIT_DIED" then
+			onUnitDied(destGUID, destName)
+			return
+		end
 	end
 	if event == "SWING_DAMAGE" then
-		recordHit(sourceName, MELEE_SPELL, nil, nil, a1, a2, a3, a4, a5, a6, a7)
+		recordHit(destGUID, sourceName, MELEE_SPELL, nil, nil, a1, a2, a3, a4, a5, a6, a7)
 	elseif SPELL_DAMAGE_EVENTS[event] then
-		recordHit(sourceName, a1, a2, nil, a4, a5, a6, a7, a8, a9, a10)
+		recordHit(destGUID, sourceName, a1, a2, nil, a4, a5, a6, a7, a8, a9, a10)
 	elseif event == "ENVIRONMENTAL_DAMAGE" then
-		recordHit(nil, nil, nil, a1, a2, a3, a4, a5, a6, a7, a8)
+		recordHit(destGUID, nil, nil, nil, a1, a2, a3, a4, a5, a6, a7, a8)
 	elseif event == "SWING_MISSED" then
 		if a1 == "ABSORB" then
-			recordHit(sourceName, MELEE_SPELL, nil, nil, 0, 0, 1, 0, 0, a2, nil)
+			recordHit(destGUID, sourceName, MELEE_SPELL, nil, nil, 0, 0, 1, 0, 0, a2, nil)
 		end
 	elseif SPELL_MISSED_EVENTS[event] then
 		if a4 == "ABSORB" then
-			recordHit(sourceName, a1, a2, nil, 0, 0, a3, 0, 0, a5, nil)
+			recordHit(destGUID, sourceName, a1, a2, nil, 0, 0, a3, 0, 0, a5, nil)
 		end
 	end
 end
@@ -195,37 +253,39 @@ local function resolveNameAndIcon(entry)
 	entry.icon = icon or ns.Media.questionMark
 end
 
-local function freezeRecap()
+local function freezeRecap(guid, name)
+	local buffer = buffers[guid]
+	if not buffer then
+		return
+	end
 	local now = GetTime()
 	local limit = ns.Config.deathRecap.entries
-	recapCount = 0
-	local index = head
+	local entries = {}
+	local index = buffer.head
 	for _ = 1, BUFFER_SIZE do
 		local entry = buffer[index]
-		if not entry or not entry.time or now - entry.time > RECAP_WINDOW or recapCount >= limit then
+		if not entry or not entry.time or now - entry.time > RECAP_WINDOW or #entries >= limit then
 			break
 		end
-		recapCount = recapCount + 1
-		local target = recap[recapCount]
-		if not target then
-			target = {}
-			recap[recapCount] = target
-		end
+		local target = {}
 		for i = 1, #ENTRY_FIELDS do
 			local field = ENTRY_FIELDS[i]
 			target[field] = entry[field]
 		end
+		entries[#entries + 1] = target
 		index = (index - 2) % BUFFER_SIZE + 1
 	end
 	for i = 1, #buffer do
 		buffer[i].time = nil
 	end
+	if #entries == 0 then
+		return
+	end
 
 	local largest, largestAmount = nil, 0
-	for i = 1, recapCount do
-		local entry = recap[i]
+	for i = 1, #entries do
+		local entry = entries[i]
 		resolveNameAndIcon(entry)
-		entry.largest = false
 		if entry.amount > largestAmount then
 			largest, largestAmount = entry, entry.amount
 		end
@@ -233,7 +293,11 @@ local function freezeRecap()
 	if largest then
 		largest.largest = true
 	end
-	deathTime = recapCount > 0 and recap[1].time or now
+
+	lastRecapId = lastRecapId + 1
+	recaps[lastRecapId] = { name = name, entries = entries, deathTime = entries[1].time }
+	recaps[lastRecapId - RECAPS_KEPT] = nil
+	return lastRecapId
 end
 
 local function onIconEnter(self)
@@ -385,17 +449,26 @@ local function refresh()
 	if not frame or not frame:IsShown() then
 		return
 	end
+	local recap = recaps[shownId]
+	local entries = recap and recap.entries
+	local count = entries and #entries or 0
+	deathTime = recap and recap.deathTime or 0
+	if recap and recap.name then
+		frame.title:SetText(format("%s: %s", L["Death recap"], recap.name))
+	else
+		frame.title:SetText(L["Death recap"])
+	end
 	local rows = frame.rows
-	for i = 1, recapCount do
+	for i = 1, count do
 		local row = rows[i] or createRow(i)
-		fillRow(row, recap[i], i)
+		fillRow(row, entries[i], i)
 		row:Show()
 	end
-	for i = recapCount + 1, #rows do
+	for i = count + 1, #rows do
 		rows[i]:Hide()
 	end
-	ns.SetShown(frame.empty, recapCount == 0)
-	frame:SetHeight(PADDING * 2 + HEADER_HEIGHT + (recapCount > 0 and recapCount or 1) * ROW_HEIGHT)
+	ns.SetShown(frame.empty, count == 0)
+	frame:SetHeight(PADDING * 2 + HEADER_HEIGHT + (count > 0 and count or 1) * ROW_HEIGHT)
 end
 
 local function createFrame()
@@ -412,10 +485,11 @@ local function createFrame()
 	frame.empty = empty
 end
 
-local function show()
+local function show(id)
 	if not frame then
 		createFrame()
 	end
+	shownId = id or lastRecapId
 	if frame:IsShown() then
 		refresh()
 	else
@@ -423,41 +497,85 @@ local function show()
 	end
 end
 
+local function coloredName(guid, name)
+	local _, class = GetPlayerInfoByGUID(guid)
+	local color = class and RAID_CLASS_COLORS[class]
+	if not color then
+		return name
+	end
+	return format(NAME_COLOR, color.r * 255, color.g * 255, color.b * 255, name)
+end
+
 local function onPlayerDead()
-	freezeRecap()
-	refresh()
-	if recapCount == 0 then
+	local id = freezeRecap(playerGUID)
+	if not id then
 		return
 	end
 	local config = ns.Config.deathRecap
-	if config.chatLink then
-		ns.Print(CHAT_LINE, L["You died."], L["Death recap"])
+	if config.chatLink or trackArena then
+		ns.Print(CHAT_LINE, L["You died."], id, L["Death recap"])
 	end
 	if config.autoOpen then
 		local _, instanceType = IsInInstance()
 		if instanceType == "arena" or instanceType == "pvp" then
-			show()
+			show(id)
+			return
 		end
+	end
+	if frame and frame:IsShown() then
+		show(id)
+	end
+end
+
+function onUnitDied(guid, name)
+	local unit = unitFor(guid)
+	if unit and UnitIsFeignDeath(unit) then
+		return
+	end
+	name = name or UNKNOWN
+	if ns.Config.chat.stripRealm then
+		name = gsub(name, "%-.+", "", 1)
+	end
+	name = coloredName(guid, name)
+	local id = freezeRecap(guid, name)
+	if id then
+		ns.Print(CHAT_LINE, format(L["%s died."], name), id, L["Death recap"])
 	end
 end
 
 local originalSetItemRef = SetItemRef
 SetItemRef = function(link, ...)
 	if link and link:sub(1, #LINK_PREFIX) == LINK_PREFIX then
-		show()
+		show(tonumber(link:sub(#LINK_PREFIX + 1)))
 		return
 	end
 	return originalSetItemRef(link, ...)
+end
+
+local function updateZone()
+	local _, instanceType = IsInInstance()
+	trackArena = instanceType == "arena" and ns.Config.deathRecap.arenaDeaths
+	if not trackArena then
+		for guid in pairs(buffers) do
+			if guid ~= playerGUID then
+				buffers[guid] = nil
+			end
+		end
+		wipe(units)
+	end
 end
 
 local function applyConfig()
 	if ns.Config.deathRecap.enabled then
 		Misc:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
 		Misc:RegisterEvent("PLAYER_DEAD", onPlayerDead)
+		Misc:RegisterEvent("PLAYER_ENTERING_WORLD", updateZone)
 	else
 		Misc:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
 		Misc:UnregisterEvent("PLAYER_DEAD", onPlayerDead)
+		Misc:UnregisterEvent("PLAYER_ENTERING_WORLD", updateZone)
 	end
+	updateZone()
 end
 
 Misc:RegisterEvent("PLAYER_LOGIN", function()

@@ -47,7 +47,7 @@ read_globals = {
 	"CombatLogClearEntries", "ToggleCalendar", "collectgarbage", "geterrorhandler", "GetLocale",
 	"GetComboPoints", "UnitHasVehicleUI", "GetRaidTargetIndex", "SetRaidTargetIconTexture",
 	"UnitInRange", "CheckInteractDistance", "UnitLevel", "UnitXP", "UnitXPMax", "GetXPExhaustion",
-	"GetWatchedFactionInfo", "UnitCanAssist", "UnitCanAttack", "GetPlayerInfoByGUID",
+	"GetWatchedFactionInfo", "UnitCanAssist", "UnitCanAttack", "GetPlayerInfoByGUID", "UnitIsFeignDeath",
 	"IsResting", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitFactionGroup", "GetTotemInfo",
 	"RequestBattlefieldScoreData", "UnitReaction", "GetGuildInfo", "GetItemCount",
 	"CanMerchantRepair", "GetRepairAllCost", "RepairAllItems", "GetMoney", "GetContainerNumSlots",

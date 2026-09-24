@@ -340,6 +340,13 @@ Section(schema, L["Death recap"], "deathRecap", {
 		desc = L["Print a clickable link to the recap when you die."],
 	},
 	{
+		path = "arenaDeaths",
+		new = "1.4.1",
+		label = L["Every death in arena"],
+		type = "toggle",
+		desc = L["Record the damage taken by every player in an arena and print a link to the recap when anyone dies."],
+	},
+	{
 		path = "autoOpen",
 		label = L["Open in arenas and battlegrounds"],
 		type = "toggle",
