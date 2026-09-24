@@ -12,9 +12,10 @@ local UnitCanAttack = UnitCanAttack
 local UnitGUID = UnitGUID
 local GetPlayerInfoByGUID = GetPlayerInfoByGUID
 local GetSpellInfo = GetSpellInfo
+local GetNetStats = GetNetStats
 local GetTime = GetTime
 local band = bit.band
-local random, floor = math.random, math.floor
+local random, floor, min = math.random, math.floor, math.min
 local format = string.format
 
 local FADE_SPEED = 1.4
@@ -33,6 +34,10 @@ local TEXT_INSET = 3
 local FAILED_TEXT = "|cff808080" .. FAILED .. "|r"
 local INTERRUPTED_TEXT = "|cff8B0000" .. INTERRUPTED .. "|r"
 local PLAYER_FLAG = COMBATLOG_OBJECT_TYPE_PLAYER or 0x400
+local TICK_WIDTH = 2
+local TICK_COLOR = { 0, 0, 0, 0.75 }
+local MAX_LATENCY_SHARE = 0.4
+local LATENCY_TIMEOUT = 2
 
 UF.CAST_INTERRUPTED = "FrostAtomUI_CAST_INTERRUPTED"
 UF.INTERRUPTED_TEXT = INTERRUPTED_TEXT
@@ -75,6 +80,34 @@ for i = 1, #IMPORTANT_CASTS do
 	end
 end
 UF.importantCasts = importantCasts
+
+local CHANNEL_TICKS = {
+	[689] = 5, -- Drain Life
+	[1120] = 5, -- Drain Soul
+	[5138] = 5, -- Drain Mana
+	[5740] = 4, -- Rain of Fire
+	[1949] = 15, -- Hellfire
+	[15407] = 3, -- Mind Flay
+	[48045] = 5, -- Mind Sear
+	[47540] = 2, -- Penance
+	[64843] = 4, -- Divine Hymn
+	[64901] = 4, -- Hymn of Hope
+	[5143] = 5, -- Arcane Missiles
+	[10] = 8, -- Blizzard
+	[12051] = 4, -- Evocation
+	[740] = 4, -- Tranquility
+	[16914] = 10, -- Hurricane
+	[1510] = 6, -- Volley
+}
+
+local channelTicks = {}
+for spellId, ticks in pairs(CHANNEL_TICKS) do
+	local name = GetSpellInfo(spellId)
+	if name then
+		channelTicks[name] = ticks
+	end
+end
+UF.channelTicks = channelTicks
 
 local TEST_CASTS = {
 	12826, -- Polymorph
@@ -187,7 +220,11 @@ local function setUnitNameText(text, unit, name)
 end
 UF.SetCastTargetText = setUnitNameText
 
-local function setInterruptible(castbar, interruptible)
+local function showInterruptible(castbar)
+	local interruptible = castbar.interruptible
+	if interruptible and not castbar.isPlayer and not castbar.testing and ns.HasCastImmunity(castbar.unit) then
+		interruptible = false
+	end
 	if interruptible or castbar.isPlayer then
 		castbar.icon:SetDesaturated(nil)
 		castbar.bar:SetStatusBarColor(unpack(config.castbarColor))
@@ -195,6 +232,11 @@ local function setInterruptible(castbar, interruptible)
 		castbar.icon:SetDesaturated(1)
 		castbar.bar:SetStatusBarColor(unpack(config.castbarLockedColor))
 	end
+end
+
+local function setInterruptible(castbar, interruptible)
+	castbar.interruptible = interruptible
+	showInterruptible(castbar)
 end
 
 local function setTargetingYou(castbar, targetingYou)
@@ -245,6 +287,7 @@ end
 local function setTimes(castbar, startTime, endTime)
 	castbar.startTime = startTime
 	castbar.endTime = endTime
+	castbar.duration = endTime - startTime
 	castbar.remain = endTime - GetTime()
 	castbar.bar:SetMinMaxValues(startTime, endTime)
 end
@@ -255,7 +298,84 @@ local function setProgress(castbar, remain)
 	else
 		castbar.bar:SetValue(castbar.endTime - remain)
 	end
-	castbar.timer:SetFormattedText("%.1f", remain)
+	if castbar.showTotal then
+		castbar.timer:SetFormattedText("%.1f / %.1f", remain, castbar.duration)
+	else
+		castbar.timer:SetFormattedText("%.1f", remain)
+	end
+end
+
+local function hideTicks(castbar)
+	local ticks = castbar.ticks
+	for i = 1, ticks.shown do
+		ticks[i]:Hide()
+	end
+	ticks.shown = 0
+end
+
+local function showTicks(castbar, name)
+	hideTicks(castbar)
+	local count = castbar.isChannel and config.castbarTicks and channelTicks[name]
+	local bar = castbar.bar
+	local width = bar:GetWidth()
+	if not count or width <= 0 then
+		return
+	end
+	local ticks = castbar.ticks
+	for i = 1, count - 1 do
+		local tick = ticks[i]
+		if not tick then
+			tick = bar:CreateTexture(nil, "ARTWORK", nil, 3)
+			tick:SetTexture(ns.Media.blank)
+			tick:SetVertexColor(TICK_COLOR[1], TICK_COLOR[2], TICK_COLOR[3], TICK_COLOR[4])
+			tick:SetWidth(TICK_WIDTH)
+			ticks[i] = tick
+		end
+		local x = width * i / count
+		tick:ClearAllPoints()
+		tick:SetPoint("TOP", bar, "TOPLEFT", x, 0)
+		tick:SetPoint("BOTTOM", bar, "BOTTOMLEFT", x, 0)
+		tick:Show()
+	end
+	ticks.shown = count - 1
+end
+
+local function setLatency(castbar, seconds)
+	local zone = castbar.latency
+	if not zone then
+		return
+	end
+	local duration = castbar.duration
+	if castbar.isChannel or not config.castbarLatency or not seconds or seconds <= 0 or duration <= 0 then
+		zone:Hide()
+		return
+	end
+	local width = castbar.bar:GetWidth() * min(seconds / duration, MAX_LATENCY_SHARE)
+	if width < 1 then
+		zone:Hide()
+		return
+	end
+	zone:SetWidth(width)
+	zone:SetVertexColor(unpack(config.castbarLatencyColor))
+	zone:Show()
+end
+
+local sentAt
+
+local function takeLatency()
+	local latency = sentAt and GetTime() - sentAt
+	sentAt = nil
+	if latency and latency < LATENCY_TIMEOUT then
+		return latency
+	end
+	local _, _, home = GetNetStats()
+	return home / 1000
+end
+
+local function onCastSent(_, unit)
+	if unit == "player" then
+		sentAt = GetTime()
+	end
 end
 
 local function stopCast(castbar, hold, fadeSpeed)
@@ -267,6 +387,10 @@ local function stopCast(castbar, hold, fadeSpeed)
 	castbar.timer:SetText("")
 	castbar.target:SetText("")
 	castbar.glow:Hide()
+	hideTicks(castbar)
+	if castbar.latency then
+		castbar.latency:Hide()
+	end
 	setTargetingYou(castbar, false)
 end
 
@@ -367,8 +491,13 @@ local function startCast(castbar, name, texture, startTime, endTime, isChannel, 
 	castbar.interrupted = false
 	castbar.flashing = false
 	castbar.flash:Hide()
+	castbar.showTotal = config.castbarTimeFormat == "total"
 	setTimes(castbar, startTime, endTime)
 	setProgress(castbar, castbar.remain)
+	showTicks(castbar, name)
+	if castbar.latency then
+		castbar.latency:Hide()
+	end
 
 	castbar.important = config.castbarImportant and importantCasts[name] or false
 	if castbar.important then
@@ -402,6 +531,9 @@ local function update(frame)
 
 	startCast(castbar, name, texture, startTime / 1e3, endTime / 1e3, isChannel, castId, not notInterruptible)
 	castbar.guid = UnitGUID(unit)
+	if castbar.latency and castbar.casting then
+		setLatency(castbar, takeLatency())
+	end
 	updateCastTarget(castbar)
 end
 
@@ -412,6 +544,7 @@ function testCast(castbar)
 	local now = GetTime()
 	local duration = random(15, 30) / 10
 	startCast(castbar, name, texture, now, now + duration, isChannel, nil, random(4) ~= 1)
+	setLatency(castbar, random(5, 30) / 100)
 
 	local target = castbar.target
 	if config.castbarTargetName and random(4) ~= 1 then
@@ -458,7 +591,7 @@ end
 
 local function onCastFailed(frame, _, _, castId)
 	local castbar = frame.castbar
-	if castbar.casting and castId == castbar.castId then
+	if castbar.casting and not castbar.isChannel and castId and castId == castbar.castId then
 		castbar.name:SetText(FAILED_TEXT)
 		stopCast(castbar)
 	end
@@ -511,6 +644,13 @@ end
 
 local function onNotInterruptible(frame)
 	setInterruptible(frame.castbar, false)
+end
+
+local function onCastAura(frame)
+	local castbar = frame.castbar
+	if castbar.casting and not castbar.testing then
+		showInterruptible(castbar)
+	end
 end
 
 local function onUnitTarget(frame)
@@ -579,6 +719,16 @@ local function create(frame, iconSide)
 	castbar.flash:SetBlendMode("ADD")
 	castbar.flash:Hide()
 
+	castbar.ticks = { shown = 0 }
+	if castbar.isPlayer then
+		local latency = bar:CreateTexture(nil, "ARTWORK", nil, 2)
+		latency:SetTexture(ns.Media.blank)
+		latency:SetPoint("TOPRIGHT")
+		latency:SetPoint("BOTTOMRIGHT")
+		latency:Hide()
+		castbar.latency = latency
+	end
+
 	castbar.glow = UF.CreateCastGlow(castbar, castbar, GLOW_SIZE)
 
 	castbar.icon = castbar:CreateTexture(nil, "BORDER")
@@ -616,6 +766,11 @@ local function create(frame, iconSide)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", onNotInterruptible)
 	frame:RegisterUnitEvent("UNIT_TARGET", onUnitTarget)
 	frame:RegisterEvent(UF.CAST_INTERRUPTED, onInterrupter)
+	if castbar.isPlayer then
+		frame:RegisterEvent("UNIT_SPELLCAST_SENT", onCastSent)
+	else
+		frame:RegisterUnitEvent("UNIT_AURA", onCastAura)
+	end
 
 	return castbar
 end

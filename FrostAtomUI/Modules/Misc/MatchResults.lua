@@ -25,31 +25,35 @@ local sort = table.sort
 local Misc = ns:GetModule("Misc")
 local UF = ns:GetModule("UnitFrames")
 local History = ns.ArenaHistory
+local createStrip = History.CreateStrip
+local setStripColor = History.SetStripColor
 
 local FRAME_NAME = "FrostAtomUIMatchResults"
 local WIDTH = 620
-local PADDING = 12
-local RESULT_HEIGHT = 32
+local INSET = ns.WINDOW_INSET
+local INSET_PADDING = 4
+local BANNER_TOP = 20
+local BANNER_HEIGHT = 20
 local LINE_HEIGHT = 18
 local ROW_HEIGHT = 18
+local COLUMN_HEADER_HEIGHT = 24
 local MAX_ROWS = 15
 local ICON_SIZE = 16
-local SCROLLBAR_WIDTH = 24
 local BUTTON_HEIGHT = 22
 local BUTTON_WIDTH = 100
 local LEAVE_WIDTH = 150
 local GAP = 8
 local TICK_INTERVAL = 0.2
-local ROW_TINT_ALPHA = 0.15
-local PLAYER_ROW_ALPHA = 0.12
-local HEADER_COLOR = { 0.7, 0.7, 0.7 }
 local UNKNOWN_NAME = UNKNOWNOBJECT
-local SEPARATOR = "   |cff7f7f7f-|r   "
+local SEPARATOR = "  " .. GRAY_FONT_COLOR_CODE .. "-|r  "
 
-local RESULT_COLORS = { win = { 0.3, 1, 0.3 }, loss = { 1, 0.3, 0.3 }, draw = { 0.8, 0.8, 0.8 } }
+local RESULT_COLORS = { win = { 0.1, 1, 0.1 }, loss = { 1, 0.1, 0.1 }, draw = { 1, 0.82, 0 } }
+local RESULT_STRIPS = { win = { 0.19, 0.57, 0.11 }, loss = { 0.52, 0.075, 0.18 }, draw = { 0.85, 0.71, 0.26 } }
 local RESULT_TEXTS = { win = "Victory", loss = "Defeat", draw = "Draw" }
-local ARENA_TEAM_COLORS = { [0] = { 0.557, 0, 1 }, [1] = { 1, 0.824, 0 } }
-local FACTION_COLORS = { [0] = { 1, 0.15, 0.15 }, [1] = { 0.2, 0.45, 1 } }
+local ARENA_TEAM_COLORS = { [0] = { 0.1, 1, 0.1 }, [1] = { 1, 0.82, 0 } }
+local FACTION_COLORS = { [0] = { 1, 0.1, 0.1 }, [1] = { 0, 0.68, 0.94 } }
+local ARENA_TEAM_STRIPS = { [0] = { 0.19, 0.57, 0.11 }, [1] = { 0.85, 0.71, 0.26 } }
+local FACTION_STRIPS = { [0] = { 0.52, 0.075, 0.18 }, [1] = { 0.11, 0.26, 0.51 } }
 
 local CLASS_ICONS = UF.CLASS_ICONS
 local ICON_TRIM = UF.ICON_TRIM
@@ -104,7 +108,8 @@ ns.OnLocaleReady(function()
 	localizeValues(RESULT_TEXTS)
 end)
 
-local LIST_WIDTH = WIDTH - PADDING * 2 - SCROLLBAR_WIDTH
+local CONTENT_WIDTH = WIDTH - INSET.left - INSET.right
+local LIST_WIDTH = CONTENT_WIDTH - INSET_PADDING * 2 - ns.SCROLLBAR_TRACK_WIDTH
 
 local function layoutColumns(columns)
 	local byKey = {}
@@ -166,6 +171,10 @@ end
 
 local function teamColor(teamIndex)
 	return (isArena and ARENA_TEAM_COLORS or FACTION_COLORS)[teamIndex]
+end
+
+local function teamStrip(teamIndex)
+	return (isArena and ARENA_TEAM_STRIPS or FACTION_STRIPS)[teamIndex]
 end
 
 local function matchResult()
@@ -265,11 +274,11 @@ local function teamLine(teamIndex, side)
 	end
 	local change
 	if team.change > 0 then
-		change = format("|cff4dff4d+%d|r", team.change)
+		change = format("%s+%d|r", GREEN_FONT_COLOR_CODE, team.change)
 	elseif team.change < 0 then
-		change = format("|cffff4d4d-%d|r", -team.change)
+		change = format("%s-%d|r", RED_FONT_COLOR_CODE, -team.change)
 	else
-		change = "|cff7f7f7f" .. L["Rating unchanged"] .. "|r"
+		change = GRAY_FONT_COLOR_CODE .. L["Rating unchanged"] .. "|r"
 	end
 	return hexColor(teamColor(teamIndex))
 		.. name
@@ -277,7 +286,9 @@ local function teamLine(teamIndex, side)
 		.. SEPARATOR
 		.. change
 		.. SEPARATOR
+		.. HIGHLIGHT_FONT_COLOR_CODE
 		.. format(L["MMR %d"], team.mmr)
+		.. "|r"
 end
 
 local function showTeams()
@@ -323,9 +334,17 @@ local function applyColumns()
 		local column = byKey[key]
 		local header = frame.headers[key]
 		if column then
+			local overlap = column.x > 0 and 2 or 0
 			header:ClearAllPoints()
-			header:SetPoint("LEFT", column.x, 0)
-			header:SetSize(column.width, LINE_HEIGHT)
+			header:SetPoint("TOPLEFT", column.x - overlap, 0)
+			WhoFrameColumn_SetWidth(header, column.width + overlap)
+			local text = header:GetFontString()
+			text:ClearAllPoints()
+			if key == "name" then
+				text:SetPoint("LEFT", overlap + 4, 0)
+			else
+				text:SetPoint("RIGHT", -4, 0)
+			end
 			header:Show()
 		else
 			header:Hide()
@@ -348,23 +367,22 @@ local function fillRow(row, data)
 	cells.name:SetText(data.name)
 	if data.isPlayer then
 		cells.name:SetTextColor(1, 1, 1)
-		row.mark:Show()
+		row:LockHighlight()
 	else
 		cells.name:SetTextColor(classColor(data.class))
-		row.mark:Hide()
+		row:UnlockHighlight()
 	end
 	for i = 2, #KEYS do
 		local key = KEYS[i]
 		local value = data[key] or 0
 		cells[key]:SetText(ABBREVIATED[key] and ns.FormatValue(value) or value)
 	end
-	local color = teamColor(data.teamIndex)
+	local color = teamStrip(data.teamIndex)
 	if color then
-		row.tint:SetVertexColor(color[1], color[2], color[3], ROW_TINT_ALPHA)
-		row.tint:Show()
-	else
-		row.tint:Hide()
+		setStripColor(row.strip, color)
 	end
+	ns.SetShown(row.strip[1], color)
+	ns.SetShown(row.strip[2], color)
 end
 
 local function refreshList()
@@ -386,11 +404,9 @@ local function refreshHeaders()
 	for key, header in pairs(frame.headers) do
 		local text = TITLES[key]
 		if key == sortKey then
-			header.text:SetText(text .. (sortDescending and " v" or " ^"))
-			header.text:SetTextColor(1, 1, 1)
+			header:SetText(NORMAL_FONT_COLOR_CODE .. text .. (sortDescending and " v" or " ^") .. "|r")
 		else
-			header.text:SetText(text)
-			header.text:SetTextColor(unpack(HEADER_COLOR))
+			header:SetText(text)
 		end
 	end
 end
@@ -416,22 +432,25 @@ local function refresh()
 	end
 
 	local result = matchResult()
+	local banner = frame.banner
 	if result then
-		frame.result:SetText(RESULT_TEXTS[result])
-		frame.result:SetTextColor(unpack(RESULT_COLORS[result]))
+		banner.text:SetText(RESULT_TEXTS[result])
+		banner.text:SetTextColor(unpack(RESULT_COLORS[result]))
+		setStripColor(banner.strip, RESULT_STRIPS[result])
 	else
-		frame.result:SetText(_G[(isArena and "VICTORY_TEXT_ARENA" or "VICTORY_TEXT") .. winner] or "")
-		frame.result:SetTextColor(unpack(RESULT_COLORS.draw))
+		banner.text:SetText(_G[(isArena and "VICTORY_TEXT_ARENA" or "VICTORY_TEXT") .. winner] or "")
+		banner.text:SetTextColor(unpack(teamColor(winner) or RESULT_COLORS.draw))
+		setStripColor(banner.strip, teamStrip(winner) or RESULT_STRIPS.draw)
 	end
 	frame.subtitle:SetText(GetRealZoneText() .. SEPARATOR .. format("%d:%02d", duration / 60, duration % 60))
 
-	local y = PADDING + RESULT_HEIGHT + LINE_HEIGHT
+	local y = BANNER_TOP + BANNER_HEIGHT + LINE_HEIGHT
 	if showTeams() then
 		local own = playerTeam or 0
 		frame.teams[1]:SetText(teamLine(own, 1))
 		frame.teams[2]:SetText(teamLine(1 - own, 2))
 		for side = 1, 2 do
-			frame.teams[side]:SetPoint("TOPLEFT", PADDING, -y)
+			frame.teams[side]:SetPoint("TOPLEFT", INSET.left + INSET_PADDING, -y)
 			frame.teams[side]:Show()
 			y = y + LINE_HEIGHT
 		end
@@ -443,17 +462,17 @@ local function refresh()
 
 	applyColumns()
 	refreshHeaders()
-	frame.header:SetPoint("TOPLEFT", PADDING, -y)
-	y = y + LINE_HEIGHT
 	frame.visibleRows = min(#rows, MAX_ROWS)
-	frame.list:SetPoint("TOPLEFT", PADDING, -y)
-	frame.list:SetHeight(frame.visibleRows * ROW_HEIGHT)
+	local listHeight = frame.visibleRows * ROW_HEIGHT
+	frame.listInset:SetPoint("TOPLEFT", INSET.left, -y)
+	frame.listInset:SetHeight(INSET_PADDING * 2 + COLUMN_HEADER_HEIGHT + listHeight)
+	frame.list:SetHeight(listHeight)
 	refreshList()
-	y = y + frame.visibleRows * ROW_HEIGHT + GAP
+	y = y + frame.listInset:GetHeight() + GAP
 
 	ns.SetShown(frame.history, isArena and History.GetCurrent())
 	refreshLeave()
-	frame:SetHeight(y + BUTTON_HEIGHT + PADDING)
+	frame:SetHeight(y + BUTTON_HEIGHT + INSET.bottom)
 end
 
 local function onHeaderClick(self)
@@ -482,37 +501,16 @@ local function onRowEnter(self)
 	GameTooltip:Show()
 end
 
-local function createButton(parent, width, label)
-	local button = CreateFrame("Button", nil, parent)
-	button:SetSize(width, BUTTON_HEIGHT)
-	button:SetBackdrop(ns.CreateBackdrop(8))
-	button:SetBackdropColor(0, 0, 0, 0.5)
-	button:SetBackdropBorderColor(0.6, 0.6, 0.6)
-	button:SetHighlightTexture(ns.Media.blank)
-	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
-	button.text = button:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(button.text, 12)
-	button.text:SetPoint("CENTER")
-	button.text:SetText(label)
-	return button
-end
-
 local function createRow(parent, index)
 	local row = CreateFrame("Button", nil, parent)
 	row:SetHeight(ROW_HEIGHT)
 	row:SetPoint("TOPLEFT", 0, -(index - 1) * ROW_HEIGHT)
 	row:SetPoint("RIGHT")
-	row:SetHighlightTexture(ns.Media.blank)
-	row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
-
-	row.tint = row:CreateTexture(nil, "BACKGROUND")
-	row.tint:SetTexture(ns.Media.blank)
-	row.tint:SetAllPoints()
-
-	row.mark = row:CreateTexture(nil, "BORDER")
-	row.mark:SetTexture(ns.Media.blank)
-	row.mark:SetVertexColor(1, 1, 1, PLAYER_ROW_ALPHA)
-	row.mark:SetAllPoints()
+	local highlight = ns.AddHighlight(row, "list")
+	highlight:ClearAllPoints()
+	highlight:SetPoint("TOPLEFT", 0, -1)
+	highlight:SetPoint("BOTTOMRIGHT", 0, 1)
+	row.strip = createStrip(row)
 
 	row.icon = row:CreateTexture(nil, "ARTWORK")
 	row.icon:SetSize(ICON_SIZE, ICON_SIZE)
@@ -521,8 +519,8 @@ local function createRow(parent, index)
 	local cells = {}
 	for i = 1, #KEYS do
 		local key = KEYS[i]
-		local cell = row:CreateFontString(nil, "OVERLAY")
-		ns.SetFont(cell, 12)
+		local cell =
+			row:CreateFontString(nil, "OVERLAY", key == "name" and "GameFontHighlight" or "GameFontHighlightSmall")
 		cell:SetJustifyH(key == "name" and "LEFT" or "RIGHT")
 		cell:SetJustifyV("MIDDLE")
 		cells[key] = cell
@@ -544,7 +542,7 @@ local function onUpdate(self, elapsed)
 end
 
 local function createFrame()
-	frame = ns.CreateWindow(FRAME_NAME, { width = WIDTH, height = 300 })
+	frame = ns.CreateWindow(FRAME_NAME, { width = WIDTH, height = 300, background = "dark" })
 	Misc:AnchorToConfig(frame, "matchResults.point", "Match results")
 	frame.untilTick = 0
 	frame:SetScript("OnUpdate", onUpdate)
@@ -557,56 +555,62 @@ local function createFrame()
 		dismissed = true
 	end)
 
-	local result = frame:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(result, 26, "OUTLINE", true)
-	result:SetPoint("TOP", 0, -PADDING)
-	result:SetHeight(RESULT_HEIGHT)
-	frame.result = result
+	local banner = CreateFrame("Frame", nil, frame)
+	banner:SetPoint("TOPLEFT", INSET.left, -BANNER_TOP)
+	banner:SetPoint("TOPRIGHT", -40, -BANNER_TOP)
+	banner:SetHeight(BANNER_HEIGHT)
+	banner.strip = createStrip(banner)
+	banner.text = banner:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+	banner.text:SetPoint("CENTER")
+	frame.banner = banner
 
-	local subtitle = frame:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(subtitle, 12)
-	subtitle:SetTextColor(0.7, 0.7, 0.7)
-	subtitle:SetPoint("TOP", 0, -(PADDING + RESULT_HEIGHT))
+	local subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	subtitle:SetPoint("TOP", 0, -(BANNER_TOP + BANNER_HEIGHT))
 	subtitle:SetHeight(LINE_HEIGHT)
 	frame.subtitle = subtitle
 
 	frame.teams = {}
 	for side = 1, 2 do
-		local team = frame:CreateFontString(nil, "OVERLAY")
-		ns.SetFont(team, 13, "OUTLINE", true)
+		local team = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 		team:SetHeight(LINE_HEIGHT)
 		team:SetJustifyV("MIDDLE")
 		frame.teams[side] = team
 	end
 
-	local header = CreateFrame("Frame", nil, frame)
-	header:SetSize(LIST_WIDTH, LINE_HEIGHT)
-	frame.header = header
+	local listInset = ns.CreateInset(frame, "box")
+	listInset:SetWidth(CONTENT_WIDTH)
+	frame.listInset = listInset
+
+	local header = CreateFrame("Frame", nil, listInset)
+	header:SetPoint("TOPLEFT", INSET_PADDING, -INSET_PADDING)
+	header:SetSize(LIST_WIDTH, COLUMN_HEADER_HEIGHT)
 	frame.headers = {}
 	for i = 1, #KEYS do
 		local key = KEYS[i]
-		local button = CreateFrame("Button", nil, header)
+		local button = CreateFrame("Button", FRAME_NAME .. "Header" .. i, header, "WhoFrameColumnHeaderTemplate")
 		button.key = key
-		button.text = button:CreateFontString(nil, "OVERLAY")
-		ns.SetFont(button.text, 11, "OUTLINE", true)
-		button.text:SetPoint("TOPLEFT", key == "name" and ICON_SIZE + 8 or 4, 0)
-		button.text:SetPoint("BOTTOMRIGHT", -4, 0)
-		button.text:SetJustifyH(key == "name" and "LEFT" or "RIGHT")
-		button:SetHighlightTexture(ns.Media.blank)
-		button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
-		button:SetScript("OnClick", onHeaderClick)
+		button:SetScript("OnClick", function(self)
+			PlaySound("igMainMenuOptionCheckBoxOn")
+			onHeaderClick(self)
+		end)
 		frame.headers[key] = button
 	end
 
-	local list = CreateFrame("Frame", nil, frame)
+	local list = CreateFrame("Frame", nil, listInset)
+	list:SetPoint("TOPLEFT", header, "BOTTOMLEFT")
 	list:SetWidth(LIST_WIDTH)
 	frame.list = list
 
-	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "Scroll", list, "FauxScrollFrameTemplate")
+	local scroll = ns.CreateFauxScrollFrame(list, FRAME_NAME .. "Scroll")
 	scroll:SetAllPoints()
 	scroll:SetScript("OnVerticalScroll", function(self, offset)
 		FauxScrollFrame_OnVerticalScroll(self, offset, ROW_HEIGHT, refreshList)
 	end)
+	local scrollBar = scroll.scrollBar
+	scrollBar:ClearAllPoints()
+	scrollBar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 6, -16)
+	scrollBar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 6, 16)
+	ns.SkinScrollBar(scroll)
 	frame.scroll = scroll
 
 	frame.rows = {}
@@ -615,19 +619,19 @@ local function createFrame()
 	end
 	frame.visibleRows = 0
 
-	local leave = createButton(frame, LEAVE_WIDTH, L["Leave"])
-	leave:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
+	local leave = ns.CreateButton(frame, L["Leave"], LEAVE_WIDTH, BUTTON_HEIGHT)
+	leave:SetPoint("BOTTOMRIGHT", -INSET.right, INSET.bottom)
 	leave:SetScript("OnClick", LeaveBattlefield)
 	frame.leave = leave
 
-	local scoreboard = createButton(frame, BUTTON_WIDTH, L["Scoreboard"])
-	scoreboard:SetPoint("BOTTOMLEFT", PADDING, PADDING)
+	local scoreboard = ns.CreateButton(frame, L["Scoreboard"], BUTTON_WIDTH, BUTTON_HEIGHT)
+	scoreboard:SetPoint("BOTTOMLEFT", INSET.left, INSET.bottom)
 	scoreboard:SetScript("OnClick", function()
 		frame:Hide()
 		ShowUIPanel(WorldStateScoreFrame)
 	end)
 
-	local history = createButton(frame, BUTTON_WIDTH, L["History"])
+	local history = ns.CreateButton(frame, L["History"], BUTTON_WIDTH, BUTTON_HEIGHT)
 	history:SetPoint("LEFT", scoreboard, "RIGHT", 4, 0)
 	history:SetScript("OnClick", History.Toggle)
 	frame.history = history

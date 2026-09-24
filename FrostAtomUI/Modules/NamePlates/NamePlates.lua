@@ -4,9 +4,10 @@ local WorldFrame = WorldFrame
 local UnitExists = UnitExists
 local UnitName, UnitGUID, UnitIsUnit, UnitCanAttack = UnitName, UnitGUID, UnitIsUnit, UnitCanAttack
 local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
+local InCombatLockdown = InCombatLockdown
 local GetTime = GetTime
 local GetCurrentResolution, GetScreenResolutions = GetCurrentResolution, GetScreenResolutions
-local floor, huge = math.floor, math.huge
+local floor, huge, min, abs, exp = math.floor, math.huge, math.min, math.abs, math.exp
 local sort = table.sort
 
 local NamePlates = ns:NewModule("NamePlates")
@@ -33,6 +34,16 @@ local CAST_INTERRUPT_HOLD = 1
 local CAST_INTERRUPT_COLOR = { 0.8, 0.1, 0.1 }
 local STACK_BASE_LEVEL = 21
 local STACK_STEP = 3
+local HOVER_ALPHA = 0.15
+local ARENA_LABEL_COLOR = { 1, 0.82, 0 }
+local ARENA_LABEL_GROWTH = 3
+local SPREAD_SPEED = 3
+local SPREAD_RAISE = 1
+local SPREAD_LOWER = 0.8
+local SPREAD_GAP = 2
+local SPREAD_FRAME_TIME = 1 / 60
+local SPREAD_MAX_STEPS = 3
+local FRIENDLY_PLAYER_COLOR = { 0.31, 0.45, 0.63 }
 
 ns.CHAT_BUBBLE_CREATED = "FrostAtomUI_CHAT_BUBBLE_CREATED"
 
@@ -42,8 +53,23 @@ CVars:Pin("ShowClassColorInNameplate", "1")
 
 local plates = {}
 local onPlateShow = {}
+local onPlateHide = {}
+local rosterClasses = {}
 NamePlates.plates = plates
 NamePlates.onPlateShow = onPlateShow
+NamePlates.onPlateHide = onPlateHide
+NamePlates.rosterClasses = rosterClasses
+NamePlates.BORDER_INSET = BORDER_INSET
+NamePlates.TEXT_INSET = TEXT_INSET
+NamePlates.ICON_GAP = ICON_GAP
+NamePlates.CAST_GLOW_SIZE = CAST_GLOW_SIZE
+NamePlates.CAST_FINISH_WINDOW = CAST_FINISH_WINDOW
+NamePlates.CAST_LATE_INTERRUPT = CAST_LATE_INTERRUPT
+NamePlates.SHIELD_TEXTURE = SHIELD_TEXTURE
+NamePlates.SHIELD_TEXCOORD = SHIELD_TEXCOORD
+
+local targetName
+local spreadActive = false
 
 local trash = CreateFrame("Frame")
 trash:Hide()
@@ -81,18 +107,25 @@ function PlateMixin:UpdateColors(r, g, b)
 	self.rawR, self.rawG, self.rawB = r, g, b
 
 	local class = classKeys[colorKey(r, g, b)]
+	local reaction = "hostile"
 	if class and config.healthColorMode == "class" then
 		local barColor = classBarColors[class]
 		r, g, b = barColor[1], barColor[2], barColor[3]
 	elseif class or g + b == 0 then
 		r, g, b = 0.69, 0.31, 0.31
 	elseif r + b == 0 then
+		reaction = "friendly"
 		r, g, b = 0.33, 0.59, 0.33
 	elseif r + g == 0 then
-		r, g, b = 0.31, 0.45, 0.63
+		reaction = "friendly"
+		class = config.friendlyClassColors and rosterClasses[self.plateName]
+		local barColor = class and config.healthColorMode == "class" and classBarColors[class] or FRIENDLY_PLAYER_COLOR
+		r, g, b = barColor[1], barColor[2], barColor[3]
 	elseif r + g > 1.99 and b == 0 then
+		reaction = "neutral"
 		r, g, b = 0.65, 0.63, 0.35
 	end
+	self.reaction = reaction
 
 	self.barR, self.barG, self.barB = r, g, b
 	self:ApplyBarColor(true)
@@ -119,7 +152,15 @@ function PlateMixin:SetNameColor(r, g, b)
 end
 
 function PlateMixin:IsTarget()
-	return UnitExists("target") and self:GetAlpha() == 1
+	return targetName ~= nil and self.plateName == targetName and self:GetAlpha() == 1
+end
+
+function NamePlates.GetTargetName()
+	return targetName
+end
+
+local function updateTargetName()
+	targetName = UnitExists("target") and UnitName("target") or nil
 end
 
 local pixel = 1
@@ -140,8 +181,7 @@ function PlateMixin:SnapHolder()
 	if not left then
 		return
 	end
-	local width = self:GetWidth()
-	local x = snap(left + (width - holder:GetWidth()) / 2) - left
+	local x = snap(left + (self:GetWidth() - holder:GetWidth()) / 2) - left
 	local y = snap(top) - top
 	if x ~= self.snapX or y ~= self.snapY then
 		self.snapX, self.snapY = x, y
@@ -168,6 +208,16 @@ function PlateMixin:ApplyStackLevel()
 	setLevel(castbar.glow, level + 1)
 	setLevel(castbar.result, level + 2)
 	setLevel(self.overlay, level + 2)
+	local vcast = self.vcast
+	if vcast then
+		setLevel(vcast, level + 1)
+		setLevel(vcast.holder, level)
+		setLevel(vcast.glow, level + 1)
+	end
+	local auraRow = self.auraRow
+	if auraRow then
+		setLevel(auraRow, level + 2)
+	end
 end
 
 function PlateMixin:SetStackLevel(level)
@@ -177,10 +227,53 @@ function PlateMixin:SetStackLevel(level)
 	end
 end
 
+local function setHealthText(text, value, max, isTarget)
+	local mode = config.healthTextFormat
+	if not (config.showTargetPercent and (isTarget or config.healthTextAll)) or max <= 0 then
+		if text.mode then
+			text.mode = nil
+			text:SetText("")
+		end
+		return
+	end
+	if value == text.value and max == text.max and mode == text.mode then
+		return
+	end
+	text.value, text.max, text.mode = value, max, mode
+	local percent = floor(value / max * 100)
+	if mode == "percent" then
+		text:SetFormattedText("%d%%", percent)
+	elseif value < 1e3 then
+		if mode == "both" then
+			text:SetFormattedText("%d | %d%%", value, percent)
+		else
+			text:SetFormattedText("%d", value)
+		end
+	elseif mode == "both" then
+		text:SetFormattedText("%s | %d%%", ns.FormatValue(value), percent)
+	else
+		text:SetText(ns.FormatValue(value))
+	end
+end
+
+local function applyHighlight(plate)
+	local hovered = config.hoverHighlight and plate.highlight:IsShown() or false
+	if plate.hovered ~= hovered then
+		plate.hovered = hovered
+		ns.SetShown(plate.hover, hovered)
+	end
+end
+
 function PlateMixin:OnUpdate()
+	if self.blizzardName:GetText() ~= self.plateName then
+		self:OnShow()
+	end
+
 	if self.stackLevel and self.holder:GetFrameLevel() ~= self.stackLevel then
 		self:ApplyStackLevel()
 	end
+
+	applyHighlight(self)
 
 	local healthbar = self.healthbar
 
@@ -221,18 +314,8 @@ function PlateMixin:OnUpdate()
 		end
 	end
 
-	local percent = healthbar.percent
-	if isTarget and config.showTargetPercent then
-		local _, max = healthbar:GetMinMaxValues()
-		local value = max > 0 and floor(healthbar:GetValue() / max * 100) or 0
-		if value ~= percent.value then
-			percent.value = value
-			percent:SetFormattedText("%d%%", value)
-		end
-	elseif percent.value then
-		percent.value = nil
-		percent:SetText("")
-	end
+	local _, max = healthbar:GetMinMaxValues()
+	setHealthText(healthbar.percent, healthbar:GetValue(), max, isTarget)
 end
 
 local function setIconShown(icon, shown)
@@ -247,6 +330,12 @@ end
 
 function PlateMixin:OnShow()
 	local name = self.blizzardName:GetText()
+	self.plateName = name
+	self.spreadPos = 0
+	if spreadActive then
+		self.clampOn = true
+		self.clampLeft = nil
+	end
 	local totemIcon = config.totemIcons and NamePlates.totemIcons[name]
 	local totem = self.totem
 
@@ -280,9 +369,14 @@ function PlateMixin:OnShow()
 		end
 		self.raidicon:SetAlpha(config.showRaidIcon and 1 or 0)
 	end
-
 	for i = 1, #onPlateShow do
 		onPlateShow[i](self, name)
+	end
+end
+
+function PlateMixin:OnHide()
+	for i = 1, #onPlateHide do
+		onPlateHide[i](self)
 	end
 end
 
@@ -299,7 +393,7 @@ function CastbarMixin:Layout()
 end
 
 function CastbarMixin:UpdateLock()
-	local locked = self.shield:IsShown()
+	local locked = self.shield:IsShown() or self.immune
 	if locked ~= self.locked then
 		self.locked = locked
 		self.barR = nil
@@ -338,15 +432,30 @@ function CastbarMixin:OnUpdate(elapsed)
 end
 
 function CastbarMixin:OnShow()
-	if self:GetParent().totem:IsShown() then
+	local plate = self:GetParent()
+	if plate.totem:IsShown() then
 		self:Hide()
 		return
+	end
+	if plate.vcast then
+		plate.vcast:Hide()
 	end
 
 	self:Layout()
 	self.locked = nil
 	self:OnUpdate(0)
 	self:StartCast()
+end
+
+local function refreshVirtualCast(key)
+	local update = NamePlates.UpdateVirtualCast
+	if update then
+		update(key.plate)
+	end
+end
+
+function CastbarMixin:OnHide()
+	ns.Defer(self.hideKey, refreshVirtualCast)
 end
 
 local activeCastbar
@@ -407,6 +516,7 @@ function CastbarMixin:StartCast()
 	self.isChannel = isChannel
 	self.endTime = endTime / 1e3
 	self.guid = UnitGUID("target")
+	self.immune = ns.HasCastImmunity and ns.HasCastImmunity("target") or false
 	self.important = config.castbarImportant and UF.importantCasts[name] or false
 	if self.important then
 		if not self.glow:IsShown() then
@@ -418,17 +528,17 @@ function CastbarMixin:StartCast()
 	self:UpdateTarget()
 end
 
-function CastbarMixin:ShowResult(interruptText)
-	local result = self.result
-	local plateHolder = self:GetParent().holder
+local function showCastResult(plate, texture, iconShown, locked, interruptText)
+	local result = plate.castbar.result
+	local plateHolder = plate.holder
 	result:SetPoint("TOPLEFT", plateHolder, "BOTTOMLEFT", 0, -config.castbarGap)
 	result:SetPoint("TOPRIGHT", plateHolder, "BOTTOMRIGHT", 0, -config.castbarGap)
 	result:SetHeight(config.castbarHeight + BORDER_INSET * 2)
 
 	local icon = result.icon
 	icon:SetSize(config.castbarIconSize, config.castbarIconSize)
-	icon:SetTexture(self.icon:GetTexture())
-	setIconShown(icon, self.icon:IsShown())
+	icon:SetTexture(texture)
+	setIconShown(icon, iconShown)
 
 	local bar = result.bar
 	bar:SetTexture(ns.Media.statusbar)
@@ -439,7 +549,7 @@ function CastbarMixin:ShowResult(interruptText)
 		result.flashing = false
 		result.flash:Hide()
 	else
-		local color = self.locked and config.castbarLockedColor or config.castbarColor
+		local color = locked and config.castbarLockedColor or config.castbarColor
 		bar:SetVertexColor(color[1], color[2], color[3])
 		result.text:SetText("")
 		result.hold = CAST_FLASH_TIME
@@ -450,6 +560,11 @@ function CastbarMixin:ShowResult(interruptText)
 	result.interrupted = interruptText ~= nil
 	result:SetAlpha(1)
 	result:Show()
+end
+NamePlates.ShowCastResult = showCastResult
+
+function CastbarMixin:ShowResult(interruptText)
+	showCastResult(self:GetParent(), self.icon:GetTexture(), self.icon:IsShown(), self.locked, interruptText)
 end
 
 local function onCastResultUpdate(result, elapsed)
@@ -535,11 +650,21 @@ local function onTargetCastStart()
 end
 
 local function onTargetChanged()
+	updateTargetName()
 	if activeCastbar and activeCastbar.guid ~= UnitGUID("target") then
 		activeCastbar:StopCast()
 		activeCastbar = nil
 	end
 end
+
+local function onTargetAura()
+	local castbar = activeCastbar
+	if castbar and castbar.casting and ns.HasCastImmunity then
+		castbar.immune = ns.HasCastImmunity("target") or false
+	end
+end
+
+NamePlates.SetIconShown = setIconShown
 
 onPlateShow[#onPlateShow + 1] = function(plate)
 	plate.castbar.result:Hide()
@@ -575,6 +700,10 @@ local function createText(parent, font)
 	styleText(text, font)
 	return text
 end
+
+NamePlates.CreateHolder = createHolder
+NamePlates.StyleHolder = styleHolder
+NamePlates.CreateText = createText
 
 local function setupHealthbar(plate, healthbar, blizzardBackground)
 	local holder = createHolder(plate, plate:GetFrameLevel())
@@ -663,7 +792,9 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	result.text = resultText
 	castbar.result = result
 
+	castbar.hideKey = { plate = plate }
 	castbar:SetScript("OnShow", castbar.OnShow)
+	castbar:SetScript("OnHide", castbar.OnHide)
 	castbar:SetScript("OnUpdate", castbar.OnUpdate)
 end
 
@@ -678,6 +809,11 @@ local function setupTotemIcon(plate)
 	totem.border:Hide()
 
 	plate.totem = totem
+end
+
+local function styleArenaLabel(plate)
+	local font = config.nameFont
+	ns.SetFont(plate.arenaLabel, font.size + ARENA_LABEL_GROWTH, font.outline, true)
 end
 
 local function setupNamePlate(plate)
@@ -698,12 +834,26 @@ local function setupNamePlate(plate)
 
 	name:Hide()
 
+	local arenaLabel = overlay:CreateFontString(nil, "OVERLAY")
+	arenaLabel:SetPoint("RIGHT", plate.holder, "LEFT", -ICON_GAP, 0)
+	arenaLabel:SetTextColor(ARENA_LABEL_COLOR[1], ARENA_LABEL_COLOR[2], ARENA_LABEL_COLOR[3])
+	plate.arenaLabel = arenaLabel
+
 	raidIcon:SetParent(overlay)
 	raidIcon:SetSize(config.raidIconSize, config.raidIconSize)
 	raidIcon:ClearAllPoints()
-	raidIcon:SetPoint("RIGHT", plate.holder, "LEFT", -ICON_GAP, 0)
+	raidIcon:SetPoint("RIGHT", arenaLabel, "LEFT")
 
 	highlight:SetTexture(nil)
+	plate.highlight = highlight
+
+	local hover = healthbar:CreateTexture(nil, "OVERLAY")
+	hover:SetAllPoints(healthbar)
+	hover:SetTexture(ns.Media.blank)
+	hover:SetBlendMode("ADD")
+	hover:SetVertexColor(1, 1, 1, HOVER_ALPHA)
+	hover:Hide()
+	plate.hover = hover
 	bossIcon:SetParent(trash)
 	elite:SetParent(trash)
 	castBorder:SetParent(trash)
@@ -716,7 +866,11 @@ local function setupNamePlate(plate)
 	plate.raidicon = raidIcon
 	plate.threat = threat
 
+	styleArenaLabel(plate)
+	applyHighlight(plate)
+
 	plate:SetScript("OnShow", plate.OnShow)
+	plate:SetScript("OnHide", plate.OnHide)
 	plate:SetScript("OnUpdate", plate.OnUpdate)
 
 	plate:OnShow()
@@ -750,14 +904,13 @@ end
 
 local function updateStacking()
 	local count = 0
-	local hasTarget = UnitExists("target")
 	for i = 1, #plates do
 		local plate = plates[i]
 		if plate:IsShown() then
 			count = count + 1
 			stack[count] = plate
 			plate.stackIndex = i
-			if hasTarget and plate:GetAlpha() == 1 then
+			if plate:IsTarget() then
 				plate.stackKey = -huge
 			else
 				plate.stackKey = plate:GetBottom() or 0
@@ -770,6 +923,105 @@ local function updateStacking()
 	sort(stack, stackOrder)
 	for i = 1, count do
 		stack[i]:SetStackLevel(STACK_BASE_LEVEL + (i - 1) * STACK_STEP)
+	end
+end
+
+local spread = {}
+
+local function setClamp(plate, clamped, left, right, top, bottom)
+	if
+		plate.clampOn == clamped
+		and plate.clampLeft == left
+		and plate.clampRight == right
+		and plate.clampTop == top
+		and plate.clampBottom == bottom
+	then
+		return
+	end
+	plate.clampOn = clamped
+	plate.clampLeft, plate.clampRight, plate.clampTop, plate.clampBottom = left, right, top, bottom
+	plate:SetClampedToScreen(clamped)
+	plate:SetClampRectInsets(left, right, top, bottom)
+end
+
+local function clearSpread(plate)
+	plate.spreadPos = 0
+	if plate.clampOn then
+		setClamp(plate, false, 0, 0, 0, 0)
+	end
+end
+
+local function spreadPlates(elapsed)
+	local count = 0
+	for i = 1, #plates do
+		local plate = plates[i]
+		local x, y
+		if plate:IsShown() and plate.reaction ~= "friendly" and not plate.totem:IsShown() then
+			local _
+			_, _, _, x, y = plate:GetPoint(1)
+		end
+		if x then
+			count = count + 1
+			spread[count] = plate
+			plate.spreadX, plate.spreadY = x, y
+			plate.spreadPos = plate.spreadPos or 0
+		elseif plate.clampOn then
+			clearSpread(plate)
+		end
+	end
+	for i = count + 1, #spread do
+		spread[i] = nil
+	end
+
+	local xSpace = config.barWidth + BORDER_INSET * 2
+	local ySpace = config.barHeight + BORDER_INSET * 2 + SPREAD_GAP
+	local step = SPREAD_SPEED * min(elapsed / SPREAD_FRAME_TIME, SPREAD_MAX_STEPS)
+	for i = 1, count do
+		local plate = spread[i]
+		local x, y, pos = plate.spreadX, plate.spreadY, plate.spreadPos
+		local minDist, reset = huge, true
+		for j = 1, count do
+			if i ~= j then
+				local other = spread[j]
+				if abs(x - other.spreadX) < xSpace then
+					local otherTop = other.spreadY + other.spreadPos
+					local diff = y + pos - otherTop
+					if diff >= 0 and diff < minDist then
+						minDist = diff
+					end
+					if abs(y - otherTop) < ySpace then
+						reset = false
+					end
+				end
+			end
+		end
+
+		if pos >= SPREAD_SPEED and reset then
+			pos = pos - exp(-10 / pos) * step
+		elseif minDist < ySpace then
+			pos = pos + exp(-minDist / ySpace) * step * SPREAD_RAISE
+		elseif pos >= SPREAD_SPEED and minDist > ySpace + SPREAD_SPEED then
+			pos = pos - exp(-ySpace / minDist) * step * SPREAD_LOWER
+		end
+		if pos < 0 then
+			pos = 0
+		end
+		plate.spreadPos = pos
+
+		local width, height = plate:GetWidth(), plate:GetHeight()
+		setClamp(plate, true, width / 2, -width / 2, -height, height - y - pos)
+	end
+end
+
+local function updateSpread(elapsed)
+	if config.spreadPlates then
+		spreadActive = true
+		spreadPlates(elapsed)
+	elseif spreadActive then
+		spreadActive = false
+		for i = 1, #plates do
+			clearSpread(plates[i])
+		end
 	end
 end
 
@@ -818,6 +1070,9 @@ local function applyStyle()
 		styleHolder(plate.castbar.holder)
 		plate.borderState = nil
 		plate.nameR = nil
+		plate.healthbar.percent.mode = nil
+		styleArenaLabel(plate)
+		applyHighlight(plate)
 		plate:RefreshColors()
 		if plate:IsShown() then
 			plate:OnShow()
@@ -834,13 +1089,26 @@ local function applyStyle()
 	end
 end
 
+function NamePlates.RefreshAllColors()
+	for i = 1, #plates do
+		local plate = plates[i]
+		if plate:IsShown() and not plate.totem:IsShown() then
+			plate:RefreshColors()
+		end
+	end
+end
+
 function NamePlates:Initialize()
 	updatePixel()
+	updateTargetName()
 	self:RegisterEvent("DISPLAY_SIZE_CHANGED", function()
 		updatePixel()
 		applyStyle()
 	end)
 	self:RegisterEvent("PLAYER_TARGET_CHANGED", onTargetChanged)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", updateTargetName)
+	self:RegisterUnitEvent("UNIT_NAME_UPDATE", "target", updateTargetName)
+	self:RegisterUnitEvent("UNIT_AURA", "target", onTargetAura)
 	self:RegisterEvent(UF.CAST_INTERRUPTED, onCastInterrupter)
 	self:RegisterUnitEvent("UNIT_TARGET", "target", onTargetTargetChanged)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_START", "target", onTargetCastStart)
@@ -855,7 +1123,7 @@ function NamePlates:Initialize()
 end
 
 local knownChildren = 0
-CreateFrame("Frame"):SetScript("OnUpdate", function()
+CreateFrame("Frame"):SetScript("OnUpdate", function(_, elapsed)
 	if not config.enabled then
 		return
 	end
@@ -865,4 +1133,5 @@ CreateFrame("Frame"):SetScript("OnUpdate", function()
 		knownChildren = numChildren
 	end
 	updateStacking()
+	updateSpread(elapsed)
 end)

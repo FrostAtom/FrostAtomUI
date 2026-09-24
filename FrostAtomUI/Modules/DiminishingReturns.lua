@@ -11,7 +11,7 @@ local tremove = table.remove
 local wipe = wipe
 local GetTime = GetTime
 local UnitGUID, UnitDebuff = UnitGUID, UnitDebuff
-local COMBATLOG_OBJECT_TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
+local COMBATLOG_OBJECT_CONTROL_PLAYER = 0x100
 local COMBATLOG_OBJECT_REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
 
 local BATTLE_BEGUN_MESSAGE = "The Arena battle has begun!"
@@ -87,7 +87,7 @@ local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, destFlags, sp
 	local category = SPELLS[spellId]
 	if
 		not category
-		or bit_band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == 0
+		or bit_band(destFlags, COMBATLOG_OBJECT_CONTROL_PLAYER) == 0
 		or bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == 0
 	then
 		return

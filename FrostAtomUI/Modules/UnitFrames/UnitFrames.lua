@@ -1,6 +1,7 @@
 local ADDON_NAME, ns = ...
 
 local RegisterUnitWatch, UnregisterUnitWatch = RegisterUnitWatch, UnregisterUnitWatch
+local UnitHasVehicleUI, UnitIsConnected, UnitIsUnit = UnitHasVehicleUI, UnitIsConnected, UnitIsUnit
 local UnitFrame_OnEnter = UnitFrame_OnEnter
 local UnitFrame_OnLeave = UnitFrame_OnLeave
 local min, max, floor, ceil = math.min, math.max, math.floor, math.ceil
@@ -60,7 +61,9 @@ function UF:AddElement(frame, name, ...)
 	local element = assert(elements[name], ("unknown unit frame element [%s]"):format(tostring(name)))
 	assert(not frame[name], ("element [%s] already added to %s"):format(name, frame.unit))
 
+	frame.addingElement = name
 	local widget = element.create(frame, ...)
+	frame.addingElement = nil
 	frame[name] = widget
 	return widget
 end
@@ -183,9 +186,21 @@ end
 local UnitFrameMixin = {}
 UF.FrameMixin = UnitFrameMixin
 
+local function vehicleDisplayUnit(frame)
+	local owner = frame.vehicleOwner
+	if UnitHasVehicleUI(owner) and (owner == "player" or UnitIsConnected(owner)) then
+		return frame.vehicleUnit
+	end
+	return frame.baseUnit
+end
+
 function UnitFrameMixin:UpdateAll()
 	if UF.testing or not self:IsShown() then
 		return
+	end
+
+	if self.vehicleOwner then
+		self:SetDisplayUnit(vehicleDisplayUnit(self))
 	end
 
 	for name, element in pairs(elements) do
@@ -225,6 +240,7 @@ local unitEventWrappers = setmetatable({}, {
 
 local RegisterEvent = ns.EventMixin.RegisterEvent
 local RegisterUnitEvent = ns.EventMixin.RegisterUnitEvent
+local UnregisterUnitEvent = ns.EventMixin.UnregisterUnitEvent
 
 function UnitFrameMixin:RegisterEvent(event, handler)
 	if type(handler) == "function" then
@@ -234,7 +250,63 @@ function UnitFrameMixin:RegisterEvent(event, handler)
 end
 
 function UnitFrameMixin:RegisterUnitEvent(event, handler)
-	RegisterUnitEvent(self, event, self.unit, unitEventWrappers[handler])
+	local wrapper = unitEventWrappers[handler]
+	local unitEvents = self.unitEvents
+	unitEvents[#unitEvents + 1] = { event = event, handler = wrapper, element = self.addingElement }
+	RegisterUnitEvent(self, event, self.unit, wrapper)
+end
+
+local function retarget(widget, from, to)
+	if type(widget) ~= "table" then
+		return
+	end
+	if widget.unit == from then
+		widget.unit = to
+	end
+	if widget.targetUnit == from .. "target" then
+		widget.targetUnit = to .. "target"
+	end
+	for i = 1, #widget do
+		local child = widget[i]
+		if type(child) == "table" and child.unit == from then
+			child.unit = to
+		end
+	end
+end
+
+function UnitFrameMixin:SetDisplayUnit(unit)
+	local from = self.unit
+	if from == unit then
+		return
+	end
+	local fixed = self.fixedUnit
+	local unitEvents = self.unitEvents
+	for i = 1, #unitEvents do
+		local entry = unitEvents[i]
+		if not (fixed and fixed[entry.element]) then
+			UnregisterUnitEvent(self, entry.event, from, entry.handler)
+			RegisterUnitEvent(self, entry.event, unit, entry.handler)
+		end
+	end
+	for name in pairs(elements) do
+		if not (fixed and fixed[name]) then
+			retarget(self[name], from, unit)
+		end
+	end
+	self.unit = unit
+end
+
+local function onVehicleChanged(frame)
+	frame:QueueUpdate()
+end
+
+function UnitFrameMixin:EnableVehicleSwap(owner, vehicleUnit, fixed)
+	self.vehicleOwner = owner
+	self.vehicleUnit = vehicleUnit
+	self.fixedUnit = fixed
+	self:SetAttribute("toggleForVehicle", true)
+	RegisterUnitEvent(self, "UNIT_ENTERED_VEHICLE", owner, onVehicleChanged)
+	RegisterUnitEvent(self, "UNIT_EXITED_VEHICLE", owner, onVehicleChanged)
 end
 
 local function capitalize(text)
@@ -272,6 +344,8 @@ function UF:CreateBase(unit)
 	local frame = CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), UIParent, "SecureUnitButtonTemplate")
 	ns.Mixin(frame, ns.EventMixin, UnitFrameMixin)
 	frame.unit = unit
+	frame.baseUnit = unit
+	frame.unitEvents = {}
 
 	frame:RegisterForClicks("AnyDown")
 	frame:SetBackdrop(UF.backdrop)
@@ -375,8 +449,9 @@ function UnitFrameMixin:SetContentInset(inset)
 	elseif self.iconSide == "RIGHT" then
 		right = right - inset
 	end
+	local powerHeight = self.power:IsShown() and self.innerHeight * config.powerRatio or 0
 	self.health:SetPoint("TOPRIGHT", right, -BORDER_INSET)
-	self.health:SetPoint("BOTTOMLEFT", left, BORDER_INSET + self.innerHeight * config.powerRatio)
+	self.health:SetPoint("BOTTOMLEFT", left, BORDER_INSET + powerHeight)
 	self.power:SetPoint("BOTTOMLEFT", left, BORDER_INSET)
 end
 
@@ -470,8 +545,35 @@ function UF:CreatePet(unit, size)
 	local frame = self:CreateSquare(unit, size)
 	frame.ownerUnit = unit == "pet" and "player" or unit:gsub("pet(%d)$", "%1")
 	RegisterUnitEvent(frame, "UNIT_PET", frame.ownerUnit, onOwnerUnitChanged)
+
+	frame.innerHeight = size - BORDER_INSET * 2
+	local power = self:AddElement(frame, "power")
+	power:SetPoint("TOPRIGHT", frame.health, "BOTTOMRIGHT")
+	power.text.template = ""
+	frame:SetContentInset(0)
+
+	if not isArenaUnit(frame.ownerUnit) then
+		frame:EnableVehicleSwap(frame.ownerUnit, frame.ownerUnit)
+	end
 	return frame
 end
+
+function UF.SetPetPowerShown(frame, shown)
+	ns.SetShown(frame.power, shown)
+	frame:SetContentInset(0)
+end
+
+local function updateHideSelf(frame)
+	frame:SetAlpha(config.hideTargetOfTargetSelf and UnitIsUnit(frame.unit, "player") and 0 or 1)
+end
+
+local function testHideSelf(frame)
+	frame:SetAlpha(1)
+end
+
+UF:RegisterElement("hideself", function()
+	return true
+end, updateHideSelf, testHideSelf)
 
 function UF:CreateTargetOfTarget(unit, size)
 	local frame = self:CreateSquare(unit, size)
@@ -534,7 +636,8 @@ function UF:ResizeTarget(frame, width, height)
 	buffs:SetLimit(auraLimit)
 
 	debuffs:OnRowsChanged(debuffs.rows)
-	local gridHeight = TARGET_AURA_ROWS * (debuffs.size + debuffs.gap) - debuffs.gap
+	local rowSize = debuffs.RowSize and debuffs:RowSize() or debuffs.size
+	local gridHeight = TARGET_AURA_ROWS * (rowSize + debuffs.gap) - debuffs.gap
 	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2
 	local castbar = frame.castbar
 	castbar:SetHeight(height)

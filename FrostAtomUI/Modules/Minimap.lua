@@ -7,6 +7,8 @@ local ToggleDropDownMenu = ToggleDropDownMenu
 local Minimap_OnClick = Minimap_OnClick
 local GetMinimapZoneText = GetMinimapZoneText
 local GetZonePVPInfo = GetZonePVPInfo
+local ToggleFrame = ToggleFrame
+local floor, ceil, min = math.floor, math.ceil, math.min
 
 local MinimapModule = ns:NewModule("Minimap")
 MinimapModule.configKey = "minimap"
@@ -40,17 +42,242 @@ local BLIP_TEXTURES = {
 	SetCorpsePOIArrowTexture = "Interface\\Minimap\\ROTATING-MINIMAPCORPSEARROW",
 }
 
-local clock, zoneText, lfgHolder, fader
+local COLLECTOR_TICKER = "FrostAtomUI_MinimapButtons"
+local COLLECTOR_INTERVAL = 1
+local COLLECTOR_CELL = 32
+local COLLECTOR_COLUMNS = 4
+local COLLECTOR_PADDING = 6
+local COLLECTOR_TOGGLE_SIZE = 14
+local COLLECTOR_ICON_OPEN = "Interface\\Buttons\\UI-MinusButton-Up"
+local COLLECTOR_ICON_CLOSED = "Interface\\Buttons\\UI-PlusButton-Up"
+local COLLECTOR_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-PlusButton-Hilight"
+
+local IGNORED_BUTTONS = {
+	MiniMapTrackingButton = true,
+	MiniMapBattlefieldFrame = true,
+	MiniMapMailFrame = true,
+	MiniMapLFGFrame = true,
+	MiniMapVoiceChatFrame = true,
+	MiniMapWorldMapButton = true,
+	MiniMapInstanceDifficulty = true,
+	MinimapZoomIn = true,
+	MinimapZoomOut = true,
+	MinimapZoneTextButton = true,
+	GameTimeFrame = true,
+	TimeManagerClockButton = true,
+}
+local IGNORED_PATTERNS = {
+	"^FrostAtomUI",
+	"Pin",
+	"Node",
+	"Note",
+	"^GatherMate",
+	"^Questie",
+	"^TomTom",
+	"^Routes",
+	"^QuestHelper",
+	"^Carbonite",
+}
+
+local clock, zoneText, zoneButton, lfgHolder, fader
 local cornerIcons = {}
 local blipsHidden = false
+local blipSetters, blipTextures = {}, {}
 
 local function setBlipsHidden(hidden)
 	if hidden == blipsHidden then
 		return
 	end
 	blipsHidden = hidden
+	for method, set in pairs(blipSetters) do
+		set(Minimap, hidden and ns.Media.transparent or blipTextures[method])
+	end
+end
+
+local function guardBlipTextures()
 	for method, texture in pairs(BLIP_TEXTURES) do
-		Minimap[method](Minimap, hidden and ns.Media.transparent or texture)
+		local set = Minimap[method]
+		blipSetters[method], blipTextures[method] = set, texture
+		Minimap[method] = function(self, path)
+			blipTextures[method] = path
+			if not blipsHidden then
+				set(self, path)
+			end
+		end
+	end
+end
+
+local function refreshTerrain()
+	local zoom = Minimap:GetZoom()
+	Minimap:SetZoom(zoom > 0 and zoom - 1 or zoom + 1)
+	Minimap:SetZoom(zoom)
+end
+
+local collectorPanel, collectorToggle
+local collected, collectedState, hookedButtons = {}, {}, {}
+local lastChildCount = -1
+
+local function methodsOf(frame)
+	return getmetatable(frame).__index
+end
+
+local function layoutCollector()
+	local shown = 0
+	for i = 1, #collected do
+		local button = collected[i]
+		if button:IsShown() then
+			local methods = methodsOf(button)
+			local column, row = shown % COLLECTOR_COLUMNS, floor(shown / COLLECTOR_COLUMNS)
+			methods.ClearAllPoints(button)
+			methods.SetPoint(
+				button,
+				"CENTER",
+				collectorPanel,
+				"TOPRIGHT",
+				-COLLECTOR_PADDING - (column + 0.5) * COLLECTOR_CELL,
+				-COLLECTOR_PADDING - (row + 0.5) * COLLECTOR_CELL
+			)
+			shown = shown + 1
+		end
+	end
+	if shown == 0 then
+		collectorToggle:Hide()
+		collectorPanel:Hide()
+		return
+	end
+	local columns, rows = min(shown, COLLECTOR_COLUMNS), ceil(shown / COLLECTOR_COLUMNS)
+	collectorPanel:SetSize(
+		columns * COLLECTOR_CELL + COLLECTOR_PADDING * 2,
+		rows * COLLECTOR_CELL + COLLECTOR_PADDING * 2
+	)
+	collectorToggle:Show()
+end
+
+local function onCollectedVisibility(button)
+	if collectedState[button] then
+		layoutCollector()
+	end
+end
+
+local function isCollectable(child)
+	if child:GetObjectType() ~= "Button" or collectedState[child] then
+		return false
+	end
+	local name = child:GetName()
+	if not name or IGNORED_BUTTONS[name] then
+		return false
+	end
+	if name:find("^LibDBIcon10_") then
+		return true
+	end
+	for i = 1, #IGNORED_PATTERNS do
+		if name:find(IGNORED_PATTERNS[i]) then
+			return false
+		end
+	end
+	return true
+end
+
+local function collectButton(button)
+	local state = { parent = button:GetParent(), strata = button:GetFrameStrata() }
+	for i = 1, button:GetNumPoints() do
+		state[i] = { button:GetPoint(i) }
+	end
+	collectedState[button] = state
+	collected[#collected + 1] = button
+	button:SetParent(collectorPanel)
+	button:SetFrameStrata(collectorPanel:GetFrameStrata())
+	button.SetPoint, button.ClearAllPoints = ns.noop, ns.noop
+	if not hookedButtons[button] then
+		hookedButtons[button] = true
+		button:HookScript("OnShow", onCollectedVisibility)
+		button:HookScript("OnHide", onCollectedVisibility)
+	end
+end
+
+local function collectFrom(frame)
+	local children = { frame:GetChildren() }
+	for i = 1, #children do
+		local child = children[i]
+		if isCollectable(child) then
+			collectButton(child)
+		end
+	end
+end
+
+local function childCount()
+	return Minimap:GetNumChildren() + MinimapBackdrop:GetNumChildren()
+end
+
+local function scanButtons()
+	local count = childCount()
+	if count == lastChildCount then
+		return
+	end
+	local before = #collected
+	pcall(collectFrom, Minimap)
+	pcall(collectFrom, MinimapBackdrop)
+	lastChildCount = childCount()
+	if #collected ~= before then
+		layoutCollector()
+	end
+end
+
+local function releaseButtons()
+	for i = #collected, 1, -1 do
+		local button = collected[i]
+		local state = collectedState[button]
+		collected[i], collectedState[button] = nil, nil
+		button.SetPoint, button.ClearAllPoints = nil, nil
+		button:SetParent(state.parent)
+		button:SetFrameStrata(state.strata)
+		button:ClearAllPoints()
+		for j = 1, #state do
+			button:SetPoint(unpack(state[j]))
+		end
+	end
+	lastChildCount = -1
+end
+
+local function setCollectorOpen(open)
+	ns.SetShown(collectorPanel, open)
+	collectorToggle:GetNormalTexture():SetTexture(open and COLLECTOR_ICON_OPEN or COLLECTOR_ICON_CLOSED)
+end
+
+local function createCollector()
+	collectorPanel = CreateFrame("Frame", "FrostAtomUIMinimapButtons", UIParent)
+	collectorPanel:Hide()
+	collectorPanel:SetFrameStrata("HIGH")
+	collectorPanel:SetClampedToScreen(true)
+	collectorPanel:SetPoint("TOPRIGHT", Minimap, "TOPLEFT", -ICON_INSET - 3, 3)
+	collectorPanel:SetBackdrop(ns.CreateBackdrop(14, 3))
+	collectorPanel:SetBackdropColor(0, 0, 0, 0.8)
+
+	collectorToggle = CreateFrame("Button", "FrostAtomUIMinimapButtonsToggle", Minimap)
+	collectorToggle:Hide()
+	collectorToggle:SetSize(COLLECTOR_TOGGLE_SIZE, COLLECTOR_TOGGLE_SIZE)
+	collectorToggle:SetPoint("LEFT", ICON_INSET, 0)
+	collectorToggle:SetFrameLevel(Minimap:GetFrameLevel() + 2)
+	collectorToggle:SetNormalTexture(COLLECTOR_ICON_CLOSED)
+	collectorToggle:SetHighlightTexture(COLLECTOR_ICON_HIGHLIGHT, "ADD")
+	collectorToggle:SetScript("OnClick", function()
+		setCollectorOpen(not collectorPanel:IsShown())
+	end)
+end
+
+local function applyCollector()
+	if config.collectButtons then
+		if not collectorPanel then
+			createCollector()
+		end
+		collectorPanel:SetBackdropBorderColor(unpack(config.borderColor))
+		ns.Scheduler.AddTicker(COLLECTOR_TICKER, scanButtons, COLLECTOR_INTERVAL)
+		scanButtons()
+	elseif collectorPanel then
+		ns.Scheduler.RemoveTicker(COLLECTOR_TICKER)
+		releaseButtons()
+		setCollectorOpen(false)
+		collectorToggle:Hide()
 	end
 end
 
@@ -80,6 +307,7 @@ local function updateZoneText()
 	zoneText:SetText(GetMinimapZoneText())
 	local color = ZONE_COLORS[GetZonePVPInfo() or ""] or DEFAULT_ZONE_COLOR
 	zoneText:SetTextColor(color[1], color[2], color[3])
+	zoneButton:SetSize(min(zoneText:GetStringWidth(), zoneText:GetWidth()) + 4, zoneText:GetHeight())
 end
 
 local function applyLfg()
@@ -96,7 +324,7 @@ local function applyConfig()
 	Minimap:SetSize(size, size)
 	ns.ApplyPoint(Minimap, "minimap.point")
 	MinimapBackdrop:SetBackdropBorderColor(unpack(config.borderColor))
-	fader:Configure(config.mouseover, config.fadeAlpha)
+	fader:Configure(config.mouseover, config.fadeAlpha, config.combat)
 	applyLfg()
 
 	ns.SetFont(clock, config.clockFont.size, config.clockFont.outline, true)
@@ -113,9 +341,11 @@ local function applyConfig()
 	zoneText:SetSize(size - ZONE_TEXT_INSET * 2, config.zoneFont.size + 4)
 	if config.showZoneText then
 		zoneText:Show()
+		zoneButton:Show()
 		updateZoneText()
 	else
 		zoneText:Hide()
+		zoneButton:Hide()
 	end
 
 	if config.showTracking then
@@ -130,10 +360,14 @@ local function applyConfig()
 		icon.frame:ClearAllPoints()
 		icon.frame:SetPoint(icon.point, icon.dx * ICON_INSET, icon.dy * ICON_INSET)
 	end
+	applyCollector()
 end
 
 function MinimapModule:Initialize()
 	TimeManager_LoadUI = ns.noop
+	function GetMinimapShape()
+		return "SQUARE"
+	end
 
 	Minimap:SetParent(UIParent)
 	Minimap:SetMaskTexture(ns.Media.blank)
@@ -168,6 +402,13 @@ function MinimapModule:Initialize()
 	zoneText:SetPoint("TOP", 0, -ZONE_TEXT_INSET)
 	zoneText:SetJustifyH("CENTER")
 	zoneText:SetNonSpaceWrap(false)
+
+	zoneButton = CreateFrame("Button", nil, Minimap)
+	zoneButton:SetPoint("CENTER", zoneText)
+	zoneButton:SetFrameLevel(Minimap:GetFrameLevel() + 2)
+	zoneButton:SetScript("OnClick", function()
+		ToggleFrame(WorldMapFrame)
+	end)
 
 	local untilNextTick = 0
 	Minimap:SetScript("OnUpdate", function(_, elapsed)
@@ -235,11 +476,16 @@ function MinimapModule:Initialize()
 	MiniMapLFGFrame:SetParent(lfgHolder)
 	MiniMapLFGFrame:SetFrameStrata("MEDIUM")
 
+	guardBlipTextures()
 	fader = ns.CreateFader({ Minimap, MinimapBackdrop }, { Minimap })
 	local faderSetAlpha = fader.SetAlpha
 	function fader:SetAlpha(alpha)
+		local wasInvisible = self.current <= 0
 		faderSetAlpha(self, alpha)
 		setBlipsHidden(alpha < BLIP_HIDE_ALPHA)
+		if wasInvisible and alpha > 0 then
+			refreshTerrain()
+		end
 	end
 
 	applyConfig()

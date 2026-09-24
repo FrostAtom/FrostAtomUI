@@ -55,12 +55,24 @@ all in one addon, ready to play right after install.
 - Crowd-control icon on top of the target, focus, party and arena frames, class icons, range fading for party members.
 - Right-click menu on every frame (whisper, invite, focus, inspect, **copy name**, …); *Report AFK* in
   battlegrounds asks for confirmation first.
+- **Vehicles:** the player, pet and party frames switch to the vehicle's health and power (Wintergrasp,
+  Strand of the Ancients, Isle of Conquest) and switch back when you get out.
+- Remaining time on every aura icon (long buffs can be left without a number); your own buffs are cancelled
+  with a right click even in combat; your own auras on the target and focus can be drawn larger;
+  player debuffs have their own size, and buffs can be sorted yours first or by time left.
+- Incoming heals split into yours and everyone else's, druid mana while shapeshifted (text on the player frame,
+  a thin bar on the player plate), a PvP flag countdown, an optional combat glow, pet power and hunter pet
+  happiness, horizontal party layout, and target of target hidden while it's you (optional).
 
 **Castbars** everywhere (player, target, focus, party, arena, nameplates):
 
 - the class-colored name of whoever the spell is aimed at, and a **red border when it is aimed at you**;
 - a pulsing gold glow on important casts — crowd control and heals;
 - *Interrupted by &lt;name&gt;* in red for a second when a cast is kicked, a white flash when it finishes;
+- casts that can't be kicked because of Divine Shield, Ice Block, Cloak of Shadows, Burning Determination or
+  Aura Mastery are shown as uninterruptible;
+- tick marks on channels (Drain Life, Mind Flay, Penance, Arcane Missiles, …), your latency at the end of
+  your own castbar, and time left or *elapsed / total*;
 - each frame's castbar can be turned off separately.
 
 | Party | Arena |
@@ -84,6 +96,14 @@ with its castbar, and defensive cooldowns other players put on you.*
   castbar with spell icon, CC and your own debuffs with timers above the target plate.
 - The castbar carries the same extras as on the unit frames: the name of who the spell is aimed at,
   a red border when it is you, a glow on important casts, a shield on casts that can't be interrupted.
+- **Casts and auras on every plate, not only your target:** plates are matched to your focus, mouseover,
+  arena opponents and your group's targets; enemy players' casts and CC in battlegrounds come from the
+  combat log (durations include diminishing returns).
+- Auras are sorted by importance — your CC, others' CC, defensives, your debuffs, purgeable buffs — with CC
+  icons larger; enemy defensives (Divine Shield, Ice Block, Cloak of Shadows, …) and purgeable buffs are shown too.
+- Arena numbers on enemy plates, class colors for friendly group members, health text on every plate
+  (percent, value or both) and a hover highlight.
+- Optional spreading of overlapping plates; works with awesome_wotlk when it is installed.
 - Your target's plate is always drawn on top of the others.
 - Totem icons instead of totem plates.
 - In battlegrounds, enemy **healers get a heal icon** on their plate.
@@ -92,7 +112,13 @@ with its castbar, and defensive cooldowns other players put on you.*
 
 - **Diminishing returns** on arena frames (and optionally on target and focus): an icon per category —
   stuns, silences, fears, roots, disarms, cyclone, … — with a reset timer; the border shows what the next
-  one does: green ½ duration, orange ¼, red immune. Everything resets when the gates open.
+  one does: green ½ duration, orange ¼, red immune. Everything resets when the gates open. Categories follow
+  the server's rules (TrinityCore 3.3.5): proc stuns and roots (Impact, Intimidation, Frostbite, Improved Hamstring, …)
+  are tracked apart from cast ones, pets are tracked too.
+- **Trinket internal cooldowns** on your frame, party, arena, target and focus: proc trinkets, enchants and gems
+  (Deathbringer's Will, Greatness, Lightweave, Black Magic, …) with the time until they can proc again.
+  Your gear and inspected allies' gear show right away; enemy trinkets start as question marks and fill in
+  after their first proc, and are remembered for later games. Proc talents such as Cheat Death show up too.
 - **Stealthed and unseen opponents** stay on the arena frames: the frame fades, the bars freeze at the last
   known health and power and a stealth icon appears next to it. Before the gates open,
   **preparation frames** show how many enemies to expect and fill in class, spec and name as soon as they are seen.
@@ -104,9 +130,10 @@ with its castbar, and defensive cooldowns other players put on you.*
 - **Match results** window when an arena or battleground ends: result, map, duration, rating change and team MMR,
   a sortable scoreboard with your own row highlighted, and buttons for the Blizzard scoreboard,
   arena history and *Leave* with a countdown to the instance closing.
-- **Arena history** (`/history`): every finished 2v2 / 3v3 / solo queue match is saved with the full scoreboard —
-  map, duration, result and rating change, team MMR, and for every player their class/spec icon, race, kills,
-  deaths, damage and healing. Filter by bracket, click a game for the details, right-click to delete it.
+- **Arena history** (`/history` or the *Arena history* button in the PvP window): every finished 2v2 / 3v3 /
+  solo queue match is saved with the full scoreboard — map, duration, result and rating change, team MMR, and for
+  every player their class/spec icon, race, kills, deaths, damage and healing. Filter by bracket, click a game for
+  the details, right-click to delete it.
 - **Sound alerts:** an enemy player targets you (with a *Targeted by X* line on screen), your hostile target
   or focus starts an interruptible cast, a dispellable debuff lands on you, your interrupt lands —
   each with its own sound, and each can be turned off.
@@ -134,6 +161,7 @@ in arenas and battlegrounds the window opens by itself.
   on you, your target, focus, pet, party or arena units. Show an icon when the aura is there or missing,
   when a spell is ready or on cooldown or usable; tint it red when out of range, blue when you lack the power.
   Groups can be limited to a class, a talent spec, in or out of combat, and arena / battleground / the open world.
+  Internal cooldowns of known trinket, enchant and talent procs are filled in automatically.
   Spell lists take IDs or names, or ready-made tags like `#stun`, `#silence`, `#root`, `#immune`, `#defensive`, `#burst`.
   Sensible class groups come preinstalled (Warrior procs, Infusion of Light, DK diseases, Water Shield, …).
 - Your own buffs and debuffs next to the minimap.
@@ -149,11 +177,43 @@ in arenas and battlegrounds the window opens by itself.
   with a timer swipe — CC breakers (PvP trinket, Every Man for Himself, Ice Block, Divine Shield, Blink, …)
   stay clear. After an interrupt the locked spell school is marked the same way.
 - Icons tint red when the target is out of range, the hotkey turns red too; optional desaturation on cooldown.
-- **Mouseover fade** per bar: a bar stays faded until you hover it or drag a spell.
-- **Keybinding mode:** type `/bind`, hover a button and press a key. `Esc` closes it.
+- **Mouseover fade** per bar: a bar stays faded until you hover it or drag a spell; bars, the micro menu,
+  the bag button and the minimap can also be shown only in combat or only out of combat, and faded bars let clicks through.
+- A 6th bar, manual paging (`[bar:N]`), the Shadow Dance page for rogues.
+- **Vehicle exit** button (also cancels Mind Control), the shaman totem bar with its own mover,
+  pet bar with autocast marks — right click toggles autocast — and drag to rearrange.
+- Keys bound in *Esc → Key Bindings* to the standard action bar buttons keep working.
+- **Keybinding mode:** type `/bind`, hover a button and press a key; the tooltip lists its keys, a key taken
+  from another action is reported, `Esc` over a button clears all its keys.
 - Click flash on button presses (`/vr` turns it off for video recording).
 - Spells are picked up from a bar with the mouse button and modifier you choose
   (Alt + right button by default), so nothing gets dragged away by accident.
+
+### 📝 Macros
+
+- `/macro` opens a new editor with line numbers in place of Blizzard's window: **no limit** on the number of macros or on their length (long macros run as
+  chained parts), account-wide or per character; the game's own macros are listed and editable too.
+- **Syntax highlighting** that follows the client's parser: commands, conditions, units and items get their own
+  colors; unknown conditions (names are case-sensitive), unknown commands, spells you don't know, items missing from
+  your bags, empty slots, non-existent `/click` buttons and Lua errors in `/run` are marked and listed by line.
+- **Key bindings** right in the window: click the key button and press a key or mouse button, right-click clears.
+- *Put on action bar* makes a small game macro that runs the long one (with `#showtooltip` carried over);
+  *Make unlimited* turns a game macro into an unlimited one and keeps its bar slots and keys.
+- Icon picker with search, or an automatic icon from the first spell or item; drop spells and items into the text.
+- **Import / export** as a text string: the selected macro, the current tab or everything at once. Imported macros
+  land in their original tab; names that already exist get a number, game macros that don't fit become unlimited.
+
+### 📖 Spellbook and talents
+
+- **Spellbook** in a widened native spellbook: every tab and the pet book on a single scrolling page in four columns,
+  split by headers, with **search** by name and a *Hide passive abilities* switch. Click casts (Alt self-casts,
+  right-click toggles pet autocast), Shift-click links, drag puts the spell on a bar. The spellbook key opens and
+  closes it in combat too.
+- **Talents** with all three trees side by side: primary / secondary / pet specs, *Activate*, talent preview with
+  *Learn* / *Reset*. **Glyphs** sit in a column to the right of the trees: using a glyph from the bags opens the
+  window, click a socket to inscribe, Shift + right-click removes, Shift-click links.
+- Both open on the left like the native windows: they push the character sheet, quest log and other panels aside,
+  close each other when there's no room, and close with Esc.
 
 ### 💬 Chat
 
@@ -173,6 +233,7 @@ in arenas and battlegrounds the window opens by itself.
 - Preparation spam inside the arena (loot mode, raid joins and leaves, countdown, "X has died") is hidden;
   on WoW Circle arena queue spam ("Number of groups in queue…", rating searches) is folded into short one-liners.
 - Restyled chat bubbles with raid icons (`{skull}`, `{x}`, …).
+- Repeated AFK/DND auto-replies from the same player are shown once; the edit box can sit above or below the chat.
 
 ### 🗺️ Minimap, map & bags
 
@@ -182,9 +243,23 @@ in arenas and battlegrounds the window opens by itself.
 
 - Square minimap in the top-right corner: wheel to zoom, right-click for tracking, middle-click for the calendar.
 - FPS / latency readout in the top-left corner; the numbers turn amber and red as things get worse.
-- Transparent, movable world map that doesn't lock you out of the game; player coordinates on the map.
+- Addon buttons around the minimap are gathered into one panel; click the zone name to open the world map.
+- Transparent, movable world map that doesn't lock you out of the game; player coordinates on the map;
+  battleground objectives keep their size when zoomed; optional fading while you move.
+- Movers for Blizzard frames that used to sit in fixed places: capture bars (Eye of the Storm, Wintergrasp),
+  vehicle seats, error messages and raid warnings. The quest tracker hides itself in arenas
+  (and optionally in battlegrounds and combat).
 - Single-window **bags and bank** with search, a sort button, item quality borders, quest item marks
   and your honor / arena points in the footer.
+- Search syntax: `q:epic`, `ilvl>=251`, `t:plate`, `n:name`, `tt:resilience`, `s:<equipment set>`, `boe`, `bop`,
+  `quest`, `!` to negate, `|` for or.
+- Items you can't use are tinted red; potions used in combat are greyed until their cooldown starts;
+  free slots are shown on every bag button.
+- **Slot locks:** Alt+click a slot to keep sorting away from it (`/sort unlock` clears them); `/sort`, `/sortbank`;
+  the bank is topped up from your bags, grey items go last, optional fill from the end.
+- The bank can be browsed anywhere (the banker button in the bag header); hover the money for every character's
+  gold, click it to take coins for mail or trade.
+- Item level on vendor and buyback items.
 
 ### 🛠️ Everything automatic
 | When | What happens |
@@ -219,12 +294,18 @@ in arenas and battlegrounds the window opens by itself.
 - Level line rebuilt: level colored by difficulty, race, class in class color; elite/rare/boss tags for NPCs.
   PvP and faction lines are dropped.
 - Buff and debuff icons with cooldown swirls above unit tooltips (all, or crowd control only).
-- Border in class, reaction or item quality color; class colored health bar.
+- Own skin for every tooltip and dropdown menu: flat dark background, thin border in class, reaction or item
+  quality color, faint reaction tint, top highlight, addon font (size adjustable), flat close button.
+- Health bar inside the tooltip with values, as a thin strip, or below it; class colored.
+- Optional large item/spell icon beside the tooltip.
 - The tooltip can follow the cursor (with an offset), sit next to the hovered frame or grow from its mover away
   from the screen edge; its scale is adjustable. Unit tooltips can be hidden in combat over frames and/or in the
   world, Shift shows them right away.
-- Character and Inspect windows show the item level on every slot and the average under the model.
-- Drag the model with the left mouse button to rotate, right button to move, wheel to zoom.
+- Character and Inspect windows show the item level on every slot and the average under the model
+  (read from the item tooltip for other players, so transmogrified gear is counted correctly).
+- A stats panel next to the character window with every category at once — resilience, hit, expertise,
+  spell penetration, … — only your class's categories by default.
+- Drag the model with the left mouse button to rotate, right button to move, wheel to zoom, middle click to reset.
 - Friends / team member menus get a **Spectate** entry.
 
 ---
@@ -244,6 +325,7 @@ in arenas and battlegrounds the window opens by itself.
 | Command | Description |
 |---|---|
 | `/bind`, `/b` | Keybinding mode for action buttons |
+| `/macro` | Toggle the macro editor |
 | `/nodm [message]` | Toggle blocking whispers from strangers (friends still get through; blocked messages are shown when you turn it off). `/nodm <message>` sets the auto-reply and turns blocking on |
 | `/copy` | Open a window to copy text from the current chat tab |
 | `/history`, `/ah` | Toggle the arena history window |
@@ -261,6 +343,8 @@ in arenas and battlegrounds the window opens by itself.
 | `/rl` | Reload the UI |
 | `/fui [page or text]` | Open the settings window; `/fui chat` jumps to a page, any other text searches the settings |
 | `/fui unlock`, `/fui lock` | Unlock / lock frames for moving |
+| `/fui reset` | Reset every frame position (asks first) |
+| `/sort`, `/sortbank` | Sort the bags / the bank (while it is open); `/sort unlock` clears slot locks |
 
 Every `/no…` command also takes `on`, `off` or `status`.
 
@@ -279,7 +363,8 @@ Options added in the latest version carry a **NEW** badge.
 Pages: General, Action bars, Unit frames, Nameplates, Player resources, HUD, Trackers, Arena, PvP, Chat,
 Minimap & map, Tooltip, Quality of life, Bags, Profiles.
 
-- **Search** box above the page list, or `/fui <text>` — finds options by name or description.
+- **Search** box above the page list, or `/fui <text>` — finds options by name, description, page or section;
+  several words narrow it down (`arena castbar`).
 - **Test** buttons on the Unit frames, Arena, PvP and HUD pages preview frames, DR, loss of control,
   external defensives and the combat alert without waiting for a fight.
 - **Unlock frames** (or `/fui unlock`) — drag any frame where you want it, right-click to reset. Every box covers
@@ -293,7 +378,11 @@ Minimap & map, Tooltip, Quality of life, Bags, Profiles.
   Every **Edit** button in the settings jumps straight to that frame in move mode.
 - **UI scale** changes ask *Keep these settings?* and revert on their own if you don't confirm.
 - **Reset page** / **Reset all** — back to defaults with a confirmation.
-- **Profiles** page — per-character profiles, copy, reset, and export/import as a text string to share with friends.
+- **Profiles** page — per-character profiles, copy, reset, and export/import as a text string to share with friends;
+  a default profile for new characters; **layouts** — named sets of frame positions only, which can be exported
+  on their own to share a layout without touching anyone's colors or fonts. *Reset positions* moves every frame back.
+- If another addon that does the same job is loaded (Bartender, Gladius, sArena, TidyPlates, Quartz, Bagnon, …),
+  a window offers to turn off that addon or our module, or keep both; *General → Ask again* brings the questions back.
 - **Language** — English and Russian. Follows your game client by default; change it under
   *General → Language* and reload when asked.
 

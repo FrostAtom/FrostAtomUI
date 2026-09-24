@@ -7,6 +7,14 @@ local HEALTH_COLOR_VALUES = {
 	{ "health", L["Health percent"] },
 }
 
+local HEALTH_TEXT_VALUES = {
+	{ "percent", L["Percent"] },
+	{ "value", L["Value"] },
+	{ "both", L["Value and percent"] },
+}
+
+local NEW = "1.4.1"
+
 ns.RegisterPage({
 	key = "nameplates",
 	name = L["Nameplates"],
@@ -23,11 +31,48 @@ ns.RegisterPage({
 		{ path = "namePlates.showName", label = L["Show name"], type = "toggle" },
 		{
 			path = "namePlates.showTargetPercent",
-			label = L["Show target health percent"],
+			label = L["Show health text"],
 			type = "toggle",
-			desc = L["Percent text on the right of the target's health bar."],
+			desc = L["Health text on the right of the target's health bar."],
+		},
+		{
+			path = "namePlates.healthTextAll",
+			new = NEW,
+			label = L["Health text on every nameplate"],
+			type = "toggle",
+			desc = L["Show the health text on all nameplates, not only on the target."],
+			enabledBy = "namePlates.showTargetPercent",
+		},
+		{
+			path = "namePlates.healthTextFormat",
+			new = NEW,
+			label = L["Health text format"],
+			type = "select",
+			values = HEALTH_TEXT_VALUES,
+			enabledBy = "namePlates.showTargetPercent",
 		},
 		{ path = "namePlates.showRaidIcon", label = L["Show raid icon"], type = "toggle" },
+		{
+			path = "namePlates.arenaNumbers",
+			new = NEW,
+			label = L["Show arena numbers"],
+			type = "toggle",
+			desc = L["Arena opponent number (1, 2, 3) to the left of enemy nameplates in arena."],
+		},
+		{
+			path = "namePlates.hoverHighlight",
+			new = NEW,
+			label = L["Highlight on mouseover"],
+			type = "toggle",
+			desc = L["Light wash over the health bar of the nameplate under the cursor."],
+		},
+		{
+			path = "namePlates.spreadPlates",
+			new = NEW,
+			label = L["Spread overlapping nameplates"],
+			type = "toggle",
+			desc = L["Push overlapping enemy nameplates apart vertically, like the stacking nameplates of the modern client."],
+		},
 		{
 			path = "namePlates.totemIcons",
 			new = "1.4.0",
@@ -78,8 +123,30 @@ ns.RegisterPage({
 			values = HEALTH_COLOR_VALUES,
 			desc = L["Class color for enemy players (everything else keeps its reaction color), or a color " .. "mixed from the current health percent for every plate."],
 		},
+		{
+			path = "namePlates.friendlyClassColors",
+			new = NEW,
+			label = L["Class colors for group members"],
+			type = "toggle",
+			desc = L["Party, raid and arena teammates get their class color instead of the friendly blue."],
+		},
 		{ description = L["Backdrop, border and text colors follow the unit frame settings."] },
 		{ header = L["Castbar"] },
+		{
+			path = "namePlates.castbarsAllPlates",
+			new = NEW,
+			label = L["Castbars on every nameplate"],
+			type = "toggle",
+			desc = L["Casts of arena opponents, your focus, the unit under the cursor and your group's targets on their nameplates, not only on the target. A cast keeps running after you switch targets."],
+		},
+		{
+			path = "namePlates.castbarsCombatLog",
+			new = NEW,
+			label = L["Casts from the combat log"],
+			type = "toggle",
+			desc = L["Show casts of enemy players that no unit points at, timed from the spell's base cast time."],
+			enabledBy = "namePlates.castbarsAllPlates",
+		},
 		{
 			path = "namePlates.castbarTargetName",
 			new = "1.4.0",
@@ -154,18 +221,42 @@ ns.RegisterPage({
 			type = "color",
 			desc = L["Castbar color while the cast cannot be interrupted."],
 		},
-		{ header = L["Target auras"] },
+		{ header = L["Auras"] },
 		{
 			path = "namePlates.showAuras",
-			label = L["Show target auras"],
+			label = L["Show auras"],
 			type = "toggle",
-			desc = L["CC and own debuffs above the target nameplate."],
+			desc = L["CC and own debuffs above the nameplate."],
+		},
+		{
+			path = "namePlates.aurasAllPlates",
+			new = NEW,
+			label = L["Auras on every nameplate"],
+			type = "toggle",
+			desc = L["Auras on all nameplates, not only on the target. Without a unit pointing at the nameplate they come from the combat log."],
+			enabledBy = "namePlates.showAuras",
 		},
 		{
 			path = "namePlates.ownDebuffs",
 			label = L["Include own debuffs"],
 			type = "toggle",
-			desc = L["Rend, Mortal Strike, Hamstring and other debuffs applied by you, in addition to CC."],
+			desc = L["Debuffs applied by you or your pet, in addition to CC."],
+			enabledBy = "namePlates.showAuras",
+		},
+		{
+			path = "namePlates.enemyBuffs",
+			new = NEW,
+			label = L["Enemy defensives and purgeable buffs"],
+			type = "toggle",
+			desc = L["Divine Shield, Ice Block, Cloak of Shadows, Hand of Freedom and other defensives, plus short Magic and Enrage buffs you can dispel."],
+			enabledBy = "namePlates.showAuras",
+		},
+		{
+			path = "namePlates.otherDebuffs",
+			new = NEW,
+			label = L["Include snares and DoTs from others"],
+			type = "toggle",
+			desc = L["Snares, healing reduction and key damage over time effects applied by other players."],
 			enabledBy = "namePlates.showAuras",
 		},
 		{
@@ -198,6 +289,17 @@ ns.RegisterPage({
 			min = 12,
 			max = 40,
 			step = 1,
+			enabledBy = "namePlates.showAuras",
+		},
+		{
+			path = "namePlates.ccAuraSize",
+			new = NEW,
+			label = L["CC icon size"],
+			type = "number",
+			min = 12,
+			max = 48,
+			step = 1,
+			desc = L["Crowd control icons can be larger than the rest of the row."],
 			enabledBy = "namePlates.showAuras",
 		},
 		{

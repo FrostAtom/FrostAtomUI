@@ -3,7 +3,7 @@ local ADDON_NAME, ns = ...
 local L = ns.L
 
 local GetAddOnMetadata = GetAddOnMetadata
-local SendAddonMessage = SendAddonMessage
+local ChatThrottleLib = ChatThrottleLib
 local GetNumRaidMembers = GetNumRaidMembers
 local GetNumPartyMembers = GetNumPartyMembers
 local IsInInstance = IsInInstance
@@ -22,6 +22,10 @@ local Misc = ns:GetModule("Misc")
 local PREFIX = "FAUI"
 local ANNOUNCE_DELAY = 10
 local PROBE_INTERVAL = 300
+local PRIORITY = "BULK"
+local BUILD_PATTERN = "^%d%d%d%d%-%d%d%-%d%d$"
+local VERSION_PATTERN = "^%d+%.%d+[%.%d]*$"
+local MAX_VERSION_LENGTH = 16
 
 local version = GetAddOnMetadata(ADDON_NAME, "Version") or "0"
 local build = GetAddOnMetadata(ADDON_NAME, "X-Build") or "0"
@@ -64,11 +68,15 @@ local function groupChannel()
 	end
 end
 
+local function send(message, channel, target)
+	ChatThrottleLib:SendAddonMessage(PRIORITY, PREFIX, message, channel, target)
+end
+
 local function announce()
 	announcePending = false
 	local channel = groupChannel()
 	if channel then
-		SendAddonMessage(PREFIX, ANNOUNCE_MESSAGE, channel)
+		send(ANNOUNCE_MESSAGE, channel)
 	end
 end
 
@@ -120,7 +128,13 @@ function Version.Probe(unit)
 		return
 	end
 	probed[name] = now
-	SendAddonMessage(PREFIX, PROBE_MESSAGE, "WHISPER", name)
+	send(PROBE_MESSAGE, "WHISPER", name)
+end
+
+local function isValid(theirVersion, theirBuild)
+	return #theirVersion <= MAX_VERSION_LENGTH
+		and theirVersion:find(VERSION_PATTERN) ~= nil
+		and theirBuild:find(BUILD_PATTERN) ~= nil
 end
 
 local function reportNewer(theirVersion, theirBuild)
@@ -139,8 +153,8 @@ Misc:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, message, channel, sende
 	if prefix ~= PREFIX or not sender or sender == playerName then
 		return
 	end
-	local kind, theirVersion, theirBuild = message:match("^(%a):([^:]+):(.+)$")
-	if not kind then
+	local kind, theirVersion, theirBuild = message:match("^([VQ]):([^:]+):(.+)$")
+	if not kind or not isValid(theirVersion, theirBuild) then
 		return
 	end
 
@@ -151,11 +165,11 @@ Misc:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, message, channel, sende
 	end
 	user.version, user.build = theirVersion, theirBuild
 
-	if theirBuild > build then
+	if build:find(BUILD_PATTERN) and theirBuild > build then
 		reportNewer(theirVersion, theirBuild)
 	end
 	if kind == "Q" and channel == "WHISPER" and isTalkable(sender) then
-		SendAddonMessage(PREFIX, ANNOUNCE_MESSAGE, "WHISPER", sender)
+		send(ANNOUNCE_MESSAGE, "WHISPER", sender)
 	end
 
 	if GameTooltip:IsShown() then

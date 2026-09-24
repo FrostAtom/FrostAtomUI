@@ -28,6 +28,13 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Tracking button in the bottom-right corner. Right-click the minimap opens the same menu."],
 		},
+		{
+			path = "minimap.collectButtons",
+			new = "1.4.1",
+			label = L["Collect addon buttons"],
+			type = "toggle",
+			desc = L["Gather addon buttons from the minimap edge into a panel opened by the + button on the left side of the minimap."],
+		},
 		{ header = L["Clock"] },
 		{ path = "minimap.showClock", label = L["Show clock"], type = "toggle" },
 		{
@@ -61,13 +68,24 @@ ns.RegisterElement({
 			desc = L["Keep the minimap faded until the cursor is over it."],
 		},
 		{
+			path = "minimap.combat",
+			new = "1.4.1",
+			label = L["Visible"],
+			type = "select",
+			values = ns.COMBAT_VISIBILITY_VALUES,
+			desc = L["Fade out of combat or in combat. With mouseover the cursor still reveals it."],
+		},
+		{
 			path = "minimap.fadeAlpha",
 			label = L["Faded alpha"],
 			type = "number",
 			min = 0,
 			max = 1,
 			step = 0.05,
-			enabledBy = "minimap.mouseover",
+			disabled = function()
+				return not FrostAtomUI:GetConfig("minimap.mouseover")
+					and FrostAtomUI:GetConfig("minimap.combat") == "any"
+			end,
 		},
 	},
 })
@@ -145,6 +163,23 @@ Section(schema, L["World map"], "worldMap", {
 		max = 8,
 		step = 0.5,
 		desc = L["Magnification limit for mouse wheel zoom."],
+	},
+	{
+		path = "fadeWhenMoving",
+		new = "1.4.1",
+		label = L["Fade while moving"],
+		type = "toggle",
+		desc = L["Make the map transparent while you move, unless the cursor is over it."],
+	},
+	{
+		path = "movingAlpha",
+		new = "1.4.1",
+		label = L["Alpha while moving"],
+		type = "number",
+		min = 0.1,
+		max = 1,
+		step = 0.05,
+		enabledBy = "worldMap.fadeWhenMoving",
 	},
 })
 

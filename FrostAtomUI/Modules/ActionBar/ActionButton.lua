@@ -21,6 +21,7 @@ local GetActionInfo = GetActionInfo
 local GetMacroSpell = GetMacroSpell
 local GetSpellInfo = GetSpellInfo
 local UnitGUID = UnitGUID
+local UnitExists = UnitExists
 local GetTime = GetTime
 local GameTooltip = GameTooltip
 
@@ -156,6 +157,7 @@ local lockEnd, lockDuration = 0, 0
 local silenceEnd, silenceDuration = 0, 0
 local interruptedAt = -math.huge
 local actionButtons = {}
+local hasTarget = false
 
 local DRAG_MODIFIERS = {
 	shift = IsShiftKeyDown,
@@ -164,7 +166,6 @@ local DRAG_MODIFIERS = {
 }
 
 local ACTION_EVENTS = {
-	UPDATE_BINDINGS = "UpdateBindings",
 	UPDATE_SHAPESHIFT_FORM = "Update",
 	UPDATE_MACROS = "Update",
 	ACTIONBAR_UPDATE_USABLE = "UpdateUsable",
@@ -199,6 +200,9 @@ local function abbreviateKey(key)
 end
 local function updateHotkey(button)
 	local key = GetBindingKey(button.bindingName)
+	if not key and button.blizzardBinding then
+		key = GetBindingKey(button.blizzardBinding)
+	end
 	if key then
 		button.hotkey:SetText(abbreviateKey(key))
 		button.hotkey:Show()
@@ -265,8 +269,10 @@ function ActionButtonMixin:UpdateName()
 	local action = self.action
 	if IsConsumableAction(action) or IsStackableAction(action) then
 		local count = GetActionCount(action)
-		self.name:SetText(count > 999 and "*" or count)
+		self.count:SetText(count > 999 and "*" or count)
+		self.name:SetText("")
 	else
+		self.count:SetText("")
 		self.name:SetText(GetActionText(action))
 	end
 end
@@ -388,17 +394,14 @@ function ActionButtonMixin:Update()
 		for event, method in pairs(ACTION_EVENTS) do
 			self:RegisterEvent(event, method)
 		end
-		self:SetScript("OnUpdate", self.OnUpdate)
 
 		self.usable, self.notEnoughMana = IsUsableAction(action)
-		self.outOfRange = IsActionInRange(action) == 0
-		self.rangeTimer = 0
+		self.outOfRange = hasTarget and IsActionInRange(action) == 0
 		self.hasAction = true
 	elseif self.hasAction then
 		for event, method in pairs(ACTION_EVENTS) do
 			self:UnregisterEvent(event, method)
 		end
-		self:SetScript("OnUpdate", nil)
 
 		self.usable = true
 		self.notEnoughMana, self.outOfRange = nil, nil
@@ -415,22 +418,46 @@ function ActionButtonMixin:Update()
 	self:UpdateName()
 end
 
-function ActionButtonMixin:OnUpdate(elapsed)
-	self.rangeTimer = self.rangeTimer - elapsed
-	if self.rangeTimer > 0 then
-		return
-	end
-	self.rangeTimer = RANGE_CHECK_INTERVAL
-
-	local expiry = self.expiry
-	if expiry and GetTime() >= expiry then
-		self:UpdateCooldown()
-	end
-
-	local outOfRange = IsActionInRange(self.action) == 0
+function ActionButtonMixin:UpdateRange()
+	local outOfRange = hasTarget and IsActionInRange(self.action) == 0
 	if outOfRange ~= self.outOfRange then
 		self.outOfRange = outOfRange
 		self:UpdateColors()
+	end
+end
+
+local nextRangeCheck = 0
+
+local rangeTicker = CreateFrame("Frame")
+rangeTicker:Hide()
+rangeTicker:SetScript("OnUpdate", function()
+	local now = GetTime()
+	if now < nextRangeCheck then
+		return
+	end
+	nextRangeCheck = now + RANGE_CHECK_INTERVAL
+
+	for i = 1, #actionButtons do
+		local button = actionButtons[i]
+		if button.hasAction then
+			local expiry = button.expiry
+			if expiry and now >= expiry then
+				button:UpdateCooldown()
+			end
+			if hasTarget and button:IsVisible() then
+				button:UpdateRange()
+			end
+		end
+	end
+end)
+
+local function onTargetChanged()
+	hasTarget = UnitExists("target") and true or false
+	for i = 1, #actionButtons do
+		local button = actionButtons[i]
+		if button.hasAction then
+			button:UpdateRange()
+		end
 	end
 end
 
@@ -482,7 +509,7 @@ function ActionBar:CreateActionButton(action, parent)
 
 	button.cooldown = CreateFrame("Cooldown", nil, button)
 	button.cooldown:SetAllPoints()
-	CooldownTimer:Attach(button.cooldown)
+	CooldownTimer:Attach(button.cooldown, config.cooldownFont.size)
 
 	button.icon = button:CreateTexture(nil, "BORDER")
 	button.icon:SetAllPoints()
@@ -497,6 +524,10 @@ function ActionBar:CreateActionButton(action, parent)
 	button.name:SetPoint("BOTTOM", 0, 2)
 	ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
 
+	button.count = button:CreateFontString(nil, "ARTWORK")
+	button.count:SetPoint("BOTTOMRIGHT", -2, 2)
+	ns.SetFont(button.count, config.countFont.size, config.countFont.outline)
+
 	button:RegisterForClicks("LeftButtonDown")
 	button:RegisterForDrag(config.dragButton)
 	button:SetScript("OnDragStart", button.OnDragStart)
@@ -504,12 +535,18 @@ function ActionBar:CreateActionButton(action, parent)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)
 	button:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 	button:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
+	button:RegisterEvent("UPDATE_BINDINGS", "UpdateBindings")
 	self:AttachTooltip(button, button.SetTooltip)
 
 	button.usable = true
 	button.cooldownEnd = 0
 	button:Update()
 
+	if #actionButtons == 0 then
+		self:RegisterEvent("PLAYER_TARGET_CHANGED", onTargetChanged)
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", onTargetChanged)
+		rangeTicker:Show()
+	end
 	actionButtons[#actionButtons + 1] = button
 	return button
 end

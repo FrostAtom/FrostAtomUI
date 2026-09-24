@@ -19,7 +19,7 @@ end
 
 local TAGS_DESC = L["Format [tag:color:8], where:"]
 	.. "\n"
-	.. L["tag: name, curhp, maxhp, misshp, perhp, curpp, maxpp, perpp, class, race, guild, level, afk, dnd, status"]
+	.. L["tag: name, curhp, maxhp, misshp, perhp, curpp, maxpp, perpp, druidmana, class, race, guild, level, afk, dnd, status"]
 	.. "\n"
 	.. L["color: class, reaction, hp, power, ffaaff"]
 	.. "\n"
@@ -48,6 +48,17 @@ local VERTICAL_GROWTH_VALUES = {
 local HORIZONTAL_GROWTH_VALUES = {
 	{ "LEFT", L["To the left"] },
 	{ "RIGHT", L["To the right"] },
+}
+
+local CAST_TIME_VALUES = {
+	{ "remaining", L["Remaining"] },
+	{ "total", L["Remaining / total"] },
+}
+
+local BUFF_SORT_VALUES = {
+	{ "default", L["Default"] },
+	{ "own", L["Yours first"] },
+	{ "time", L["Shortest remaining first"] },
 }
 
 local function testFramesButton()
@@ -101,6 +112,19 @@ local function targetAurasPerRow()
 	}
 end
 
+local function ownAuraScale()
+	return {
+		path = "unitFrames.ownAuraScale",
+		new = "1.4.1",
+		label = L["Your auras size"],
+		type = "number",
+		min = 1,
+		max = 2,
+		step = 0.05,
+		desc = L["Scale of the buffs and debuffs cast by you, your pet or vehicle under the target and focus frames. 1 keeps them the same size as the rest."],
+	}
+end
+
 local function castbarToggle(path)
 	return { path = path, new = "1.4.0", label = L["Show castbar"], type = "toggle" }
 end
@@ -131,18 +155,34 @@ local function groupDebuffEntries()
 	}
 end
 
-local function groupLayout(prefix, spacingPath, growthPath)
+local GROUP_GROWTH_VALUES = {
+	{ "DOWN", L["Down"] },
+	{ "UP", L["Up"] },
+	{ "RIGHT", L["To the right"] },
+	{ "LEFT", L["To the left"] },
+}
+
+local function groupLayout(prefix, spacingPath, growthPath, horizontal)
+	local spacing = horizontal
+			and size(
+				spacingPath,
+				L["Spacing"],
+				40,
+				800,
+				L["Distance between the tops of consecutive frames, or between their left edges when they grow sideways."]
+			)
+		or size(spacingPath, L["Spacing"], 40, 300, L["Vertical distance between the tops of consecutive frames."])
 	return {
 		{ header = L["Layout"] },
 		size("unitFrames." .. prefix .. "Width", L["Width"], 120, 320),
 		size("unitFrames." .. prefix .. "Height", L["Height"], 30, 80),
-		size(spacingPath, L["Spacing"], 40, 300, L["Vertical distance between the tops of consecutive frames."]),
+		spacing,
 		{
 			path = growthPath,
 			new = "1.4.0",
 			label = L["Growth direction"],
 			type = "select",
-			values = VERTICAL_GROWTH_VALUES,
+			values = horizontal and GROUP_GROWTH_VALUES or VERTICAL_GROWTH_VALUES,
 		},
 	}
 end
@@ -165,6 +205,36 @@ ns.RegisterElement({
 	schema = concat(mainFrameSize(), {
 		{ header = L["Indicators"] },
 		{ path = "unitFrames.showRestingIcon", label = L["Resting icon"], type = "toggle" },
+		{
+			path = "unitFrames.pvpTimer",
+			new = "1.4.1",
+			label = L["PvP flag timer"],
+			type = "toggle",
+			enabledBy = "unitFrames.showPvpIcon",
+			desc = L["Time left until the PvP flag drops, under the PvP icon."],
+		},
+		{
+			path = "unitFrames.druidMana",
+			new = "1.4.1",
+			label = L["Mana in shapeshift forms"],
+			type = "toggle",
+			hidden = ns.NotClass("DRUID"),
+			desc = L["Mana value and percent on the left of the power bar while in bear or cat form."],
+		},
+		{
+			path = "unitFrames.combatGlow",
+			new = "1.4.1",
+			label = L["Combat glow"],
+			type = "toggle",
+			desc = L["Pulsing glow around the player frame while in combat."],
+		},
+		{
+			path = "unitFrames.combatGlowColor",
+			new = "1.4.1",
+			label = L["Combat glow color"],
+			type = "color",
+			enabledBy = "unitFrames.combatGlow",
+		},
 	}),
 })
 
@@ -175,6 +245,7 @@ ns.RegisterElement({
 	enabledBy = "unitFrames.enabled",
 	schema = concat(mainFrameSize(), {
 		targetAurasPerRow(),
+		ownAuraScale(),
 		{ header = L["Castbar"] },
 		castbarToggle("unitFrames.showTargetCastbar"),
 		{ header = L["Combo points"] },
@@ -191,6 +262,7 @@ ns.RegisterElement({
 	enabledBy = "unitFrames.enabled",
 	schema = concat(mainFrameSize(), {
 		targetAurasPerRow(),
+		ownAuraScale(),
 		{ header = L["Castbar"] },
 		castbarToggle("unitFrames.showFocusCastbar"),
 	}),
@@ -208,6 +280,21 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Square pet frames next to the player, party and arena frames."],
 		},
+		{
+			path = "unitFrames.petPower",
+			new = "1.4.1",
+			label = L["Show power bar"],
+			type = "toggle",
+			desc = L["Mana, focus or energy strip at the bottom of the pet frames."],
+		},
+		{
+			path = "unitFrames.petHappiness",
+			new = "1.4.1",
+			label = L["Pet happiness"],
+			type = "toggle",
+			hidden = ns.NotClass("HUNTER"),
+			desc = L["Happiness icon in the corner of your pet frame."],
+		},
 	},
 })
 
@@ -218,6 +305,13 @@ ns.RegisterElement({
 	enabledBy = { "unitFrames.enabled", "unitFrames.showTargetOfTarget" },
 	schema = {
 		{ path = "unitFrames.showTargetOfTarget", new = "1.4.0", label = L["Show target of target"], type = "toggle" },
+		{
+			path = "unitFrames.hideTargetOfTargetSelf",
+			new = "1.4.1",
+			label = L["Hide when it is you"],
+			type = "toggle",
+			desc = L["Make the frame invisible while your target is targeting you. It still reacts to clicks, as secure frames cannot be hidden in combat."],
+		},
 	},
 })
 
@@ -241,6 +335,23 @@ ns.RegisterElement({
 		{ header = L["Size"] },
 		size("unitFrames.playerCastbarWidth", L["Width"], 100, 500, nil, "unitFrames.showPlayerCastbar"),
 		size("unitFrames.playerCastbarHeight", L["Height"], 10, 50, nil, "unitFrames.showPlayerCastbar"),
+		{ header = L["Latency"] },
+		{
+			path = "unitFrames.castbarLatency",
+			new = "1.4.1",
+			label = L["Show latency"],
+			type = "toggle",
+			enabledBy = "unitFrames.showPlayerCastbar",
+			desc = L["Shaded zone at the end of the cast as long as your latency: the next spell can be pressed once the bar enters it without cutting the current cast. Up to 40% of the bar, not shown for channels."],
+		},
+		{
+			path = "unitFrames.castbarLatencyColor",
+			new = "1.4.1",
+			label = L["Latency color"],
+			type = "color",
+			alpha = true,
+			enabledBy = { "unitFrames.showPlayerCastbar", "unitFrames.castbarLatency" },
+		},
 	},
 })
 
@@ -251,6 +362,15 @@ ns.RegisterElement({
 	enabledBy = "unitFrames.enabled",
 	schema = {
 		{ header = L["Layout"] },
+		{
+			path = "unitFrames.playerAuraGrowth",
+			new = "1.4.1",
+			label = L["Growth direction"],
+			type = "select",
+			values = HORIZONTAL_GROWTH_VALUES,
+			desc = L["Debuffs go below the buffs."],
+		},
+		{ header = L["Buffs"] },
 		size("unitFrames.playerAuraSize", L["Icon size"], 16, 60),
 		{
 			path = "unitFrames.playerAuraPerRow",
@@ -262,12 +382,31 @@ ns.RegisterElement({
 			step = 1,
 		},
 		{
-			path = "unitFrames.playerAuraGrowth",
+			path = "unitFrames.playerBuffSort",
 			new = "1.4.0",
-			label = L["Growth direction"],
+			label = L["Buff order"],
 			type = "select",
-			values = HORIZONTAL_GROWTH_VALUES,
-			desc = L["Debuffs go below the buffs."],
+			values = BUFF_SORT_VALUES,
+			desc = L["Right-click cancels a buff, in combat too. A sorted grid keeps the buff names it had when combat started, so after the order changes in combat a click may cancel a different buff."],
+		},
+		{ header = L["Debuffs"] },
+		{
+			path = "unitFrames.playerDebuffSize",
+			new = "1.4.1",
+			label = L["Icon size"],
+			type = "number",
+			min = 16,
+			max = 60,
+			step = 1,
+		},
+		{
+			path = "unitFrames.playerDebuffPerRow",
+			new = "1.4.1",
+			label = L["Icons per row"],
+			type = "number",
+			min = 4,
+			max = 20,
+			step = 1,
 		},
 	},
 })
@@ -280,7 +419,7 @@ ns.RegisterElement({
 	schema = Requires(
 		"unitFrames.showParty",
 		concat(
-			groupLayout("party", "unitFrames.partySpacing", "unitFrames.partyGrowth"),
+			groupLayout("party", "unitFrames.partySpacing", "unitFrames.partyGrowth", true),
 			{
 				{ header = L["Auras"] },
 			},
@@ -461,6 +600,14 @@ ns.RegisterPage({
 			desc = L["Segment after the health fill for heals being cast on the unit. Tracks your own casts and those of party members and arena opponents; amounts are learned from their landed heals."],
 		},
 		{
+			path = "unitFrames.healPredictionSplit",
+			new = "1.4.1",
+			label = L["Split your heals"],
+			type = "toggle",
+			enabledByAny = { "unitFrames.healPrediction", "playerPlate.healPrediction" },
+			desc = L["Show your own incoming heals first, in their own color, before the heals of others."],
+		},
+		{
 			path = "unitFrames.absorbs",
 			new = "1.4.0",
 			label = L["Absorb shields"],
@@ -502,6 +649,25 @@ ns.RegisterPage({
 			type = "toggle",
 			enabledBy = "unitFrames.showArena",
 			desc = L["Placeholder frames for the expected opponents before the gates open, filled with class, spec and name as soon as an opponent is seen."],
+		},
+		{ header = L["Auras"] },
+		{
+			path = "unitFrames.auraTimers",
+			new = "1.4.1",
+			label = L["Show aura timers"],
+			type = "toggle",
+			desc = L["Remaining time on buff and debuff icons of the player, target, focus, party and arena frames."],
+		},
+		{
+			path = "unitFrames.auraTimerMaxDuration",
+			new = "1.4.1",
+			label = L["Hide timers on auras longer than"],
+			type = "number",
+			min = 0,
+			max = 3600,
+			step = 30,
+			enabledBy = "unitFrames.auraTimers",
+			desc = L["In seconds, by the full aura duration; 0 shows the timer on every aura."],
 		},
 		{ header = L["Cooldowns"] },
 		{
@@ -584,6 +750,20 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Short white flash when a cast completes."],
 		},
+		{
+			path = "unitFrames.castbarTicks",
+			new = "1.4.1",
+			label = L["Channel ticks"],
+			type = "toggle",
+			desc = L["Marks on the castbar where the ticks of channeled spells (Drain Life, Mind Flay, Penance, Blizzard and others) land."],
+		},
+		{
+			path = "unitFrames.castbarTimeFormat",
+			new = "1.4.1",
+			label = L["Cast time"],
+			type = "select",
+			values = CAST_TIME_VALUES,
+		},
 		{ header = L["Text"] },
 		{ description = TAGS_DESC },
 		{
@@ -647,6 +827,14 @@ ns.RegisterPage({
 			type = "color",
 			alpha = true,
 			enabledByAny = { "unitFrames.healPrediction", "playerPlate.healPrediction" },
+		},
+		{
+			path = "unitFrames.healPredictionOwnColor",
+			new = "1.4.1",
+			label = L["Your incoming heals"],
+			type = "color",
+			alpha = true,
+			enabledBy = "unitFrames.healPredictionSplit",
 		},
 		{
 			path = "unitFrames.absorbColor",

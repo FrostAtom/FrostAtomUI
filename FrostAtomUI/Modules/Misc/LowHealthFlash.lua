@@ -1,6 +1,6 @@
 local _, ns = ...
 
-local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
+local UnitHealth, UnitHealthMax, UnitIsDeadOrGhost = UnitHealth, UnitHealthMax, UnitIsDeadOrGhost
 
 local Misc = ns:GetModule("Misc")
 
@@ -28,7 +28,13 @@ local function update(_, unit)
 	end
 
 	local config = ns.Config.lowHealthFlash
-	if config.enabled and UnitHealth("player") / UnitHealthMax("player") < config.threshold then
+	local max = UnitHealthMax("player")
+	if
+		config.enabled
+		and max > 0
+		and not UnitIsDeadOrGhost("player")
+		and UnitHealth("player") / max < config.threshold
+	then
 		flash:Show()
 	elseif flash:IsShown() then
 		flash:Hide()
@@ -40,4 +46,9 @@ end
 Misc:RegisterEvent("UNIT_HEALTH", update)
 Misc:RegisterEvent("UNIT_MAXHEALTH", update)
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", update)
-Misc:WatchConfig("lowHealthFlash", update)
+Misc:RegisterEvent("PLAYER_DEAD", update)
+Misc:RegisterEvent("PLAYER_ALIVE", update)
+Misc:RegisterEvent("PLAYER_UNGHOST", update)
+Misc:WatchConfig("lowHealthFlash", function()
+	update()
+end)

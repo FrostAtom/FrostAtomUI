@@ -7,6 +7,12 @@ local FRAME_ANCHOR_VALUES = {
 	{ "owner", L["Next to the frame"] },
 }
 
+local HEALTH_BAR_VALUES = {
+	{ "inside", L["Inside, with values"] },
+	{ "thin", L["Thin strip at the bottom"] },
+	{ "outside", L["Below the tooltip"] },
+}
+
 local AURA_VALUES = {
 	{ "none", L["None"] },
 	{ "all", L["All"] },
@@ -114,6 +120,73 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Class color for players, reaction color for NPCs, quality color for items."],
 		},
+		{ header = L["Appearance"] },
+		{
+			path = "tooltip.skin",
+			new = "1.4.0",
+			label = L["Skin tooltips"],
+			type = "toggle",
+			reload = true,
+			desc = L["Flat dark background, thin border, top highlight and the addon font on tooltips and dropdown menus. Off keeps the Blizzard look."],
+		},
+		{
+			path = "tooltip.backdropColor",
+			new = "1.4.0",
+			label = L["Background"],
+			type = "color",
+			alpha = true,
+			enabledBy = "tooltip.skin",
+		},
+		{
+			path = "tooltip.borderColor",
+			new = "1.4.0",
+			label = L["Border"],
+			type = "color",
+			enabledBy = "tooltip.skin",
+			desc = L["Used when the border is not colored by class, reaction or quality."],
+		},
+		{
+			path = "tooltip.reactionBackground",
+			new = "1.4.0",
+			label = L["Tint background by reaction"],
+			type = "toggle",
+			enabledBy = "tooltip.skin",
+			desc = L["Faint red behind enemies, blue behind friendly players, green behind friendly NPCs, grey behind dead units."],
+		},
+		{
+			path = "tooltip.gradient",
+			new = "1.4.0",
+			label = L["Top highlight"],
+			type = "toggle",
+			enabledBy = "tooltip.skin",
+		},
+		{
+			path = "tooltip.fontSize",
+			new = "1.4.0",
+			label = L["Font size"],
+			type = "number",
+			min = 9,
+			max = 16,
+			step = 1,
+			enabledBy = "tooltip.skin",
+			desc = L["Body text; the title is 2 points larger."],
+		},
+		{
+			path = "tooltip.healthBar",
+			new = "1.4.0",
+			label = L["Health bar"],
+			type = "select",
+			values = HEALTH_BAR_VALUES,
+			enabledBy = "tooltip.skin",
+		},
+		{
+			path = "tooltip.sideIcon",
+			new = "1.4.0",
+			label = L["Icon beside the tooltip"],
+			type = "toggle",
+			enabledBy = "tooltip.skin",
+			desc = L["Large item or spell icon outside the left edge instead of the small one in the title. Skipped when the hovered button already shows the icon."],
+		},
 		{ header = L["Units"] },
 		{
 			path = "tooltip.showSpec",
@@ -210,6 +283,13 @@ ns.RegisterPage({
 			desc = L["Also quest and achievement IDs, and the level of linked quests."],
 		},
 		{
+			path = "tooltip.showAuraCaster",
+			new = "1.4.1",
+			label = L["Aura caster"],
+			type = "toggle",
+			desc = L["Name of the player who cast a buff or debuff, in its tooltip."],
+		},
+		{
 			path = "tooltip.showItemLevel",
 			label = L["Item level"],
 			type = "toggle",
@@ -226,7 +306,7 @@ ns.RegisterPage({
 			label = L["Label color"],
 			type = "color",
 			desc = L["Color of the ID and bag count labels."],
-			enabledByAny = { "tooltip.showIds", "tooltip.showItemCount" },
+			enabledByAny = { "tooltip.showIds", "tooltip.showItemCount", "tooltip.showAuraCaster" },
 		},
 	},
 })

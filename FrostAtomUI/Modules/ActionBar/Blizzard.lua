@@ -140,8 +140,8 @@ function ActionBar:HideBlizzard()
 	local function applyMenus(_, path)
 		local config = ns.Config.actionBar
 		ns.Movers.SetScale(microMenu, config.microMenuScale, path == "actionBar.microMenuScale")
-		microMenuFader:Configure(config.microMenuMouseover, config.menuFadeAlpha)
-		bagFader:Configure(config.bagButtonMouseover, config.menuFadeAlpha)
+		microMenuFader:Configure(config.microMenuMouseover, config.menuFadeAlpha, config.microMenuCombat)
+		bagFader:Configure(config.bagButtonMouseover, config.menuFadeAlpha, config.bagButtonCombat)
 	end
 	applyMenus()
 	self:WatchConfig("actionBar", applyMenus)

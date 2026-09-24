@@ -2,7 +2,6 @@ local _, ns = ...
 
 local L = ns.L
 
-local GetContainerNumSlots = GetContainerNumSlots
 local GetContainerNumFreeSlots = GetContainerNumFreeSlots
 local GetContainerItemInfo = GetContainerItemInfo
 local GetContainerItemID = GetContainerItemID
@@ -22,10 +21,16 @@ local floor = math.floor
 local bit_band = bit.band
 
 local Bags = ns:GetModule("Bags")
+local bagSize = Bags.BagSize
+local isLocked = Bags.IsSlotLocked
+
+local config = ns.Config.bags
 
 local MOVES_PER_FRAME = 12
 local MOVE_TIMEOUT = 2
 local MAX_REPLANS = 5
+local CACHE_RETRY_DELAY = 0.5
+local MAX_CACHE_RETRIES = 6
 
 local CLASS_ORDER = { 2, 1, 8, 3, 5, 6, 11, 12, 7, 4, 9, 10 }
 
@@ -70,8 +75,11 @@ local targetItems, targetSlots, sourceUsed, emptySlots = {}, {}, {}, {}
 local normalBags, specialtyBags, bagFamilies = {}, {}, {}
 local typeOrder, subTypeOrder = {}, {}
 local busy = {}
-local activeFrame
+local activeFrame, waitingFrame
 local replans = 0
+local cacheRetries = 0
+local reverseFill = false
+local uncached = false
 
 local function slotKey(bag, slot)
 	return bag * 100 + slot
@@ -100,8 +108,12 @@ local function cacheItem(id)
 		return
 	end
 	local name, _, quality, level, _, itemType, subType, _, equipLoc, _, price = GetItemInfo(id)
+	if not name then
+		uncached = true
+	end
 	local subOrder = subTypeOrder[itemType]
-	itemOrder[id] = ("%02d%02d%02d%d%04d%02d%08d%s"):format(
+	itemOrder[id] = ("%d%02d%02d%02d%d%04d%02d%08d%s"):format(
+		quality == 0 and 1 or 0,
 		PINNED[id] or 99,
 		typeOrder[itemType] or 99,
 		SLOT_ORDER[equipLoc] or 99,
@@ -119,15 +131,10 @@ local function cacheItem(id)
 	itemFamilies[id] = family
 end
 
-local function scan(bags)
-	wipe(ids)
-	wipe(counts)
-	wipe(maxStacks)
-	wipe(itemOrder)
-	wipe(itemFamilies)
+local function scanBags(bags)
 	for i = 1, #bags do
 		local bag = bags[i]
-		for slot = 1, GetContainerNumSlots(bag) do
+		for slot = 1, bagSize(bag) do
 			local id = GetContainerItemID(bag, slot)
 			if id then
 				local key = slotKey(bag, slot)
@@ -140,6 +147,15 @@ local function scan(bags)
 			end
 		end
 	end
+end
+
+local function resetScan()
+	wipe(ids)
+	wipe(counts)
+	wipe(maxStacks)
+	wipe(itemOrder)
+	wipe(itemFamilies)
+	uncached = false
 end
 
 local function updateLocation(from, to)
@@ -173,10 +189,10 @@ end
 local function stackItems(sourceBags, targetBags, partialOnly)
 	for i = 1, #targetBags do
 		local bag = targetBags[i]
-		for slot = 1, GetContainerNumSlots(bag) do
+		for slot = 1, bagSize(bag) do
 			local key = slotKey(bag, slot)
 			local id = ids[key]
-			if id and counts[key] ~= maxStacks[key] then
+			if id and counts[key] ~= maxStacks[key] and not isLocked(key) then
 				targetItems[id] = (targetItems[id] or 0) + 1
 				targetSlots[#targetSlots + 1] = key
 			end
@@ -185,10 +201,15 @@ local function stackItems(sourceBags, targetBags, partialOnly)
 
 	for b = #sourceBags, 1, -1 do
 		local bag = sourceBags[b]
-		for slot = GetContainerNumSlots(bag), 1, -1 do
+		for slot = bagSize(bag), 1, -1 do
 			local source = slotKey(bag, slot)
 			local id = ids[source]
-			if id and targetItems[id] and (not partialOnly or counts[source] < maxStacks[source]) then
+			if
+				id
+				and targetItems[id]
+				and not isLocked(source)
+				and (not partialOnly or counts[source] < maxStacks[source])
+			then
 				for i = #targetSlots, 1, -1 do
 					local target = targetSlots[i]
 					if not ids[source] or not targetItems[id] then
@@ -228,9 +249,9 @@ end
 local function fillEmptySlots(sourceBags, targetBags)
 	for i = 1, #targetBags do
 		local bag = targetBags[i]
-		for slot = 1, GetContainerNumSlots(bag) do
+		for slot = 1, bagSize(bag) do
 			local key = slotKey(bag, slot)
-			if not ids[key] then
+			if not ids[key] and not isLocked(key) then
 				emptySlots[#emptySlots + 1] = key
 			end
 		end
@@ -238,13 +259,13 @@ local function fillEmptySlots(sourceBags, targetBags)
 
 	for b = #sourceBags, 1, -1 do
 		local bag = sourceBags[b]
-		for slot = GetContainerNumSlots(bag), 1, -1 do
+		for slot = bagSize(bag), 1, -1 do
 			if #emptySlots == 0 then
 				break
 			end
 			local source = slotKey(bag, slot)
 			local id = ids[source]
-			if id and canGoInBag(id, (decodeSlotKey(emptySlots[1]))) then
+			if id and not isLocked(source) and canGoInBag(id, (decodeSlotKey(emptySlots[1]))) then
 				addMove(source, tremove(emptySlots, 1))
 			end
 		end
@@ -255,6 +276,9 @@ end
 local function compare(a, b)
 	local aId, bId = ids[a], ids[b]
 	if not (aId and bId) then
+		if reverseFill then
+			return aId == nil and bId ~= nil
+		end
 		return aId ~= nil and bId == nil
 	end
 
@@ -284,12 +308,14 @@ local function sortSlots(bags)
 	local index = 0
 	for i = 1, #bags do
 		local bag = bags[i]
-		for slot = 1, GetContainerNumSlots(bag) do
+		for slot = 1, bagSize(bag) do
 			local key = slotKey(bag, slot)
-			index = index + 1
-			initialOrder[key] = index
-			slots[index] = key
-			sorted[index] = key
+			if not isLocked(key) then
+				index = index + 1
+				initialOrder[key] = index
+				slots[index] = key
+				sorted[index] = key
+			end
 		end
 	end
 	tsort(sorted, compare)
@@ -313,16 +339,26 @@ local function sortSlots(bags)
 	wipe(initialOrder)
 end
 
-local function planMoves(bags)
+local function planMoves(frame)
+	local bags, sources = frame.bags, frame.stackSources
 	wipe(moves)
-	scan(bags)
+	resetScan()
+	scanBags(bags)
+	if sources then
+		scanBags(sources)
+	end
+	if uncached then
+		wipe(moves)
+		return false
+	end
+	reverseFill = config.sortReverse
 
 	wipe(normalBags)
 	wipe(specialtyBags)
 	wipe(bagFamilies)
 	for i = 1, #bags do
 		local bag = bags[i]
-		if GetContainerNumSlots(bag) > 0 then
+		if bagSize(bag) > 0 then
 			local _, family = GetContainerNumFreeSlots(bag)
 			family = family or 0
 			bagFamilies[bag] = family
@@ -339,6 +375,9 @@ local function planMoves(bags)
 		end
 	end
 
+	if sources then
+		stackItems(sources, bags)
+	end
 	for _, group in pairs(specialtyBags) do
 		stackItems(group, group, true)
 		stackItems(normalBags, group)
@@ -371,8 +410,11 @@ local function replan()
 	if replans > MAX_REPLANS then
 		return stop(L["sorting failed, try again"])
 	end
-	if not planMoves(activeFrame.bags) then
-		return stop()
+	if not planMoves(activeFrame) then
+		if uncached then
+			return stop(L["sorting failed, try again"])
+		end
+		return stop(config.sortMessages and L["sorting complete"] or nil)
 	end
 end
 
@@ -461,20 +503,46 @@ ticker:SetScript("OnUpdate", function()
 	end
 end)
 
-function Bags:SortBags(frame)
-	if ticker:IsShown() or InCombatLockdown() then
+local function start(frame)
+	waitingFrame = nil
+	if not frame:IsShown() or frame.offline or InCombatLockdown() then
+		frame:SetSorting(false)
 		return
-	end
-	if not next(typeOrder) then
-		buildTypeOrder()
 	end
 
 	replans = 0
-	if not planMoves(frame.bags) then
+	if not planMoves(frame) then
+		if uncached then
+			cacheRetries = cacheRetries + 1
+			if cacheRetries > MAX_CACHE_RETRIES then
+				frame:SetSorting(false)
+				ns.Print(L["some items are not cached yet, try again"])
+				return
+			end
+			waitingFrame = frame
+			frame:SetSorting(true)
+			ns.After(CACHE_RETRY_DELAY, start, frame)
+			return
+		end
+		frame:SetSorting(false)
+		if config.sortMessages then
+			ns.Print(L["already sorted"])
+		end
 		return
 	end
 
 	activeFrame = frame
 	frame:SetSorting(true)
 	ticker:Show()
+end
+
+function Bags:SortBags(frame)
+	if ticker:IsShown() or waitingFrame or InCombatLockdown() or frame.offline then
+		return
+	end
+	if not next(typeOrder) then
+		buildTypeOrder()
+	end
+	cacheRetries = 0
+	start(frame)
 end

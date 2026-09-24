@@ -103,3 +103,64 @@ local function create(frame)
 end
 
 UF:RegisterElement("power", create, update, test)
+
+local MANA = 0
+local MANA_TEXT_COLOR = { 0.35, 0.6, 1 }
+local MANA_TEXT_INSET = 2
+local TEST_MANA_MAX = 24000
+
+local function setManaText(druidMana, current, max)
+	druidMana.lastValue = current
+	druidMana.text:SetFormattedText("%s (%d%%)", ns.FormatValue(current), max > 0 and current / max * 100 or 0)
+end
+
+local function updateDruidMana(frame)
+	local druidMana = frame.druidmana
+	local unit = frame.unit
+	local max = unit == "player" and UnitPowerMax(unit, MANA) or 0
+	if not config.druidMana or max <= 0 or UnitPowerType(unit) == MANA then
+		druidMana:Hide()
+		return
+	end
+	ns.SetFont(druidMana.text, config.textFont.size, config.textFont.outline)
+	setManaText(druidMana, UnitPower(unit, MANA), max)
+	druidMana:Show()
+end
+
+local function testDruidMana(frame)
+	local druidMana, data = frame.druidmana, frame.test
+	if not config.druidMana or data.class ~= "DRUID" or data.powerType == MANA then
+		druidMana:Hide()
+		return
+	end
+	ns.SetFont(druidMana.text, config.textFont.size, config.textFont.outline)
+	setManaText(druidMana, math.floor(TEST_MANA_MAX * math.random(10, 100) / 100), TEST_MANA_MAX)
+	druidMana:Show()
+end
+
+local function onDruidManaUpdate(druidMana)
+	local current = UnitPower("player", MANA)
+	if current ~= druidMana.lastValue then
+		setManaText(druidMana, current, UnitPowerMax("player", MANA))
+	end
+end
+
+local function createDruidMana(frame)
+	local power = frame.power
+	local druidMana = CreateFrame("Frame", nil, power)
+	druidMana:SetAllPoints()
+	druidMana:Hide()
+	druidMana:SetScript("OnUpdate", onDruidManaUpdate)
+
+	local text = druidMana:CreateFontString(nil, "OVERLAY")
+	text:SetPoint("LEFT", MANA_TEXT_INSET, 0)
+	text:SetTextColor(MANA_TEXT_COLOR[1], MANA_TEXT_COLOR[2], MANA_TEXT_COLOR[3])
+	druidMana.text = text
+
+	frame:RegisterUnitEvent("UNIT_DISPLAYPOWER", updateDruidMana)
+	frame:RegisterUnitEvent("UNIT_MAXMANA", updateDruidMana)
+
+	return druidMana
+end
+
+UF:RegisterElement("druidmana", createDruidMana, updateDruidMana, testDruidMana)

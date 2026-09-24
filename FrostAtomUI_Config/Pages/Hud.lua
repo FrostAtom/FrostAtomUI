@@ -240,6 +240,40 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 	},
 })
 
+for _, element in ipairs({
+	{ "blizzardFrames.captureBarPoint", L["Capture bars"] },
+	{ "blizzardFrames.vehicleSeatPoint", L["Vehicle seats"] },
+	{ "blizzardFrames.errorsPoint", L["Error messages"] },
+	{ "blizzardFrames.raidWarningPoint", L["Raid warnings"] },
+}) do
+	ns.RegisterElement({ path = element[1], page = "hud", name = element[2], enabledBy = "blizzardFrames.enabled" })
+end
+
+Section(schema, L["Blizzard frames"], "blizzardFrames", {
+	{
+		path = "enabled",
+		label = L["Enable"],
+		type = "toggle",
+		reload = true,
+		desc = L["Movable capture bars, vehicle seats, error messages and raid warnings; quest tracker hiding."],
+	},
+	{
+		path = "questTracker.arena",
+		label = L["Hide quest tracker in arenas"],
+		type = "toggle",
+	},
+	{
+		path = "questTracker.battleground",
+		label = L["Hide quest tracker in battlegrounds"],
+		type = "toggle",
+	},
+	{
+		path = "questTracker.combat",
+		label = L["Hide quest tracker in combat"],
+		type = "toggle",
+	},
+}, nil, "1.4.0")
+
 ns.RegisterPage({
 	key = "hud",
 	name = L["HUD"],

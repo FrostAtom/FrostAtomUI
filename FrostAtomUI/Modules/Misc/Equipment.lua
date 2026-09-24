@@ -6,10 +6,13 @@ local GetInventoryItemLink = GetInventoryItemLink
 local GetInventoryItemTexture = GetInventoryItemTexture
 local GetInventoryItemDurability = GetInventoryItemDurability
 local GetItemInfo = GetItemInfo
+local UnitGUID = UnitGUID
+local UnitIsUnit = UnitIsUnit
 local ColorGradient = ns.ColorGradient
 local min, pi = math.min, math.pi
 
 local Misc = ns:GetModule("Misc")
+local Inspect = ns:GetModule("Inspect")
 
 local SLOT_NAMES = {
 	[1] = "HeadSlot",
@@ -34,6 +37,7 @@ local DURABILITY_SLOTS = { 1, 3, 5, 6, 7, 8, 9, 10, 16, 17, 18 }
 
 local RETRY_DELAY = 0.3
 local MAX_RETRIES = 10
+local INSPECT_FALLBACK = 1.5
 
 local function itemLevelColor(difference)
 	if difference >= 0 then
@@ -59,19 +63,74 @@ local function averageQualityColor(average)
 end
 ns.AverageItemLevelColor = averageQualityColor
 
-local function slotItemLevel(unit, slot)
+local ITEM_LEVEL_PREFIX = ITEM_LEVEL:gsub("%%d.*", "")
+local SCAN_TOOLTIP_NAME = "FrostAtomUIItemLevelScanTooltip"
+
+local scanTooltip, scanLines
+local scanCache, scanGuid, scanStamp = {}, nil, nil
+local savedCVar
+
+local function scanSlot(unit, slot)
+	if not scanTooltip then
+		scanTooltip = CreateFrame("GameTooltip", SCAN_TOOLTIP_NAME, nil, "GameTooltipTemplate")
+		scanLines = {}
+	end
+	if not savedCVar then
+		savedCVar = GetCVar("showItemLevel")
+		if savedCVar ~= "1" then
+			SetCVar("showItemLevel", "1")
+		end
+	end
+	scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
+	scanTooltip:SetInventoryItem(unit, slot)
+	local itemLevel
+	for i = 2, scanTooltip:NumLines() do
+		local line = scanLines[i]
+		if not line then
+			line = _G[SCAN_TOOLTIP_NAME .. "TextLeft" .. i]
+			scanLines[i] = line
+		end
+		local text = line:GetText()
+		if text and text:sub(1, #ITEM_LEVEL_PREFIX) == ITEM_LEVEL_PREFIX then
+			itemLevel = tonumber(text:match("%d+", #ITEM_LEVEL_PREFIX + 1))
+			break
+		end
+	end
+	scanTooltip:Hide()
+	return itemLevel
+end
+
+local function slotItemLevel(unit, slot, scan)
 	local link = GetInventoryItemLink(unit, slot)
+	local scanPending = false
+	if scan and (link or GetInventoryItemTexture(unit, slot)) then
+		local itemLevel = scanCache[slot] or scanSlot(unit, slot)
+		if itemLevel and itemLevel > 0 then
+			scanCache[slot] = itemLevel
+			return itemLevel, false
+		end
+		scanPending = true
+	end
 	if not link then
 		return nil, GetInventoryItemTexture(unit, slot) ~= nil
 	end
 	local _, _, _, itemLevel = GetItemInfo(link)
-	return itemLevel and itemLevel > 0 and itemLevel or nil, itemLevel == nil
+	return itemLevel and itemLevel > 0 and itemLevel or nil, scanPending or itemLevel == nil
 end
 
 local function averageItemLevel(unit, slotTexts)
 	local total, count, missing = 0, 0, false
+	local scan = not UnitIsUnit(unit, "player")
+	if scan then
+		local guid = UnitGUID(unit)
+		local stamp = Inspect:GetTime(guid)
+		if guid ~= scanGuid or stamp ~= scanStamp then
+			wipe(scanCache)
+			scanGuid, scanStamp = guid, stamp
+		end
+	end
 	for slot in pairs(SLOT_NAMES) do
-		local itemLevel, pending = slotItemLevel(unit, slot)
+		local itemLevel, pending = slotItemLevel(unit, slot, scan)
 		if slotTexts and slotTexts[slot] then
 			slotTexts[slot].itemLevel = itemLevel
 		end
@@ -81,13 +140,33 @@ local function averageItemLevel(unit, slotTexts)
 		end
 		missing = missing or pending
 	end
+	if savedCVar then
+		if savedCVar ~= "1" then
+			SetCVar("showItemLevel", savedCVar)
+		end
+		savedCVar = nil
+	end
 	return count > 0 and total / count or 0, count, missing
 end
 ns.UnitAverageItemLevel = averageItemLevel
 
+Misc:RegisterEvent("UNIT_INVENTORY_CHANGED", function(_, unit)
+	if unit ~= "player" and scanGuid and UnitGUID(unit) == scanGuid then
+		wipe(scanCache)
+	end
+end)
+
+local function clearPage(page)
+	for _, text in pairs(page.slotTexts) do
+		text:SetText("")
+	end
+	page.averageText:SetText("")
+	page.retry:Hide()
+end
+
 local function updatePage(page)
 	local unit = page.getUnit()
-	if not unit then
+	if not unit or not page.ready then
 		return
 	end
 
@@ -129,7 +208,7 @@ local function applyFonts(page)
 end
 
 local function createPage(getUnit, modelFrame, slotPrefix, anchor)
-	local page = { getUnit = getUnit, slotTexts = {}, retries = 0 }
+	local page = { getUnit = getUnit, slotTexts = {}, retries = 0, ready = true }
 	pages[#pages + 1] = page
 
 	for slot, suffix in pairs(SLOT_NAMES) do
@@ -187,13 +266,45 @@ ns:OnAddonLoaded("Blizzard_InspectUI", function()
 		return InspectFrame.unit
 	end, InspectModelFrame, "Inspect", { InspectModelFrame, "BOTTOMRIGHT", -2, -14 })
 
+	local waitToken = 0
+
+	local function markReady()
+		inspect.ready = true
+		inspect.retries = 0
+		updatePage(inspect)
+	end
+
+	local function fallback(token)
+		if token == waitToken and not inspect.ready and InspectPaperDollFrame:IsVisible() then
+			markReady()
+		end
+	end
+
+	local function beginInspect()
+		local unit = InspectFrame.unit
+		if unit and Inspect:IsLoaded(UnitGUID(unit)) then
+			markReady()
+			return
+		end
+		inspect.ready = false
+		waitToken = waitToken + 1
+		clearPage(inspect)
+		ns.After(INSPECT_FALLBACK, fallback, waitToken)
+	end
+
 	hooksecurefunc("InspectPaperDollItemSlotButton_Update", function()
-		if InspectFrame:IsShown() then
+		if inspect.ready and InspectFrame:IsShown() then
 			inspect.retry:Show()
 		end
 	end)
-	InspectPaperDollFrame:HookScript("OnShow", function()
-		updatePage(inspect)
+	hooksecurefunc("InspectPaperDollFrame_OnShow", beginInspect)
+	InspectPaperDollFrame:HookScript("OnShow", beginInspect)
+
+	Misc:RegisterEvent(ns.INSPECT_GEAR_READY, function(_, guid)
+		local unit = InspectFrame.unit
+		if unit and UnitGUID(unit) == guid and InspectPaperDollFrame:IsVisible() then
+			markReady()
+		end
 	end)
 end)
 

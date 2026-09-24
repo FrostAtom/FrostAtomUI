@@ -110,6 +110,14 @@ ns.RegisterElement({
 			desc = L["Mana, rage, energy or runic power below the health bar."],
 		},
 		{
+			path = "druidMana",
+			new = "1.4.1",
+			label = L["Mana in shapeshift forms"],
+			type = "toggle",
+			hidden = NotClass("DRUID"),
+			desc = L["Thin mana bar at the bottom of the plate while in bear or cat form."],
+		},
+		{
 			path = "healPrediction",
 			new = "1.4.0",
 			label = L["Incoming heals"],

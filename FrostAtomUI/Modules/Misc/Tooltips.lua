@@ -20,6 +20,7 @@ local UnitExists = UnitExists
 local UnitIsUnit = UnitIsUnit
 local UnitGUID = UnitGUID
 local UnitReaction = UnitReaction
+local UnitCanAttack = UnitCanAttack
 local UnitHealth = UnitHealth
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
 local UnitIsCorpse = UnitIsCorpse
@@ -37,16 +38,15 @@ local GetNumRaidMembers = GetNumRaidMembers
 local GetNumPartyMembers = GetNumPartyMembers
 local InCombatLockdown = InCombatLockdown
 local IsShiftKeyDown = IsShiftKeyDown
-local CanInspect = CanInspect
-local CheckInteractDistance = CheckInteractDistance
-local NotifyInspect = NotifyInspect
 local GetTime = GetTime
 local tconcat = table.concat
 local floor, ceil, max = math.floor, math.ceil, math.max
 
 local Misc = ns:GetModule("Misc")
 local Talents = ns:GetModule("Talents")
+local Inspect = ns:GetModule("Inspect")
 local UF = ns:GetModule("UnitFrames")
+local Skin = ns.TooltipSkin
 local config = ns.Config.tooltip
 local classColors = UF.classColors
 local ccSpellNames = UF.ccSpellNames
@@ -171,13 +171,6 @@ local function findLine(tooltip, pattern)
 	end
 end
 
-local borderColored = {}
-
-local function setBorderColor(tooltip, r, g, b)
-	tooltip:SetBackdropBorderColor(r, g, b)
-	borderColored[tooltip] = true
-end
-
 local function onTooltipSetSpell(tooltip)
 	local _, _, spellId = tooltip:GetSpell()
 	if not spellId or not config.enabled then
@@ -189,7 +182,7 @@ local function onTooltipSetSpell(tooltip)
 	end
 
 	local title = leftLine(tooltip)
-	if title then
+	if title and not Skin.ShowIcon(tooltip, texture) then
 		title:SetFormattedText(TITLE_ICON, texture, title:GetText())
 	end
 
@@ -212,11 +205,15 @@ local function onTooltipSetItem(tooltip)
 	end
 	itemDone[tooltip] = true
 
+	local texture = GetItemIcon(link)
+	local sideIcon = Skin.ShowIcon(tooltip, texture)
 	for i = 1, 2 do
 		local title = leftLine(tooltip, i)
 		local text = title and title:GetText()
 		if text and text:find(itemName, 1, true) then
-			title:SetFormattedText(TITLE_ICON, GetItemIcon(link), text)
+			if not sideIcon then
+				title:SetFormattedText(TITLE_ICON, texture, text)
+			end
 			if config.showItemLevel and equipLoc ~= "" and itemLevel then
 				local color = quality and ITEM_QUALITY_COLORS[quality]
 				setRightText(tooltip, i, L["ilvl %s%d|r"]:format(color and color.hex or "|cffffffff", itemLevel))
@@ -227,7 +224,10 @@ local function onTooltipSetItem(tooltip)
 
 	if config.colorBorder and quality and quality >= 2 then
 		local color = ITEM_QUALITY_COLORS[quality]
-		setBorderColor(tooltip, color.r, color.g, color.b)
+		Skin.SetBorder(tooltip, color.r, color.g, color.b)
+		if sideIcon and tooltip == GameTooltip then
+			Skin.SetIconBorder(color.r, color.g, color.b)
+		end
 	end
 
 	if config.showItemCount and equipLoc == "" then
@@ -268,11 +268,9 @@ local hideAuras, stopWatching
 
 local function onTooltipCleared(tooltip)
 	itemDone[tooltip] = nil
-	if borderColored[tooltip] then
-		borderColored[tooltip] = nil
-		tooltip:SetBackdropBorderColor(TOOLTIP_DEFAULT_COLOR.r, TOOLTIP_DEFAULT_COLOR.g, TOOLTIP_DEFAULT_COLOR.b)
-	end
+	Skin.Clear(tooltip)
 	if tooltip == GameTooltip then
+		Skin.HideIcon()
 		hideAuras()
 		stopWatching()
 	end
@@ -398,6 +396,23 @@ local function unitColor(unit)
 	end
 	local color = FACTION_BAR_COLORS[UnitReaction(unit, "player") or 4]
 	return color.r, color.g, color.b
+end
+
+local function reactionTint(unit)
+	if isDead(unit) or (UnitIsPlayer(unit) and not UnitIsConnected(unit)) then
+		return DEAD_R, DEAD_G, DEAD_B
+	elseif UnitCanAttack("player", unit) then
+		return 1, 0.1, 0.1
+	elseif UnitIsPlayer(unit) then
+		return 0.2, 0.4, 1
+	end
+	local reaction = UnitReaction(unit, "player") or 4
+	if reaction < 4 then
+		return 1, 0.1, 0.1
+	elseif reaction == 4 then
+		return 1, 0.8, 0
+	end
+	return 0.1, 0.8, 0.1
 end
 
 local function colorize(unit, text)
@@ -576,16 +591,8 @@ local function addTargetedBy(tooltip, unit)
 end
 
 local ILVL_CACHE_TIME = 120
-local INSPECT_DELAY = 0.2
-local INSPECT_THROTTLE = 2
-local MANUAL_INSPECT_BACKOFF = 2
-local ILVL_RETRY_DELAY = 0.3
-local ILVL_MAX_RETRIES = 10
 
 local itemLevels = {}
-local lastInspectGuid, lastInspectUnit, lastInspectTime, manualInspectTime = nil, nil, -INSPECT_THROTTLE, -1000
-local queuedGuid, queuedUnit
-local readGuid, readUnit, readRetries
 
 local function addItemLevel(tooltip, average)
 	local _, _, _, color = ns.AverageItemLevelColor(average)
@@ -608,75 +615,11 @@ local function refreshUnit(guid)
 	end
 end
 
-local function canInspectNow()
-	return not InCombatLockdown() and not (InspectFrame and InspectFrame:IsShown())
-end
-
-local requestTimer = CreateFrame("Frame")
-requestTimer:Hide()
-
-requestTimer:SetScript("OnUpdate", function(self, elapsed)
-	self.remain = self.remain - elapsed
-	if self.remain > 0 then
+Misc:RegisterEvent(ns.INSPECT_GEAR_READY, function(_, guid, unit)
+	if not (config.enabled and config.showItemLevel) then
 		return
 	end
-	self:Hide()
-	local unit = queuedUnit
-	if UnitGUID(unit) == queuedGuid and canInspectNow() and CanInspect(unit) and CheckInteractDistance(unit, 1) then
-		NotifyInspect(unit)
-	end
-end)
-
-local function queueInspect(unit, guid)
-	if queuedGuid == guid and requestTimer:IsShown() then
-		return
-	end
-	if not (canInspectNow() and CanInspect(unit) and CheckInteractDistance(unit, 1)) then
-		return
-	end
-	local now = GetTime()
-	queuedGuid, queuedUnit = guid, unit
-	requestTimer.remain =
-		max(INSPECT_DELAY, lastInspectTime + INSPECT_THROTTLE - now, manualInspectTime + MANUAL_INSPECT_BACKOFF - now)
-	requestTimer:Show()
-end
-
-hooksecurefunc("NotifyInspect", function(unit)
-	lastInspectGuid, lastInspectUnit, lastInspectTime = UnitGUID(unit), unit, GetTime()
-end)
-
-hooksecurefunc("InspectUnit", function()
-	manualInspectTime = GetTime()
-end)
-
-local readTimer = CreateFrame("Frame")
-readTimer:Hide()
-
-local function inspectedUnit(guid, unit)
-	if UnitGUID(unit) == guid then
-		return unit
-	elseif UnitGUID("mouseover") == guid then
-		return "mouseover"
-	end
-	return ns.UnitByGUID(guid)
-end
-
-local function finishRead()
-	local guid = readGuid
-	local unit = guid == lastInspectGuid and inspectedUnit(guid, readUnit)
-	if not unit then
-		readGuid = nil
-		return
-	end
-
-	local average, count, missing = ns.UnitAverageItemLevel(unit)
-	if missing and readRetries < ILVL_MAX_RETRIES then
-		readRetries = readRetries + 1
-		readTimer.remain = ILVL_RETRY_DELAY
-		readTimer:Show()
-		return
-	end
-	readGuid = nil
+	local average, count = ns.UnitAverageItemLevel(unit)
 	if count == 0 then
 		return
 	end
@@ -687,22 +630,6 @@ local function finishRead()
 		itemLevels[guid] = { level = average, time = GetTime() }
 	end
 	refreshUnit(guid)
-end
-
-readTimer:SetScript("OnUpdate", function(self, elapsed)
-	self.remain = self.remain - elapsed
-	if self.remain <= 0 then
-		self:Hide()
-		finishRead()
-	end
-end)
-
-Misc:RegisterEvent("INSPECT_TALENT_READY", function()
-	if lastInspectGuid and config.enabled and config.showItemLevel then
-		readGuid, readUnit, readRetries = lastInspectGuid, lastInspectUnit, 0
-		readTimer.remain = ILVL_RETRY_DELAY
-		readTimer:Show()
-	end
 end)
 
 Misc:RegisterEvent(ns.TALENTS_UPDATED, function(_, guid)
@@ -725,7 +652,7 @@ local function unitItemLevel(tooltip, unit, guid)
 		addItemLevel(tooltip, cached.level)
 	end
 	if not cached or GetTime() - cached.time > ILVL_CACHE_TIME then
-		queueInspect(unit, guid)
+		Inspect:Request(unit, ILVL_CACHE_TIME, true)
 	end
 end
 
@@ -767,10 +694,10 @@ function hideAuras()
 	shownAuras = 0
 end
 
-local function showAura(icon, texture, count, duration, expires, r, g, b)
+local function showAura(icon, texture, count, duration, expires, isDebuff, r, g, b)
 	icon.texture:SetTexture(texture)
 	icon.count:SetText(count and count > 1 and count or nil)
-	icon.border:SetVertexColor(r, g, b)
+	Skin.StyleAuraBorder(icon.border, isDebuff, r, g, b)
 	if duration and duration > 0 then
 		local start = expires - duration
 		if icon.start ~= start or icon.duration ~= duration then
@@ -815,7 +742,7 @@ local function layoutAuras(unit, filter, perRow, maxRows, firstRow, size, step, 
 				local color = DebuffTypeColor[debuffType or "none"] or DebuffTypeColor.none
 				r, g, b = color.r, color.g, color.b
 			end
-			showAura(icon, texture, count, duration, expires, r, g, b)
+			showAura(icon, texture, count, duration, expires, isDebuff, r, g, b)
 			placeAura(icon, size, step, isDebuff, firstRow + row, placed % perRow, up)
 			placed = placed + 1
 		end
@@ -991,8 +918,12 @@ local function onTooltipSetUnit(tooltip)
 	end
 
 	if config.colorBorder then
-		setBorderColor(tooltip, unitColor(unit))
+		Skin.SetBorder(tooltip, unitColor(unit))
 	end
+	if config.reactionBackground then
+		Skin.SetTint(tooltip, reactionTint(unit))
+	end
+	Skin.PrepareUnit(tooltip)
 
 	tooltip:Show()
 	if tooltip == GameTooltip then
@@ -1003,6 +934,7 @@ end
 
 GameTooltip:HookScript("OnTooltipSetUnit", onTooltipSetUnit)
 GameTooltip:HookScript("OnHide", function()
+	Skin.HideIcon()
 	hideAuras()
 	stopWatching()
 end)
@@ -1034,21 +966,6 @@ local blizzardHealthUpdate = healthBar:GetScript("OnValueChanged")
 local healthText = healthBar:CreateFontString(nil, "OVERLAY", "SystemFont_Outline_Small")
 healthText:SetPoint("CENTER")
 
-local function skinHealthBar()
-	if not config.enabled or healthBar.background then
-		return
-	end
-	ns.SkinStatusBar(healthBar)
-	local background = healthBar:CreateTexture(nil, "BACKGROUND")
-	background:SetTexture(ns.Media.blank)
-	background:SetVertexColor(0, 0, 0, 0.5)
-	background:SetAllPoints()
-	healthBar.background = background
-end
-
-skinHealthBar()
-Misc:WatchConfig("tooltip.enabled", skinHealthBar)
-
 healthBar:SetScript("OnValueChanged", function(bar, value)
 	local _, unit = GameTooltip:GetUnit()
 	if config.enabled and config.classColorHealth and unit and UnitExists(unit) then
@@ -1058,7 +975,13 @@ healthBar:SetScript("OnValueChanged", function(bar, value)
 	end
 
 	local _, maxValue = bar:GetMinMaxValues()
-	if not value or maxValue == 0 or not config.enabled or not config.showHealthText then
+	if
+		not value
+		or maxValue == 0
+		or not config.enabled
+		or not config.showHealthText
+		or Skin.HealthBarMode() == "thin"
+	then
 		healthText:SetText("")
 	elseif value == 0 and unit and UnitIsDeadOrGhost(unit) then
 		healthText:SetText(DEAD)
@@ -1071,12 +994,16 @@ end)
 
 local function onSetUnitAura(tooltip, unit, index, filter)
 	local _, _, _, _, _, _, _, caster, _, _, spellId = UnitAura(unit, index, filter)
-	if not spellId or not config.enabled or not config.showIds then
+	if not spellId or not config.enabled then
+		return
+	end
+	local showCaster = caster and config.showAuraCaster
+	if not config.showIds and not showCaster then
 		return
 	end
 
-	local idText = labeled(L["ID"], spellId)
-	if caster then
+	local idText = config.showIds and labeled(L["ID"], spellId) or labelHex .. L["Cast by"] .. "|r"
+	if showCaster then
 		local r, g, b = 1, 0.9, 0.8
 		if UnitIsPlayer(caster) then
 			local _, class = UnitClass(caster)

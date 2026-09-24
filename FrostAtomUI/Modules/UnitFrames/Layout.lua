@@ -10,7 +10,13 @@ local PLAYER_DEBUFF_GAP_SCALE = 0.2
 local BOSS_CASTBAR_SCALE = 0.5
 local BOSS_CASTBAR_ICON_GAP = 2
 local GROUP_CASTBAR_WIDTH_SCALE = 0.8
-local RESIZE_KEYS = { powerRatio = true, groupDebuffSize = true, partyBuffSize = true, targetAuraPerRow = true }
+local RESIZE_KEYS = {
+	powerRatio = true,
+	groupDebuffSize = true,
+	partyBuffSize = true,
+	targetAuraPerRow = true,
+	ownAuraScale = true,
+}
 local AURA_GROWTH_ANCHORS = { LEFT = "TOPRIGHT", RIGHT = "TOPLEFT" }
 
 local ARENA_COOLDOWN_SKIP = {
@@ -23,7 +29,20 @@ local player, castbar, pet, target, focus
 local party, arena, bosses = {}, {}, {}
 local partyPets, arenaPets = {}, {}
 
+local HORIZONTAL_GROWTH = { RIGHT = 1, LEFT = -1 }
+
 local function setGroupPoints(frames, path, spacing, growth)
+	local horizontal = HORIZONTAL_GROWTH[growth]
+	if horizontal then
+		ns.ApplyPoint(frames[1], path)
+		local point = ns:GetConfig(path)[1]
+		for i = 2, #frames do
+			local frame = frames[i]
+			frame:ClearAllPoints()
+			frame:SetPoint(point, frames[1], point, (i - 1) * spacing * horizontal, 0)
+		end
+		return
+	end
 	if growth == "UP" then
 		spacing = -spacing
 	end
@@ -52,10 +71,13 @@ local function playerAuraAnchor(config)
 end
 
 local function anchorPlayerDebuffs(config)
-	player.debuffs:SetPoint(
-		"TOPRIGHT",
+	local anchor = playerAuraAnchor(config)
+	local debuffs = player.debuffs
+	debuffs:ClearAllPoints()
+	debuffs:SetPoint(
+		anchor,
 		player.buffs,
-		"BOTTOMRIGHT",
+		anchor:gsub("^TOP", "BOTTOM"),
 		0,
 		-config.playerAuraSize * PLAYER_DEBUFF_GAP_SCALE
 	)
@@ -85,9 +107,9 @@ local function applySizes()
 	sizePlayerCastbar(config)
 	local auraAnchor = playerAuraAnchor(config)
 	player.buffs:SetShape(config.playerAuraPerRow, auraAnchor)
-	player.debuffs:SetShape(config.playerAuraPerRow, auraAnchor)
+	player.debuffs:SetShape(config.playerDebuffPerRow, auraAnchor)
 	player.buffs:SetIconSize(config.playerAuraSize)
-	player.debuffs:SetIconSize(config.playerAuraSize)
+	player.debuffs:SetIconSize(config.playerDebuffSize)
 	anchorPlayerDebuffs(config)
 end
 
@@ -174,6 +196,13 @@ local function applyElements()
 	UF.SetCastbarShown(castbar, config.showPlayerCastbar)
 	UF.SetCastbarShown(target.castbar, config.showTargetCastbar)
 	UF.SetCastbarShown(focus.castbar, config.showFocusCastbar)
+	UF.SetPetPowerShown(pet, config.petPower)
+	for i = 1, #partyPets do
+		UF.SetPetPowerShown(partyPets[i], config.petPower)
+	end
+	for i = 1, #arenaPets do
+		UF.SetPetPowerShown(arenaPets[i], config.petPower)
+	end
 	for i = 1, #party do
 		anchorGroupGrids(party[i])
 		party[i].debuffs:SetLimit(config.groupDebuffMax)
@@ -225,16 +254,21 @@ local function createPlayer(self, config)
 
 	addLeader(self, player)
 
-	local auraOptions = {
+	local auraAnchor = playerAuraAnchor(config)
+	local buffs = self:AddElement(player, "buffs", {
 		size = config.playerAuraSize,
 		gap = 2,
 		perRow = config.playerAuraPerRow,
-		anchor = playerAuraAnchor(config),
-	}
-	local buffs = self:AddElement(player, "buffs", auraOptions)
+		anchor = auraAnchor,
+	})
 	ns.ApplyPoint(buffs, "unitFrames.playerAuras")
 
-	self:AddElement(player, "debuffs", auraOptions)
+	self:AddElement(player, "debuffs", {
+		size = config.playerDebuffSize,
+		gap = 2,
+		perRow = config.playerDebuffPerRow,
+		anchor = auraAnchor,
+	})
 	anchorPlayerDebuffs(config)
 
 	castbar = self:AddElement(player, "castbar")
@@ -249,9 +283,17 @@ local function createPlayer(self, config)
 	addPvp(self, player)
 
 	self:AddElement(player, "dispel")
+	self:AddElement(player, "combatglow")
+	if ns.PLAYER_CLASS == "DRUID" then
+		self:AddElement(player, "druidmana")
+	end
+	self:AddElement(player, "procs")
+	player:EnableVehicleSwap("player", "vehicle", { buffs = true, debuffs = true, pvp = true, procs = true })
 
 	pet = self:CreatePet("pet", config.playerHeight)
 	ns.ApplyPoint(pet, "unitFrames.pet")
+	local happiness = self:AddElement(pet, "happiness")
+	happiness:SetPoint("TOPLEFT", pet.health, 1, -1)
 end
 
 local function createTargets(self, config)
@@ -261,6 +303,7 @@ local function createTargets(self, config)
 	ns.ApplyPoint(targetOfTarget, "unitFrames.targetOfTarget")
 	target:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
 	targetOfTarget:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
+	self:AddElement(targetOfTarget, "hideself")
 
 	local combo = self:AddElement(target, "combopoints", { gap = 2 })
 	combo:SetPoint("BOTTOMLEFT", target, "TOPLEFT", 2, 2)
@@ -277,6 +320,7 @@ local function createTargets(self, config)
 		addPvp(self, frame)
 		self:AddElement(frame, "dispel")
 		self:AddElement(frame, "diminish")
+		self:AddElement(frame, "procs")
 	end
 end
 
@@ -291,6 +335,9 @@ local function createParty(self, config)
 		party[i] = frame
 		frame:SetPoint(point, x, y - (i - 1) * config.partySpacing)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
+		frame:RegisterEvent("PARTY_MEMBER_ENABLE", "QueueUpdate")
+		frame:RegisterEvent("PARTY_MEMBER_DISABLE", "QueueUpdate")
+		frame:EnableVehicleSwap("party" .. i, "partypet" .. i, { cooldowns = true, procs = true })
 
 		addLeader(self, frame)
 		addRaidIconAbove(self, frame)
@@ -301,6 +348,7 @@ local function createParty(self, config)
 		anchorGroupGrids(frame)
 
 		self:CreateSideCastbar(frame, "RIGHT", width * GROUP_CASTBAR_WIDTH_SCALE, height)
+		self:AddElement(frame, "procs")
 
 		self:AddElement(frame, "losecontrol")
 
@@ -351,6 +399,7 @@ local function createArena(self, config)
 		trinket:SetPoint("LEFT", pet, "RIGHT", 2, 0)
 
 		self:AddElement(frame, "diminish")
+		self:AddElement(frame, "procs")
 
 		self:AddElement(
 			frame,
@@ -403,9 +452,9 @@ function UF:Initialize()
 	self:RegisterMover(player.buffs, "unitFrames.playerAuras", "Player auras", {
 		size = function()
 			local buffs, debuffs = player.buffs, player.debuffs
-			local size = ns.Config.unitFrames.playerAuraSize
-			local rows = max(buffs.rows, 1) + max(debuffs.rows, 1)
-			return buffs:GetWidth(), rows * (size + buffs.gap) - buffs.gap + size * PLAYER_DEBUFF_GAP_SCALE
+			local size, gap = buffs.size, buffs.gap
+			local height = max(buffs.rows, 1) * (size + gap) + max(debuffs.rows, 1) * (debuffs.size + debuffs.gap)
+			return max(buffs:GetWidth(), debuffs:GetWidth()), height - debuffs.gap + size * PLAYER_DEBUFF_GAP_SCALE
 		end,
 	})
 	self:RegisterMover(party[1], "unitFrames.party", "Party", {

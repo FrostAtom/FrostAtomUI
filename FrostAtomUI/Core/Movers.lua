@@ -5,7 +5,8 @@ local GameTooltip = GameTooltip
 local InCombatLockdown, GetCursorPosition, IsShiftKeyDown = InCombatLockdown, GetCursorPosition, IsShiftKeyDown
 local IsAddOnLoaded, LoadAddOn = IsAddOnLoaded, LoadAddOn
 local floor, abs, max, min = math.floor, math.abs, math.max, math.min
-local tconcat = table.concat
+local tconcat, sort = table.concat, table.sort
+local StaticPopup_Show = StaticPopup_Show
 
 local BACKDROP_COLOR = { 0.2, 0.6, 1, 0.35 }
 local BORDER_COLOR = { 0.5, 0.8, 1 }
@@ -30,6 +31,8 @@ local SHIFT_NUDGE = 10
 local NUDGE_BUTTON = "FrostAtomUIMoversNudge"
 local CONFIG_ADDON = "FrostAtomUI_Config"
 local OVERLAY_STRATA = "DIALOG"
+local LAYOUT_PREFIX = "FAUIL1:"
+local MAX_LAYOUT_NAME = 32
 
 local NUDGE_KEYS = {
 	UP = { 0, 1 },
@@ -92,6 +95,47 @@ end
 local function registeredFrame(path)
 	local mover = byPath[path]
 	return mover and mover.frame
+end
+
+local function isListPath(path)
+	return path:find("%.%d+%.") ~= nil or path:find("%.%d+$") ~= nil
+end
+
+local function defaultPoint(path)
+	local node = ns.Defaults
+	for key in path:gmatch("[^.]+") do
+		if type(node) ~= "table" then
+			return nil
+		end
+		node = node[tonumber(key) or key]
+	end
+	return type(node) == "table" and node[1] ~= nil and node or nil
+end
+
+local function isStorable(path)
+	return not isListPath(path) and defaultPoint(path) ~= nil
+end
+
+local function isEnabledAlong(path)
+	local node = ns.Config
+	for key in path:gmatch("[^.]+") do
+		if type(node) ~= "table" then
+			return true
+		elseif node.enabled == false then
+			return false
+		end
+		node = node[tonumber(key) or key]
+	end
+	return true
+end
+
+local function isActive(mover)
+	if not isEnabledAlong(mover.path) then
+		return false
+	elseif mover.enabledPath and ns:GetConfig(mover.enabledPath) == false then
+		return false
+	end
+	return not mover.visible or mover.visible() and true or false
 end
 
 function Movers.GetLabel(path)
@@ -752,6 +796,17 @@ local function refresh(mover)
 	attach(mover)
 end
 
+local function updateVisibility(mover)
+	local active = isActive(mover)
+	if not active and mover == selected then
+		selectMover(nil)
+	end
+	if active and not mover.overlay:IsShown() then
+		refresh(mover)
+	end
+	ns.SetShown(mover.overlay, active)
+end
+
 local nudgeButton
 
 local function nudge(_, button)
@@ -816,7 +871,7 @@ end
 
 function Movers.Select(path)
 	local mover = byPath[path]
-	if not unlocked or not mover or not mover.overlay then
+	if not unlocked or not mover or not mover.overlay or not mover.overlay:IsShown() then
 		return false
 	end
 	selectMover(mover)
@@ -872,11 +927,11 @@ function Movers.Register(frame, path, label, options)
 		mover.overlay.text:SetText(L[mover.label])
 		if unlocked then
 			refresh(mover)
+			updateVisibility(mover)
 		end
 	elseif unlocked then
 		mover.overlay = createOverlay(mover)
-		refresh(mover)
-		mover.overlay:Show()
+		updateVisibility(mover)
 	end
 	notifyDependents(path)
 	return mover
@@ -903,6 +958,209 @@ function Movers.Detach(path)
 	if mover then
 		detach(mover)
 	end
+end
+
+local function anchorDepth(path)
+	local depth, point = 0, defaultPoint(path)
+	while point and point[4] and depth <= #movers do
+		depth = depth + 1
+		point = defaultPoint(point[4])
+	end
+	return depth
+end
+
+local function positionPaths()
+	local paths, depths = {}, {}
+	for i = 1, #movers do
+		local path = movers[i].path
+		if isStorable(path) then
+			paths[#paths + 1] = path
+			depths[path] = anchorDepth(path)
+		end
+	end
+	sort(paths, function(a, b)
+		if depths[a] ~= depths[b] then
+			return depths[a] < depths[b]
+		end
+		return a < b
+	end)
+	return paths
+end
+
+local function canMove()
+	if InCombatLockdown() then
+		ns.Print(L["cannot move frames in combat"])
+		return false
+	end
+	return true
+end
+
+function Movers.ResetPositions()
+	if not canMove() then
+		return
+	end
+	local paths = positionPaths()
+	for i = 1, #paths do
+		ns:ResetConfig(paths[i])
+	end
+end
+
+StaticPopupDialogs.FROSTATOMUI_RESET_POSITIONS = {
+	text = "Reset the positions of all frames to defaults?",
+	button1 = YES,
+	button2 = NO,
+	OnAccept = function()
+		Movers.ResetPositions()
+	end,
+	OnHide = function(dialog)
+		dialog:SetFrameStrata("DIALOG")
+	end,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	preferredIndex = 3,
+}
+
+ns.OnLocaleReady(function()
+	StaticPopupDialogs.FROSTATOMUI_RESET_POSITIONS.text = L["Reset the positions of all frames to defaults?"]
+end)
+
+function Movers.ConfirmResetPositions()
+	local dialog = StaticPopup_Show("FROSTATOMUI_RESET_POSITIONS")
+	if dialog then
+		dialog:SetFrameStrata("FULLSCREEN_DIALOG")
+	end
+end
+
+local function layoutStore()
+	local store = ns.db.layouts
+	if not store then
+		store = {}
+		ns.db.layouts = store
+	end
+	return store
+end
+
+local function isValidPoint(value)
+	if type(value) ~= "table" or not POINT_PARTS[value[1]] then
+		return false
+	elseif type(value[2]) ~= "number" or type(value[3]) ~= "number" then
+		return false
+	end
+	local anchorPath = value[4]
+	if anchorPath == nil then
+		return true
+	end
+	return type(anchorPath) == "string" and POINT_PARTS[value[5]] ~= nil and type(ns:GetConfig(anchorPath)) == "table"
+end
+
+local function sanitizeLayout(points)
+	if type(points) ~= "table" then
+		return nil
+	end
+	local result, count = {}, 0
+	for path, value in pairs(points) do
+		if type(path) == "string" and isStorable(path) and isValidPoint(value) then
+			local anchorPath = value[4]
+			result[path] = {
+				value[1],
+				floor(value[2] + 0.5),
+				floor(value[3] + 0.5),
+				anchorPath,
+				anchorPath and value[5] or nil,
+			}
+			count = count + 1
+		end
+	end
+	return count > 0 and result or nil
+end
+
+local function cleanName(name)
+	name = type(name) == "string" and name:trim() or ""
+	if name == "" then
+		return nil
+	end
+	return name:sub(1, MAX_LAYOUT_NAME)
+end
+
+function Movers.GetLayoutNames()
+	local names = {}
+	for name in pairs(layoutStore()) do
+		names[#names + 1] = name
+	end
+	sort(names)
+	return names
+end
+
+function Movers.SaveLayout(name)
+	name = cleanName(name)
+	if not name then
+		return false
+	end
+	local points = {}
+	for i = 1, #movers do
+		local path = movers[i].path
+		if isStorable(path) then
+			local value = ns:GetConfig(path)
+			points[path] = { value[1], value[2], value[3], value[4], value[5] }
+		end
+	end
+	layoutStore()[name] = points
+	return true, name
+end
+
+function Movers.LoadLayout(name)
+	local points = sanitizeLayout(layoutStore()[name])
+	if not points or not canMove() then
+		return false
+	end
+	for path, value in pairs(points) do
+		ns:SetConfig(path, value)
+	end
+	for path in pairs(points) do
+		local point, x, y, anchorPath = unpack(ns:GetConfig(path))
+		if anchorPath and wouldLoop(path, anchorPath) then
+			ns:SetConfig(path, { point, x, y })
+		end
+	end
+	return true
+end
+
+function Movers.DeleteLayout(name)
+	layoutStore()[name] = nil
+end
+
+function Movers.ExportLayout(name)
+	local points = layoutStore()[name]
+	if not points then
+		return nil
+	end
+	return LAYOUT_PREFIX .. ns.Encode(ns.Serialize({ name = name, points = points }))
+end
+
+function Movers.ImportLayout(text)
+	text = text and text:trim()
+	if not text or text:sub(1, #LAYOUT_PREFIX) ~= LAYOUT_PREFIX then
+		return false, L["not a FrostAtom UI layout string"]
+	end
+	local body, err = ns.Decode(text:sub(#LAYOUT_PREFIX + 1))
+	if not body then
+		return false, err
+	end
+	local data = ns.Deserialize(body)
+	local points = type(data) == "table" and sanitizeLayout(data.points)
+	if not points then
+		return false, L["malformed layout string"]
+	end
+	local store = layoutStore()
+	local base = cleanName(data.name) or L["Imported layout"]
+	local name, suffix = base, 1
+	while store[name] do
+		suffix = suffix + 1
+		name = ("%s %d"):format(base, suffix)
+	end
+	store[name] = points
+	return true, name
 end
 
 function ns.ModulePrototype:RegisterMover(frame, path, label, options)
@@ -997,6 +1255,19 @@ local function onTestModeClick(check)
 	check:SetChecked(UF.testing)
 end
 
+local function createPanelButton(text, onClick)
+	local button = CreateFrame("Button", nil, panel)
+	button:SetSize(120, 20)
+	button:SetBackdrop(ns.CreateBackdrop(8))
+	button:SetBackdropColor(0, 0, 0, 0.5)
+	button:SetBackdropBorderColor(0.6, 0.6, 0.6)
+	button:SetHighlightTexture(ns.Media.blank)
+	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
+	button:SetScript("OnClick", onClick)
+	createLabel(button, 12, 0.8, text):SetPoint("CENTER")
+	return button
+end
+
 local function createPanel()
 	panel = CreateFrame("Frame", "FrostAtomUIMovers", UIParent)
 	panel:SetPoint("TOP", 0, -60)
@@ -1020,17 +1291,11 @@ local function createPanel()
 
 	panel:SetSize(max(260, hint:GetStringWidth() + 24, nudgeHint:GetStringWidth() + 24), 102)
 
-	local lock = CreateFrame("Button", nil, panel)
-	lock:SetSize(120, 20)
-	lock:SetPoint("BOTTOM", 0, 8)
-	lock:SetBackdrop(ns.CreateBackdrop(8))
-	lock:SetBackdropColor(0, 0, 0, 0.5)
-	lock:SetBackdropBorderColor(0.6, 0.6, 0.6)
-	lock:SetHighlightTexture(ns.Media.blank)
-	lock:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
-	lock:SetScript("OnClick", Movers.Lock)
+	local lock = createPanelButton(L["Lock frames"], Movers.Lock)
+	lock:SetPoint("BOTTOMRIGHT", panel, "BOTTOM", -4, 8)
 
-	createLabel(lock, 12, 0.8, L["Lock frames"]):SetPoint("CENTER")
+	local reset = createPanelButton(L["Reset positions"], Movers.ConfirmResetPositions)
+	reset:SetPoint("BOTTOMLEFT", panel, "BOTTOM", 4, 8)
 end
 
 function Movers.Unlock()
@@ -1058,8 +1323,7 @@ function Movers.Unlock()
 		if not mover.overlay then
 			mover.overlay = createOverlay(mover)
 		end
-		refresh(mover)
-		mover.overlay:Show()
+		updateVisibility(mover)
 	end
 end
 
@@ -1106,9 +1370,13 @@ Movers:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
 	if not path or path:find("^general%.") then
 		updateGrid()
 	end
+	local toggled = not path or path:find("enabled$") ~= nil
 	for _, mover in ipairs(movers) do
 		if not path or path == mover.path then
 			refresh(mover)
+		end
+		if toggled or path == mover.enabledPath then
+			updateVisibility(mover)
 		end
 	end
 end)

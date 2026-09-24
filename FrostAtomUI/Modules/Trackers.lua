@@ -14,6 +14,7 @@ local strtrim = strtrim
 
 local Auras = ns.Auras
 local DRData = ns.DRData
+local PROC_DATA = ns.ProcData
 local CooldownTimer = ns:GetModule("CooldownTimer")
 local DR = ns:GetModule("DiminishingReturns")
 local CooldownTracker = ns:GetModule("CooldownTracker")
@@ -32,6 +33,23 @@ local OUT_OF_RANGE_COLOR = { 0.9, 0.2, 0.2 }
 local NO_MANA_COLOR = { 0.35, 0.45, 1 }
 local DR_TEXT = { "½", "¼", "×" }
 local DR_COLOR_KEYS = { "halfColor", "quarterColor", "immuneColor" }
+local DEFAULT_ICD = 45
+
+local icdBySpell, icdByName = {}, {}
+for id, proc in pairs(PROC_DATA) do
+	local cooldown = proc.cd or 0
+	if proc.items then
+		for _, itemCooldown in pairs(proc.items) do
+			cooldown = max(cooldown, itemCooldown)
+		end
+	end
+	local name = cooldown > 0 and GetSpellInfo(id)
+	if name then
+		icdBySpell[id] = cooldown
+		name = name:lower()
+		icdByName[name] = max(icdByName[name] or 0, cooldown)
+	end
+end
 
 Trackers.TYPES = { "aura", "cooldown", "item", "totem", "icd", "unitcd", "dr" }
 Trackers.UNITS = {
@@ -70,7 +88,7 @@ local ICON_DEFAULTS = {
 	minStacks = 0,
 	range = false,
 	usable = true,
-	duration = 45,
+	duration = 0,
 	category = "stun",
 }
 
@@ -432,10 +450,29 @@ end
 
 local icdStarts = {}
 
+local function icdDuration(data)
+	local duration = field(data, "duration", ICON_DEFAULTS)
+	if duration > 0 then
+		return duration
+	end
+	local list = parseList(data.spells)
+	if not list.icd then
+		local known = 0
+		for id in pairs(list.ids) do
+			known = max(known, icdBySpell[id] or 0)
+		end
+		for name in pairs(list.names) do
+			known = max(known, icdByName[name] or 0)
+		end
+		list.icd = known > 0 and known or DEFAULT_ICD
+	end
+	return list.icd
+end
+
 function evaluators.icd(icon, data)
 	local list = parseList(data.spells)
 	local texture = spellTexture(list.first)
-	local duration = field(data, "duration", ICON_DEFAULTS)
+	local duration = icdDuration(data)
 	local start = icdStarts[data.spells]
 	local onCooldown = start and GetTime() < start + duration
 	if onCooldown then
@@ -959,7 +996,7 @@ local function onCombatLog(_, _, event, sourceGUID, _, _, destGUID, _, _, spellI
 			local list = parseList(data.spells)
 			if list.ids[spellId] or spellName and list.names[spellName:lower()] then
 				local start = icdStarts[data.spells]
-				if not start or now >= start + field(data, "duration", ICON_DEFAULTS) then
+				if not start or now >= start + icdDuration(data) then
 					icdStarts[data.spells] = now
 					changed = true
 				end

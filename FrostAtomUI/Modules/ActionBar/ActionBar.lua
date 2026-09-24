@@ -14,9 +14,20 @@ ActionBar.configKey = "actionBar"
 
 local config = ns.Config.actionBar
 local BUTTONS_PER_BAR = 12
-local NUM_BARS = 5
-local BAR_KEYS = { "bar1", "bar2", "bar3", "bar4", "bar5", "stance", "pet" }
+local NUM_BARS = 6
+local BAR_KEYS = { "bar1", "bar2", "bar3", "bar4", "bar5", "bar6", "stance", "pet" }
 local EQUIPPED_BORDER_SCALE = 62 / 36
+local AUTOCAST_BORDER_SCALE = 58 / 30
+
+local PAGE_BINDINGS = {
+	[1] = "ACTIONBUTTON%d",
+	[3] = "MULTIACTIONBAR3BUTTON%d",
+	[4] = "MULTIACTIONBAR4BUTTON%d",
+	[5] = "MULTIACTIONBAR2BUTTON%d",
+	[6] = "MULTIACTIONBAR1BUTTON%d",
+}
+
+ActionBar.NUM_BARS = NUM_BARS
 
 ActionBar.bars = {}
 ActionBar.petButtons = {}
@@ -107,6 +118,7 @@ end
 local function createBarFrame(buttons)
 	local bar = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
 	bar.fader = ns.CreateFader({ bar }, nil, cursorHoldsAction)
+	bar.fader:SetMouseFrames(buttons)
 	bar.buttons = buttons
 	return bar
 end
@@ -115,9 +127,14 @@ function ActionBar:CreateBar(page, onButtonCreated)
 	local bar = createBarFrame({})
 	bar.limited = true
 	local firstAction = (page - 1) * BUTTONS_PER_BAR
+	local blizzardBinding = PAGE_BINDINGS[page]
 
 	for i = 1, BUTTONS_PER_BAR do
 		local button = self:CreateActionButton(firstAction + i, bar)
+		if blizzardBinding then
+			button.blizzardBinding = blizzardBinding:format(i)
+			self.UpdateHotkey(button)
+		end
 		bar.buttons[i] = button
 		if onButtonCreated then
 			onButtonCreated(button, i)
@@ -131,12 +148,12 @@ end
 local CLASS_PAGE_CONDITIONS = {
 	WARRIOR = "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9;",
 	DRUID = "[bonusbar:1,stealth] 8; [bonusbar:1] 7; [bonusbar:3] 9; [bonusbar:4] 10;",
-	ROGUE = "[bonusbar:1] 7;",
+	ROGUE = "[bonusbar:1] 7; [bonusbar:2] 8;",
 	PRIEST = "[bonusbar:1] 7;",
 }
 
 local classPageCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
-local PAGE_DRIVER_CONDITION = "[vehicleui] 11; [bonusbar:5] 11; "
+local PAGE_DRIVER_CONDITION = "[vehicleui] 11; [bonusbar:5] 11; [bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
 	.. (classPageCondition and classPageCondition .. " " or "")
 	.. "1"
 
@@ -161,6 +178,9 @@ local function layoutBar(bar, barConfig, count, path)
 		if i <= count then
 			button:SetSize(size, size)
 			button.equippedTexture:SetSize(size * EQUIPPED_BORDER_SCALE, size * EQUIPPED_BORDER_SCALE)
+			if button.autoCastable then
+				button.autoCastable:SetSize(size * AUTOCAST_BORDER_SCALE, size * AUTOCAST_BORDER_SCALE)
+			end
 			button:ClearAllPoints()
 			button:SetPoint(ns.GridPoint("BOTTOMLEFT", i, columns, slot))
 			if bar.limited then
@@ -173,7 +193,7 @@ local function layoutBar(bar, barConfig, count, path)
 
 	bar:SetSize(columns * slot - gap, rows * slot - gap)
 	ns.ApplyPoint(bar, path)
-	bar.fader:Configure(barConfig.mouseover, barConfig.fadeAlpha)
+	bar.fader:Configure(barConfig.mouseover, barConfig.fadeAlpha, barConfig.combat)
 	if barConfig.enabled ~= nil then
 		if barConfig.enabled then
 			bar:Show()
@@ -186,7 +206,9 @@ end
 function ActionBar:LayoutBar(key)
 	local barConfig = config[key]
 	local path = "actionBar." .. key .. ".point"
-	if key == "pet" then
+	if key == "vehicleExit" then
+		self:LayoutVehicleExit()
+	elseif key == "pet" then
 		layoutBar(self.petBar, barConfig, #self.petButtons, path)
 	elseif key == "stance" then
 		layoutBar(self.stanceBar, barConfig, GetNumShapeshiftForms(), path)
@@ -203,16 +225,21 @@ function ActionBar:StyleButtons()
 			button:RegisterForDrag(config.dragButton)
 			button:UpdateColors()
 			ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
+			ns.SetFont(button.count, config.countFont.size, config.countFont.outline)
+			ns.SetFont(button.cooldown.timer, config.cooldownFont.size, config.cooldownFont.outline)
 			if config.showNames then
 				button.name:Show()
 			else
 				button.name:Hide()
 			end
+			if config.showCounts then
+				button.count:Show()
+			else
+				button.count:Hide()
+			end
 		end
 	end
-	for i = 1, #self.petButtons do
-		self:StyleHotkey(self.petButtons[i].hotkey)
-	end
+	self:StylePetButtons()
 	for i = 1, #self.shapeshiftButtons do
 		self:StyleShapeshiftHotkey(self.shapeshiftButtons[i].hotkey)
 	end
@@ -220,13 +247,14 @@ end
 
 function ActionBar:Layout(path)
 	local key = path and path:match("^actionBar%.(%w+)%.")
-	if key and config[key] then
+	if key and type(config[key]) == "table" and config[key].buttonSize then
 		self:LayoutBar(key)
 		return
 	end
 	for _, barKey in ipairs(BAR_KEYS) do
 		self:LayoutBar(barKey)
 	end
+	self:LayoutVehicleExit()
 	self:StyleButtons()
 	self:UpdateLockoutTracking()
 end
@@ -237,6 +265,11 @@ function ActionBar:Initialize()
 	local bar1 = self:CreateBar(1, setupPagedButton)
 	bar1:SetAttribute("_onstate-page", [[ control:ChildUpdate("page", newstate) ]])
 	RegisterStateDriver(bar1, "page", PAGE_DRIVER_CONDITION)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+		if not InCombatLockdown() then
+			RegisterStateDriver(bar1, "page", PAGE_DRIVER_CONDITION)
+		end
+	end)
 
 	for page = 2, NUM_BARS do
 		self:CreateBar(page)
@@ -246,6 +279,8 @@ function ActionBar:Initialize()
 	self.petBar = createBarFrame(self.petButtons)
 	self:InitializeShapeshiftBar(self.stanceBar)
 	self:InitializePetBar(self.petBar)
+	self:InitializeVehicleExit()
+	self:InitializeTotemBar()
 
 	self:Layout()
 	self:WatchConfig("actionBar", self.Layout, true)
@@ -259,6 +294,10 @@ function ActionBar:Initialize()
 		self:LayoutBar("stance")
 	end
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORMS", layoutStance)
+	self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED", layoutStance)
+	self:RegisterEvent("CHARACTER_POINTS_CHANGED", layoutStance)
+
+	self:InitializeOverrideBindings()
 
 	for page = 1, NUM_BARS do
 		self:RegisterMover(

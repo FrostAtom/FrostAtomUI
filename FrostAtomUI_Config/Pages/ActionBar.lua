@@ -1,6 +1,7 @@
 local _, ns = ...
 
-local L = FrostAtomUI.L
+local ui = FrostAtomUI
+local L = ui.L
 
 local DRAG_BUTTON_VALUES = {
 	{ "LeftButton", L["Left button"] },
@@ -15,10 +16,23 @@ local DRAG_MODIFIER_VALUES = {
 	{ "alt", L["Alt"] },
 }
 
+ns.COMBAT_VISIBILITY_VALUES = {
+	{ "any", L["Always"] },
+	{ "combat", L["In combat"] },
+	{ "nocombat", L["Out of combat"] },
+}
+
 local PAGE = "actionbar"
 local ENABLE = "actionBar.enabled"
+local COMBAT_DESC = L["Fade out of combat or in combat. With mouseover the cursor still reveals it."]
 
-local function barElement(name, key, hasToggle, hasCount)
+local function fadeDisabled(mouseoverPath, combatPath)
+	return function()
+		return not ui:GetConfig(mouseoverPath) and ui:GetConfig(combatPath) == "any"
+	end
+end
+
+local function barElement(name, key, hasToggle, hasCount, new)
 	local prefix = "actionBar." .. key
 	local enabledBy
 	local schema = { { header = L["Layout"] } }
@@ -77,6 +91,15 @@ local function barElement(name, key, hasToggle, hasCount)
 		desc = L["Keep the bar faded until the cursor is over it or a spell is being dragged."],
 	}
 	schema[#schema + 1] = {
+		path = prefix .. ".combat",
+		new = "1.4.1",
+		label = L["Visible"],
+		type = "select",
+		values = ns.COMBAT_VISIBILITY_VALUES,
+		enabledBy = enabledBy,
+		desc = L["Fade out of combat or in combat. With mouseover the cursor still reveals it. While faded this way the bar lets clicks through."],
+	}
+	schema[#schema + 1] = {
 		path = prefix .. ".fadeAlpha",
 		new = "1.4.0",
 		label = L["Faded alpha"],
@@ -84,13 +107,15 @@ local function barElement(name, key, hasToggle, hasCount)
 		min = 0,
 		max = 1,
 		step = 0.05,
-		enabledBy = enabledBy and { enabledBy, prefix .. ".mouseover" } or prefix .. ".mouseover",
+		enabledBy = enabledBy,
+		disabled = fadeDisabled(prefix .. ".mouseover", prefix .. ".combat"),
 	}
 
 	ns.RegisterElement({
 		path = prefix .. ".point",
 		page = PAGE,
 		name = name,
+		new = new,
 		enabledBy = ENABLE,
 		schema = schema,
 	})
@@ -101,8 +126,29 @@ barElement(L["Bar 2"], "bar2", true, true)
 barElement(L["Bar 3"], "bar3", true, true)
 barElement(L["Bar 4"], "bar4", true, true)
 barElement(L["Bar 5"], "bar5", true, true)
+barElement(L["Bar 6"], "bar6", true, true, "1.4.0")
 barElement(L["Stance bar"], "stance", false, false)
 barElement(L["Pet bar"], "pet", false, false)
+
+ns.RegisterElement({
+	path = "actionBar.vehicleExit.point",
+	page = PAGE,
+	name = L["Vehicle exit"],
+	new = "1.4.1",
+	enabledBy = ENABLE,
+	schema = {
+		{ header = L["Layout"] },
+		{
+			path = "actionBar.vehicleExit.buttonSize",
+			label = L["Button size"],
+			type = "number",
+			min = 16,
+			max = 60,
+			step = 1,
+			desc = L["Shown in a vehicle or while mind controlling; leaves the vehicle or cancels the control."],
+		},
+	},
+})
 
 ns.RegisterElement({
 	path = "actionBar.microMenu",
@@ -127,13 +173,21 @@ ns.RegisterElement({
 			desc = L["Keep the micro menu faded until the cursor is over it."],
 		},
 		{
+			path = "actionBar.microMenuCombat",
+			new = "1.4.1",
+			label = L["Visible"],
+			type = "select",
+			values = ns.COMBAT_VISIBILITY_VALUES,
+			desc = COMBAT_DESC,
+		},
+		{
 			path = "actionBar.menuFadeAlpha",
 			label = L["Faded alpha"],
 			type = "number",
 			min = 0,
 			max = 1,
 			step = 0.05,
-			enabledBy = "actionBar.microMenuMouseover",
+			disabled = fadeDisabled("actionBar.microMenuMouseover", "actionBar.microMenuCombat"),
 			desc = L["Shared by the micro menu and the bag button."],
 		},
 	},
@@ -153,13 +207,21 @@ ns.RegisterElement({
 			desc = L["Keep the bag button faded until the cursor is over it."],
 		},
 		{
+			path = "actionBar.bagButtonCombat",
+			new = "1.4.1",
+			label = L["Visible"],
+			type = "select",
+			values = ns.COMBAT_VISIBILITY_VALUES,
+			desc = COMBAT_DESC,
+		},
+		{
 			path = "actionBar.menuFadeAlpha",
 			label = L["Faded alpha"],
 			type = "number",
 			min = 0,
 			max = 1,
 			step = 0.05,
-			enabledBy = "actionBar.bagButtonMouseover",
+			disabled = fadeDisabled("actionBar.bagButtonMouseover", "actionBar.bagButtonCombat"),
 			desc = L["Shared by the micro menu and the bag button."],
 		},
 	},
@@ -207,11 +269,32 @@ local schema = {
 	{ path = "actionBar.hotkeyFont", label = L["Hotkey font"], type = "font", enabledBy = "actionBar.showHotkeys" },
 	{
 		path = "actionBar.showNames",
-		label = L["Show macro names / counts"],
+		label = L["Show macro names"],
 		type = "toggle",
-		desc = L["Macro name or item count at the bottom of the button."],
+		desc = L["Macro name at the bottom of the button."],
 	},
 	{ path = "actionBar.nameFont", label = L["Name font"], type = "font", enabledBy = "actionBar.showNames" },
+	{
+		path = "actionBar.showCounts",
+		new = "1.4.1",
+		label = L["Show item counts"],
+		type = "toggle",
+		desc = L["Stack or charge count in the bottom-right corner of the button."],
+	},
+	{
+		path = "actionBar.countFont",
+		new = "1.4.1",
+		label = L["Count font"],
+		type = "font",
+		enabledBy = "actionBar.showCounts",
+	},
+	{
+		path = "actionBar.cooldownFont",
+		new = "1.4.1",
+		label = L["Cooldown font"],
+		type = "font",
+		desc = L["Remaining cooldown text on action bar buttons."],
+	},
 	{ header = L["Colors"] },
 	{
 		path = "actionBar.rangeColor",
@@ -281,6 +364,6 @@ ns.RegisterPage({
 	key = PAGE,
 	name = L["Action bars"],
 	order = 15,
-	enable = ENABLE,
 	schema = schema,
+	enable = ENABLE,
 })

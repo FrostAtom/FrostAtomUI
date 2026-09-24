@@ -7,32 +7,54 @@ local floor, max, min, ceil = math.floor, math.max, math.min, math.ceil
 local tinsert, sort = tinsert, table.sort
 
 local FRAME_NAME = ADDON_NAME .. "Frame"
-local WIDTH, HEIGHT = 720, 580
-local PADDING = 12
-local NAV_WIDTH = 150
-local NAV_BUTTON_HEIGHT = 24
-local SEARCH_HEIGHT = 30
+local WIDTH, HEIGHT = 780, 600
+local EDGE = 16
+local LIST_X, LIST_TOP, LIST_WIDTH = 22, -64, 175
+local PANEL_X, PANEL_TOP, PANEL_RIGHT = 213, -40, -22
+local FOOTER_TOP = 50
+local SCROLL_LEFT, SCROLL_TOP, SCROLL_RIGHT, SCROLL_BOTTOM = 8, -40, -27, 6
+local CONTENT_WIDTH = WIDTH - PANEL_X + PANEL_RIGHT - SCROLL_LEFT + SCROLL_RIGHT
+local NAV_BUTTON_HEIGHT = 18
+local FOOTER_BUTTON_WIDTH = 96
 local SEARCH_DELAY = 0.2
-local TITLE_HEIGHT = 32
-local ROW_HEIGHT = 30
-local HEADER_HEIGHT = 26
-local SECTION_GAP = 10
-local LABEL_WIDTH = 200
-local CONTROL_X = LABEL_WIDTH + 8
-local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
-local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
-local DISABLED_ALPHA = 0.4
-local CHILD_INDENT = 14
-local NEW_COLOR = { 1, 0.82, 0 }
+local ROW_HEIGHT = 26
+local HEADER_HEIGHT = 30
+local SECTION_GAP = 12
+local CONTENT_TOP = 4
+local CONTENT_BOTTOM = 20
+local LABEL_X = 8
+local CHILD_INDENT = 16
+local CONTROL_X = 230
+local SLIDER_WIDTH = 180
+local FONT_SLIDER_WIDTH = 100
+local VALUE_BOX_WIDTH = 44
 local REVERT_SECONDS = 8
-local ELEMENT_WIDTH = 558
+local ELEMENT_WIDTH = EDGE * 2 + SCROLL_LEFT - SCROLL_RIGHT + CONTENT_WIDTH
+local ELEMENT_TOP = -30
+local ELEMENT_BOTTOM = 46
 local ELEMENT_GAP = 8
 local ELEMENT_MIN_HEIGHT = 140
 local ELEMENT_MAX_HEIGHT = 560
-local ELEMENT_FOOTER_HEIGHT = 28
 local ELEMENT_STRATA = "FULLSCREEN"
 local POPUP_STRATA = "FULLSCREEN_DIALOG"
 local FONT_SIZE_MIN, FONT_SIZE_MAX = 6, 32
+local HIGHLIGHT_TEXTURE = "Interface\\QuestFrame\\UI-QuestLogTitleHighlight"
+local HIGHLIGHT_COLOR = { 0.196, 0.388, 0.8 }
+local SPACER_TEXTURE = "Interface\\OptionsFrame\\UI-OptionsFrame-Spacer"
+local LIST_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border"
+local SWATCH_TEXTURE = "Interface\\ChatFrame\\ChatFrameColorSwatch"
+ns.CONTROL_X = CONTROL_X
+
+local FONT_OBJECTS = {
+	"GameFontNormal",
+	"GameFontNormalSmall",
+	"GameFontNormalLarge",
+	"GameFontHighlight",
+	"GameFontHighlightSmall",
+	"GameFontDisable",
+	"GameFontDisableSmall",
+	"GameFontGreenSmall",
+}
 
 local ANCHORS = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" }
 local OUTLINES = { { "", L["None"] }, { "OUTLINE", L["Outline"] }, { "THICKOUTLINE", L["Thick outline"] } }
@@ -116,6 +138,7 @@ local function elementButton(element, page, enabledBy)
 		width = 100,
 		desc = L["Open this frame in move mode together with its settings."],
 		enabledBy = element.enabledBy or enabledBy,
+		new = element.new,
 		page = page,
 		func = function()
 			ns.EditElement(element.path)
@@ -187,8 +210,38 @@ local function formatNumber(value, step)
 	return (text:gsub("%.$", ""))
 end
 
-local function setEnabledAlpha(region, enabled)
-	region:SetAlpha(enabled and 1 or DISABLED_ALPHA)
+local fontObjects = {}
+
+local function font(name)
+	return fontObjects[name] or _G[name]
+end
+ns.Font = font
+
+local function initFonts()
+	local locale = ui.LOCALE
+	if not locale or ui.CanRenderLocale(locale, (GameFontNormal:GetFont())) then
+		return
+	end
+	for _, name in ipairs(FONT_OBJECTS) do
+		local source = _G[name]
+		local object = CreateFont(FRAME_NAME .. name)
+		object:CopyFontObject(source)
+		local _, size, flags = source:GetFont()
+		object:SetFont(ui.Media.font, size, flags)
+		fontObjects[name] = object
+	end
+end
+initFonts()
+
+local function setButtonFonts(button, normal, highlight, disabled)
+	button:SetNormalFontObject(font(normal or "GameFontNormal"))
+	button:SetHighlightFontObject(font(highlight or "GameFontHighlight"))
+	button:SetDisabledFontObject(font(disabled or "GameFontDisable"))
+end
+
+local function setTextEnabled(region, enabled)
+	local color = enabled and HIGHLIGHT_FONT_COLOR or GRAY_FONT_COLOR
+	region:SetTextColor(color.r, color.g, color.b)
 end
 
 local function setControlEnabled(control, enabled)
@@ -199,9 +252,8 @@ local function setControlEnabled(control, enabled)
 	end
 end
 
-local function setMouseEnabled(region, enabled)
-	region:EnableMouse(enabled)
-	setEnabledAlpha(region, enabled)
+local function playCheckSound(check)
+	PlaySound(check:GetChecked() and "igMainMenuOptionCheckBoxOn" or "igMainMenuOptionCheckBoxOff")
 end
 
 local function versionValue(version)
@@ -254,8 +306,7 @@ end
 
 local function addNewBadge(parent, anchor, offset)
 	local badge = parent:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(badge, 9, "OUTLINE")
-	badge:SetTextColor(unpack(NEW_COLOR))
+	badge:SetFontObject(font("GameFontGreenSmall"))
 	badge:SetText(L["NEW"])
 	badge:SetPoint("LEFT", anchor, "LEFT", offset, 0)
 	return badge
@@ -280,80 +331,68 @@ local function isChildEntry(entry)
 	return hasParentToggle(entry.enabledBy) or hasParentToggle(entry.enabledByAny)
 end
 
-local function showTooltip(row)
+local function rowEnter(row)
+	row.highlight:Show()
 	local entry = row.entry
-	if not entry.desc then
+	local range = entry.type == "number"
+	if not entry.desc and not range then
 		return
 	end
-	GameTooltip:SetOwner(row, "ANCHOR_TOPLEFT")
-	GameTooltip:SetText(entry.label, 1, 1, 1)
-	GameTooltip:AddLine(entry.desc, nil, nil, nil, true)
+	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+	GameTooltip:SetText(entry.label, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+	if entry.desc then
+		GameTooltip:AddLine(entry.desc, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
+	end
+	if range then
+		GameTooltip:AddLine(
+			("%s - %s"):format(formatNumber(entry.min, entry.step), formatNumber(entry.max, entry.step)),
+			GRAY_FONT_COLOR.r,
+			GRAY_FONT_COLOR.g,
+			GRAY_FONT_COLOR.b
+		)
+	end
 	GameTooltip:Show()
 end
 
-local function createButton(parent, text, width)
-	local button = CreateFrame("Button", nil, parent)
-	button:SetSize(width, 20)
-	button:SetBackdrop(ui.CreateBackdrop(8))
-	button:SetBackdropColor(0, 0, 0, 0.5)
-	button:SetBackdropBorderColor(0.6, 0.6, 0.6)
-	button:SetHighlightTexture(ui.Media.blank)
-	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
-	button.text = button:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(button.text, 12)
-	button.text:SetTextColor(0.8, 0.8, 0.8)
-	button.text:SetPoint("CENTER")
-	button.text:SetText(text)
+local function rowLeave(row)
+	row.highlight:Hide()
+	GameTooltip:Hide()
+end
+
+local function bindRow(control, row)
+	control:HookScript("OnEnter", function()
+		rowEnter(row)
+	end)
+	control:HookScript("OnLeave", function()
+		rowLeave(row)
+	end)
+end
+
+local function createButton(parent, text, width, gray, height)
+	local button = ui.CreateButton(parent, text, width, height or 22, nextName(), gray)
+	setButtonFonts(button, gray and "GameFontHighlight" or "GameFontNormal")
+	ui.FitButton(button, 20, width)
 	return button
 end
 ns.CreateButton = createButton
 
-local function createWindow(name, strata, backgroundAlpha)
-	local window = CreateFrame("Frame", name, UIParent)
-	window:Hide()
-	window:SetFrameStrata(strata)
-	window:EnableMouse(true)
-	window:SetMovable(true)
-	window:SetClampedToScreen(true)
-	window:RegisterForDrag("LeftButton")
-	window:SetScript("OnDragStart", window.StartMoving)
-	window:SetScript("OnDragStop", window.StopMovingOrSizing)
-	window:SetBackdrop(ui.CreateBackdrop(14, 3))
-	window:SetBackdropColor(0, 0, 0, backgroundAlpha)
-	tinsert(UISpecialFrames, name)
-
-	local heading = window:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(heading, 13, "OUTLINE", true)
-	heading:SetPoint("TOPLEFT", PADDING, -PADDING - 4)
-	window.heading = heading
+local function createWindow(name, options)
+	local window = ui.CreateWindow(name, options)
+	window.title:SetFontObject(font("GameFontNormal"))
+	window.heading = window.title
 	return window
 end
 ns.CreateWindow = createWindow
 
-local function createCloseButton(window)
-	local close = CreateFrame("Button", nil, window)
-	close:SetSize(26, 26)
-	close:SetPoint("TOPRIGHT", -PADDING + 6, -PADDING + 6)
-	close:SetNormalTexture(CLOSE_ICON)
-	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
-	close:SetScript("OnClick", function()
-		window:Hide()
-	end)
-end
-
 local function createEditBox(parent, width, numeric)
-	local box = CreateFrame("EditBox", nextName(), parent, "InputBoxTemplate")
-	box:SetSize(width, 20)
-	box:SetAutoFocus(false)
-	ui.SetFont(box, 12)
+	local box = ui.CreateEditBox(parent, width, 20, nextName())
 	if numeric then
 		box:SetMaxLetters(7)
 	end
 	box:SetScript("OnEscapePressed", box.ClearFocus)
-	box:SetScript("OnEnterPressed", function(self)
-		self:ClearFocus()
-	end)
+	box:SetScript("OnEnterPressed", box.ClearFocus)
 	box:SetScript("OnEditFocusLost", function(self)
+		self:HighlightText(0, 0)
 		if self.OnCommit then
 			self:OnCommit()
 		end
@@ -362,77 +401,57 @@ local function createEditBox(parent, width, numeric)
 end
 
 local function setEditBoxEnabled(box, enabled)
-	setMouseEnabled(box, enabled)
+	box:EnableMouse(enabled)
+	setTextEnabled(box, enabled)
 	if not enabled then
 		box:ClearFocus()
 	end
 end
 
 local function createDropdown(parent, width, getValues, onSelect)
-	local dropdown = CreateFrame("Frame", nextName(), parent, "UIDropDownMenuTemplate")
-	UIDropDownMenu_SetWidth(dropdown, width)
-	UIDropDownMenu_Initialize(dropdown, function()
-		local info = UIDropDownMenu_CreateInfo()
-		for _, option in ipairs(getValues()) do
-			info.text = option[2]
-			info.value = option[1]
-			info.checked = option[1] == dropdown.selected
-			info.func = function()
-				onSelect(option[1])
-			end
-			UIDropDownMenu_AddButton(info)
-		end
-	end)
-	dropdown.Select = function(self, value)
-		self.selected = value
-		UIDropDownMenu_SetSelectedValue(self, value)
-		for _, option in ipairs(getValues()) do
-			if option[1] == value then
-				UIDropDownMenu_SetText(self, option[2])
-				return
-			end
-		end
-		UIDropDownMenu_SetText(self, tostring(value))
-	end
-	dropdown.SetEnabled = function(self, enabled)
-		if enabled then
-			UIDropDownMenu_EnableDropDown(self)
-		else
-			UIDropDownMenu_DisableDropDown(self)
-		end
-	end
+	local dropdown = ui.CreateDropdown(parent, width, getValues, onSelect, nextName())
+	local text = _G[dropdown:GetName() .. "Text"]
+	text:SetFontObject(font("GameFontHighlightSmall"))
+	text:SetJustifyH("LEFT")
 	return dropdown
 end
 
-local function createCheckButton(parent, x)
-	local check = CreateFrame("CheckButton", nextName(), parent, "UICheckButtonTemplate")
-	check:SetSize(24, 24)
-	check:SetPoint("LEFT", x, 0)
+local function createCheckButton(parent, template)
+	local check = CreateFrame("CheckButton", nextName(), parent, template or "OptionsBaseCheckButtonTemplate")
+	check:SetHitRectInsets(0, 0, 0, 0)
 	return check
 end
 
 local function createRow(parent, entry)
 	local row = CreateFrame("Frame", nil, parent)
-	row:SetHeight(ROW_HEIGHT)
-	row:SetPoint("LEFT", PADDING, 0)
-	row:SetPoint("RIGHT", -PADDING, 0)
+	row:SetPoint("LEFT")
+	row:SetPoint("RIGHT")
 	row.entry = entry
 	row:EnableMouse(true)
-	row:SetScript("OnEnter", showTooltip)
-	row:SetScript("OnLeave", GameTooltip_Hide)
+	row:SetScript("OnEnter", rowEnter)
+	row:SetScript("OnLeave", rowLeave)
+
+	local highlight = row:CreateTexture(nil, "BACKGROUND")
+	highlight:SetTexture(HIGHLIGHT_TEXTURE)
+	highlight:SetBlendMode("ADD")
+	highlight:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3], 0.35)
+	highlight:SetAllPoints()
+	highlight:Hide()
+	row.highlight = highlight
 
 	local indent = isChildEntry(entry) and CHILD_INDENT or 0
-	local label = row:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(label, 12)
-	label:SetTextColor(0.85, 0.85, 0.85)
-	label:SetPoint("LEFT", indent, 0)
-	label:SetWidth(LABEL_WIDTH - indent)
+	local width = CONTROL_X - LABEL_X - 10 - indent
+	local label = row:CreateFontString(nil, "ARTWORK")
+	label:SetFontObject(font("GameFontHighlight"))
+	label:SetPoint("LEFT", LABEL_X + indent, 0)
+	label:SetWidth(width)
 	label:SetJustifyH("LEFT")
 	label:SetText(entry.label)
 	row.label = label
+	row:SetHeight(max(ROW_HEIGHT, label:GetStringHeight() + 8))
 
 	if isNewEntry(entry) then
-		addNewBadge(row, label, min(label:GetStringWidth(), LABEL_WIDTH - indent) + 4)
+		addNewBadge(row, label, min(label:GetStringWidth(), width) + 4)
 	end
 	return row
 end
@@ -478,6 +497,7 @@ StaticPopupDialogs["FROSTATOMUI_CONFIG_REVERT"] = {
 	timeout = REVERT_SECONDS,
 	whileDead = 1,
 	hideOnEscape = 1,
+	preferredIndex = 3,
 }
 
 local function confirmRevert(entry, previous)
@@ -517,19 +537,16 @@ local function set(entry, value)
 	end
 end
 
-local function createSliderBox(row, entry, sliderWidth, boxWidth, boxGap, showRange)
-	local slider = CreateFrame("Slider", nextName(), row, "OptionsSliderTemplate")
+local function createSliderBox(row, entry, sliderWidth)
+	local slider = ui.CreateSlider(row, sliderWidth, entry.min, entry.max, entry.step, nextName())
 	slider:SetPoint("LEFT", CONTROL_X, 0)
-	slider:SetWidth(sliderWidth)
-	slider:SetMinMaxValues(entry.min, entry.max)
-	slider:SetValueStep(entry.step)
-	local sliderName = slider:GetName()
-	_G[sliderName .. "Low"]:SetText(showRange and formatNumber(entry.min, entry.step) or "")
-	_G[sliderName .. "High"]:SetText(showRange and formatNumber(entry.max, entry.step) or "")
-	_G[sliderName .. "Text"]:SetText("")
+	slider.low:SetText("")
+	slider.high:SetText("")
+	bindRow(slider, row)
 
-	local box = createEditBox(row, boxWidth, true)
-	box:SetPoint("LEFT", slider, "RIGHT", boxGap, 0)
+	local box = createEditBox(row, VALUE_BOX_WIDTH, true)
+	box:SetPoint("LEFT", slider, "RIGHT", 12, 0)
+	bindRow(box, row)
 
 	local function commit(value)
 		set(entry, round(max(entry.min, min(entry.max, value)), entry.step))
@@ -563,6 +580,8 @@ local function createSliderBox(row, entry, sliderWidth, boxWidth, boxGap, showRa
 	end
 	local function setEnabled(enabled)
 		setControlEnabled(slider, enabled)
+		local shade = enabled and 1 or 0.5
+		slider:GetThumbTexture():SetVertexColor(shade, shade, shade)
 		setEditBoxEnabled(box, enabled)
 	end
 	return box, refresh, setEnabled
@@ -573,47 +592,57 @@ local creators = {}
 function creators.header(parent, entry)
 	local header = CreateFrame("Frame", nil, parent)
 	header:SetHeight(HEADER_HEIGHT)
-	header:SetPoint("LEFT", PADDING, 0)
-	header:SetPoint("RIGHT", -PADDING, 0)
+	header:SetPoint("LEFT")
+	header:SetPoint("RIGHT")
 
-	local label = header:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(label, 13, "OUTLINE", true)
-	label:SetPoint("BOTTOMLEFT", 0, 4)
+	local label = header:CreateFontString(nil, "ARTWORK")
+	label:SetFontObject(font("GameFontNormal"))
+	label:SetPoint("BOTTOMLEFT", 4, 6)
 	label:SetText(entry.header)
+	local width = label:GetStringWidth()
 	if isNewEntry(entry) then
-		addNewBadge(header, label, label:GetStringWidth() + 6)
+		local badge = addNewBadge(header, label, width + 6)
+		width = width + 6 + badge:GetStringWidth()
 	end
 
 	local line = header:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(1, 1, 1, 0.15)
-	line:SetHeight(1)
-	line:SetPoint("BOTTOMLEFT")
-	line:SetPoint("BOTTOMRIGHT")
+	line:SetTexture(SPACER_TEXTURE)
+	line:SetVertexColor(0.6, 0.6, 0.6)
+	line:SetHeight(16)
+	line:SetPoint("BOTTOMLEFT", 4 + width + 8, 4)
+	line:SetPoint("BOTTOMRIGHT", -4, 4)
 	return header
 end
 
 function creators.description(parent, entry)
 	local holder = CreateFrame("Frame", nil, parent)
-	holder:SetPoint("LEFT", PADDING, 0)
-	holder:SetPoint("RIGHT", -PADDING, 0)
+	holder:SetPoint("LEFT")
+	holder:SetPoint("RIGHT")
 
-	local text = holder:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(text, 12)
-	text:SetTextColor(0.6, 0.6, 0.6)
-	text:SetPoint("TOPLEFT", 0, -4)
-	text:SetWidth(parent:GetWidth() - PADDING * 2)
+	local text = holder:CreateFontString(nil, "ARTWORK")
+	text:SetFontObject(font("GameFontHighlightSmall"))
+	text:SetPoint("TOPLEFT", LABEL_X, -2)
+	text:SetWidth(parent:GetWidth() - LABEL_X * 2)
 	text:SetJustifyH("LEFT")
 	text:SetText(entry.description)
-	holder:SetHeight(text:GetStringHeight() + 12)
+	holder:SetHeight(text:GetStringHeight() + 8)
 	return holder
 end
 
 function creators.toggle(parent, entry)
 	local row = createRow(parent, entry)
 
-	local check = createCheckButton(row, CONTROL_X - 4)
+	local check = createCheckButton(row)
+	check:SetPoint("LEFT", CONTROL_X - 4, 0)
 	check:SetScript("OnClick", function(self)
+		playCheckSound(self)
 		set(entry, self:GetChecked() and true or false)
+	end)
+	bindRow(check, row)
+	row:SetScript("OnMouseUp", function(_, button)
+		if button == "LeftButton" and check:IsEnabled() == 1 then
+			check:Click()
+		end
 	end)
 
 	row.Refresh = function()
@@ -627,7 +656,7 @@ end
 
 function creators.number(parent, entry)
 	local row = createRow(parent, entry)
-	local _, refresh, setEnabled = createSliderBox(row, entry, 180, 54, 16, true)
+	local _, refresh, setEnabled = createSliderBox(row, entry, SLIDER_WIDTH)
 	row.Refresh = refresh
 	row.SetEnabled = function(_, enabled)
 		setEnabled(enabled)
@@ -638,11 +667,12 @@ end
 function creators.string(parent, entry)
 	local row = createRow(parent, entry)
 	local box = createEditBox(row, entry.width or 200)
-	box:SetPoint("LEFT", CONTROL_X, 0)
+	box:SetPoint("LEFT", CONTROL_X + 6, 0)
 	box:SetMaxLetters(entry.maxLetters or 24)
 	box.OnCommit = function(self)
 		set(entry, self:GetText())
 	end
+	bindRow(box, row)
 	row.Refresh = function()
 		box:SetText(get(entry) or "")
 		box:SetCursorPosition(0)
@@ -661,8 +691,10 @@ function creators.select(parent, entry)
 	end
 	local dropdown = createDropdown(row, entry.width or 140, getValues, function(value)
 		set(entry, value)
+		row.Refresh()
 	end)
-	dropdown:SetPoint("LEFT", CONTROL_X - 20, -2)
+	dropdown:SetPoint("LEFT", CONTROL_X - 16, -2)
+	bindRow(_G[dropdown:GetName() .. "Button"], row)
 
 	row.Refresh = function()
 		local value = get(entry)
@@ -682,18 +714,21 @@ function creators.multiselect(parent, entry)
 	local checks = {}
 	local x = CONTROL_X - 4
 	for i, option in ipairs(entry.values) do
-		local check = createCheckButton(row, x)
-		local label = check:CreateFontString(nil, "OVERLAY")
-		ui.SetFont(label, 12)
-		label:SetTextColor(0.85, 0.85, 0.85)
-		label:SetPoint("LEFT", check, "RIGHT", 0, 0)
+		local check = createCheckButton(row, "InterfaceOptionsSmallCheckButtonTemplate")
+		check:SetPoint("LEFT", x, 0)
+		local label = _G[check:GetName() .. "Text"]
+		label:SetFontObject(font("GameFontHighlightSmall"))
 		label:SetText(option[2])
+		local width = label:GetStringWidth()
+		check:SetHitRectInsets(0, -width, 0, 0)
 		check.label = label
 		check:SetScript("OnClick", function(self)
+			playCheckSound(self)
 			ui:SetConfig(entry.path .. "." .. option[1], self:GetChecked() and true or false)
 		end)
+		bindRow(check, row)
 		checks[i] = check
-		x = x + 24 + label:GetStringWidth() + 10
+		x = x + 26 + width + 8
 	end
 
 	row.Refresh = function()
@@ -705,7 +740,7 @@ function creators.multiselect(parent, entry)
 	row.SetEnabled = function(_, enabled)
 		for _, check in ipairs(checks) do
 			setControlEnabled(check, enabled)
-			setEnabledAlpha(check.label, enabled)
+			setTextEnabled(check.label, enabled)
 		end
 	end
 	return row
@@ -716,14 +751,15 @@ function creators.font(parent, entry)
 	local sizeEntry = { path = entry.path .. ".size", min = FONT_SIZE_MIN, max = FONT_SIZE_MAX, step = 1 }
 	local outlineEntry = { path = entry.path .. ".outline" }
 
-	local box, refreshSize, setSizeEnabled = createSliderBox(row, sizeEntry, 120, 40, 10, false)
+	local box, refreshSize, setSizeEnabled = createSliderBox(row, sizeEntry, FONT_SLIDER_WIDTH)
 
-	local dropdown = createDropdown(row, 100, function()
+	local dropdown = createDropdown(row, 80, function()
 		return OUTLINES
 	end, function(value)
 		set(outlineEntry, value)
 	end)
-	dropdown:SetPoint("LEFT", box, "RIGHT", -6, -2)
+	dropdown:SetPoint("LEFT", box, "RIGHT", -8, -2)
+	bindRow(_G[dropdown:GetName() .. "Button"], row)
 
 	row.Refresh = function()
 		refreshSize()
@@ -736,22 +772,38 @@ function creators.font(parent, entry)
 	return row
 end
 
+local function addSquare(parent, layer, size, point, x, y, r, g, b)
+	local square = parent:CreateTexture(nil, layer)
+	square:SetTexture(r, g, b)
+	square:SetSize(size, size)
+	square:SetPoint(point, x, y)
+	return square
+end
+
 function creators.color(parent, entry)
 	local row = createRow(parent, entry)
 
 	local swatch = CreateFrame("Button", nil, row)
-	swatch:SetSize(20, 20)
-	swatch:SetPoint("LEFT", CONTROL_X, 0)
-	swatch:SetBackdrop(ui.CreateBackdrop(8))
-	swatch:SetBackdropBorderColor(0.6, 0.6, 0.6)
-	local fill = swatch:CreateTexture(nil, "ARTWORK")
-	fill:SetTexture(ui.Media.blank)
-	fill:SetPoint("TOPLEFT", 3, -3)
-	fill:SetPoint("BOTTOMRIGHT", -3, 3)
+	swatch:SetSize(16, 16)
+	swatch:SetPoint("LEFT", CONTROL_X + 2, 0)
+	swatch:SetNormalTexture(SWATCH_TEXTURE)
+	local fill = swatch:GetNormalTexture()
+	local background = addSquare(swatch, "BACKGROUND", 14, "CENTER", 0, 0, 1, 1, 1)
+	if entry.alpha then
+		addSquare(swatch, "BORDER", 6, "TOPRIGHT", -2, -2, 0.6, 0.6, 0.6)
+		addSquare(swatch, "BORDER", 6, "BOTTOMLEFT", 2, 2, 0.6, 0.6, 0.6)
+	end
+	swatch:SetScript("OnEnter", function()
+		background:SetVertexColor(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+		rowEnter(row)
+	end)
+	swatch:SetScript("OnLeave", function()
+		background:SetVertexColor(1, 1, 1)
+		rowLeave(row)
+	end)
 
-	local hex = row:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(hex, 12)
-	hex:SetTextColor(0.6, 0.6, 0.6)
+	local hex = row:CreateFontString(nil, "ARTWORK")
+	hex:SetFontObject(font("GameFontHighlightSmall"))
 	hex:SetPoint("LEFT", swatch, "RIGHT", 8, 0)
 
 	local function current()
@@ -764,6 +816,15 @@ function creators.color(parent, entry)
 		if r ~= color[1] or g ~= color[2] or b ~= color[3] or (entry.alpha and a ~= (color[4] or 1)) then
 			ui:SetConfig(entry.path, entry.alpha and { r, g, b, a } or { r, g, b })
 		end
+	end
+
+	local function paint()
+		local r, g, b, a = current()
+		if swatch:IsEnabled() ~= 1 then
+			r = r * 0.3 + g * 0.59 + b * 0.11
+			g, b = r, r
+		end
+		fill:SetVertexColor(r, g, b, a)
 	end
 
 	swatch:SetScript("OnClick", function()
@@ -785,21 +846,26 @@ function creators.color(parent, entry)
 		ColorPickerFrame:Show()
 	end)
 
-	local reset = createButton(row, L["Default"], 60)
-	reset:SetPoint("LEFT", hex, "RIGHT", 12, 0)
+	local reset = createButton(row, L["Default"], 70, true, 20)
+	setButtonFonts(reset, "GameFontHighlightSmall", "GameFontHighlightSmall", "GameFontDisableSmall")
+	ui.FitButton(reset, 20, 70)
+	reset:SetPoint("LEFT", swatch, "RIGHT", 64, 0)
 	reset:SetScript("OnClick", function()
 		ui:ResetConfig(entry.path)
 	end)
+	bindRow(reset, row)
 
 	row.Refresh = function()
-		local r, g, b, a = current()
-		fill:SetVertexColor(r, g, b, a)
+		local r, g, b = current()
+		paint()
 		hex:SetText(("%02x%02x%02x"):format(r * 255, g * 255, b * 255))
 		ui.SetShown(reset, not ui:IsDefaultConfig(entry.path))
 	end
 	row.SetEnabled = function(_, enabled)
-		setMouseEnabled(swatch, enabled)
-		setMouseEnabled(reset, enabled)
+		setControlEnabled(swatch, enabled)
+		setControlEnabled(reset, enabled)
+		setTextEnabled(hex, enabled)
+		paint()
 	end
 	return row
 end
@@ -812,6 +878,14 @@ local function anchorOptions()
 	return options
 end
 
+local function addSmallLabel(row, text, anchor, x, y)
+	local label = row:CreateFontString(nil, "ARTWORK")
+	label:SetFontObject(font("GameFontHighlightSmall"))
+	label:SetText(text)
+	label:SetPoint("LEFT", anchor, "RIGHT", x, y)
+	return label
+end
+
 function creators.point(parent, entry)
 	local row = createRow(parent, entry)
 	local dropdown, commit
@@ -820,30 +894,35 @@ function creators.point(parent, entry)
 		dropdown.selected = anchor
 		commit()
 	end)
-	dropdown:SetPoint("LEFT", CONTROL_X - 20, -2)
+	dropdown:SetPoint("LEFT", CONTROL_X - 16, -2)
+	bindRow(_G[dropdown:GetName() .. "Button"], row)
 
-	local xBox = createEditBox(row, 54, true)
-	xBox:SetPoint("LEFT", dropdown, "RIGHT", 4, 2)
-	local yBox = createEditBox(row, 54, true)
-	yBox:SetPoint("LEFT", xBox, "RIGHT", 10, 0)
+	local xLabel = addSmallLabel(row, "X", dropdown, -10, 2)
+	local xBox = createEditBox(row, VALUE_BOX_WIDTH, true)
+	xBox:SetPoint("LEFT", xLabel, "RIGHT", 10, 0)
+	local yLabel = addSmallLabel(row, "Y", xBox, 8, 0)
+	local yBox = createEditBox(row, VALUE_BOX_WIDTH, true)
+	yBox:SetPoint("LEFT", yLabel, "RIGHT", 10, 0)
+	bindRow(xBox, row)
+	bindRow(yBox, row)
 
-	local anchor = row:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(anchor, 11)
-	anchor:SetTextColor(0.4, 1, 0.5)
-	anchor:SetWidth(LABEL_WIDTH - 70)
+	local anchor = row:CreateFontString(nil, "ARTWORK")
+	anchor:SetFontObject(font("GameFontGreenSmall"))
+	anchor:SetWidth(CONTROL_X - 100)
 	anchor:SetJustifyH("RIGHT")
-	anchor:SetPoint("RIGHT", row, "LEFT", CONTROL_X - 26, 0)
+	anchor:SetPoint("RIGHT", row, "LEFT", CONTROL_X - 16, 0)
 
-	local detach = createButton(row, "x", 20)
-	detach:SetPoint("LEFT", yBox, "RIGHT", 8, 0)
+	local detach = CreateFrame("Button", nextName(), row, "UIPanelCloseButton")
+	detach:SetSize(24, 24)
+	detach:SetPoint("LEFT", yBox, "RIGHT", 4, 0)
 	detach:SetScript("OnClick", function()
 		ui.Movers.Detach(entry.path)
 		row.Refresh()
 	end)
 	detach:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
-		GameTooltip:SetText(L["Detach"], 1, 1, 1)
-		GameTooltip:AddLine(anchor.tooltip or "", 0.6, 0.6, 0.6, true)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		GameTooltip:SetText(L["Detach"], HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+		GameTooltip:AddLine(anchor.tooltip or "", NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
 		GameTooltip:Show()
 	end)
 	detach:SetScript("OnLeave", GameTooltip_Hide)
@@ -885,14 +964,16 @@ function creators.point(parent, entry)
 		dropdown:SetEnabled(enabled)
 		setEditBoxEnabled(xBox, enabled)
 		setEditBoxEnabled(yBox, enabled)
-		setMouseEnabled(detach, enabled)
+		setTextEnabled(xLabel, enabled)
+		setTextEnabled(yLabel, enabled)
+		setControlEnabled(detach, enabled)
 	end
 	return row
 end
 
 function creators.execute(parent, entry)
 	local row = createRow(parent, entry)
-	local button = createButton(row, entry.text or entry.label, entry.width or 140)
+	local button = createButton(row, entry.text or entry.label, entry.width or 140, entry.confirm ~= nil)
 	button:SetPoint("LEFT", CONTROL_X, 0)
 	button:SetScript("OnClick", function()
 		if entry.confirm then
@@ -901,9 +982,10 @@ function creators.execute(parent, entry)
 			entry.func()
 		end
 	end)
+	bindRow(button, row)
 	row.Refresh = function() end
 	row.SetEnabled = function(_, enabled)
-		setMouseEnabled(button, enabled)
+		setControlEnabled(button, enabled)
 	end
 	return row
 end
@@ -964,6 +1046,7 @@ StaticPopupDialogs["FROSTATOMUI_CONFIG_CONFIRM"] = {
 	timeout = 0,
 	whileDead = 1,
 	hideOnEscape = 1,
+	preferredIndex = 3,
 }
 
 function ns.Confirm(text, action)
@@ -1019,12 +1102,12 @@ end
 local function buildPage(page)
 	local scroll = page.scroll or frame.scroll
 	local content = CreateFrame("Frame", nil, scroll)
-	content:SetWidth(page.width or scroll:GetWidth())
+	content:SetWidth(page.width or CONTENT_WIDTH)
 	content:Hide()
 	page.content = content
 	page.rows = {}
 
-	local offset = PADDING / 2
+	local offset = CONTENT_TOP
 	local first = true
 	for _, entry in ipairs(expandSchema(page)) do
 		if not entry.hidden then
@@ -1041,7 +1124,7 @@ local function buildPage(page)
 			first = false
 		end
 	end
-	content:SetHeight(offset + PADDING)
+	content:SetHeight(offset + CONTENT_BOTTOM)
 end
 
 local function rebuildPage(page)
@@ -1064,7 +1147,7 @@ local function refreshPage(page)
 		row.Refresh()
 		local enabled = isEntryEnabled(row.entry)
 		row:SetEnabled(enabled)
-		setEnabledAlpha(row.label, enabled)
+		setTextEnabled(row.label, enabled)
 	end
 	refreshing = false
 end
@@ -1118,11 +1201,10 @@ local function showPage(page)
 		markSeen(page)
 		page.button.newBadge:Hide()
 	end
-	frame.title:SetText(page.name)
+	frame.pageTitle:SetText(page.name)
 	if page.onShow then
 		page.onShow()
 	end
-	ui.SetShown(frame.resetPageButton, not page.noReset)
 	refreshPage(page)
 end
 
@@ -1132,59 +1214,146 @@ local function selectPage(page)
 	end
 end
 
-local function matchesQuery(entry, query)
-	local label = entry.label
-	if not label then
-		return false
+local CYRILLIC_LOWER = {}
+for byte = 0x80, 0xAF do
+	local upper = "\208" .. string.char(byte)
+	if byte < 0x90 then
+		CYRILLIC_LOWER[upper] = "\209" .. string.char(byte + 0x10)
+	elseif byte < 0xA0 then
+		CYRILLIC_LOWER[upper] = "\208" .. string.char(byte + 0x20)
+	else
+		CYRILLIC_LOWER[upper] = "\209" .. string.char(byte - 0x20)
 	end
-	if label:lower():find(query, 1, true) then
-		return true
-	end
-	local desc = entry.desc
-	return desc and desc:lower():find(query, 1, true) and true or false
 end
 
-local function collectEntries(schema, entries, title, query)
-	local count = 0
-	local header, headerAdded
+local function lower(text)
+	return (text:lower():gsub("\208[\128-\175]", CYRILLIC_LOWER))
+end
+
+local SCORE_QUERY = 1000
+local SCORE_EXACT = 100
+local SCORE_PREFIX = 50
+local SCORE_LABEL = 20
+local SCORE_SECTION = 8
+local SCORE_DESC = 2
+
+local function tokenScore(label, section, desc, token)
+	if label == token then
+		return SCORE_EXACT
+	elseif label:sub(1, #token) == token then
+		return SCORE_PREFIX
+	elseif label:find(token, 1, true) then
+		return SCORE_LABEL
+	elseif section:find(token, 1, true) then
+		return SCORE_SECTION
+	elseif desc:find(token, 1, true) then
+		return SCORE_DESC
+	end
+	return 0
+end
+
+local function scoreText(label, section, desc, search)
+	local tokens = search.tokens
+	local score = label == search.query and SCORE_QUERY or 0
+	for i = 1, #tokens do
+		local points = tokenScore(label, section, desc, tokens[i])
+		if points == 0 then
+			return 0
+		end
+		score = score + points
+	end
+	return score
+end
+
+local function scoreEntry(entry, section, search)
+	if not entry.label then
+		return 0
+	end
+	return scoreText(lower(entry.label), section, entry.desc and lower(entry.desc) or "", search)
+end
+
+local function addGroup(groups, title, order)
+	local group = { title = title, order = order, score = 0, results = {} }
+	groups[#groups + 1] = group
+	return group
+end
+
+local function addResult(group, entry, score)
+	local results = group.results
+	results[#results + 1] = { entry = entry, score = score, order = #results }
+	if score > group.score then
+		group.score = score
+	end
+end
+
+local function byScore(a, b)
+	if a.score ~= b.score then
+		return a.score > b.score
+	end
+	return a.order < b.order
+end
+
+local function collectEntries(groups, entries, title, context, search)
+	local group
+	local header, section = nil, context
 	for _, entry in ipairs(entries) do
 		if entry.header then
-			header, headerAdded = entry.header, false
-		elseif not entry.hidden and matchesQuery(entry, query) then
-			if not headerAdded then
-				headerAdded = true
-				schema[#schema + 1] = { header = header and (title .. " / " .. header) or title }
+			header, group = entry.header, nil
+			section = context .. " " .. lower(entry.header)
+		elseif not entry.hidden then
+			local score = scoreEntry(entry, section, search)
+			if score > 0 then
+				group = group or addGroup(groups, header and (title .. " / " .. header) or title, #groups)
+				addResult(group, entry, score)
 			end
-			schema[#schema + 1] = entry
-			count = count + 1
 		end
 	end
-	return count
 end
 
-local function collectSearch(query)
-	local schema = {}
-	local count = 0
+local function collectSearch(search)
+	local groups = {}
 	for _, page in ipairs(pages) do
-		count = count + collectEntries(schema, page.schema, page.name, query)
+		local pageContext = lower(page.name)
+		collectEntries(groups, page.schema, page.name, pageContext, search)
 		for _, element in ipairs(elements) do
 			if element.page == page.key and not element.hidden then
 				local title = page.name .. " / " .. element.name
-				local found = collectEntries(schema, element.schema, title, query)
-				if found == 0 and element.name:lower():find(query, 1, true) then
-					schema[#schema + 1] = { header = title }
-					schema[#schema + 1] = elementButton(element, page)
-					found = 1
+				local context = pageContext .. " " .. lower(element.name)
+				local before = #groups
+				collectEntries(groups, element.schema, title, context, search)
+				if #groups == before then
+					local score = scoreText(lower(element.name), pageContext, "", search)
+					if score > 0 then
+						addResult(addGroup(groups, title, #groups), elementButton(element, page), score)
+					end
 				end
-				count = count + found
 			end
+		end
+	end
+
+	sort(groups, byScore)
+	local schema, count = {}, 0
+	for _, group in ipairs(groups) do
+		schema[#schema + 1] = { header = group.title }
+		sort(group.results, byScore)
+		for _, result in ipairs(group.results) do
+			schema[#schema + 1] = result.entry
+			count = count + 1
 		end
 	end
 	return schema, count
 end
 
+local function parseQuery(query)
+	local tokens = {}
+	for word in query:gmatch("%S+") do
+		tokens[#tokens + 1] = word
+	end
+	return { query = query, tokens = tokens }
+end
+
 local function runSearch()
-	local query = frame.searchBox:GetText():trim():lower()
+	local query = lower(frame.searchBox:GetText():trim()):gsub("%s+", " ")
 	if query == "" then
 		if currentPage == searchPage then
 			showPage(lastNavPage or pages[1])
@@ -1195,7 +1364,7 @@ local function runSearch()
 		selectPage(searchPage)
 		return
 	end
-	local schema, count = collectSearch(query)
+	local schema, count = collectSearch(parseQuery(query))
 	if searchPage.content then
 		searchPage.content:Hide()
 	end
@@ -1221,8 +1390,8 @@ local function scheduleSearch()
 end
 
 local function createSearchBox()
-	local box = createEditBox(frame.nav, NAV_WIDTH - 18)
-	box:SetPoint("TOPLEFT", 6, -2)
+	local box = createEditBox(frame, LIST_WIDTH - 15)
+	box:SetPoint("TOPLEFT", LIST_X + 8, PANEL_TOP + 2)
 	box:SetMaxLetters(40)
 	box.OnCommit = function() end
 	box:SetScript("OnTextChanged", function(self)
@@ -1238,33 +1407,84 @@ local function createSearchBox()
 		self:SetText("")
 	end)
 
-	local placeholder = box:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(placeholder, 12)
-	placeholder:SetTextColor(0.5, 0.5, 0.5)
-	placeholder:SetPoint("LEFT", 6, 0)
+	local placeholder = box:CreateFontString(nil, "ARTWORK")
+	placeholder:SetFontObject(font("GameFontDisableSmall"))
+	placeholder:SetPoint("LEFT", 2, 0)
 	placeholder:SetText(L["Search settings..."])
 	box.placeholder = placeholder
 	frame.searchBox = box
 end
 
+local LIST_CORNERS = {
+	TOPLEFT = 0.5,
+	TOPRIGHT = 0.625,
+	BOTTOMLEFT = 0.75,
+	BOTTOMRIGHT = 0.875,
+}
+
+local function listTexture(list, file, left)
+	local texture = list:CreateTexture(nil, "BACKGROUND")
+	texture:SetTexture(file)
+	if left then
+		texture:SetTexCoord(left, left + 0.125, 0, 1)
+	end
+	return texture
+end
+
+local function listEdge(list, left, top, bottom)
+	local edge = listTexture(list, LIST_BORDER, left)
+	edge:SetPoint("TOPLEFT", top, "BOTTOMLEFT")
+	edge:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT")
+end
+
+local function listSpacer(list, point, from, fromPoint, y, to, toPoint)
+	local spacer = listTexture(list, SPACER_TEXTURE)
+	spacer:SetHeight(16)
+	spacer:SetPoint(point .. "LEFT", from, fromPoint, 0, y)
+	spacer:SetPoint(point .. "RIGHT", to, toPoint)
+end
+
+local function createCategoryList()
+	local list = CreateFrame("Frame", FRAME_NAME .. "CategoryList", frame)
+	list:SetWidth(LIST_WIDTH)
+	list:SetPoint("TOPLEFT", LIST_X, LIST_TOP)
+	list:SetPoint("BOTTOMLEFT", LIST_X, FOOTER_TOP)
+
+	local corners = {}
+	for point, left in pairs(LIST_CORNERS) do
+		local corner = listTexture(list, LIST_BORDER, left)
+		corner:SetSize(16, 16)
+		corner:SetPoint(point)
+		corners[point] = corner
+	end
+	listEdge(list, 0, corners.TOPLEFT, corners.BOTTOMLEFT)
+	listEdge(list, 0.125, corners.TOPRIGHT, corners.BOTTOMRIGHT)
+	listSpacer(list, "TOP", corners.TOPLEFT, "TOPRIGHT", 7, corners.TOPRIGHT, "TOPLEFT")
+	listSpacer(list, "BOTTOM", corners.BOTTOMLEFT, "BOTTOMRIGHT", -2, corners.BOTTOMRIGHT, "BOTTOMLEFT")
+	frame.list = list
+end
+
 local function createNavButton(page, index)
-	local button = CreateFrame("Button", nil, frame.nav)
-	button:SetHeight(NAV_BUTTON_HEIGHT)
-	button:SetPoint("TOPLEFT", 0, -SEARCH_HEIGHT - (index - 1) * NAV_BUTTON_HEIGHT)
-	button:SetPoint("RIGHT")
-	button:SetHighlightTexture(ui.Media.blank)
-	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
+	local name = FRAME_NAME .. "Category" .. index
+	local button = CreateFrame("Button", name, frame.list, "OptionsListButtonTemplate")
+	button:SetPoint("TOPLEFT", 0, -8 - (index - 1) * NAV_BUTTON_HEIGHT)
+	setButtonFonts(button)
+	button:SetText(page.name)
 
-	local text = button:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(text, 12)
-	text:SetTextColor(0.85, 0.85, 0.85)
-	text:SetPoint("LEFT", 10, 0)
-	text:SetText(page.name)
+	local text = _G[name .. "Text"]
+	text:ClearAllPoints()
+	text:SetPoint("LEFT", 8, 2)
+	text:SetPoint("RIGHT", -8, 2)
 
-	button.newBadge = addNewBadge(button, text, text:GetStringWidth() + 6)
-	ui.SetShown(button.newBadge, newestUnseen(page))
+	local badge = button:CreateFontString(nil, "OVERLAY")
+	badge:SetFontObject(font("GameFontGreenSmall"))
+	badge:SetText(L["NEW"])
+	badge:SetPoint("RIGHT", -8, 2)
+	button.newBadge = badge
+	ui.SetShown(badge, newestUnseen(page))
 
 	button:SetScript("OnClick", function()
+		PlaySound("igMainMenuOptionCheckBoxOn")
 		frame.searchBox:SetText("")
 		selectPage(page)
 	end)
@@ -1283,80 +1503,119 @@ local function initSeen()
 	end
 end
 
+StaticPopupDialogs["FROSTATOMUI_CONFIG_DEFAULTS"] = {
+	text = L["Reset all FrostAtom UI settings to defaults, or only the settings of %s?"],
+	button1 = L["Reset all"],
+	button3 = L["Reset page"],
+	button2 = CANCEL,
+	OnAccept = function()
+		ui:ResetConfig()
+	end,
+	OnAlt = function(_, page)
+		resetPage(page)
+	end,
+	OnHide = function(dialog)
+		dialog:SetFrameStrata("DIALOG")
+	end,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	preferredIndex = 3,
+}
+
+local function confirmDefaults()
+	PlaySound("igMainMenuOption")
+	local page = currentPage
+	if page.noReset then
+		ns.Confirm(L["Reset all FrostAtom UI settings to defaults?"], function()
+			ui:ResetConfig()
+		end)
+		return
+	end
+	local dialog = StaticPopup_Show("FROSTATOMUI_CONFIG_DEFAULTS", page.name, nil, page)
+	if dialog then
+		dialog:SetFrameStrata(POPUP_STRATA)
+	end
+end
+
+local function createPanelScroll(parent, name)
+	local scroll = CreateFrame("ScrollFrame", name, parent, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", SCROLL_LEFT, SCROLL_TOP)
+	scroll:SetPoint("BOTTOMRIGHT", SCROLL_RIGHT, SCROLL_BOTTOM)
+	scroll.scrollBarHideable = true
+	scroll:SetScript("OnSizeChanged", function(self)
+		self:UpdateScrollChildRect()
+		ScrollFrame_OnScrollRangeChanged(self)
+	end)
+	return scroll
+end
+
 local function createFrame()
 	initSeen()
 
-	frame = createWindow(FRAME_NAME, "DIALOG", 0.85)
-	frame:SetSize(WIDTH, HEIGHT)
+	frame = createWindow(FRAME_NAME, {
+		width = WIDTH,
+		height = HEIGHT,
+		title = "FrostAtom UI",
+		header = true,
+		noClose = true,
+		movable = false,
+		special = false,
+	})
 	frame:SetPoint("CENTER")
+	ui.SetUIPanelLayout(frame, "center", 0)
 	frame:SetScript("OnShow", function()
+		PlaySound("igMainMenuOption")
 		if currentPage and currentPage.onShow then
 			currentPage.onShow()
 		end
 		refreshPage(currentPage)
 	end)
 	frame:SetScript("OnHide", function()
+		PlaySound("gsTitleOptionExit")
 		if currentPage and currentPage.onHide then
 			currentPage.onHide()
 		end
 	end)
-	frame.heading:SetText("FrostAtom UI")
-	createCloseButton(frame)
 
-	local nav = CreateFrame("Frame", nil, frame)
-	nav:SetPoint("TOPLEFT", PADDING, -(PADDING + TITLE_HEIGHT))
-	nav:SetPoint("BOTTOMLEFT", PADDING, PADDING)
-	nav:SetWidth(NAV_WIDTH)
-	frame.nav = nav
+	createCategoryList()
 
-	local divider = frame:CreateTexture(nil, "ARTWORK")
-	divider:SetTexture(1, 1, 1, 0.12)
-	divider:SetWidth(1)
-	divider:SetPoint("TOP", nav, "TOPRIGHT", 0, 0)
-	divider:SetPoint("BOTTOM", nav, "BOTTOMRIGHT", 0, 0)
+	local panel = ui.CreateInset(frame, "panel")
+	panel:SetPoint("TOPLEFT", PANEL_X, PANEL_TOP)
+	panel:SetPoint("BOTTOMRIGHT", PANEL_RIGHT, FOOTER_TOP)
 
-	local resetAll = createButton(nav, L["Reset all"], NAV_WIDTH - 12)
-	resetAll:SetPoint("BOTTOMLEFT", 0, 0)
-	resetAll:SetScript("OnClick", function()
-		ns.Confirm(L["Reset all FrostAtom UI settings to defaults?"], function()
-			ui:ResetConfig()
-		end)
-	end)
+	local title = panel:CreateFontString(nil, "ARTWORK")
+	title:SetFontObject(font("GameFontNormalLarge"))
+	title:SetPoint("TOPLEFT", 16, -16)
+	title:SetJustifyH("LEFT")
+	frame.pageTitle = title
 
-	local unlock = createButton(nav, L["Unlock frames"], NAV_WIDTH - 12)
-	unlock:SetPoint("BOTTOMLEFT", resetAll, "TOPLEFT", 0, 6)
+	local defaults = createButton(frame, L["Defaults"], FOOTER_BUTTON_WIDTH, true)
+	defaults:SetPoint("BOTTOMLEFT", EDGE, EDGE)
+	defaults:SetScript("OnClick", confirmDefaults)
+
+	local unlock = createButton(frame, L["Unlock frames"], 120)
+	unlock:SetPoint("LEFT", defaults, "RIGHT", 4, 0)
 	unlock:SetScript("OnClick", function()
 		ui.Movers.Unlock()
 		if ui.Movers.IsUnlocked() then
-			frame:Hide()
+			HideUIPanel(frame)
 		end
 	end)
 
-	local title = frame:CreateFontString(nil, "OVERLAY")
-	ui.SetFont(title, 13, "OUTLINE", true)
-	title:SetPoint("TOPLEFT", nav, "TOPRIGHT", PADDING, 0)
-	frame.title = title
-
-	local resetPageButton = createButton(frame, L["Reset page"], 100)
-	resetPageButton:SetPoint("TOPRIGHT", -PADDING - 26, -PADDING - 1)
-	resetPageButton:SetScript("OnClick", function()
-		ns.Confirm(L["Reset %s settings to defaults?"]:format(currentPage.name), function()
-			resetPage(currentPage)
-		end)
+	local okay = createButton(frame, L["Close"], FOOTER_BUTTON_WIDTH)
+	okay:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
+	okay:SetScript("OnClick", function()
+		HideUIPanel(frame)
 	end)
-	frame.resetPageButton = resetPageButton
 
-	local reloadButton = createButton(frame, L["Reload UI"], 90)
-	reloadButton:SetPoint("RIGHT", resetPageButton, "LEFT", -8, 0)
-	reloadButton.text:SetTextColor(1, 0.6, 0.2)
+	local reloadButton = createButton(frame, L["Reload UI"], FOOTER_BUTTON_WIDTH)
+	reloadButton:SetPoint("RIGHT", okay, "LEFT", -4, 0)
 	reloadButton:SetScript("OnClick", ReloadUI)
 	reloadButton:Hide()
 	frame.reloadButton = reloadButton
 
-	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "Scroll", frame, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", nav, "TOPRIGHT", 0, -TITLE_HEIGHT + 8)
-	scroll:SetPoint("BOTTOMRIGHT", -PADDING - 18, PADDING)
-	frame.scroll = scroll
+	frame.scroll = createPanelScroll(panel, FRAME_NAME .. "Scroll")
 
 	createSearchBox()
 	for i, page in ipairs(pages) do
@@ -1390,9 +1649,12 @@ end
 
 local function createElementFrame()
 	initSeen()
-	elementFrame = createWindow(FRAME_NAME .. "Element", ELEMENT_STRATA, 0.9)
-	elementFrame:SetSize(ELEMENT_WIDTH, 200)
-	elementFrame:SetToplevel(true)
+	elementFrame = createWindow(FRAME_NAME .. "Element", {
+		width = ELEMENT_WIDTH,
+		height = 200,
+		header = true,
+		strata = ELEMENT_STRATA,
+	})
 	elementFrame:SetScript("OnDragStart", function(self)
 		self.userPlaced = true
 		self:StartMoving()
@@ -1402,21 +1664,19 @@ local function createElementFrame()
 		ui.Movers.ClearSelection()
 	end)
 
-	local title = elementFrame.heading
-	title:SetPoint("RIGHT", -PADDING - 26, 0)
-	title:SetJustifyH("LEFT")
-	elementFrame.title = title
-	createCloseButton(elementFrame)
+	local panel = ui.CreateInset(elementFrame, "panel")
+	panel:SetPoint("TOPLEFT", EDGE, ELEMENT_TOP)
+	panel:SetPoint("BOTTOMRIGHT", -EDGE, ELEMENT_BOTTOM)
 
-	local resetPosition = createButton(elementFrame, L["Reset position"], 120)
-	resetPosition:SetPoint("BOTTOMLEFT", PADDING, PADDING)
+	local resetPosition = createButton(elementFrame, L["Reset position"], 120, true)
+	resetPosition:SetPoint("BOTTOMLEFT", EDGE, EDGE)
 	resetPosition:SetScript("OnClick", function()
 		ui:ResetConfig(elementFrame.view.element.path)
 	end)
 	elementFrame.resetPosition = resetPosition
 
-	local resetAll = createButton(elementFrame, L["Reset all"], 100)
-	resetAll:SetPoint("LEFT", resetPosition, "RIGHT", 8, 0)
+	local resetAll = createButton(elementFrame, L["Reset all"], 100, true)
+	resetAll:SetPoint("LEFT", resetPosition, "RIGHT", 4, 0)
 	resetAll:SetScript("OnClick", function()
 		local element = elementFrame.view.element
 		ns.Confirm(L["Reset %s settings to defaults?"]:format(element.name), function()
@@ -1426,7 +1686,7 @@ local function createElementFrame()
 	elementFrame.resetAll = resetAll
 
 	local more = createButton(elementFrame, L["All settings"], 120)
-	more:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
+	more:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
 	more:SetScript("OnClick", function()
 		local pageKey = elementFrame.view.element.page
 		ui.Movers.Lock()
@@ -1434,9 +1694,8 @@ local function createElementFrame()
 	end)
 	elementFrame.more = more
 
-	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "ElementScroll", elementFrame, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", 0, -(PADDING + TITLE_HEIGHT) + 8)
-	scroll:SetPoint("BOTTOMRIGHT", -PADDING - 18, PADDING + ELEMENT_FOOTER_HEIGHT)
+	local scroll = createPanelScroll(panel, FRAME_NAME .. "ElementScroll")
+	scroll:SetPoint("TOPLEFT", SCROLL_LEFT, -SCROLL_LEFT)
 	elementFrame.scroll = scroll
 end
 
@@ -1453,7 +1712,7 @@ local function elementView(element)
 		key = element.key,
 		element = element,
 		scroll = elementFrame.scroll,
-		width = ELEMENT_WIDTH - PADDING - 18,
+		width = CONTENT_WIDTH,
 		schema = schema,
 	}
 	schema[#schema + 1] = { header = L["Position"], page = view }
@@ -1492,7 +1751,7 @@ function ns.OpenElement(path, anchor)
 	ui.SetShown(elementFrame.resetPosition, not element.noReset)
 	ui.SetShown(elementFrame.resetAll, not element.noReset)
 
-	local height = PADDING + TITLE_HEIGHT - 8 + view.content:GetHeight() + PADDING + ELEMENT_FOOTER_HEIGHT
+	local height = -ELEMENT_TOP + SCROLL_LEFT + view.content:GetHeight() + SCROLL_BOTTOM + ELEMENT_BOTTOM
 	elementFrame:SetHeight(max(ELEMENT_MIN_HEIGHT, min(ELEMENT_MAX_HEIGHT, height)))
 	if not elementFrame.userPlaced or not elementFrame:IsShown() then
 		placeElementFrame(anchor)
@@ -1513,9 +1772,7 @@ function ns.GetOpenElement()
 end
 
 function ns.EditElement(path)
-	if frame then
-		frame:Hide()
-	end
+	HideUIPanel(frame)
 	ui.Movers.Unlock()
 	if not ui.Movers.IsUnlocked() then
 		return
@@ -1551,7 +1808,11 @@ function ns.Toggle(pageKey)
 		createFrame()
 	end
 	if not pageKey then
-		ui.SetShown(frame, not frame:IsShown())
+		if frame:IsShown() then
+			HideUIPanel(frame)
+		else
+			ShowUIPanel(frame)
+		end
 		return
 	end
 	local page = pageByKey(pageKey)
@@ -1562,7 +1823,7 @@ function ns.Toggle(pageKey)
 		frame.searchBox:SetText(pageKey)
 		runSearch()
 	end
-	frame:Show()
+	ShowUIPanel(frame)
 end
 
 _G[ADDON_NAME] = ns

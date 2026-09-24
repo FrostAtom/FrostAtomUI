@@ -18,6 +18,7 @@ local config = ns.Config.unitFrames
 local BG_DIM = UF.BAR_BACKGROUND_DIM
 local DEAD_R, DEAD_G, DEAD_B = HealthColor(0)
 local DEAD_BG_R, DEAD_BG_G, DEAD_BG_B = DEAD_R * BG_DIM, DEAD_G * BG_DIM, DEAD_B * BG_DIM
+local OFFLINE_R, OFFLINE_G, OFFLINE_B = 0.5, 0.5, 0.5
 
 local CUTAWAY_FADE_SPEED = 2.5
 
@@ -49,14 +50,27 @@ local function setDead(health, setValue)
 	setEmpty(health, setValue, L["RIP"], DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
 end
 
+local function setOffline(health, setValue)
+	health:SetMinMaxValues(0, 1)
+	setValue(health, 1)
+	health.colorClass = nil
+	setColor(health, OFFLINE_R, OFFLINE_G, OFFLINE_B)
+	health.text:SetText(L["offline"])
+	health.lastCurrent = nil
+	health.cutaway:Hide()
+	Prediction.SetValues(health, 0, 0, false)
+end
+
 local function setAlive(health, setValue, current, max, class)
 	health:SetMinMaxValues(0, max)
 	setValue(health, current)
 
-	if config.healthCutaway and health.lastCurrent and current < health.lastCurrent then
-		showCutaway(health, health.lastCurrent, current, max)
+	local last = health.lastCurrent
+	if config.healthCutaway and last and current < last and max == health.lastMax and max > 1 then
+		showCutaway(health, last < max and last or max, current, max)
 	end
 	health.lastCurrent = current
+	health.lastMax = max
 
 	local classColor = class and config.healthColorMode == "class" and classColors[class]
 	if classColor then
@@ -93,7 +107,7 @@ local function update(frame)
 	end
 
 	if not UnitIsConnected(unit) then
-		setEmpty(health, setValue, L["offline"], frame:GetBackdropColor())
+		setOffline(health, setValue)
 	elseif UnitIsDeadOrGhost(unit) then
 		setDead(health, setValue)
 	else
@@ -125,7 +139,9 @@ local function test(frame)
 	else
 		setAlive(health, health.SnapValue, data.health, data.healthMax, data.class)
 		local absorb = config.absorbs and data.absorb or 0
-		Prediction.SetValues(health, config.healPrediction and data.incoming or 0, absorb, absorb > 0)
+		local incoming = config.healPrediction and data.incoming or 0
+		local own = config.healPredictionSplit and data.incomingOwn or 0
+		Prediction.SetValues(health, incoming, absorb, absorb > 0, own)
 	end
 end
 

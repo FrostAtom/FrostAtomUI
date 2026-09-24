@@ -226,6 +226,9 @@ SlashCmdList.FROSTATOMUI_CONFIG = function(text)
 	elseif command == "lock" then
 		ns.Movers.Lock()
 		return
+	elseif command == "reset" then
+		ns.Movers.ConfirmResetPositions()
+		return
 	end
 	local loaded, reason = LoadAddOn("FrostAtomUI_Config")
 	if not loaded then

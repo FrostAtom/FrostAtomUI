@@ -181,6 +181,13 @@ Section(schema, L["Merchant"], "merchant", {
 		type = "toggle",
 		desc = L["Do nothing when the merchant window is opened with Shift held."],
 	},
+	{
+		path = "showItemLevel",
+		new = "1.4.1",
+		label = L["Show item level"],
+		type = "toggle",
+		desc = L["Item level on merchant and buyback item icons."],
+	},
 })
 
 Section(schema, L["Equipment"], "equipment", {
@@ -264,7 +271,7 @@ Section(schema, L["Character model"], "modelControls", {
 		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = L["Drag to rotate, right-drag to pan and mouse wheel to zoom the character, inspect and dressing room models. Removes the rotate buttons."],
+		desc = L["Drag to rotate, right-drag to pan, mouse wheel to zoom and middle-click to reset the character, inspect and dressing room models. Removes the rotate buttons."],
 	},
 	{
 		path = "rotateSpeed",
@@ -279,10 +286,61 @@ Section(schema, L["Character model"], "modelControls", {
 		path = "zoomStep",
 		label = L["Zoom step"],
 		type = "number",
-		min = 0.1,
-		max = 1,
+		min = 0.05,
+		max = 0.5,
 		step = 0.05,
-		desc = L["Distance change per mouse wheel notch."],
+		desc = L["Size change per mouse wheel notch, as a fraction of the current zoom."],
+	},
+})
+
+Section(schema, L["Character stats"], "characterStats", {
+	{
+		path = "enabled",
+		new = "1.4.1",
+		label = L["Stats panel"],
+		type = "toggle",
+		desc = L["A panel next to the character window with defenses (including resilience), melee, spell, ranged and base stats at once."],
+	},
+	{
+		path = "classCategories",
+		new = "1.4.1",
+		label = L["Only categories for your class"],
+		type = "toggle",
+		enabledBy = "characterStats.enabled",
+		desc = L["Skip categories your class does not use, such as spell stats for a warrior. Off shows all five."],
+	},
+})
+
+Section(schema, L["Macros"], "macros", {
+	{
+		path = "enabled",
+		new = "1.4.1",
+		label = L["Macro editor"],
+		type = "toggle",
+		reload = true,
+		desc = L["Replaces the /macro window: unlimited macros of any length, syntax and error highlighting, key bindings right in the window. /macro opens it."],
+	},
+})
+
+Section(schema, L["Spellbook"], "spellBook", {
+	{
+		path = "enabled",
+		new = "1.4.1",
+		label = L["Spellbook window"],
+		type = "toggle",
+		reload = true,
+		desc = L["Replaces the spellbook: every tab and the pet book in one wide window, four columns, search and a switch to hide passive abilities."],
+	},
+})
+
+Section(schema, L["Talents"], "talentFrame", {
+	{
+		path = "enabled",
+		new = "1.4.1",
+		label = L["Talents window"],
+		type = "toggle",
+		reload = true,
+		desc = L["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."],
 	},
 })
 

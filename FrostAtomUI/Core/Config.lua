@@ -1,7 +1,7 @@
 local _, ns = ...
 local L = ns.L
 
-local InCombatLockdown, SetCVar = InCombatLockdown, SetCVar
+local InCombatLockdown, SetCVar, geterrorhandler = InCombatLockdown, SetCVar, geterrorhandler
 local sort, concat, strchar = table.sort, table.concat, string.char
 
 local function auraIcon(spells, mine, unit)
@@ -48,6 +48,7 @@ local function actionBarDefaults(enabled, point, buttons, columns, buttonSize)
 		buttonSize = buttonSize,
 		spacing = 2,
 		mouseover = false,
+		combat = "any",
 		fadeAlpha = 0.1,
 	}
 end
@@ -78,17 +79,25 @@ ns.Defaults = {
 		bar3 = actionBarDefaults(true, { "BOTTOM", 0, 78 }, 12, 12, 36),
 		bar4 = actionBarDefaults(true, { "BOTTOM", -316, 2 }, 12, 4, 36),
 		bar5 = actionBarDefaults(true, { "BOTTOM", 316, 2 }, 12, 4, 36),
+		bar6 = actionBarDefaults(false, { "RIGHT", -2, 0 }, 12, 1, 36),
 		stance = actionBarDefaults(nil, { "BOTTOM", -150, 116 }, nil, 10, 30),
 		pet = actionBarDefaults(nil, { "BOTTOM", 68, 116 }, nil, 10, 30),
+		vehicleExit = { point = { "BOTTOM", 250, 116 }, buttonSize = 36 },
+		totemBar = { "BOTTOM", -150, 154 },
 		microMenu = { "BOTTOMRIGHT", -2, 2 },
 		microMenuScale = 1,
 		microMenuMouseover = false,
+		microMenuCombat = "any",
 		bagButton = { "BOTTOMRIGHT", -256, 5 },
 		bagButtonMouseover = false,
+		bagButtonCombat = "any",
 		menuFadeAlpha = 0.1,
 		showHotkeys = true,
 		showShapeshiftHotkeys = false,
 		showNames = true,
+		showCounts = true,
+		countFont = { size = 11, outline = "OUTLINE" },
+		cooldownFont = { size = 12, outline = "OUTLINE" },
 		clickAnimation = true,
 		dragButton = "RightButton",
 		dragModifier = "alt",
@@ -145,7 +154,13 @@ ns.Defaults = {
 		playerAuraSize = 34,
 		playerAuraPerRow = 8,
 		playerAuraGrowth = "LEFT",
+		playerDebuffSize = 34,
+		playerDebuffPerRow = 8,
+		playerBuffSort = "default",
+		auraTimers = true,
+		auraTimerMaxDuration = 600,
 		targetAuraPerRow = 8,
+		ownAuraScale = 1,
 		showPlayerCastbar = true,
 		showTargetCastbar = true,
 		showFocusCastbar = true,
@@ -204,6 +219,19 @@ ns.Defaults = {
 		comboPointColor = { 1, 0.2, 0.2 },
 		comboPointPartialColor = { 1, 0.8, 0.2 },
 		cooldownGlowColor = { 1, 0.85, 0.3 },
+		castbarTicks = true,
+		castbarLatency = true,
+		castbarLatencyColor = { 1, 0.1, 0.1, 0.5 },
+		castbarTimeFormat = "remaining",
+		healPredictionSplit = true,
+		healPredictionOwnColor = { 0.45, 1, 0.3, 0.55 },
+		druidMana = true,
+		pvpTimer = true,
+		combatGlow = false,
+		combatGlowColor = { 1, 0.15, 0.1 },
+		petPower = true,
+		petHappiness = true,
+		hideTargetOfTargetSelf = false,
 	},
 
 	chat = {
@@ -216,7 +244,9 @@ ns.Defaults = {
 		classColorNames = true,
 		filterSystemSpam = true,
 		filterArenaSpam = true,
+		filterAutoReplies = true,
 		batchBattlegroundJoins = true,
+		editBoxPosition = "below",
 		scrollToBottomButton = true,
 		whisperSoundThrottle = true,
 		whisperSoundInterval = 60,
@@ -283,6 +313,18 @@ ns.Defaults = {
 		auraRowGap = 3,
 		maxAuraIcons = 6,
 		auraFont = { size = 15, outline = "OUTLINE" },
+		aurasAllPlates = true,
+		enemyBuffs = true,
+		otherDebuffs = false,
+		ccAuraSize = 36,
+		castbarsAllPlates = true,
+		castbarsCombatLog = true,
+		friendlyClassColors = true,
+		healthTextAll = false,
+		healthTextFormat = "percent",
+		arenaNumbers = true,
+		spreadPlates = false,
+		hoverHighlight = true,
 		showHealers = true,
 		healerIconSize = 16,
 		healerThreshold = 2,
@@ -306,6 +348,7 @@ ns.Defaults = {
 		fadeTime = 0.5,
 		healPrediction = true,
 		absorbs = true,
+		druidMana = true,
 	},
 	shieldIndicator = {
 		enabled = true,
@@ -471,6 +514,7 @@ ns.Defaults = {
 		autoRepair = true,
 		guildRepair = false,
 		shiftToSkip = true,
+		showItemLevel = true,
 	},
 
 	wheelPaging = {
@@ -480,7 +524,25 @@ ns.Defaults = {
 	modelControls = {
 		enabled = true,
 		rotateSpeed = 0.01,
-		zoomStep = 0.4,
+		zoomStep = 0.15,
+	},
+
+	characterStats = {
+		enabled = true,
+		classCategories = true,
+	},
+
+	macros = {
+		enabled = true,
+	},
+
+	spellBook = {
+		enabled = true,
+		hidePassive = false,
+	},
+
+	talentFrame = {
+		enabled = true,
 	},
 
 	combatLogFix = {
@@ -543,6 +605,22 @@ ns.Defaults = {
 		immuneColor = { 1, 0.1, 0.1 },
 	},
 
+	internalCooldowns = {
+		enabled = true,
+		player = true,
+		party = true,
+		arena = true,
+		target = true,
+		focus = true,
+		size = 18,
+		spacing = 1,
+		hideReady = false,
+		unknownTrinkets = true,
+		activeColor = { 0.2, 1, 0.2 },
+		offsetX = 0,
+		offsetY = 2,
+	},
+
 	arenaUnseen = { enabled = true, alpha = 0.55, prep = true },
 
 	arena = {
@@ -597,15 +675,28 @@ ns.Defaults = {
 		arrowSize = 36,
 		zoomStep = 0.2,
 		maxZoom = 4,
+		fadeWhenMoving = false,
+		movingAlpha = 0.5,
+	},
+
+	blizzardFrames = {
+		enabled = true,
+		captureBarPoint = { "TOPRIGHT", 0, -44, "minimap.point", "BOTTOMRIGHT" },
+		vehicleSeatPoint = { "TOPRIGHT", 0, -100, "minimap.point", "BOTTOMRIGHT" },
+		errorsPoint = { "TOP", 0, -122 },
+		raidWarningPoint = { "TOP", 0, 0, "blizzardFrames.errorsPoint", "BOTTOM" },
+		questTracker = {
+			arena = true,
+			battleground = false,
+			combat = false,
+		},
 	},
 
 	arenaHistory = {
 		enabled = true,
-		point = { "CENTER", 0, 40 },
 		maxGames = 1000,
-		listFont = { size = 12, outline = "" },
-		winColor = { 0.3, 1, 0.3 },
-		lossColor = { 1, 0.3, 0.3 },
+		winColor = { 0.1, 1, 0.1 },
+		lossColor = { 1, 0.1, 0.1 },
 	},
 
 	deathRecap = {
@@ -650,6 +741,7 @@ ns.Defaults = {
 		hideInCombat = true,
 		hideInCombatWorld = false,
 		showIds = true,
+		showAuraCaster = true,
 		showItemLevel = true,
 		showItemCount = true,
 		showTargetedBy = true,
@@ -672,6 +764,14 @@ ns.Defaults = {
 		auras = "all",
 		auraSize = 20,
 		auraRows = 1,
+		skin = true,
+		backdropColor = { 0.06, 0.06, 0.06, 0.9 },
+		borderColor = { 0.35, 0.35, 0.35 },
+		reactionBackground = true,
+		gradient = true,
+		fontSize = 12,
+		healthBar = "inside",
+		sideIcon = false,
 	},
 
 	minimap = {
@@ -679,6 +779,7 @@ ns.Defaults = {
 		point = { "TOPRIGHT", -15, -15 },
 		size = 140,
 		mouseover = false,
+		combat = "any",
 		fadeAlpha = 0.1,
 		lfgPoint = { "TOPRIGHT", -4, -6, "minimap.point", "BOTTOMRIGHT" },
 		lfgSize = 32,
@@ -689,6 +790,7 @@ ns.Defaults = {
 		showZoneText = false,
 		zoneFont = { size = 11, outline = "OUTLINE" },
 		showTracking = false,
+		collectButtons = true,
 		iconSize = 18,
 		borderColor = { 1, 1, 1 },
 	},
@@ -709,6 +811,13 @@ ns.Defaults = {
 		autoOpen = true,
 		playSounds = true,
 		searchFadeAlpha = 0.25,
+		tintUnusable = true,
+		showBagFreeSlots = true,
+		offlineBank = true,
+		altGold = true,
+		lockModifier = "ALT",
+		sortReverse = false,
+		sortMessages = false,
 		countFont = { size = 12, outline = "OUTLINE" },
 		levelFont = { size = 10, outline = "OUTLINE" },
 	},
@@ -862,15 +971,48 @@ local function applyGeneral()
 	end
 end
 
+local function isSection(value, default)
+	return type(value) == "table"
+		and type(default) == "table"
+		and default[1] == nil
+		and value[1] == nil
+		and next(default) ~= nil
+end
+
 local function prune(target, defaults)
 	for key, value in pairs(target) do
 		local default = defaults[key]
 		if default == nil then
 			target[key] = nil
-		elseif type(value) == "table" and type(default) == "table" and default[1] == nil and value[1] == nil then
+		elseif isSection(value, default) then
 			prune(value, default)
 		end
 	end
+end
+
+local function mergeKnown(target, source, defaults)
+	for key, value in pairs(source) do
+		local default = defaults[key]
+		if default ~= nil then
+			local current = target[key]
+			if isSection(value, default) and type(current) == "table" then
+				mergeKnown(current, value, default)
+			elseif type(value) == "table" and type(current) == "table" then
+				if value[1] ~= nil or current[1] ~= nil then
+					wipe(current)
+				end
+				merge(current, value)
+			else
+				target[key] = type(value) == "table" and copy(value) or value
+			end
+		end
+	end
+end
+
+local function pruned(profile)
+	local result = copy(profile)
+	prune(result, ns.Defaults)
+	return result
 end
 
 local function charKey()
@@ -879,7 +1021,7 @@ end
 
 local function rebuildFromSaved()
 	reset(ns.Config, ns.Defaults)
-	merge(ns.Config, saved)
+	mergeKnown(ns.Config, saved, ns.Defaults)
 end
 
 local function replaceSaved(profile)
@@ -892,7 +1034,6 @@ local function activate(name)
 	local profiles = ns.db.profiles
 	profiles[name] = profiles[name] or {}
 	saved = profiles[name]
-	prune(saved, ns.Defaults)
 	activeProfile = name
 	ns.db.charProfile[charKey()] = name
 	rebuildFromSaved()
@@ -940,6 +1081,19 @@ function ns:DeleteProfile(name)
 			ns.db.charProfile[char] = nil
 		end
 	end
+	if ns.db.defaultProfile == name then
+		ns.db.defaultProfile = nil
+	end
+	ns:Fire(ns.PROFILES_CHANGED)
+end
+
+function ns:GetDefaultProfile()
+	local name = ns.db.defaultProfile
+	return name and ns.db.profiles[name] and name or DEFAULT_PROFILE
+end
+
+function ns:SetDefaultProfile(name)
+	ns.db.defaultProfile = name ~= DEFAULT_PROFILE and ns.db.profiles[name] and name or nil
 	ns:Fire(ns.PROFILES_CHANGED)
 end
 
@@ -1054,10 +1208,24 @@ function parseValue(text, pos)
 	return nil
 end
 
-function ns:ExportProfile()
+function ns.Serialize(value)
 	local out = {}
-	serialize(saved, out)
-	return EXPORT_PREFIX .. ns.Encode(concat(out))
+	serialize(value, out)
+	return concat(out)
+end
+
+function ns.Deserialize(text)
+	local value, pos = parseValue(text, 1)
+	if value == nil or pos ~= #text + 1 then
+		return nil
+	end
+	return value
+end
+
+local migrate
+
+function ns:ExportProfile()
+	return EXPORT_PREFIX .. ns.Encode(ns.Serialize(pruned(saved)))
 end
 
 function ns:ImportProfile(text)
@@ -1069,10 +1237,11 @@ function ns:ImportProfile(text)
 	if not body then
 		return false, err
 	end
-	local data, pos = parseValue(body, 1)
-	if type(data) ~= "table" or pos ~= #body + 1 then
+	local data = ns.Deserialize(body)
+	if type(data) ~= "table" then
 		return false, L["malformed profile string"]
 	end
+	migrate(data)
 	prune(data, ns.Defaults)
 	replaceSaved(data)
 	ns:Fire(ns.CONFIG_CHANGED)
@@ -1152,7 +1321,7 @@ local function migrateClassColorHealth(profile)
 	end
 end
 
-local function migrate(profile)
+function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
 	migrateGroupSpacing(profile)
@@ -1169,7 +1338,7 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 	for _, profile in pairs(db.profiles) do
 		migrate(profile)
 	end
-	activate(db.charProfile[charKey()] or DEFAULT_PROFILE)
+	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)
 end)
@@ -1188,8 +1357,17 @@ local pending = {}
 local combatWatcher = ns.Mixin({}, ns.EventMixin)
 
 combatWatcher:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-	for handler, owner in pairs(pending) do
-		handler(owner)
+	if not next(pending) then
+		return
+	end
+	local errorHandler = geterrorhandler()
+	for handler, owners in pairs(pending) do
+		for owner in pairs(owners) do
+			local ok, err = pcall(handler, owner)
+			if not ok then
+				errorHandler(err)
+			end
+		end
 	end
 	wipe(pending)
 end)
@@ -1207,7 +1385,12 @@ local function runWatcher(watcher)
 	local path = watcher.path
 	watcher.path = nil
 	if watcher.secure and InCombatLockdown() then
-		pending[watcher.handler] = watcher.owner
+		local owners = pending[watcher.handler]
+		if not owners then
+			owners = {}
+			pending[watcher.handler] = owners
+		end
+		owners[watcher.owner] = true
 	else
 		watcher.handler(watcher.owner, path or nil)
 	end

@@ -81,3 +81,28 @@ end
 Auras:RegisterEvent("UNIT_AURA", function(_, unit)
 	Auras.Invalidate(unit)
 end)
+
+local CAST_IMMUNITY = {
+	[642] = true, -- Divine Shield
+	[45438] = true, -- Ice Block
+	[31224] = true, -- Cloak of Shadows
+	[54748] = true, -- Burning Determination
+}
+local AURA_MASTERY = 31821 -- Aura Mastery
+local CONCENTRATION_AURA = 19746 -- Concentration Aura
+
+function ns.HasCastImmunity(unit)
+	local set, n = Auras.Get(unit, "HELPFUL")
+	local mastery, concentration = false, false
+	for i = 1, n do
+		local spellId = set[i].spellId
+		if CAST_IMMUNITY[spellId] then
+			return true
+		elseif spellId == AURA_MASTERY then
+			mastery = true
+		elseif spellId == CONCENTRATION_AURA then
+			concentration = true
+		end
+	end
+	return mastery and concentration
+end

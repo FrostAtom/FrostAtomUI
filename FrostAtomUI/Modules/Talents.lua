@@ -7,21 +7,11 @@ local GetNumTalents = GetNumTalents
 local GetNumTalentTabs = GetNumTalentTabs
 local GetActiveTalentGroup = GetActiveTalentGroup
 local GetGlyphSocketInfo = GetGlyphSocketInfo
-local CanInspect = CanInspect
-local CheckInteractDistance = CheckInteractDistance
-local InCombatLockdown = InCombatLockdown
 local UnitGUID = UnitGUID
 local UnitBuff = UnitBuff
-local UnitClass = UnitClass
-local UnitExists = UnitExists
 local UnitIsPlayer = UnitIsPlayer
-local UnitIsVisible = UnitIsVisible
-local UnitIsConnected = UnitIsConnected
 local UnitCanAttack = UnitCanAttack
-local UnitLevel = UnitLevel
-local IsInInstance = IsInInstance
 local GetPlayerInfoByGUID = GetPlayerInfoByGUID
-local GetTime = GetTime
 
 local Data = ns.CooldownData
 local MAX_TALENT_POINTS = Data.MAX_TALENT_POINTS
@@ -29,36 +19,11 @@ local SPEC_HINTS = Data.SPEC_HINTS
 
 local NUM_GLYPH_SOCKETS = 6
 local MAX_AURAS = 40
-local INSPECT_INTERVAL = 1.5
-local INSPECT_TIMEOUT = 5
-local INSPECT_RETRIES = 4
-local CACHE_TIME = 900
-local ARENA_REINSPECT_INTERVAL = 12
-local ARENA_REINSPECT_COUNT = 6
-local PARTY_UNITS = { "party1", "party2", "party3", "party4" }
-local INSPECT_UNITS = { "party1", "party2", "party3", "party4", "target", "focus", "mouseover" }
-local GUID_LOOKUP_UNITS = {}
-for i = 1, #INSPECT_UNITS do
-	GUID_LOOKUP_UNITS[i] = INSPECT_UNITS[i]
-	GUID_LOOKUP_UNITS[#INSPECT_UNITS + i] = INSPECT_UNITS[i] .. "target"
-end
 local HOSTILE_SCAN_UNITS = { arena1 = true, arena2 = true, arena3 = true, target = true, focus = true }
-
-local TREE1_TALENTS = {
-	DEATHKNIGHT = 48979, -- Butchery
-	DRUID = 16814, -- Starlight Wrath
-	HUNTER = 19552, -- Improved Aspect of the Hawk
-	MAGE = 11210, -- Arcane Subtlety
-	PALADIN = 20205, -- Spiritual Focus
-	PRIEST = 14522, -- Unbreakable Will
-	ROGUE = 14162, -- Improved Eviscerate
-	SHAMAN = 16039, -- Convection
-	WARLOCK = 18827, -- Improved Curse of Agony
-	WARRIOR = 12282, -- Improved Heroic Strike
-}
 
 ns.TALENTS_UPDATED = "FrostAtomUI_TALENTS_UPDATED"
 
+local Inspect = ns:GetModule("Inspect")
 local Talents = ns:NewModule("Talents")
 
 local talentRanks = {}
@@ -113,27 +78,9 @@ for _, row in pairs(Data.CDMOD_MULT) do
 end
 
 local data = {}
-local dataTime = {}
 local observed = {}
 local specs = {}
 local points = {}
-local pending = {}
-local retries = {}
-local lastRequestGUID, lastRequestTime, lastRequestClass = nil, 0, nil
-
-local function inspectDataMatchesClass(class)
-	local id = class and TREE1_TALENTS[class]
-	local expected = id and GetSpellInfo(id)
-	if not expected then
-		return true
-	end
-	for i = 1, GetNumTalents(1, true) do
-		if GetTalentInfo(1, i, true) == expected then
-			return true
-		end
-	end
-	return false
-end
 
 local treePoints = {}
 
@@ -172,11 +119,8 @@ end
 
 local function storeTalents(guid, talents, spec)
 	data[guid] = talents
-	dataTime[guid] = GetTime()
 	specs[guid] = spec
 	points[guid] = table.concat(treePoints, "/")
-	retries[guid] = nil
-	pending[guid] = nil
 	ns:Fire(ns.TALENTS_UPDATED, guid)
 end
 
@@ -271,129 +215,24 @@ function Talents:IsExcluded(guid, tree, points)
 	return false
 end
 
-local queue = CreateFrame("Frame")
-queue:Hide()
-queue.sinceRequest = 0
-queue.sinceArenaTick = 0
-queue.arenaTicks = 0
-
-local function guidToUnit(guid)
-	for i = 1, #GUID_LOOKUP_UNITS do
-		local unit = GUID_LOOKUP_UNITS[i]
-		if UnitGUID(unit) == guid then
-			return unit
-		end
-	end
-end
-
-local function isInspectable(unit)
-	return UnitExists(unit) and UnitIsPlayer(unit) and UnitLevel(unit) >= 10 and not UnitCanAttack("player", unit)
-end
-
-local function enqueue(unit, force)
-	local guid = UnitGUID(unit)
-	if not guid or guid == UnitGUID("player") or not isInspectable(unit) then
-		return
-	end
-	if force or not data[guid] or GetTime() - dataTime[guid] > CACHE_TIME then
-		pending[guid] = true
-		queue:Show()
-	end
-end
-
 function Talents:Invalidate(guid)
 	data[guid] = nil
-	dataTime[guid] = nil
 	observed[guid] = nil
 	specs[guid] = nil
 	points[guid] = nil
-	retries[guid] = nil
-	local unit = guidToUnit(guid)
+	local unit = Inspect:UnitByGUID(guid)
 	if unit then
-		enqueue(unit, true)
+		Inspect:Request(unit)
 	end
 	ns:Fire(ns.TALENTS_UPDATED, guid)
 end
 
-local function requestInspect()
-	if InCombatLockdown() or (InspectFrame and InspectFrame:IsShown()) then
-		return
-	end
-	if lastRequestGUID and GetTime() - lastRequestTime < INSPECT_TIMEOUT then
-		return
-	end
-	for guid in pairs(pending) do
-		local unit = guidToUnit(guid)
-		if not unit then
-			pending[guid] = nil
-		elseif
-			UnitIsVisible(unit)
-			and UnitIsConnected(unit)
-			and CanInspect(unit)
-			and CheckInteractDistance(unit, 1)
-		then
-			NotifyInspect(unit)
-			return
-		end
-	end
-end
-
-queue:SetScript("OnUpdate", function(self, elapsed)
-	self.sinceRequest = self.sinceRequest + elapsed
-	if self.sinceRequest >= INSPECT_INTERVAL then
-		self.sinceRequest = 0
-		requestInspect()
-	end
-
-	if self.arenaTicks > 0 then
-		self.sinceArenaTick = self.sinceArenaTick + elapsed
-		if self.sinceArenaTick >= ARENA_REINSPECT_INTERVAL then
-			self.sinceArenaTick = 0
-			self.arenaTicks = self.arenaTicks - 1
-			for i = 1, #PARTY_UNITS do
-				enqueue(PARTY_UNITS[i], true)
-			end
-		end
-	end
-
-	if not next(pending) and self.arenaTicks == 0 then
-		self:Hide()
-	end
-end)
-
-hooksecurefunc("NotifyInspect", function(unit)
-	local _, class = UnitClass(unit)
-	lastRequestGUID, lastRequestTime, lastRequestClass = UnitGUID(unit), GetTime(), class
-end)
-
-local function retry(guid)
-	local count = (retries[guid] or 0) + 1
-	retries[guid] = count
-	if count > INSPECT_RETRIES then
-		pending[guid] = nil
-		retries[guid] = nil
-	else
-		pending[guid] = true
-		queue:Show()
-	end
-end
-
-function Talents:INSPECT_TALENT_READY()
-	local guid = lastRequestGUID
-	if not guid then
-		return
-	end
-	lastRequestGUID = nil
-	if guid == UnitGUID("player") then
-		return
-	end
+local function onTalentsReady(_, guid)
 	local talents = {}
 	local spent, _, spec = readTalents(true, talents)
-	if spent == 0 or not inspectDataMatchesClass(lastRequestClass) then
-		retry(guid)
-		return
+	if spent > 0 then
+		storeTalents(guid, talents, spec)
 	end
-	storeTalents(guid, talents, spec)
 end
 
 local function scanAuras(unit)
@@ -423,57 +262,26 @@ end
 
 Talents.ARENA_OPPONENT_UPDATE = Talents.UNIT_AURA
 
-local function onUnitChanged(unit)
-	if UnitCanAttack("player", unit) then
-		scanAuras(unit)
-	else
-		enqueue(unit)
-	end
-end
-
 function Talents:PLAYER_TARGET_CHANGED()
-	onUnitChanged("target")
+	scanAuras("target")
 end
 
 function Talents:PLAYER_FOCUS_CHANGED()
-	onUnitChanged("focus")
-end
-
-function Talents:UPDATE_MOUSEOVER_UNIT()
-	onUnitChanged("mouseover")
-end
-
-function Talents:PARTY_MEMBERS_CHANGED()
-	for i = 1, #PARTY_UNITS do
-		enqueue(PARTY_UNITS[i])
-	end
+	scanAuras("focus")
 end
 
 function Talents:PLAYER_ENTERING_WORLD()
 	wipe(observed)
-	wipe(pending)
-	wipe(retries)
-	lastRequestGUID = nil
 	readPlayer()
-	self:PARTY_MEMBERS_CHANGED()
 	self:PLAYER_TARGET_CHANGED()
 	self:PLAYER_FOCUS_CHANGED()
-	if select(2, IsInInstance()) == "arena" then
-		queue.arenaTicks = ARENA_REINSPECT_COUNT
-		queue.sinceArenaTick = 0
-		queue:Show()
-	else
-		queue.arenaTicks = 0
-	end
 end
 
 function Talents:Initialize()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
-	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
 	self:RegisterEvent("PLAYER_TARGET_CHANGED")
 	self:RegisterEvent("PLAYER_FOCUS_CHANGED")
-	self:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
-	self:RegisterEvent("INSPECT_TALENT_READY")
+	self:RegisterEvent(ns.INSPECT_TALENTS_READY, onTalentsReady)
 	self:RegisterEvent("UNIT_AURA")
 	self:RegisterEvent("ARENA_OPPONENT_UPDATE")
 	for _, event in ipairs({

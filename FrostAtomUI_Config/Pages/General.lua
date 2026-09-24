@@ -105,6 +105,28 @@ local schema = {
 		step = 4,
 		enabledBy = "general.showGrid",
 	},
+	{
+		label = L["Reset positions"],
+		new = "1.4.1",
+		type = "execute",
+		text = L["Reset"],
+		confirm = L["Reset the positions of all frames to defaults?"],
+		func = function()
+			ui.Movers.ResetPositions()
+		end,
+		desc = L["Move every frame back to its default position. Other settings stay. Also: /fui reset"],
+	},
+	{ header = L["Other addons"], new = "1.4.1" },
+	{
+		label = L["Conflicting addons"],
+		new = "1.4.1",
+		type = "execute",
+		text = L["Ask again"],
+		func = function()
+			ui.ResetConflictChoices()
+		end,
+		desc = L["Forget the answers given when another addon was found doing the same job as a FrostAtom UI module, and check the loaded addons again."],
+	},
 	{ header = L["Unit frames"] },
 	{
 		path = "dispelHighlightAlpha",

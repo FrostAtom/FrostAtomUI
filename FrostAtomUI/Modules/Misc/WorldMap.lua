@@ -30,6 +30,9 @@ Misc:OnInitialize(function()
 	local GetPlayerMapPosition = GetPlayerMapPosition
 	local GetCurrentMapZone = GetCurrentMapZone
 	local GetCurrentMapContinent = GetCurrentMapContinent
+	local GetNumMapLandmarks = GetNumMapLandmarks
+	local GetMapLandmarkInfo = GetMapLandmarkInfo
+	local GetUnitSpeed = GetUnitSpeed
 	local SetMapToCurrentZone = SetMapToCurrentZone
 	local GetNumRaidMembers = GetNumRaidMembers
 	local GetBattlefieldPosition = GetBattlefieldPosition
@@ -58,6 +61,7 @@ Misc:OnInitialize(function()
 	local MIN_ZOOM = 1
 	local UNIT_ICON_DEFAULT = "Interface\\WorldMap\\WorldMapPartyIcon"
 	local COORD_FORMAT = "%s: %.1f, %.1f"
+	local FADE_INTERVAL = 0.1
 
 	local partyFrames, partyUnits = {}, {}
 	for i = 1, MAX_PARTY_MEMBERS do
@@ -162,6 +166,19 @@ Misc:OnInitialize(function()
 		end
 	end
 
+	local function scaleLandmarks()
+		local inverse = 1 / zoom
+		local width, height = WorldMapButton:GetWidth() * zoom, WorldMapButton:GetHeight() * zoom
+		for i = 1, GetNumMapLandmarks() do
+			local landmark = _G["WorldMapFramePOI" .. i]
+			if landmark then
+				local _, _, _, x, y = GetMapLandmarkInfo(i)
+				landmark:SetScale(inverse)
+				landmark:SetPoint("CENTER", WorldMapButton, "TOPLEFT", x * width, -y * height)
+			end
+		end
+	end
+
 	local function setZoom(scale)
 		zoom = scale
 		local inverse = 1 / scale
@@ -178,6 +195,7 @@ Misc:OnInitialize(function()
 		scaleAll(partyFrames, inverse)
 		scaleAll(raidFrames, inverse)
 		scaleAll(MAP_VEHICLES, inverse)
+		scaleLandmarks()
 
 		maxScrollX = MAP_WIDTH - MAP_WIDTH * inverse
 		maxScrollY = MAP_HEIGHT - MAP_HEIGHT * inverse
@@ -211,8 +229,36 @@ Misc:OnInitialize(function()
 	local cursorText = coords:CreateFontString(nil, "OVERLAY")
 	local playerText = coords:CreateFontString(nil, "OVERLAY")
 
+	local fadeDriver = CreateFrame("Frame", nil, WorldMapFrame)
+	local untilFade, mapAlpha = 0, 1
+
+	local function setMapAlpha(alpha)
+		if alpha ~= mapAlpha then
+			mapAlpha = alpha
+			WorldMapFrame:SetAlpha(alpha)
+		end
+	end
+
+	fadeDriver:SetScript("OnUpdate", function(_, elapsed)
+		untilFade = untilFade - elapsed
+		if untilFade > 0 then
+			return
+		end
+		untilFade = FADE_INTERVAL
+		if GetUnitSpeed("player") > 0 and not scroll:IsMouseOver() then
+			setMapAlpha(ns.Config.worldMap.movingAlpha)
+		else
+			setMapAlpha(1)
+		end
+	end)
+	fadeDriver:SetScript("OnHide", function()
+		setMapAlpha(1)
+	end)
+
 	local function applyConfig()
 		local config = ns.Config.worldMap
+		ns.SetShown(fadeDriver, config.fadeWhenMoving)
+		untilFade = 0
 		local font = config.coordFont
 		ns.SetFont(cursorText, font.size, font.outline)
 		ns.SetFont(playerText, font.size, font.outline)
@@ -300,6 +346,8 @@ Misc:OnInitialize(function()
 		end
 	end
 	WorldMapFrame:HookScript("OnShow", setup)
+
+	hooksecurefunc("WorldMapFrame_Update", scaleLandmarks)
 
 	hooksecurefunc("WorldMapQuestShowObjectives_AdjustPosition", function()
 		reanchor(WorldMapQuestShowObjectives, scroll)

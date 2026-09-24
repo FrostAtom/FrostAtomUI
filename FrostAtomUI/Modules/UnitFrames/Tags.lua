@@ -101,6 +101,16 @@ local tags = {
 			return percent(power(unit, data))
 		end,
 	},
+	druidmana = {
+		power = true,
+		func = function(unit, data, raw)
+			if data or UnitPowerType(unit) == 0 then
+				return ""
+			end
+			local max = UnitPowerMax(unit, 0)
+			return max > 0 and value(raw, UnitPower(unit, 0)) or ""
+		end,
+	},
 	class = {
 		func = function(unit, data)
 			if data then

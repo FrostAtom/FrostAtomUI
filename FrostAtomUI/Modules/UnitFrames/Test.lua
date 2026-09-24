@@ -29,7 +29,7 @@ local DRUID_POWER = { 0, 1, 3 }
 local POWER_MAX = { [0] = 24000, [1] = 100, [2] = 100, [3] = 100, [6] = 100 }
 
 local function makeData(frame)
-	local unit = frame.unit
+	local unit = frame.baseUnit
 	local data = {}
 
 	if unit:find("pet") then
@@ -49,6 +49,7 @@ local function makeData(frame)
 	data.dead = unit ~= "player" and random(10) == 1
 	data.health = floor(data.healthMax * random(15, 100) / 100)
 	data.incoming = random(2) == 1 and floor(data.healthMax * random(5, 25) / 100) or 0
+	data.incomingOwn = random(2) == 1 and floor(data.incoming * random(20, 80) / 100) or 0
 	data.absorb = random(3) == 1 and floor(data.healthMax * random(5, 20) / 100) or 0
 	data.powerMax = POWER_MAX[data.powerType]
 	data.power = floor(data.powerMax * random(0, 100) / 100)
@@ -96,7 +97,7 @@ function UF:SetTestMode(enabled)
 	self.testing = enabled
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
-		if not frame.unit:find("^boss") then
+		if not frame.baseUnit:find("^boss") then
 			if enabled then
 				startTest(frame)
 			else

@@ -143,6 +143,7 @@ StaticPopupDialogs.FROSTATOMUI_REPORT_AFK = {
 	timeout = 0,
 	whileDead = true,
 	hideOnEscape = true,
+	preferredIndex = 3,
 	OnAccept = function(_, name)
 		ReportPlayerIsPVPAFK(name)
 	end,

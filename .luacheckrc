@@ -52,7 +52,7 @@ read_globals = {
 	"CanMerchantRepair", "GetRepairAllCost", "RepairAllItems", "GetMoney", "GetContainerNumSlots",
 	"GetContainerItemLink", "GetContainerItemInfo", "UseContainerItem", "GetNumGuildMembers",
 	"GetGuildRosterInfo", "GetNumPartyMembers", "AcceptGroup", "IsInGuild", "GuildRoster",
-	"GetInventoryItemLink", "GetInventoryItemDurability", "RaidNotice_AddMessage", "IsAddOnLoaded", "LoadAddOn",
+	"GetInventoryItemLink", "GetInventoryItemID", "GetInventoryItemDurability", "RaidNotice_AddMessage", "IsAddOnLoaded", "LoadAddOn",
 	"GetContainerNumFreeSlots", "GetContainerItemID", "GetContainerItemCooldown", "GetContainerItemQuestInfo",
 	"GetItemQualityColor", "IsInventoryItemLocked", "ContainerIDToInventoryID", "BankButtonIDToInvSlotID",
 	"GetNumBankSlots", "GetBankSlotCost", "CursorHasItem", "PutItemInBag", "PutItemInBackpack",
@@ -73,6 +73,11 @@ read_globals = {
 	"DEAD", "AFK", "DND", "FRIENDS_LIST_OFFLINE", "INTERRUPTED", "FAILED", "UNKNOWN",
 	"UnitPopup_ShowMenu", "FauxScrollFrame_Update", "FauxScrollFrame_OnVerticalScroll",
 	"FauxScrollFrame_GetOffset", "FauxScrollFrame_SetOffset",
+	"UIDropDownMenu_EnableDropDown", "UIDropDownMenu_DisableDropDown",
+	"PanelTemplates_TabResize", "PanelTemplates_SetTab", "PanelTemplates_SetNumTabs",
+	"PanelTemplates_EnableTab", "PanelTemplates_DisableTab",
+	"GameFontHighlightSmall", "GameFontHighlightLeft", "GameFontDisableLeft",
+	"ShowUIPanel", "HideUIPanel", "HideParentPanel", "PVPFrame",
 
 	-- FrameXML tables & constants
 	"UIDROPDOWNMENU_INIT_MENU", "RAID_CLASS_COLORS", "PowerBarColor", "DebuffTypeColor", "RAID_TARGET_ICON",
@@ -89,7 +94,21 @@ read_globals = {
 	"ERR_NEW_LEADER_YOU", "ERR_NEW_LEADER_S",
 	"PVP_ENABLED", "FACTION_ALLIANCE", "FACTION_HORDE", "ITEM_QUALITY3_DESC", "ITEM_QUALITY_COLORS",
 	"CLASS_ICON_TCOORDS", "MAX_RAID_MEMBERS", "FOREIGN_SERVER_LABEL", "CHAT_FLAG_AFK", "CHAT_FLAG_DND",
-	"PLAYER_OFFLINE", "TOOLTIP_DEFAULT_COLOR",
+	"PLAYER_OFFLINE", "TOOLTIP_DEFAULT_COLOR", "ITEM_LEVEL",
+	"strjoin", "ChatEdit_InsertLink", "SPELLBOOK", "BOOKTYPE_SPELL", "BOOKTYPE_PET", "PET", "ERR_NOT_IN_COMBAT",
+	"PASSIVE_SPELL_FONT_COLOR",
+	"TALENTS", "TALENT_SPEC_PRIMARY", "TALENT_SPEC_SECONDARY", "TALENT_SPEC_PET_PRIMARY", "TALENT_SPEC_ACTIVATE",
+	"TALENT_ACTIVATION_SPELLS", "GLYPHS", "RESET", "LEARN", "UNSPENT_TALENT_POINTS", "CONFIRM_LEARN_PREVIEW_TALENTS",
+	"SHOW_TALENT_LEVEL", "SHOW_INSCRIPTION_LEVEL", "CONFIRM_REMOVE_GLYPH", "CONFIRM_GLYPH_PLACEMENT",
+	"GLYPH_LOCKED", "GLYPH_EMPTY", "TalentFrame_UpdateSpecInfoCache", "TALENT_HYBRID_ICON",
+	"TALENT_ACTIVE_SPEC_STATUS", "TALENT_TOOLTIP_RESETTALENTGROUP", "TALENT_TOOLTIP_LEARNTALENTGROUP",
+	"GREEN_FONT_COLOR", "NORMAL_FONT_COLOR", "GRAY_FONT_COLOR", "HIGHLIGHT_FONT_COLOR",
+	"HIGHLIGHT_FONT_COLOR_CODE", "FONT_COLOR_CODE_CLOSE",
+	"GRAY_FONT_COLOR_CODE", "GREEN_FONT_COLOR_CODE", "RED_FONT_COLOR_CODE", "NORMAL_FONT_COLOR_CODE",
+	"WhoFrameColumn_SetWidth",
+	"RED_FONT_COLOR", "ORANGE_FONT_COLOR", "ORANGE_FONT_COLOR_CODE", "TOOLTIP_DEFAULT_BACKGROUND_COLOR",
+	"MACROFRAME_CHAR_LIMIT", "MACRO_POPUP_TEXT", "MACRO_POPUP_CHOOSE_ICON", "CHANGE_MACRO_NAME_ICON",
+	"ENTER_MACRO_LABEL", "OKAY", "CANCEL", "EXIT", "NEW", "DELETE", "ScrollFrameTemplate_OnMouseWheel",
 }
 
 -- Frames and globals the addon deliberately writes to.
@@ -102,7 +121,8 @@ globals = {
 	"MainMenuBarVehicleLeaveButton_Update", "TalentFrame_LoadUI", "Arena_LoadUI",
 	"TimeManager_LoadUI", "CombatLog_LoadUI", "Blizzard_CombatLog_Update_QuickButtons",
 	"Minimap_UpdateRotationSetting", "UnitPopup_OnClick", "ChatEdit_OnSpacePressed", "SetItemRef",
-	"InspectPaperDollItemSlotButton_Update",
+	"InspectPaperDollItemSlotButton_Update", "GetMinimapShape",
+	"ToggleSpellBook", "ToggleTalentFrame", "ToggleGlyphFrame", "OpenGlyphFrame",
 	"ToggleBag", "ToggleBackpack", "OpenBackpack", "CloseBackpack", "OpenAllBags", "CloseAllBags", "IsBagOpen",
 	-- chat constants
 	"CHAT_FRAME_FADE_OUT_TIME", "CHAT_TAB_HIDE_DELAY",
@@ -113,6 +133,8 @@ globals = {
 	"SLASH_RELOAD2", "BINDING_HEADER_FROSTATOMUI",
 	"BINDING_NAME_FROSTATOMUI_CAMERA_CLOSE", "BINDING_NAME_FROSTATOMUI_CAMERA_MEDIUM",
 	"BINDING_NAME_FROSTATOMUI_CAMERA_FAR", "FrostAtomUI_SetCameraDistance",
+	-- action bars
+	"AutoCastShine_AutoCastStart", "AutoCastShine_AutoCastStop", "LEAVE_VEHICLE",
 }
 
 -- Blizzard frames are accessed as globals; anything in CamelCase that is not
@@ -128,6 +150,8 @@ files["FrostAtomUI_Config/**/*.lua"] = {
 	ignore = {
 		"113/[A-Z][A-Za-z0-9]+", -- accessing undefined variable (frame globals)
 	},
-	read_globals = { "UIDropDownMenu_EnableDropDown", "UIDropDownMenu_DisableDropDown", "ReloadUI" },
+	read_globals = {
+		"UIDropDownMenu_EnableDropDown", "UIDropDownMenu_DisableDropDown", "ReloadUI", "ScrollFrame_OnScrollRangeChanged",
+	},
 	globals = { "ColorPickerFrame" },
 }

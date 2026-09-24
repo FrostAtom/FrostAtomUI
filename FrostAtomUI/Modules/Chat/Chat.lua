@@ -513,6 +513,23 @@ local function filterTargetIcons()
 	return wasInArena and config.filterArenaSpam
 end
 
+local lastAutoReplies = { CHAT_MSG_AFK = {}, CHAT_MSG_DND = {} }
+local autoReplyLine, autoReplyFiltered
+
+local function filterAutoReply(_, event, message, author, _, _, _, _, _, _, _, _, lineId)
+	if not config.filterAutoReplies or not author then
+		return
+	end
+	lineId = lineId or GetTime()
+	if lineId == autoReplyLine then
+		return autoReplyFiltered
+	end
+	local last = lastAutoReplies[event]
+	autoReplyLine, autoReplyFiltered = lineId, last[author] == message
+	last[author] = message
+	return autoReplyFiltered
+end
+
 local CHANNEL_GETS = {
 	CHAT_GUILD_GET = "|Hchannel:GUILD|h[G]|h %s:\32",
 	CHAT_OFFICER_GET = "|Hchannel:OFFICER|h[O]|h %s:\32",
@@ -647,6 +664,7 @@ StaticPopupDialogs.FROSTATOMUI_COPY_URL = {
 	timeout = 0,
 	whileDead = true,
 	hideOnEscape = true,
+	preferredIndex = 3,
 	OnShow = function(self)
 		focusEditBoxText(self, self.url or "")
 	end,
@@ -901,14 +919,34 @@ local function setupTab(name)
 end
 
 local EDIT_BOX_TEXTURE_PARTS = { "Left", "Right", "Mid" }
+local EDIT_BOX_ABOVE_OFFSET = DOCK_OFFSET + TAB_HEIGHT - 2
+local editBoxes, editBoxFrames = {}, {}
+
+local function placeEditBox(editBox)
+	local chatFrame = editBoxFrames[editBox]
+	editBox:ClearAllPoints()
+	if config.editBoxPosition == "above" then
+		editBox:SetPoint("BOTTOMLEFT", chatFrame, "TOPLEFT", -PANEL_INSET, EDIT_BOX_ABOVE_OFFSET)
+		editBox:SetPoint("BOTTOMRIGHT", chatFrame, "TOPRIGHT", PANEL_INSET, EDIT_BOX_ABOVE_OFFSET)
+	else
+		editBox:SetPoint("TOPLEFT", chatFrame, "BOTTOMLEFT", -PANEL_INSET, -2)
+		editBox:SetPoint("TOPRIGHT", chatFrame, "BOTTOMRIGHT", PANEL_INSET, -2)
+	end
+end
+
+local function applyEditBoxPosition()
+	for i = 1, #editBoxes do
+		placeEditBox(editBoxes[i])
+	end
+end
 
 local function setupEditBox(name, chatFrame)
 	local editBox = _G[name]
 	editBox:SetAltArrowKeyMode(false)
 	editBox:Hide()
-	editBox:ClearAllPoints()
-	editBox:SetPoint("TOPLEFT", chatFrame, "BOTTOMLEFT", -6, -2)
-	editBox:SetPoint("TOPRIGHT", chatFrame, "BOTTOMRIGHT", 6, -2)
+	editBoxFrames[editBox] = chatFrame
+	editBoxes[#editBoxes + 1] = editBox
+	placeEditBox(editBox)
 
 	hideRegions(name, unpack(EDIT_BOX_TEXTURE_PARTS))
 	for i = 1, #EDIT_BOX_TEXTURE_PARTS do
@@ -990,6 +1028,8 @@ function Chat:HookMessages()
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", filterSystem)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_BG_SYSTEM_NEUTRAL", filterBgSystem)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_TARGETICONS", filterTargetIcons)
+	ChatFrame_AddMessageEventFilter("CHAT_MSG_AFK", filterAutoReply)
+	ChatFrame_AddMessageEventFilter("CHAT_MSG_DND", filterAutoReply)
 
 	blizzardSetItemRef = SetItemRef
 	SetItemRef = setItemRef
@@ -1049,6 +1089,7 @@ function Chat:Skin()
 		setupTab(name .. "Tab")
 		setupEditBox(name .. "EditBox", _G[name])
 	end
+	self:WatchConfig("chat.editBoxPosition", applyEditBoxPosition)
 	hooksecurefunc("FCFTab_UpdateColors", updateTabColors)
 	hooksecurefunc("FCFDock_UpdateTabs", layoutTabs)
 	layoutTabs()

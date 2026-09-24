@@ -35,7 +35,23 @@ local function onLeave(icon)
 	icon:SetScript("OnUpdate", nil)
 end
 
-local function createIcon()
+local function adoptBlizzardButton(icon, index)
+	local button = _G["TempEnchant" .. index]
+	if not button then
+		return
+	end
+	button:SetParent(icon)
+	button:ClearAllPoints()
+	button:SetAllPoints(icon)
+	button:SetFrameLevel(icon:GetFrameLevel() + 2)
+	button:SetAlpha(0)
+	button:SetScript("OnShow", nil)
+	button:Show()
+	icon:EnableMouse(false)
+	icon.blizzard = button
+end
+
+local function createIcon(index)
 	local icon = CreateFrame("Button", nil, holder)
 	icon:Hide()
 	icon:RegisterForClicks("RightButtonDown")
@@ -48,6 +64,8 @@ local function createIcon()
 
 	icon.timer = icon:CreateFontString(nil, "OVERLAY")
 	icon.timer:SetPoint("CENTER")
+
+	adoptBlizzardButton(icon, index)
 
 	return icon
 end
@@ -92,6 +110,9 @@ local function showEnchants(...)
 			icon.slot = slot
 			icon.expires = now + (select(i + 1, ...) or 0) / 1000
 			icon.texture:SetTexture(GetInventoryItemTexture("player", slot))
+			if icon.blizzard then
+				icon.blizzard:SetID(slot)
+			end
 			icon:Show()
 		end
 	end
@@ -144,7 +165,7 @@ function TemporaryEnchant:Initialize()
 	holder = CreateFrame("Frame", nil, UIParent)
 	self:AnchorToConfig(holder, "temporaryEnchant.point", "Weapon enchants")
 	for i = 1, MAX_ICONS do
-		icons[i] = createIcon()
+		icons[i] = createIcon(i)
 	end
 
 	applyConfig()

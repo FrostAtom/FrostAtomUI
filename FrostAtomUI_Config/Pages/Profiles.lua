@@ -5,39 +5,51 @@ local L = ui.L
 
 local WINDOW_NAME = ADDON_NAME .. "ProfileText"
 local WINDOW_WIDTH, WINDOW_HEIGHT = 520, 320
-local PADDING = 12
+local EDGE = 16
+local BOX_TOP = -30
+local BOX_BOTTOM = 46
+local SCROLL_INSET = 6
+local SCROLL_RIGHT = 27
 
 local window
 
 local function createWindow()
-	window = ns.CreateWindow(WINDOW_NAME, "FULLSCREEN_DIALOG", 0.9)
-	window:SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+	window = ns.CreateWindow(WINDOW_NAME, {
+		width = WINDOW_WIDTH,
+		height = WINDOW_HEIGHT,
+		header = true,
+		strata = "FULLSCREEN_DIALOG",
+		noClose = true,
+		movable = false,
+	})
 	window:SetPoint("CENTER")
 
-	local close = ns.CreateButton(window, L["Close"], 80)
-	close:SetPoint("BOTTOMRIGHT", -PADDING, PADDING)
+	local close = ns.CreateButton(window, L["Close"], 96)
+	close:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
 	close:SetScript("OnClick", function()
 		window:Hide()
 	end)
 
-	local action = ns.CreateButton(window, L["Import"], 80)
-	action:SetPoint("RIGHT", close, "LEFT", -8, 0)
+	local action = ns.CreateButton(window, L["Import"], 96)
+	action:SetPoint("RIGHT", close, "LEFT", -4, 0)
 	window.action = action
 
-	local scroll = CreateFrame("ScrollFrame", WINDOW_NAME .. "Scroll", window, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", PADDING, -PADDING - 28)
-	scroll:SetPoint("BOTTOMRIGHT", -PADDING - 18, PADDING + 30)
-	scroll:SetBackdrop(ui.CreateBackdrop(8))
-	scroll:SetBackdropColor(0, 0, 0, 0.5)
-	scroll:SetBackdropBorderColor(0.4, 0.4, 0.4)
+	local inset = ui.CreateInset(window, "tooltip")
+	inset:SetBackdropBorderColor(0.6, 0.6, 0.6)
+	inset:SetPoint("TOPLEFT", EDGE, BOX_TOP)
+	inset:SetPoint("BOTTOMRIGHT", -EDGE, BOX_BOTTOM)
+
+	local scroll = CreateFrame("ScrollFrame", WINDOW_NAME .. "Scroll", inset, "UIPanelScrollFrameTemplate")
+	scroll:SetPoint("TOPLEFT", SCROLL_INSET, -SCROLL_INSET)
+	scroll:SetPoint("BOTTOMRIGHT", -SCROLL_RIGHT, SCROLL_INSET)
 
 	local box = CreateFrame("EditBox", nil, scroll)
 	box:SetMultiLine(true)
 	box:SetAutoFocus(false)
 	box:SetMaxLetters(0)
-	box:SetWidth(WINDOW_WIDTH - PADDING * 2 - 26)
-	box:SetTextInsets(4, 4, 4, 4)
-	ui.SetFont(box, 12)
+	box:SetWidth(WINDOW_WIDTH - EDGE * 2 - SCROLL_INSET - SCROLL_RIGHT)
+	box:SetTextInsets(2, 2, 2, 2)
+	box:SetFontObject(ChatFontNormal)
 	box:SetScript("OnEscapePressed", box.ClearFocus)
 	box:SetScript("OnTextChanged", function()
 		scroll:UpdateScrollChildRect()
@@ -49,27 +61,39 @@ local function createWindow()
 	window.box = box
 end
 
-local function prepareWindow(title)
+local function prepareWindow(heading)
 	if not window then
 		createWindow()
 	end
-	window.heading:SetText(title:format(ui:GetActiveProfile()))
+	window.heading:SetText(heading)
 end
 
-local function showExport()
-	prepareWindow(L["Export profile: %s"])
+local function showText(heading, text)
+	prepareWindow(heading)
 	window.action:Hide()
-	window.box:SetText(ui:ExportProfile())
+	window.box:SetText(text)
 	window:Show()
 	window.box:SetFocus()
 	window.box:HighlightText()
 end
 
-local function showImport()
-	prepareWindow(L["Import into profile: %s"])
+local function showImportWindow(heading, onImport)
+	prepareWindow(heading)
 	window.action:Show()
 	window.action:SetScript("OnClick", function()
-		local text = window.box:GetText()
+		onImport(window.box:GetText())
+	end)
+	window.box:SetText("")
+	window:Show()
+	window.box:SetFocus()
+end
+
+local function showExport()
+	showText(L["Export profile: %s"]:format(ui:GetActiveProfile()), ui:ExportProfile())
+end
+
+local function showImport()
+	showImportWindow(L["Import into profile: %s"]:format(ui:GetActiveProfile()), function(text)
 		ns.Confirm(L["Replace all settings of the active profile with the imported ones?"], function()
 			local ok, err = ui:ImportProfile(text)
 			if ok then
@@ -79,9 +103,26 @@ local function showImport()
 			end
 		end)
 	end)
-	window.box:SetText("")
-	window:Show()
-	window.box:SetFocus()
+end
+
+local function showLayoutExport(name)
+	local text = ui.Movers.ExportLayout(name)
+	if text then
+		showText(L["Export layout: %s"]:format(name), text)
+	end
+end
+
+local function showLayoutImport()
+	showImportWindow(L["Import layout"], function(text)
+		local ok, result = ui.Movers.ImportLayout(text)
+		if ok then
+			window:Hide()
+			ui.Print(L["layout %q imported"], result)
+			ns.RefreshPage()
+		else
+			ui.Print(L["import failed: %s"], result)
+		end
+	end)
 end
 
 local function profileOptions(excluded)
@@ -104,6 +145,39 @@ end
 
 local function switchProfile(name)
 	ui:SetProfile(name)
+end
+
+local function layoutOptions()
+	local options = {}
+	for _, name in ipairs(ui.Movers.GetLayoutNames()) do
+		options[#options + 1] = { name, name }
+	end
+	return options
+end
+
+local function noLayouts()
+	return #ui.Movers.GetLayoutNames() == 0
+end
+
+local function saveLayout(name)
+	local ok, saved = ui.Movers.SaveLayout(name)
+	if ok then
+		ui.Print(L["layout %q saved"], saved)
+		ns.RefreshPage()
+	end
+end
+
+local function loadLayout(name)
+	ns.Confirm(L["Move all frames to the positions saved in layout %q?"]:format(name), function()
+		ui.Movers.LoadLayout(name)
+	end)
+end
+
+local function deleteLayout(name)
+	ns.Confirm(L["Delete layout %q?"]:format(name), function()
+		ui.Movers.DeleteLayout(name)
+		ns.RefreshPage()
+	end)
 end
 
 local schema = {
@@ -131,6 +205,19 @@ local schema = {
 		end,
 		set = switchProfile,
 		desc = L["Type a name and press Enter to create an empty profile and switch to it."],
+	},
+	{
+		label = L["Default for new characters"],
+		new = "1.4.1",
+		type = "select",
+		values = profileOptions,
+		get = function()
+			return ui:GetDefaultProfile()
+		end,
+		set = function(name)
+			ui:SetDefaultProfile(name)
+		end,
+		desc = L["Profile a character starts with when it has none assigned yet, including characters whose profile was deleted."],
 	},
 	{
 		label = L["Copy from"],
@@ -183,6 +270,72 @@ local schema = {
 		text = L["Import"],
 		func = showImport,
 		desc = L["Paste a profile string to replace the active profile."],
+	},
+	{ header = L["Layouts"], new = "1.4.1" },
+	{
+		description = L["A layout keeps only frame positions, shared by all characters. Loading one moves the frames of the active profile and leaves every other setting alone."],
+	},
+	{
+		label = L["Save layout"],
+		new = "1.4.1",
+		type = "string",
+		width = 160,
+		maxLetters = 32,
+		get = function()
+			return ""
+		end,
+		set = saveLayout,
+		desc = L["Type a name and press Enter to save the current frame positions. An existing layout with that name is overwritten."],
+	},
+	{
+		label = L["Load layout"],
+		new = "1.4.1",
+		type = "select",
+		placeholder = L["Select layout..."],
+		values = layoutOptions,
+		get = function() end,
+		set = loadLayout,
+		disabled = noLayouts,
+	},
+	{
+		label = L["Delete layout"],
+		new = "1.4.1",
+		type = "select",
+		placeholder = L["Select layout..."],
+		values = layoutOptions,
+		get = function() end,
+		set = deleteLayout,
+		disabled = noLayouts,
+	},
+	{
+		label = L["Export layout"],
+		new = "1.4.1",
+		type = "select",
+		placeholder = L["Select layout..."],
+		values = layoutOptions,
+		get = function() end,
+		set = showLayoutExport,
+		disabled = noLayouts,
+		desc = L["Show a layout as a string to copy."],
+	},
+	{
+		label = L["Import layout"],
+		new = "1.4.1",
+		type = "execute",
+		text = L["Import"],
+		func = showLayoutImport,
+		desc = L["Paste a layout string to add it to the list."],
+	},
+	{
+		label = L["Reset positions"],
+		new = "1.4.1",
+		type = "execute",
+		text = L["Reset"],
+		confirm = L["Reset the positions of all frames to defaults?"],
+		func = function()
+			ui.Movers.ResetPositions()
+		end,
+		desc = L["Move every frame back to its default position. Other settings stay. Also: /fui reset"],
 	},
 }
 

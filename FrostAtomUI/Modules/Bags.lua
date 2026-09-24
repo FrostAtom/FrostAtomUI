@@ -10,8 +10,10 @@ local GetContainerItemID = GetContainerItemID
 local GetContainerItemCooldown = GetContainerItemCooldown
 local GetContainerItemQuestInfo = GetContainerItemQuestInfo
 local GetItemInfo = GetItemInfo
+local GetItemIcon = GetItemIcon
 local GetItemQualityColor = GetItemQualityColor
 local GetInventoryItemTexture = GetInventoryItemTexture
+local GetInventoryItemLink = GetInventoryItemLink
 local IsInventoryItemLocked = IsInventoryItemLocked
 local ContainerIDToInventoryID = ContainerIDToInventoryID
 local BankButtonIDToInvSlotID = BankButtonIDToInvSlotID
@@ -22,6 +24,8 @@ local GetBackpackCurrencyInfo = GetBackpackCurrencyInfo
 local UnitFactionGroup = UnitFactionGroup
 local MAX_WATCHED_TOKENS = MAX_WATCHED_TOKENS
 local CursorHasItem = CursorHasItem
+local ClearCursor = ClearCursor
+local PickupContainerItem = PickupContainerItem
 local PutItemInBag = PutItemInBag
 local PutItemInBackpack = PutItemInBackpack
 local PickupBagFromSlot = PickupBagFromSlot
@@ -29,11 +33,11 @@ local CloseBankFrame = CloseBankFrame
 local CooldownFrame_SetTimer = CooldownFrame_SetTimer
 local SetItemButtonTexture = SetItemButtonTexture
 local SetItemButtonCount = SetItemButtonCount
-local SetItemButtonDesaturated = SetItemButtonDesaturated
 local StaticPopup_Show = StaticPopup_Show
 local PlaySound = PlaySound
 local GameTooltip = GameTooltip
 local bit_band = bit.band
+local tsort = table.sort
 local ceil, floor, max, min = math.ceil, math.floor, math.max, math.min
 local NUM_BAG_SLOTS = NUM_BAG_SLOTS
 local NUM_BANKGENERIC_SLOTS = NUM_BANKGENERIC_SLOTS
@@ -55,6 +59,10 @@ local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
 local CLOSE_ICON = "Interface\\FriendsFrame\\ClearBroadcastIcon"
 local SORT_ICON = "Interface\\ChatFrame\\UI-ChatIcon-ScrollEnd-Up"
 local SORT_ICON_CROP = 0.3
+local BANK_ICON = "Interface\\Minimap\\Tracking\\Banker"
+local LOCK_ICON = "Interface\\LFGFrame\\UI-LFG-ICON-LOCK"
+local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
+local LOCK_ICON_SIZE = 14
 local GLYPH_SIZE = 16
 local GLYPH_ALPHA = 0.6
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
@@ -66,6 +74,10 @@ local MAX_COLUMNS = 24
 local CURRENCY_ICON_SIZE = 14
 local CURRENCY_SPACING = 10
 local MONEY_ICON_OVERHANG = 7
+local RETRY_DELAY = 0.5
+local RETRY_TRIES = 3
+local BAG_RECHECK_DELAY = 0.5
+local LEVEL_UP_DELAY = 1
 
 local INVENTORY_BAGS = { BACKPACK_CONTAINER, 1, 2, 3, 4 }
 local BANK_BAGS = { BANK_CONTAINER, 5, 6, 7, 8, 9, 10, 11 }
@@ -74,18 +86,28 @@ local QUIVER_FAMILY = 0x0003
 local SOUL_FAMILY = 0x0004
 local PROFESSION_FAMILY = 0x0FF8
 
+local LOCK_MODIFIERS = { ALT = 1, ["ALT-CTRL"] = 3, ["ALT-SHIFT"] = 5, ["CTRL-SHIFT"] = 6 }
+
+local BagItems = ns.BagItems
+
 local bagFrames = {}
 local bagFamilies = {}
 local bagSizes = {}
 local dirtyBags = {}
+local recheckPending = {}
 local inventoryDirty = false
 local newItems = {}
-local searchCache = {}
+local searchResults = {}
 local searchText = ""
+local searchQuery
 local atBank = false
 local autoOpened = false
 local inventory, bank
 local frames = {}
+local slotLocks = {}
+local savedLocks, bankCache
+local charKey, moneyKey, playerRealm
+local retryBudget, retryScheduled = 0, false
 
 local function frameWidth(columns)
 	return columns * (config.buttonSize + config.spacing) - config.spacing + config.padding * 2
@@ -100,11 +122,49 @@ local function frameHeight(rows)
 		+ config.padding * 2
 end
 
+local function bagInventorySlot(bag)
+	if bag > NUM_BAG_SLOTS then
+		return BankButtonIDToInvSlotID(bag - NUM_BAG_SLOTS, 1)
+	elseif bag > BACKPACK_CONTAINER then
+		return ContainerIDToInventoryID(bag)
+	end
+end
+
 local function bagSize(bag)
 	if bag == BANK_CONTAINER then
 		return NUM_BANKGENERIC_SLOTS
 	end
+	local invSlot = bagInventorySlot(bag)
+	if invSlot and not GetInventoryItemLink("player", invSlot) then
+		return 0
+	end
 	return GetContainerNumSlots(bag)
+end
+Bags.BagSize = bagSize
+
+local function isBankBag(bag)
+	return bag == BANK_CONTAINER or bag > NUM_BAG_SLOTS
+end
+
+local function linkItemId(link)
+	return tonumber(link:match("item:(%d+)"))
+end
+
+local function itemTexture(itemId)
+	local texture = GetItemIcon and GetItemIcon(itemId)
+	if not texture then
+		local _
+		_, _, _, _, _, _, _, _, _, texture = GetItemInfo(itemId)
+	end
+	return texture or UNKNOWN_ICON
+end
+
+local function lockKey(bag, slot)
+	return bag * 100 + slot
+end
+
+function Bags.IsSlotLocked(key)
+	return slotLocks[key]
 end
 
 local function updateBagFamily(bag)
@@ -124,16 +184,87 @@ local function familyColor(family)
 end
 
 local function itemMatchesSearch(itemId)
-	local haystack = searchCache[itemId]
-	if not haystack then
-		local name, _, _, _, _, itemType, subType, _, equipLoc = GetItemInfo(itemId)
-		if not name then
-			return false
+	local result = searchResults[itemId]
+	if result == nil then
+		local uncertain
+		result, uncertain = BagItems.Matches(searchQuery, itemId)
+		if not uncertain then
+			searchResults[itemId] = result
 		end
-		haystack = (name .. " " .. itemType .. " " .. subType .. " " .. (_G[equipLoc] or "")):lower()
-		searchCache[itemId] = haystack
 	end
-	return haystack:find(searchText, 1, true) ~= nil
+	return result
+end
+
+local function offlineItem(bag, slot)
+	local entry = bankCache and bankCache[bag]
+	local item = entry and entry.items[slot]
+	if item then
+		return item[1], item[2]
+	end
+end
+
+local function saveBankBag(bag)
+	if not bankCache then
+		return
+	end
+	local size = bagSize(bag)
+	if size == 0 then
+		bankCache[bag] = nil
+		return
+	end
+	local entry = bankCache[bag]
+	if not entry then
+		entry = { items = {} }
+		bankCache[bag] = entry
+	end
+	entry.size = size
+	local invSlot = bagInventorySlot(bag)
+	entry.link = invSlot and GetInventoryItemLink("player", invSlot) or nil
+
+	local items = entry.items
+	for slot in pairs(items) do
+		if slot > size then
+			items[slot] = nil
+		end
+	end
+	for slot = 1, size do
+		local link = GetContainerItemLink(bag, slot)
+		if link then
+			local _, count = GetContainerItemInfo(bag, slot)
+			local item = items[slot]
+			if item then
+				item[1], item[2] = link, count or 1
+			else
+				items[slot] = { link, count or 1 }
+			end
+		else
+			items[slot] = nil
+		end
+	end
+end
+
+local function saveBank()
+	for i = 1, #BANK_BAGS do
+		saveBankBag(BANK_BAGS[i])
+	end
+end
+
+local function saveMoney()
+	local db = ns.db
+	if not db or not moneyKey then
+		return
+	end
+	local gold = db.gold or {}
+	db.gold = gold
+	local entry = gold[moneyKey] or {}
+	gold[moneyKey] = entry
+	entry.money = GetMoney()
+	entry.class = ns.PLAYER_CLASS
+end
+
+local function lockModifierDown()
+	local state = (IsAltKeyDown() and 1 or 0) + (IsControlKeyDown() and 2 or 0) + (IsShiftKeyDown() and 4 or 0)
+	return state ~= 0 and LOCK_MODIFIERS[config.lockModifier] == state
 end
 
 local lastCounts, currentCounts = {}, {}
@@ -143,7 +274,7 @@ local function scanNewItems()
 	wipe(currentCounts)
 	for i = 1, #INVENTORY_BAGS do
 		local bag = INVENTORY_BAGS[i]
-		for slot = 1, GetContainerNumSlots(bag) do
+		for slot = 1, bagSize(bag) do
 			local itemId = GetContainerItemID(bag, slot)
 			if itemId then
 				local _, count = GetContainerItemInfo(bag, slot)
@@ -163,11 +294,34 @@ local function scanNewItems()
 	lastCounts, currentCounts = currentCounts, lastCounts
 end
 
+local function forEachShownFrame(method, arg)
+	for i = 1, #frames do
+		local frame = frames[i]
+		if frame:IsShown() then
+			frame[method](frame, arg)
+		end
+	end
+end
+
+local function retryPending()
+	retryScheduled = false
+	forEachShownFrame("ForEachButton", "RetryPending")
+end
+
+local function scheduleRetry()
+	if retryScheduled or retryBudget <= 0 then
+		return
+	end
+	retryScheduled = true
+	retryBudget = retryBudget - 1
+	ns.After(RETRY_DELAY, retryPending)
+end
+
 local ItemMixin = {}
 
 function ItemMixin:UpdateSearch()
 	local itemId = self.itemId
-	self:SetAlpha((searchText == "" or (itemId and itemMatchesSearch(itemId))) and 1 or config.searchFadeAlpha)
+	self:SetAlpha((not searchQuery or (itemId and itemMatchesSearch(itemId))) and 1 or config.searchFadeAlpha)
 end
 
 function ItemMixin:UpdateHighlight()
@@ -178,50 +332,112 @@ function ItemMixin:UpdateHighlight()
 	end
 end
 
+function ItemMixin:UpdateIcon()
+	local icon = self.icon
+	local grey = (self.locked or self.cooldownPending) and true or false
+	if grey ~= self.desaturated then
+		self.desaturated = grey
+		icon:SetDesaturated(grey)
+	end
+	if grey then
+		icon:SetVertexColor(0.5, 0.5, 0.5)
+	elseif self.unusable then
+		icon:SetVertexColor(1, 0.3, 0.3)
+	else
+		icon:SetVertexColor(1, 1, 1)
+	end
+end
+
 function ItemMixin:UpdateCooldown()
-	CooldownFrame_SetTimer(self.cooldown, GetContainerItemCooldown(self.bag, self.slot))
+	local pending = false
+	if self.hasItem and not self.container.offline then
+		local start, duration, enable = GetContainerItemCooldown(self.bag, self.slot)
+		CooldownFrame_SetTimer(self.cooldown, start, duration, enable)
+		pending = duration > 0 and enable == 0
+	else
+		CooldownFrame_SetTimer(self.cooldown, 0, 0, 0)
+	end
+	if pending ~= self.cooldownPending then
+		self.cooldownPending = pending
+		self:UpdateIcon()
+	end
 end
 
 function ItemMixin:UpdateLock()
 	local _, _, locked = GetContainerItemInfo(self.bag, self.slot)
-	SetItemButtonDesaturated(self, locked)
+	self.locked = locked
+	self:UpdateIcon()
+end
+
+function ItemMixin:UpdateSortLock()
+	ns.SetShown(self.lockIcon, slotLocks[lockKey(self.bag, self.slot)])
+end
+
+function ItemMixin:RetryPending()
+	if self.pending then
+		self:Update()
+	end
+end
+
+function ItemMixin:SetOffline(offline)
+	if self.offline == offline then
+		return
+	end
+	self.offline = offline
+	if offline then
+		self:RegisterForClicks()
+		self:RegisterForDrag()
+	else
+		self:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+		self:RegisterForDrag("LeftButton")
+	end
 end
 
 function ItemMixin:Update()
 	local bag, slot = self.bag, self.slot
-	local texture, count, locked, quality, readable = GetContainerItemInfo(bag, slot)
-	local link = texture and GetContainerItemLink(bag, slot)
-	local itemId = link and GetContainerItemID(bag, slot)
+	local offline = self.container.offline
+	local texture, count, locked, quality, readable, link, itemId
+	if offline then
+		link, count = offlineItem(bag, slot)
+		if link then
+			itemId = linkItemId(link)
+			texture = itemId and itemTexture(itemId) or UNKNOWN_ICON
+		end
+	else
+		texture, count, locked, quality, readable = GetContainerItemInfo(bag, slot)
+		link = texture and GetContainerItemLink(bag, slot)
+		itemId = link and GetContainerItemID(bag, slot)
+	end
 
 	self.link = link
 	self.itemId = itemId
 	self.hasItem = texture and 1 or nil
 	self.readable = readable
+	self.locked = locked
+	self.unusable = itemId and config.tintUnusable and BagItems.IsUnusable(itemId) or false
+	self.pending = nil
 
 	SetItemButtonTexture(self, texture)
 	SetItemButtonCount(self, count)
-	SetItemButtonDesaturated(self, locked)
 
 	local r, g, b
 	local level
 	if link then
-		local _, _, itemQuality, itemLevel, _, _, _, _, equipLoc = GetItemInfo(link)
+		local itemLevel, itemQuality, pending = ns.ItemButtonLevel(link)
 		quality = itemQuality or quality
-		if GetContainerItemQuestInfo(bag, slot) then
+		if not offline and GetContainerItemQuestInfo(bag, slot) then
 			r, g, b = unpack(config.questItemColor)
 		elseif quality and quality >= 0 then
 			r, g, b = GetItemQualityColor(quality)
 		else
 			r, g, b = 1, 1, 1
 		end
-		if
-			config.showItemLevel
-			and equipLoc
-			and equipLoc ~= ""
-			and equipLoc ~= "INVTYPE_AMMO"
-			and equipLoc ~= "INVTYPE_BAG"
-		then
+		if config.showItemLevel then
 			level = itemLevel
+		end
+		if pending then
+			self.pending = true
+			scheduleRetry()
 		end
 	else
 		r, g, b = familyColor(bagFamilies[bag] or 0)
@@ -241,30 +457,98 @@ function ItemMixin:Update()
 		self.glow:Hide()
 	end
 
+	self:UpdateSortLock()
 	self:UpdateCooldown()
+	self:UpdateIcon()
 	self:UpdateSearch()
 	self:UpdateHighlight()
+end
+
+local function anchorItemTooltip(button)
+	if button:GetRight() >= GetScreenWidth() / 2 then
+		GameTooltip:SetOwner(button, "ANCHOR_LEFT")
+	else
+		GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+	end
+end
+
+local function onItemEnter(self)
+	if self.container.offline then
+		if self.link then
+			anchorItemTooltip(self)
+			GameTooltip:SetHyperlink(self.link)
+			GameTooltip:Show()
+		end
+		return
+	end
+
+	if self.bag == BANK_CONTAINER then
+		anchorItemTooltip(self)
+		GameTooltip:SetInventoryItem("player", BankButtonIDToInvSlotID(self.slot))
+		CursorUpdate(self)
+	else
+		ContainerFrameItemButton_OnEnter(self)
+	end
+
+	if slotLocks[lockKey(self.bag, self.slot)] and GameTooltip:IsOwned(self) then
+		GameTooltip:AddLine(L["Locked: sorting skips this slot"], 0.5, 0.8, 1)
+		GameTooltip:Show()
+	end
+end
+
+local function onItemPreClick(self)
+	self.cursorHadItem = CursorHasItem()
+end
+
+local function onItemClick(self, mouseButton)
+	if mouseButton ~= "LeftButton" or self.container.offline or not lockModifierDown() then
+		return
+	end
+	Bags:ToggleSlotLock(self.bag, self.slot)
+	if not self.cursorHadItem and CursorHasItem() then
+		PickupContainerItem(self.bag, self.slot)
+		if CursorHasItem() then
+			ClearCursor()
+		end
+	end
+end
+
+local function onItemMouseUp(self)
+	if self.offline and self.link and IsModifiedClick() then
+		HandleModifiedItemClick(self.link)
+	end
 end
 
 local BagSlotMixin = {}
 
 function BagSlotMixin:GetInventorySlot()
-	local bag = self.bag
-	if bag > NUM_BAG_SLOTS then
-		return BankButtonIDToInvSlotID(bag - NUM_BAG_SLOTS, 1)
-	elseif bag > BACKPACK_CONTAINER then
-		return ContainerIDToInventoryID(bag)
-	end
+	return bagInventorySlot(self.bag)
 end
 
 function BagSlotMixin:IsPurchasable()
-	return self.bag > NUM_BAG_SLOTS and self.bag - NUM_BAG_SLOTS > GetNumBankSlots()
+	return not self:GetParent().offline and self.bag > NUM_BAG_SLOTS and self.bag - NUM_BAG_SLOTS > GetNumBankSlots()
+end
+
+function BagSlotMixin:GetCachedLink()
+	local entry = bankCache and bankCache[self.bag]
+	return entry and entry.link
+end
+
+function BagSlotMixin:UpdateFree()
+	local frame = self:GetParent()
+	local size = frame:BagSize(self.bag)
+	if config.showBagFreeSlots and size > 0 then
+		self.free:SetText(frame:FreeSlots(self.bag, size))
+	else
+		self.free:SetText("")
+	end
 end
 
 function BagSlotMixin:Update()
 	local invSlot = self:GetInventorySlot()
 	local icon, border = self.icon, self:GetNormalTexture()
 	icon:SetDesaturated(false)
+	self:UpdateFree()
 
 	if not invSlot then
 		icon:SetTexture(BACKPACK_ICON)
@@ -272,10 +556,18 @@ function BagSlotMixin:Update()
 		return
 	end
 
-	local texture = GetInventoryItemTexture("player", invSlot)
+	local texture
+	if self:GetParent().offline then
+		local link = self:GetCachedLink()
+		local itemId = link and linkItemId(link)
+		texture = itemId and itemTexture(itemId)
+	else
+		texture = GetInventoryItemTexture("player", invSlot)
+	end
+
 	if texture then
 		icon:SetTexture(texture)
-		icon:SetDesaturated(IsInventoryItemLocked(invSlot))
+		icon:SetDesaturated(not self:GetParent().offline and IsInventoryItemLocked(invSlot))
 		border:SetVertexColor(1, 1, 1)
 	elseif self:IsPurchasable() then
 		icon:SetTexture(nil)
@@ -287,6 +579,9 @@ function BagSlotMixin:Update()
 end
 
 function BagSlotMixin:OnClick()
+	if self:GetParent().offline then
+		return
+	end
 	if self:IsPurchasable() then
 		StaticPopup_Show("CONFIRM_BUY_BANK_SLOT")
 	elseif CursorHasItem() then
@@ -299,6 +594,9 @@ function BagSlotMixin:OnClick()
 end
 
 function BagSlotMixin:OnDragStart()
+	if self:GetParent().offline then
+		return
+	end
 	local invSlot = self:GetInventorySlot()
 	if invSlot and not self:IsPurchasable() then
 		PickupBagFromSlot(invSlot)
@@ -308,9 +606,12 @@ end
 function BagSlotMixin:OnEnter()
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	local invSlot = self:GetInventorySlot()
+	local link = self:GetParent().offline and self:GetCachedLink()
 	if not invSlot then
 		GameTooltip:SetText(self.bag == BANK_CONTAINER and BANK or BACKPACK_TOOLTIP, 1, 1, 1)
-	elseif not GameTooltip:SetInventoryItem("player", invSlot) then
+	elseif link then
+		GameTooltip:SetHyperlink(link)
+	elseif self:GetParent().offline or not GameTooltip:SetInventoryItem("player", invSlot) then
 		if self:IsPurchasable() then
 			GameTooltip:SetText(BANK_BAG_PURCHASE, 1, 1, 1)
 			GameTooltip:AddLine(ns.FormatMoney(GetBankSlotCost(GetNumBankSlots())))
@@ -334,6 +635,28 @@ end
 
 local ContainerMixin = {}
 
+function ContainerMixin:BagSize(bag)
+	if self.offline then
+		local entry = bankCache and bankCache[bag]
+		return entry and entry.size or 0
+	end
+	return bagSize(bag)
+end
+
+function ContainerMixin:FreeSlots(bag, size)
+	if self.offline then
+		local entry = bankCache and bankCache[bag]
+		local used = 0
+		if entry then
+			for _ in pairs(entry.items) do
+				used = used + 1
+			end
+		end
+		return max(size - used, 0)
+	end
+	return (GetContainerNumFreeSlots(bag)) or 0
+end
+
 function ContainerMixin:ForEachButton(method)
 	local buttons = self.buttons
 	for i = 1, #buttons do
@@ -352,6 +675,7 @@ function ContainerMixin:CreateItemButton(index)
 	local button = CreateFrame("Button", name, self.itemArea, "ContainerFrameItemButtonTemplate")
 	ns.Mixin(button, ItemMixin)
 	button.container = self
+	button.icon = _G[name .. "IconTexture"]
 	local size = config.buttonSize
 
 	button:SetSize(size, size)
@@ -378,6 +702,13 @@ function ContainerMixin:CreateItemButton(index)
 	level:SetPoint("TOPLEFT", 1, -1)
 	button.level = level
 
+	local lockIcon = button:CreateTexture(nil, "OVERLAY")
+	lockIcon:SetTexture(LOCK_ICON)
+	lockIcon:SetSize(LOCK_ICON_SIZE, LOCK_ICON_SIZE)
+	lockIcon:SetPoint("TOPRIGHT", -1, -1)
+	lockIcon:Hide()
+	button.lockIcon = lockIcon
+
 	local glow = button:CreateTexture(nil, "OVERLAY")
 	glow:SetTexture(GLOW_TEXTURE)
 	glow:SetBlendMode("ADD")
@@ -386,6 +717,11 @@ function ContainerMixin:CreateItemButton(index)
 	glow:SetPoint("CENTER")
 	glow:Hide()
 	button.glow = glow
+
+	button:SetScript("OnEnter", onItemEnter)
+	button:HookScript("PreClick", onItemPreClick)
+	button:HookScript("OnClick", onItemClick)
+	button:HookScript("OnMouseUp", onItemMouseUp)
 
 	self.buttons[index] = button
 	return button
@@ -402,6 +738,10 @@ function ContainerMixin:CreateBagButton(bag, index)
 
 	button.icon = button:CreateTexture(nil, "BORDER")
 	button.icon:SetAllPoints()
+
+	button.free = button:CreateFontString(nil, "OVERLAY")
+	ns.SetFont(button.free, 9, "OUTLINE")
+	button.free:SetPoint("BOTTOMRIGHT", 0, 1)
 
 	button:RegisterForClicks("AnyUp")
 	button:RegisterForDrag("LeftButton")
@@ -482,8 +822,11 @@ function ContainerMixin:UpdateInfo()
 	local free, total = 0, 0
 	for i = 1, #bags do
 		local bag = bags[i]
-		free = free + (GetContainerNumFreeSlots(bag) or 0)
-		total = total + bagSize(bag)
+		local size = self:BagSize(bag)
+		if size > 0 then
+			free = free + self:FreeSlots(bag, size)
+			total = total + size
+		end
 	end
 	self.freeText:SetFormattedText("%d / %d", total - free, total)
 	self.moneyText:SetText(ns.FormatMoneyIcons(GetMoney()))
@@ -495,9 +838,16 @@ function ContainerMixin:LayoutChrome()
 	local padding = config.padding
 	self.close:ClearAllPoints()
 	self.close:SetPoint("TOPRIGHT", -padding, -padding - (HEADER_HEIGHT - GLYPH_SIZE) / 2)
+	local searchAnchor = self.sortButton
+	if self.bankButton then
+		ns.SetShown(self.bankButton, config.offlineBank)
+		if config.offlineBank then
+			searchAnchor = self.bankButton
+		end
+	end
 	self.search:ClearAllPoints()
 	self.search:SetPoint("TOPLEFT", padding, -padding)
-	self.search:SetPoint("RIGHT", self.sortButton, "LEFT", -ROW_GAP, 0)
+	self.search:SetPoint("RIGHT", searchAnchor, "LEFT", -ROW_GAP, 0)
 	self.itemArea:ClearAllPoints()
 	self.itemArea:SetPoint("TOPLEFT", padding, -(padding + HEADER_HEIGHT + ROW_GAP))
 	self.moneyText:ClearAllPoints()
@@ -514,15 +864,20 @@ function ContainerMixin:Layout()
 	local step = buttonSize + config.spacing
 	local columns = config[self.columnsKey]
 	local bags, buttons, holders = self.bags, self.buttons, self.holders
+	local offline = self.offline or false
 	local index = 0
 
 	self:LayoutChrome()
 
 	for i = 1, #bags do
 		local bag = bags[i]
-		local size = bagSize(bag)
+		local size = self:BagSize(bag)
 		bagSizes[bag] = size
-		updateBagFamily(bag)
+		if offline then
+			bagFamilies[bag] = 0
+		else
+			updateBagFamily(bag)
+		end
 		local holder = holders[bag]
 		for slot = 1, size do
 			index = index + 1
@@ -530,6 +885,7 @@ function ContainerMixin:Layout()
 			button.bag, button.slot = bag, slot
 			button:SetParent(holder)
 			button:SetID(slot)
+			button:SetOffline(offline)
 			button:SetSize(buttonSize, buttonSize)
 			button.glow:SetSize(buttonSize * GLOW_SCALE, buttonSize * GLOW_SCALE)
 			ns.SetFont(button.countText, config.countFont.size, config.countFont.outline)
@@ -556,11 +912,13 @@ function ContainerMixin:UpdateBag(bag)
 	if not self:IsShown() then
 		return
 	end
-	if bagSize(bag) ~= bagSizes[bag] then
+	if self:BagSize(bag) ~= bagSizes[bag] then
 		return self:Layout()
 	end
 
-	updateBagFamily(bag)
+	if not self.offline then
+		updateBagFamily(bag)
+	end
 	local buttons = self.buttons
 	for i = 1, #buttons do
 		local button = buttons[i]
@@ -571,9 +929,21 @@ function ContainerMixin:UpdateBag(bag)
 	self:UpdateInfo()
 end
 
+function ContainerMixin:UpdateSortButton()
+	local enabled = not (self.sorting or self.offline)
+	self.sortButton:EnableMouse(enabled)
+	self.sortButton:SetAlpha(enabled and GLYPH_ALPHA or 0.2)
+end
+
 function ContainerMixin:SetSorting(sorting)
-	self.sortButton:EnableMouse(not sorting)
-	self.sortButton:SetAlpha(sorting and 0.2 or GLYPH_ALPHA)
+	self.sorting = sorting
+	self:UpdateSortButton()
+end
+
+function ContainerMixin:SetOffline(offline)
+	self.offline = offline
+	self.search.placeholder:SetText(offline and L["Bank (offline)"] or self.title)
+	self:UpdateSortButton()
 end
 
 function ContainerMixin:Toggle()
@@ -587,6 +957,10 @@ end
 local function onShow(self)
 	if config.playSounds then
 		PlaySound("igBackPackOpen")
+	end
+	retryBudget = RETRY_TRIES
+	if self == bank then
+		self:SetOffline(not atBank)
 	end
 	self:Layout()
 	if self == inventory then
@@ -609,12 +983,14 @@ local function onHide(self)
 	end
 end
 
-local function setSearch(text)
+local function setSearch(text, force)
 	text = text:lower()
-	if text == searchText then
+	if text == searchText and not force then
 		return
 	end
 	searchText = text
+	searchQuery = BagItems.CompileSearch(text)
+	wipe(searchResults)
 	for i = 1, #frames do
 		local frame = frames[i]
 		if frame.search:GetText():lower() ~= text then
@@ -651,13 +1027,27 @@ local function onSearchTextChanged(self)
 	end
 end
 
+local function onSearchEnter(self)
+	GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
+	GameTooltip:SetText(L["Search"], 1, 1, 1)
+	GameTooltip:AddLine(L["Plain text matches name, type and slot."], 0.8, 0.8, 0.8)
+	GameTooltip:AddDoubleLine("q:epic  q>=3", L["quality"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	GameTooltip:AddDoubleLine("ilvl>=251  ilvl<200", L["item level"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	GameTooltip:AddDoubleLine("t:cloth  n:frost", L["type / name"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	GameTooltip:AddDoubleLine("tt:text", L["tooltip text"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	GameTooltip:AddDoubleLine("s:name", L["equipment set"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	GameTooltip:AddDoubleLine("boe  bop  boa  quest", L["binding"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	GameTooltip:AddDoubleLine("!a   a | b   a b", L["not / or / and"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	GameTooltip:Show()
+end
+
 local function createSearchBox(frame, title)
 	local search = CreateFrame("EditBox", nil, frame)
 	search:SetAutoFocus(false)
 	search:SetHeight(HEADER_HEIGHT)
 	ns.SetFont(search, 12)
 	search:SetTextInsets(4, 4, 0, 0)
-	search:SetMaxLetters(40)
+	search:SetMaxLetters(80)
 	search:SetBackdrop(ns.CreateBackdrop(8))
 	search:SetBackdropColor(0, 0, 0, 0.5)
 	search:SetBackdropBorderColor(0.6, 0.6, 0.6)
@@ -674,6 +1064,8 @@ local function createSearchBox(frame, title)
 	search:SetScript("OnEditFocusGained", onSearchFocusGained)
 	search:SetScript("OnEditFocusLost", onSearchFocusLost)
 	search:SetScript("OnTextChanged", onSearchTextChanged)
+	search:SetScript("OnEnter", onSearchEnter)
+	search:SetScript("OnLeave", GameTooltip_Hide)
 
 	return search
 end
@@ -684,6 +1076,24 @@ end
 
 local function onSortClick(self)
 	Bags:SortBags(self:GetParent())
+end
+
+local function onBankButtonClick()
+	if atBank or bank:IsShown() then
+		return bank:Toggle()
+	end
+	if not bankCache or not next(bankCache) then
+		ns.Print(L["visit a banker once to view the bank from anywhere"])
+		return
+	end
+	bank:Show()
+end
+
+local function onBankButtonEnter(self)
+	GameTooltip:SetOwner(self, "ANCHOR_TOP")
+	GameTooltip:SetText(L["Bank"], 1, 1, 1)
+	GameTooltip:AddLine(L["Contents saved at the last bank visit, viewable anywhere."], 0.8, 0.8, 0.8, true)
+	GameTooltip:Show()
 end
 
 local function onGlyphEnter(self)
@@ -713,10 +1123,83 @@ local function createGlyphButton(parent, texture, crop, onClick)
 	return button
 end
 
+local moneyEntries = {}
+
+local function sortByMoney(a, b)
+	if a.money ~= b.money then
+		return a.money > b.money
+	end
+	return a.name < b.name
+end
+
+local function onMoneyEnter(self)
+	GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
+	local gold = ns.db and ns.db.gold
+	if config.altGold and gold then
+		for key, entry in pairs(gold) do
+			local realm, name = key:match("^(.-)|(.+)$")
+			if realm == playerRealm and entry.money then
+				moneyEntries[#moneyEntries + 1] = { name = name, money = entry.money, class = entry.class }
+			end
+		end
+		tsort(moneyEntries, sortByMoney)
+		GameTooltip:SetText(playerRealm, 1, 1, 1)
+		local total = 0
+		for i = 1, #moneyEntries do
+			local entry = moneyEntries[i]
+			local color = entry.class and RAID_CLASS_COLORS[entry.class]
+			local r, g, b = 1, 1, 1
+			if color then
+				r, g, b = color.r, color.g, color.b
+			end
+			GameTooltip:AddDoubleLine(entry.name, ns.FormatMoneyIcons(entry.money), r, g, b, 1, 1, 1)
+			total = total + entry.money
+		end
+		wipe(moneyEntries)
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddDoubleLine(L["Total"], ns.FormatMoneyIcons(total), 1, 0.82, 0, 1, 1, 1)
+	else
+		GameTooltip:SetText(ns.FormatMoneyIcons(GetMoney()), 1, 1, 1)
+	end
+	GameTooltip:AddLine(L["Click to pick up gold, Shift-click silver, Ctrl-click copper."], 0.6, 0.6, 0.6, true)
+	GameTooltip:Show()
+end
+
+local function onMoneyClick(self)
+	local money = GetMoney() - GetCursorMoney() - GetPlayerTradeMoney()
+	local multiplier = COPPER_PER_GOLD
+	if IsControlKeyDown() then
+		multiplier = 1
+	elseif IsShiftKeyDown() then
+		multiplier = COPPER_PER_SILVER
+	end
+	while multiplier > 1 and money < multiplier do
+		multiplier = multiplier / COPPER_PER_SILVER
+	end
+	GameTooltip:Hide()
+	OpenCoinPickupFrame(multiplier, money, self)
+	self.hasPickup = 1
+	CoinPickupFrame:SetFrameStrata("DIALOG")
+end
+
+local function createMoneyButton(frame)
+	local money = CreateFrame("Button", nil, frame)
+	money:SetPoint("TOPLEFT", frame.moneyText, "TOPLEFT", 0, 2)
+	money:SetPoint("BOTTOMRIGHT", frame.moneyText, "BOTTOMRIGHT", MONEY_ICON_OVERHANG, -2)
+	money.moneyType = "PLAYER"
+	money.hasPickup = 0
+	money:RegisterForClicks("LeftButtonUp")
+	money:SetScript("OnClick", onMoneyClick)
+	money:SetScript("OnEnter", onMoneyEnter)
+	money:SetScript("OnLeave", GameTooltip_Hide)
+	return money
+end
+
 local function createContainer(key, title, bags, columnsKey)
 	local frame = CreateFrame("Frame", ADDON_NAME .. key, UIParent)
 	ns.Mixin(frame, ContainerMixin)
 	frame.bags = bags
+	frame.title = title
 	frame.columnsKey = columnsKey
 	frame.buttons = {}
 	frame.bagButtons = {}
@@ -732,7 +1215,7 @@ local function createContainer(key, title, bags, columnsKey)
 			local columns = config[columnsKey]
 			local slots = 0
 			for i = 1, #bags do
-				slots = slots + bagSize(bags[i])
+				slots = slots + frame:BagSize(bags[i])
 			end
 			return frameWidth(columns), frameHeight(ceil(slots / columns))
 		end,
@@ -783,8 +1266,8 @@ local function createContainer(key, title, bags, columnsKey)
 
 	frame.moneyText = frame:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(frame.moneyText, 11, "OUTLINE")
+	frame.money = createMoneyButton(frame)
 
-	frame:LayoutChrome()
 	frames[#frames + 1] = frame
 
 	return frame
@@ -805,6 +1288,9 @@ updater:SetScript("OnUpdate", function(self)
 		if frame then
 			frame:UpdateBag(bag)
 		end
+		if atBank and isBankBag(bag) then
+			saveBankBag(bag)
+		end
 	end
 	wipe(dirtyBags)
 end)
@@ -814,7 +1300,13 @@ local function markDirty(bag)
 	if bag >= BACKPACK_CONTAINER and bag <= NUM_BAG_SLOTS then
 		inventoryDirty = true
 	end
+	retryBudget = RETRY_TRIES
 	updater:Show()
+end
+
+local function recheckBag(bag)
+	recheckPending[bag] = nil
+	markDirty(bag)
 end
 
 local function autoShow()
@@ -836,16 +1328,46 @@ local function updateCurrencies()
 	end
 end
 
-function Bags:BAG_UPDATE(bag)
-	markDirty(bag)
+local function refreshItems()
+	forEachShownFrame("ForEachButton", "Update")
 end
 
-local function forEachShownFrame(method, arg)
-	for i = 1, #frames do
-		local frame = frames[i]
-		if frame:IsShown() then
-			frame[method](frame, arg)
-		end
+local function refreshUsability()
+	BagItems.ResetScans()
+	wipe(searchResults)
+	refreshItems()
+end
+
+local function refreshSortLocks()
+	forEachShownFrame("ForEachButton", "UpdateSortLock")
+end
+
+function Bags:ToggleSlotLock(bag, slot)
+	local key = lockKey(bag, slot)
+	local saveKey = bag .. ":" .. slot
+	if slotLocks[key] then
+		slotLocks[key] = nil
+		savedLocks[saveKey] = nil
+	else
+		slotLocks[key] = true
+		savedLocks[saveKey] = true
+	end
+	refreshSortLocks()
+end
+
+function Bags:ClearSlotLocks()
+	wipe(slotLocks)
+	if savedLocks then
+		wipe(savedLocks)
+		refreshSortLocks()
+	end
+end
+
+function Bags:BAG_UPDATE(bag)
+	markDirty(bag)
+	if bag > BACKPACK_CONTAINER and not recheckPending[bag] then
+		recheckPending[bag] = true
+		ns.After(BAG_RECHECK_DELAY, recheckBag, bag)
 	end
 end
 
@@ -856,7 +1378,7 @@ end
 function Bags:ITEM_LOCK_CHANGED(bag, slot)
 	if slot then
 		local frame = bagFrames[bag]
-		if frame and frame:IsShown() then
+		if frame and frame:IsShown() and not frame.offline then
 			local buttons = frame.buttons
 			for i = 1, #buttons do
 				local button = buttons[i]
@@ -871,7 +1393,7 @@ function Bags:ITEM_LOCK_CHANGED(bag, slot)
 
 	for i = 1, #frames do
 		local frame = frames[i]
-		if frame:IsShown() then
+		if frame:IsShown() and not frame.offline then
 			frame:UpdateBagButtons()
 			frame:ForEachButton("UpdateLock")
 		end
@@ -890,11 +1412,22 @@ function Bags:PLAYERBANKBAGSLOTS_CHANGED()
 	if bank:IsShown() then
 		bank:UpdateBagButtons()
 	end
+	if atBank then
+		for i = 2, #BANK_BAGS do
+			markDirty(BANK_BAGS[i])
+		end
+	end
 end
 
 function Bags:BANKFRAME_OPENED()
 	atBank = true
-	bank:Show()
+	if bank:IsShown() then
+		bank:SetOffline(false)
+		bank:Layout()
+	else
+		bank:Show()
+	end
+	saveBank()
 	autoShow()
 end
 
@@ -905,6 +1438,7 @@ function Bags:BANKFRAME_CLOSED()
 end
 
 function Bags:PLAYER_MONEY()
+	saveMoney()
 	forEachShownFrame("UpdateInfo")
 end
 
@@ -970,10 +1504,71 @@ local function isBagOpen(bag)
 	return blizzardIsBagOpen(bag)
 end
 
+local function loadSaved(db)
+	playerRealm = GetRealmName()
+	local name = UnitName("player")
+	charKey = name .. " - " .. playerRealm
+	moneyKey = playerRealm .. "|" .. name
+
+	db.bagLocks = db.bagLocks or {}
+	savedLocks = db.bagLocks[charKey] or {}
+	db.bagLocks[charKey] = savedLocks
+	for key in pairs(savedLocks) do
+		local bag, slot = key:match("^(-?%d+):(%d+)$")
+		if bag then
+			slotLocks[lockKey(tonumber(bag), tonumber(slot))] = true
+		else
+			savedLocks[key] = nil
+		end
+	end
+
+	db.bankCache = db.bankCache or {}
+	bankCache = db.bankCache[charKey] or {}
+	db.bankCache[charKey] = bankCache
+end
+
+SlashCmdList.FROSTATOMUI_SORT = function(args)
+	if not inventory then
+		return
+	end
+	if strtrim(args or ""):lower() == "unlock" then
+		Bags:ClearSlotLocks()
+		ns.Print(L["all bag slot locks cleared"])
+		return
+	end
+	Bags:SortBags(inventory)
+end
+SLASH_FROSTATOMUI_SORT1 = "/sort"
+
+SlashCmdList.FROSTATOMUI_SORTBANK = function()
+	if not bank then
+		return
+	end
+	if not atBank then
+		ns.Print(L["the bank is not open"])
+		return
+	end
+	Bags:SortBags(bank)
+end
+SLASH_FROSTATOMUI_SORTBANK1 = "/sortbank"
+
 function Bags:Initialize()
+	loadSaved(ns.db)
+
 	inventory = createContainer("inventory", L["Bags"], INVENTORY_BAGS, "inventoryColumns")
 	bank = createContainer("bank", L["Bank"], BANK_BAGS, "bankColumns")
+	bank.stackSources = INVENTORY_BAGS
 	inventory.currencies = {}
+
+	local bankButton = createGlyphButton(inventory, BANK_ICON, 0, onBankButtonClick)
+	bankButton:SetPoint("RIGHT", inventory.sortButton, "LEFT", -ROW_GAP, 0)
+	bankButton:HookScript("OnEnter", onBankButtonEnter)
+	bankButton:HookScript("OnLeave", GameTooltip_Hide)
+	inventory.bankButton = bankButton
+
+	for i = 1, #frames do
+		frames[i]:LayoutChrome()
+	end
 
 	ToggleBag = toggleBag
 	ToggleBackpack = toggleBackpack
@@ -1009,6 +1604,17 @@ function Bags:Initialize()
 	self:RegisterEvent("UNIT_QUEST_LOG_CHANGED", function(_, unit)
 		if unit == "player" then
 			questLogChanged()
+		end
+	end)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", saveMoney)
+	self:RegisterEvent("PLAYER_LOGOUT", saveMoney)
+	self:RegisterEvent("PLAYER_LEVEL_UP", function()
+		ns.After(LEVEL_UP_DELAY, refreshUsability)
+	end)
+	self:RegisterEvent("LEARNED_SPELL_IN_TAB", refreshUsability)
+	self:RegisterEvent("EQUIPMENT_SETS_CHANGED", function()
+		if searchText ~= "" then
+			setSearch(searchText, true)
 		end
 	end)
 

@@ -88,29 +88,6 @@ ns.RegisterElement({
 	schema = {},
 })
 
-ns.RegisterElement({
-	path = "arenaHistory.point",
-	page = "arena",
-	name = L["Arena history"],
-	enabledBy = "arenaHistory.enabled",
-	schema = Requires("arenaHistory.enabled", {
-		{ header = L["Text"] },
-		{
-			path = "arenaHistory.listFont",
-			label = L["List font"],
-			type = "font",
-			desc = L["Rows of the game list and match details."],
-		},
-		{ header = L["Colors"] },
-		{ path = "arenaHistory.winColor", label = L["Win color"], type = "color" },
-		{
-			path = "arenaHistory.lossColor",
-			label = L["Loss color"],
-			type = "color",
-		},
-	}),
-})
-
 local schema = {
 	{ header = L["Frames"] },
 	{ type = "elements" },
@@ -234,6 +211,51 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 	},
 }, nil, "1.4.0")
 
+Section(schema, L["Trinket internal cooldowns"], "internalCooldowns", {
+	{
+		path = "enabled",
+		label = L["Enable"],
+		type = "toggle",
+		desc = L["Internal cooldowns of proc trinkets, enchants and gems. Your own and inspected allies' items show right away, enemy trinkets show as question marks until their first proc and are remembered."],
+	},
+	{ path = "player", label = L["Show on player frame"], type = "toggle" },
+	{ path = "party", label = L["Show on party frames"], type = "toggle" },
+	{ path = "arena", label = L["Show on arena frames"], type = "toggle" },
+	{ path = "target", label = L["Show on target frame"], type = "toggle" },
+	{ path = "focus", label = L["Show on focus frame"], type = "toggle" },
+	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
+	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
+	{
+		path = "hideReady",
+		label = L["Only while on cooldown"],
+		type = "toggle",
+		desc = L["Hide icons of procs that are ready."],
+	},
+	{
+		path = "unknownTrinkets",
+		label = L["Unknown enemy trinkets"],
+		type = "toggle",
+		desc = L["Question mark icons for enemy trinkets that have not proced yet."],
+	},
+	{
+		path = "activeColor",
+		label = L["Active buff color"],
+		type = "color",
+		desc = L["Border and glow while the proc buff is up. The timer shows the buff time left, then the internal cooldown."],
+	},
+	drOffset("offsetX", L["X offset from the top right corner"]),
+	drOffset("offsetY", L["Y offset from the top right corner"]),
+	{
+		label = L["Test frames"],
+		type = "execute",
+		text = L["Toggle"],
+		desc = L["Show every frame with fake units to preview the layout."],
+		func = function()
+			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
+		end,
+	},
+}, nil, "1.4.0")
+
 Section(schema, L["Solo queue"], "soloQueue", {
 	{
 		path = "enabled",
@@ -281,6 +303,8 @@ Section(schema, L["Arena history"], "arenaHistory", {
 		step = 50,
 		desc = L["Oldest games are dropped past this count."],
 	},
+	{ path = "winColor", label = L["Win color"], type = "color" },
+	{ path = "lossColor", label = L["Loss color"], type = "color" },
 	{
 		label = L["History window"],
 		type = "execute",

@@ -110,7 +110,6 @@ local SPELLS = {
 		{ 853, 60, ranks = { 5588, 5589, 10308 } }, -- Hammer of Justice
 		{ 20066, 60, talent = true, tree = 3, points = 35 }, -- Repentance
 		{ 31935, 30, ranks = { 32699, 32700, 48826, 48827 }, talent = true, tree = 2, points = 45 }, -- Avenger's Shield
-		{ 10326, 8 }, -- Turn Evil
 		{ 2812, 30, ranks = { 10318, 27139, 48816, 48817 } }, -- Holy Wrath
 		{ 642, 300, buff = true }, -- Divine Shield
 		{ 498, 180, buff = true }, -- Divine Protection

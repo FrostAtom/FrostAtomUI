@@ -500,22 +500,32 @@ end
 
 function Prediction.GetIncoming(guid)
 	if not enabled or not guid then
-		return 0
+		return 0, 0
 	end
 	local now = GetTime()
-	local total = 0
+	local playerGUID = UnitGUID("player")
+	local total, own = 0, 0
 	if HealComm then
-		local amount = HealComm:GetHealAmount(guid, HealComm.ALL_HEALS, now + HEALCOMM_WINDOW)
+		local window = now + HEALCOMM_WINDOW
+		local amount = HealComm:GetHealAmount(guid, HealComm.ALL_HEALS, window)
 		if amount then
-			total = amount * HealComm:GetHealModifier(guid)
+			local modifier = HealComm:GetHealModifier(guid)
+			total = amount * modifier
+			local mine = HealComm:GetHealAmount(guid, HealComm.ALL_HEALS, window, playerGUID)
+			if mine then
+				own = mine * modifier
+			end
 		end
 	end
 	for caster, cast in pairs(casts) do
 		if cast.dest == guid and cast.expires > now and not coveredByHealComm(caster) then
 			total = total + cast.amount
+			if caster == playerGUID then
+				own = own + cast.amount
+			end
 		end
 	end
-	return total
+	return total, own
 end
 
 function Prediction.GetAbsorb(guid)
@@ -553,6 +563,7 @@ local function layout(bar)
 	local _, max = bar:GetMinMaxValues()
 	local width = bar:GetWidth()
 	if not p.active or max <= 0 or width <= 0 then
+		p.ownHeal:Hide()
 		p.heal:Hide()
 		p.absorb:Hide()
 		p.glow:Hide()
@@ -567,14 +578,27 @@ local function layout(bar)
 
 	local incoming = p.incoming
 	local heal = incoming < missing and incoming or missing
-	local healWidth = heal * width / max
+	local own = p.own < heal and p.own or heal
+	local ownWidth = own * width / max
+	if ownWidth >= MIN_WIDTH then
+		p.ownHeal:SetPoint("TOPLEFT", fill, "TOPRIGHT")
+		p.ownHeal:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT")
+		setWidth(p.ownHeal, ownWidth)
+		p.ownHeal:Show()
+	else
+		ownWidth = 0
+		p.ownHeal:Hide()
+	end
+
+	local healWidth = (heal - own) * width / max
 	if healWidth >= MIN_WIDTH then
-		p.heal:SetPoint("TOPLEFT", fill, "TOPRIGHT")
-		p.heal:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT")
+		p.heal:SetPoint("TOPLEFT", fill, "TOPRIGHT", ownWidth, 0)
+		p.heal:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT", ownWidth, 0)
 		setWidth(p.heal, healWidth)
 		p.heal:Show()
+		healWidth = healWidth + ownWidth
 	else
-		healWidth = 0
+		healWidth = ownWidth
 		p.heal:Hide()
 	end
 
@@ -602,6 +626,7 @@ local function applyColors(bar)
 	local config = ns.Config.unitFrames
 	local p = bar.prediction
 	p.heal:SetVertexColor(unpack(config.healPredictionColor))
+	p.ownHeal:SetVertexColor(unpack(config.healPredictionOwnColor))
 	local r, g, b = unpack(config.absorbColor)
 	p.absorb:SetVertexColor(r, g, b)
 	p.glow:SetGradientAlpha("HORIZONTAL", r, g, b, 0, r, g, b, 1)
@@ -618,6 +643,10 @@ function Prediction.CreateBars(bar)
 	heal:SetTexture(ns.Media.blank)
 	heal:Hide()
 
+	local ownHeal = bar:CreateTexture(nil, "ARTWORK", nil, 1)
+	ownHeal:SetTexture(ns.Media.blank)
+	ownHeal:Hide()
+
 	local absorbTexture = bar:CreateTexture(nil, "ARTWORK", nil, 1)
 	absorbTexture:SetTexture(ns.Media.blank)
 	absorbTexture:Hide()
@@ -632,9 +661,11 @@ function Prediction.CreateBars(bar)
 
 	bar.prediction = {
 		heal = heal,
+		ownHeal = ownHeal,
 		absorb = absorbTexture,
 		glow = glow,
 		incoming = 0,
+		own = 0,
 		absorbAmount = 0,
 		shielded = false,
 		active = false,
@@ -644,9 +675,10 @@ function Prediction.CreateBars(bar)
 	bars[#bars + 1] = bar
 end
 
-function Prediction.SetValues(bar, incoming, absorbAmount, shielded)
+function Prediction.SetValues(bar, incoming, absorbAmount, shielded, own)
 	local p = bar.prediction
 	p.incoming = incoming
+	p.own = own or 0
 	p.absorbAmount = absorbAmount
 	p.shielded = shielded
 	p.active = incoming > 0 or shielded
@@ -654,12 +686,18 @@ function Prediction.SetValues(bar, incoming, absorbAmount, shielded)
 end
 
 function Prediction.Refresh(bar, guid, _, showHeal, showAbsorb)
-	local incoming = showHeal and Prediction.GetIncoming(guid) or 0
+	local incoming, own = 0, 0
+	if showHeal then
+		incoming, own = Prediction.GetIncoming(guid)
+		if not ns.Config.unitFrames.healPredictionSplit then
+			own = 0
+		end
+	end
 	local absorbAmount, shielded = 0, false
 	if showAbsorb then
 		absorbAmount, shielded = Prediction.GetAbsorb(guid)
 	end
-	Prediction.SetValues(bar, incoming, absorbAmount, shielded)
+	Prediction.SetValues(bar, incoming, absorbAmount, shielded, own)
 end
 
 function Prediction.Follow(bar)

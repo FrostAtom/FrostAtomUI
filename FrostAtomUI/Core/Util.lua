@@ -128,6 +128,7 @@ local FADE_EPSILON = 0.01
 
 local faders = {}
 local FaderMixin = {}
+local inCombat = InCombatLockdown() and true or false
 
 local function anyMouseOver(frames)
 	for i = 1, #frames do
@@ -137,6 +138,52 @@ local function anyMouseOver(frames)
 		end
 	end
 	return false
+end
+
+local function isAwake(fader)
+	if not fader.enabled then
+		return true
+	end
+	local combat = fader.combat
+	if combat == "combat" then
+		if inCombat then
+			return true
+		end
+	elseif combat == "nocombat" then
+		if not inCombat then
+			return true
+		end
+	elseif not fader.mouseover then
+		return true
+	end
+	if fader.isActive and fader.isActive() then
+		return true
+	end
+	return fader.mouseover and anyMouseOver(fader.hover)
+end
+
+function FaderMixin:UpdateMouse(awake)
+	local frames = self.mouse
+	if not frames or InCombatLockdown() then
+		return
+	end
+	if awake == nil then
+		awake = isAwake(self)
+	end
+	local enabled = self.combat == "any" or awake or (inCombat and self.mouseover)
+	if enabled == self.mouseEnabled then
+		return
+	end
+	self.mouseEnabled = enabled
+	for i = 1, #frames do
+		frames[i]:EnableMouse(enabled)
+	end
+end
+
+function FaderMixin:SetMouseFrames(frames)
+	self.mouse = frames
+	self.mouseEnabled = nil
+	self:UpdateMouse()
 end
 
 function FaderMixin:SetAlpha(alpha)
@@ -150,7 +197,10 @@ function FaderMixin:SetAlpha(alpha)
 end
 
 function FaderMixin:Update(elapsed)
-	local awake = not self.enabled or anyMouseOver(self.hover) or (self.isActive and self.isActive())
+	local awake = isAwake(self)
+	if self.mouse then
+		self:UpdateMouse(awake)
+	end
 	local target = awake and 1 or self.alpha
 	if abs(target - self.current) < FADE_EPSILON then
 		self:SetAlpha(target)
@@ -160,12 +210,15 @@ function FaderMixin:Update(elapsed)
 	self:SetAlpha(self.current + (target - self.current) * min(elapsed * speed, 1))
 end
 
-function FaderMixin:Configure(enabled, alpha)
-	self.enabled = enabled and true or false
+function FaderMixin:Configure(mouseover, alpha, combat)
+	self.mouseover = mouseover and true or false
+	self.combat = combat or "any"
+	self.enabled = self.mouseover or self.combat ~= "any"
 	self.alpha = alpha or 0
 	if not self.enabled then
 		self:SetAlpha(1)
 	end
+	self:UpdateMouse()
 end
 
 function ns.CreateFader(frames, hover, isActive, inverse)
@@ -175,6 +228,8 @@ function ns.CreateFader(frames, hover, isActive, inverse)
 		isActive = isActive,
 		inverse = inverse or {},
 		enabled = false,
+		mouseover = false,
+		combat = "any",
 		alpha = 0,
 		current = 1,
 	}, FaderMixin)
@@ -198,6 +253,21 @@ fadeRunner:SetScript("OnUpdate", function(_, elapsed)
 		local fader = faders[i]
 		if fader.enabled or fader.current ~= 1 then
 			fader:Update(elapsed)
+		end
+	end
+end)
+
+local combatWatcher = CreateFrame("Frame")
+combatWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")
+combatWatcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+combatWatcher:SetScript("OnEvent", function(_, event)
+	inCombat = event == "PLAYER_REGEN_DISABLED"
+	for i = 1, #faders do
+		local fader = faders[i]
+		if fader.combat ~= "any" then
+			fader:Update(1)
+		elseif fader.mouse then
+			fader:UpdateMouse()
 		end
 	end
 end)
@@ -357,49 +427,6 @@ function ns.ColorGradient(percent, ...)
 	local r1, g1, b1, r2, g2, b2 = select(segment * 3 + 1, ...)
 
 	return r1 + (r2 - r1) * relativePercent, g1 + (g2 - g1) * relativePercent, b1 + (b2 - b1) * relativePercent
-end
-
-local WINDOW_PADDING = 12
-local CLOSE_ICON = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
-local CLOSE_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight"
-
-function ns.CreateWindow(name, options)
-	local frame = CreateFrame("Frame", name, UIParent)
-	frame:Hide()
-	frame:SetWidth(options.width)
-	if options.height then
-		frame:SetHeight(options.height)
-	end
-	frame:SetFrameStrata("HIGH")
-	frame:EnableMouse(true)
-	frame:SetMovable(true)
-	frame:SetClampedToScreen(true)
-	frame:RegisterForDrag("LeftButton")
-	frame:SetScript("OnDragStart", frame.StartMoving)
-	frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
-	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
-	frame:SetBackdropColor(0, 0, 0, 0.6)
-	tinsert(UISpecialFrames, name)
-
-	if options.title then
-		local title = frame:CreateFontString(nil, "OVERLAY")
-		ns.SetFont(title, 13, "OUTLINE", true)
-		title:SetPoint("TOPLEFT", WINDOW_PADDING, -WINDOW_PADDING - 3)
-		title:SetText(options.title)
-		frame.title = title
-	end
-
-	local close = CreateFrame("Button", nil, frame)
-	close:SetSize(26, 26)
-	close:SetPoint("TOPRIGHT", -WINDOW_PADDING + 6, -WINDOW_PADDING + 6)
-	close:SetNormalTexture(CLOSE_ICON)
-	close:SetHighlightTexture(CLOSE_ICON_HIGHLIGHT)
-	close:SetScript("OnClick", function()
-		frame:Hide()
-	end)
-	frame.close = close
-
-	return frame
 end
 
 function ns.GridPoint(point, i, perRow, size)

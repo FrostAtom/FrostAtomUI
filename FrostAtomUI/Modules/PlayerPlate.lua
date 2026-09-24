@@ -5,12 +5,16 @@ local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
 local UnitPowerType = UnitPowerType
 local UnitAffectingCombat = UnitAffectingCombat
 local UnitGUID, UnitIsDeadOrGhost = UnitGUID, UnitIsDeadOrGhost
+local floor, max = math.floor, math.max
 
 local PlayerPlate = ns:NewModule("PlayerPlate")
 local UF = ns:GetModule("UnitFrames")
 local Prediction = ns.HealPrediction
 
 local TEXT_INSET = 2
+local MANA = 0
+local MANA_HEIGHT_SCALE = 0.5
+local IS_DRUID = ns.PLAYER_CLASS == "DRUID"
 local BORDER_INSET = UF.BORDER_INSET
 local frameConfig = ns.Config.unitFrames
 
@@ -42,9 +46,19 @@ Prediction.CreateBars(health)
 
 local power = createBar()
 
+local mana = createBar()
+mana.text:Hide()
+mana:Hide()
+
 local function setBarColor(bar, r, g, b)
 	bar:SetStatusBarColor(r, g, b)
 	bar.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
+end
+
+setBarColor(mana, unpack(UF.powerColors[MANA]))
+
+local function manaWanted()
+	return IS_DRUID and ns.Config.playerPlate.druidMana and UnitPowerType("player") ~= MANA
 end
 
 local function healthColor()
@@ -96,6 +110,11 @@ local function updatePower()
 	end
 end
 
+local function updateMana()
+	mana:SetMinMaxValues(0, UnitPowerMax("player", MANA))
+	mana:SetValue(UnitPower("player", MANA))
+end
+
 local function isWanted()
 	local config = ns.Config.playerPlate
 	if not config.enabled then
@@ -114,6 +133,13 @@ plate:SetScript("OnUpdate", function(self, elapsed)
 	if currentPower ~= self.lastPower then
 		self.lastPower = currentPower
 		updatePower()
+	end
+	if mana:IsShown() then
+		local currentMana = UnitPower("player", MANA)
+		if currentMana ~= self.lastMana then
+			self.lastMana = currentMana
+			updateMana()
+		end
 	end
 
 	if isWanted() then
@@ -134,9 +160,10 @@ local function show()
 	if plate:IsShown() then
 		return
 	end
-	plate.lastHealth, plate.lastPower = nil, nil
+	plate.lastHealth, plate.lastPower, plate.lastMana = nil, nil, nil
 	health:SnapValue(UnitHealth("player"))
 	power:SnapValue(UnitPower("player"))
+	mana:SnapValue(UnitPower("player", MANA))
 	plate:SetAlpha(1)
 	plate:Show()
 end
@@ -157,20 +184,32 @@ local function styleText(text, font, shown)
 	end
 end
 
-local function applyConfig()
+local function layout()
 	local config = ns.Config.playerPlate
 	local powerSpace = config.showPower and config.gap + config.powerHeight or 0
-	plate:SetSize(config.width + BORDER_INSET * 2, config.healthHeight + powerSpace + BORDER_INSET * 2)
-	UF.SetBackdropColors(plate)
+	local manaHeight = max(floor(config.powerHeight * MANA_HEIGHT_SCALE), 2)
+	local showMana = manaWanted()
+	local manaSpace = showMana and config.gap + manaHeight or 0
+	plate:SetSize(config.width + BORDER_INSET * 2, config.healthHeight + powerSpace + manaSpace + BORDER_INSET * 2)
 	health:SetSize(config.width, config.healthHeight)
 	power:SetSize(config.width, config.powerHeight)
 	power:ClearAllPoints()
 	power:SetPoint("TOP", health, "BOTTOM", 0, -config.gap)
-	if config.showPower then
-		power:Show()
-	else
-		power:Hide()
+	ns.SetShown(power, config.showPower)
+	mana:SetSize(config.width, manaHeight)
+	mana:ClearAllPoints()
+	mana:SetPoint("TOP", config.showPower and power or health, "BOTTOM", 0, -config.gap)
+	if showMana and not mana:IsShown() then
+		plate.lastMana = nil
+		mana:SnapValue(UnitPower("player", MANA))
 	end
+	ns.SetShown(mana, showMana)
+end
+
+local function applyConfig()
+	local config = ns.Config.playerPlate
+	layout()
+	UF.SetBackdropColors(plate)
 	plate.lastHealth = nil
 
 	styleText(health.text, config.font, config.showText)
@@ -205,4 +244,7 @@ function PlayerPlate:Initialize()
 	self:RegisterEvent("UNIT_HEALTH", onPlayerEvent)
 	self:RegisterEvent("UNIT_MAXHEALTH", onPlayerEvent)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", showIfWanted)
+	if IS_DRUID then
+		self:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player", layout)
+	end
 end

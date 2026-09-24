@@ -13,6 +13,7 @@ local FLASH_DURATION = 0.75
 local FLASH_PEAK = 0.3
 local FLASH_ALPHA = 0.8
 local HOURS_COLOR = { 0.6, 0.6, 0.6 }
+local CLOCK_TOLERANCE = 2
 
 local config = ns.Config.cooldownTimer
 local minDuration, decimalThreshold = config.minDuration, config.decimalThreshold
@@ -122,7 +123,12 @@ local function onSetCooldown(cooldown, startTime, duration)
 		flash:Hide()
 		cooldown.flashArmed = cooldown.flashConfig[cooldown.flashKey] and duration > FLASH_DURATION
 	end
-	if duration > minDuration then
+	local maxDuration = cooldown.timerMaxDuration
+	if duration > (cooldown.timerMinDuration or minDuration) and not (maxDuration and duration > maxDuration) then
+		local now = GetTime()
+		if startTime + duration - now > duration + CLOCK_TOLERANCE then
+			startTime = now
+		end
 		cooldown.endTime = startTime + duration
 		cooldown.nextTick = 0
 		cooldown.timer:Show()

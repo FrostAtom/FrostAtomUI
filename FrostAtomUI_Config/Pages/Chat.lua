@@ -114,6 +114,13 @@ local schema = {
 		desc = L["Hide loot method, raid join / leave and countdown messages inside arenas."],
 	},
 	{
+		path = "chat.filterAutoReplies",
+		new = "1.4.1",
+		label = L["Filter repeated AFK / DND replies"],
+		type = "toggle",
+		desc = L["Show an away or busy auto reply only once per sender until its text changes."],
+	},
+	{
 		path = "chat.batchBattlegroundJoins",
 		new = "1.4.0",
 		label = L["Group battleground join / leave messages"],
@@ -292,6 +299,17 @@ local chatFrame = {
 		type = "toggle",
 		enabledBy = "chat.skin",
 		desc = L["Show an arrow while the chat is scrolled up; it flashes on new messages and scrolls down on click."],
+	},
+	{
+		path = "chat.editBoxPosition",
+		new = "1.4.1",
+		label = L["Edit box position"],
+		type = "select",
+		enabledBy = "chat.skin",
+		values = {
+			{ "below", L["Below the chat"] },
+			{ "above", L["Above the tabs"] },
+		},
 	},
 	{ header = L["Visibility"] },
 	{

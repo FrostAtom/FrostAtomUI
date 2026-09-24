@@ -7,6 +7,7 @@ local GetShapeshiftFormInfo = GetShapeshiftFormInfo
 local GetShapeshiftFormCooldown = GetShapeshiftFormCooldown
 local GetSpellInfo = GetSpellInfo
 local InCombatLockdown = InCombatLockdown
+local RegisterStateDriver = RegisterStateDriver
 local GameTooltip = GameTooltip
 local NUM_SHAPESHIFT_SLOTS = NUM_SHAPESHIFT_SLOTS
 
@@ -112,7 +113,8 @@ function ActionBar:SetupShapeshiftButton(button)
 
 	_G[name .. "Count"]:Hide()
 
-	button.bindingName = "SHAPESHIFTBUTTON" .. button:GetID()
+	button.bindingName = "CLICK " .. name .. ":LeftButton"
+	button.blizzardBinding = "SHAPESHIFTBUTTON" .. button:GetID()
 	button.hotkey = _G[name .. "HotKey"]
 	button.hotkey:ClearAllPoints()
 	button.hotkey:SetPoint("TOPRIGHT")
@@ -134,8 +136,12 @@ function ActionBar:InitializeShapeshiftBar(parent)
 	self:RegisterEvent("UPDATE_SHAPESHIFT_USABLE", "UpdateShapeshiftBar")
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", "UpdateShapeshiftBar")
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORMS", "UpdateShapeshiftVisibility")
+	self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED", "UpdateShapeshiftVisibility")
+	self:RegisterEvent("CHARACTER_POINTS_CHANGED", "UpdateShapeshiftVisibility")
+	self:RegisterEvent("SPELL_UPDATE_USABLE", "UpdateShapeshiftBar")
 	self:RegisterEvent("UPDATE_BINDINGS", "UpdateShapeshiftHotkeys")
 	self:UpdateShapeshiftBar()
+	RegisterStateDriver(parent, "visibility", "[vehicleui][bonusbar:5] hide; show")
 
 	ns.DestroyFrame(ShapeshiftBarFrame)
 	UIPARENT_MANAGED_FRAME_POSITIONS.ShapeshiftBarFrame = nil

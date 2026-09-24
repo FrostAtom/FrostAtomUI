@@ -6,12 +6,17 @@ local Trackers = ui.Trackers
 
 local Section = ns.Section
 local CreateButton = ns.CreateButton
+local Font = ns.Font
 
 local ICON_SIZE = 22
 local BUTTON_GAP = 4
 local QUESTION_MARK = "Interface\\Icons\\INV_Misc_QuestionMark"
 local LAST_EQUIPMENT_SLOT = 19
-local BUTTON_ROW_X = 208
+local BUTTON_ROW_X = ns.CONTROL_X
+local ICON_BUTTON_WIDTH = 64
+local ICON_BUTTON_HEIGHT = 20
+local HIGHLIGHT_TEXTURE = "Interface\\QuestFrame\\UI-QuestLogTitleHighlight"
+local HIGHLIGHT_COLOR = { 0.196, 0.388, 0.8 }
 
 local CLASSES = {
 	"WARRIOR",
@@ -209,11 +214,18 @@ local function describeIcon(icon)
 	return ("%s: %s"):format(TYPE_NAMES[icon.type] or icon.type, text), iconTexture(icon)
 end
 
+local function createArrow(parent, direction, onClick)
+	local template = direction == "up" and "UIPanelScrollUpButtonTemplate" or "UIPanelScrollDownButtonTemplate"
+	local button = CreateFrame("Button", ui.WidgetName(), parent, template)
+	button:SetScript("OnClick", onClick)
+	return button
+end
+
 local function buttonRow(buttons)
 	return function(row)
 		local previous
 		for _, spec in ipairs(buttons) do
-			local button = CreateButton(row, spec[1], spec[3] or 90)
+			local button = spec.arrow and createArrow(row, spec.arrow) or CreateButton(row, spec[1], spec[3] or 90, spec.gray)
 			if previous then
 				button:SetPoint("LEFT", previous, "RIGHT", BUTTON_GAP, 0)
 			else
@@ -354,34 +366,39 @@ local function iconRow(groupIndex, index)
 		label = "",
 		indent = false,
 		build = function(row)
+			local selected = row:CreateTexture(nil, "BACKGROUND")
+			selected:SetTexture(HIGHLIGHT_TEXTURE)
+			selected:SetBlendMode("ADD")
+			selected:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3])
+			selected:SetAllPoints()
+			selected:Hide()
+
 			local texture = row:CreateTexture(nil, "ARTWORK")
 			texture:SetSize(ICON_SIZE, ICON_SIZE)
-			texture:SetPoint("LEFT", 2, 0)
+			texture:SetPoint("LEFT", 8, 0)
 			texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 
-			local text = row:CreateFontString(nil, "OVERLAY")
-			ui.SetFont(text, 12)
+			local text = row:CreateFontString(nil, "ARTWORK")
+			text:SetFontObject(Font("GameFontHighlight"))
 			text:SetPoint("LEFT", texture, "RIGHT", 8, 0)
-			text:SetPoint("RIGHT", row, "RIGHT", -230, 0)
+			text:SetPoint("RIGHT", row, "RIGHT", -210, 0)
 			text:SetJustifyH("LEFT")
 			text:SetWordWrap(false)
 
-			local remove = CreateButton(row, L["Remove"], 64)
-			remove:SetPoint("RIGHT")
+			local remove = CreateButton(row, L["Remove"], ICON_BUTTON_WIDTH, true, ICON_BUTTON_HEIGHT)
+			remove:SetPoint("RIGHT", -4, 0)
 			remove:SetScript("OnClick", removeIcon(index))
-			local down = CreateButton(row, "v", 22)
+			local down = createArrow(row, "down", moveIcon(index, 1))
 			down:SetPoint("RIGHT", remove, "LEFT", -BUTTON_GAP, 0)
-			down:SetScript("OnClick", moveIcon(index, 1))
-			local up = CreateButton(row, "^", 22)
+			local up = createArrow(row, "up", moveIcon(index, -1))
 			up:SetPoint("RIGHT", down, "LEFT", -BUTTON_GAP, 0)
-			up:SetScript("OnClick", moveIcon(index, -1))
-			local edit = CreateButton(row, L["Edit"], 64)
+			local edit = CreateButton(row, L["Edit"], ICON_BUTTON_WIDTH, false, ICON_BUTTON_HEIGHT)
 			edit:SetPoint("RIGHT", up, "LEFT", -BUTTON_GAP, 0)
 			edit:SetScript("OnClick", function()
 				selectItem(groupIndex, selectedIcon ~= index and index or nil)
 			end)
 
-			row.texture, row.text, row.edit = texture, text, edit
+			row.texture, row.text, row.edit, row.selected = texture, text, edit, selected
 		end,
 		refresh = function(row)
 			local current = groups()[groupIndex].icons[index]
@@ -391,13 +408,11 @@ local function iconRow(groupIndex, index)
 			local label, texture = describeIcon(current)
 			row.texture:SetTexture(texture)
 			row.text:SetText(label)
-			if selectedIcon == index then
-				row.text:SetTextColor(1, 0.82, 0)
-				row.edit.text:SetText(L["Close"])
-			else
-				row.text:SetTextColor(1, 1, 1)
-				row.edit.text:SetText(L["Edit"])
-			end
+			local selected = selectedIcon == index
+			local color = selected and NORMAL_FONT_COLOR or HIGHLIGHT_FONT_COLOR
+			row.text:SetTextColor(color.r, color.g, color.b)
+			row.edit:SetText(selected and L["Close"] or L["Edit"])
+			ui.SetShown(row.selected, selected)
 		end,
 	}
 end
@@ -436,7 +451,7 @@ local function buildIconEntries(schema, groupIndex, iconIndex, icon)
 			path = "spells",
 			label = kind == "item" and L["Items"] or L["Spells"],
 			type = "string",
-			width = 300,
+			width = 260,
 			maxLetters = 255,
 			desc = SPELLS_DESC[kind],
 		})
@@ -483,7 +498,15 @@ local function buildIconEntries(schema, groupIndex, iconIndex, icon)
 			desc = L["Tint the icon blue while you lack the power to cast it."],
 		})
 	elseif kind == "icd" then
-		entry({ path = "duration", label = L["Cooldown (seconds)"], type = "number", min = 1, max = 180, step = 1 })
+		entry({
+			path = "duration",
+			label = L["Cooldown (seconds)"],
+			type = "number",
+			min = 0,
+			max = 180,
+			step = 1,
+			desc = L["0 takes the cooldown from the built-in list of trinket, enchant and talent procs (45 if the proc is unknown)."],
+		})
 	end
 end
 
@@ -513,9 +536,9 @@ local function buildSchema()
 			label = "",
 			build = buttonRow({
 				{ L["New group"], addGroup },
-				{ L["Delete"], deleteGroup, 70 },
-				{ "^", moveGroup(-1), 22 },
-				{ "v", moveGroup(1), 22 },
+				{ L["Delete"], deleteGroup, 70, gray = true },
+				{ nil, moveGroup(-1), arrow = "up" },
+				{ nil, moveGroup(1), arrow = "down" },
 			}),
 		},
 	}
@@ -580,7 +603,7 @@ local function buildSchema()
 	schema[#schema + 1] = {
 		type = "custom",
 		label = "",
-		build = buttonRow({ { L["Add icon"], addIcon, 100, x = 0 } }),
+		build = buttonRow({ { L["Add icon"], addIcon, 100, x = 8 } }),
 	}
 
 	local icon = selectedIcon and group.icons[selectedIcon]
