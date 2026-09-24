@@ -6,6 +6,7 @@ local Media = {
 	buttonNormal = MEDIA_PATH .. "textureNormal",
 	mapArrow = MEDIA_PATH .. "mapArrow",
 	mapUnit = MEDIA_PATH .. "mapUnit",
+	transparent = MEDIA_PATH .. "transparent",
 	buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
 	blank = "Interface\\Buttons\\WHITE8x8",
 	border = "Interface\\Tooltips\\UI-Tooltip-Border",

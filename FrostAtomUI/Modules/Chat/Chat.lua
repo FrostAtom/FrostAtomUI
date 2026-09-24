@@ -66,7 +66,6 @@ local function applyClassColors()
 end
 
 local chatBackdrops = {}
-local dockRails = {}
 local tabs = {}
 local fader
 local updateTabColors, chatInsets
@@ -149,7 +148,7 @@ function Chat:Initialize()
 	end
 	fader = ns.CreateFader({ ChatFrame1 }, hover, isTyping)
 	if config.skin then
-		ns.CreateFader(tabs, hover, isTyping, dockRails):Configure(true, 0)
+		ns.CreateFader(tabs, hover, isTyping):Configure(true, 0)
 	end
 	applyFrameConfig()
 	captureBlizzardSticky()
@@ -775,12 +774,12 @@ end
 
 local BACKDROP = ns.CreateBackdrop(14, 3)
 local FRIENDS_ICON = [[Interface\FriendsFrame\UI-Toast-FriendOnlineIcon]]
-local TAB_HEIGHT = 21
+local TAB_HEIGHT = 22
+local DOCK_OFFSET = 6
 local TAB_INACTIVE_ALPHA = 0.45
 local TAB_ACTIVE_COLOR = { 1, 1, 1 }
 local TAB_INACTIVE_COLOR = { 0.55, 0.55, 0.55 }
 local PANEL_INSET = 6
-local BORDER_BAND = BACKDROP.edgeSize
 local MIN_FONT_SIZE = 8
 local MAX_FONT_SIZE = 24
 
@@ -788,10 +787,10 @@ function chatInsets()
 	if not config.skin then
 		return 0, 0, 0, 0
 	end
-	local tab = ChatFrame1Tab
-	local top = 0
-	if tab:IsShown() and tab:GetBottom() and ChatFrame1:GetTop() then
-		top = max(tab:GetBottom() + TAB_HEIGHT - ChatFrame1:GetTop(), 0)
+	local backdrop = ChatFrame1Tab.backdrop
+	local top = PANEL_INSET
+	if ChatFrame1Tab:IsShown() and backdrop:GetTop() and ChatFrame1:GetTop() then
+		top = max(backdrop:GetTop() - ChatFrame1:GetTop(), top)
 	end
 	return PANEL_INSET, PANEL_INSET, top, PANEL_INSET
 end
@@ -813,98 +812,43 @@ local function addBackdrop(parent, inset)
 	return backdrop
 end
 
-local function createClipped(parent, level)
-	local clip = CreateFrame("ScrollFrame", nil, parent)
-	clip:SetFrameLevel(level > 0 and level or 0)
-	local backdrop = CreateFrame("Frame", nil, clip)
-	backdrop:SetBackdrop(BACKDROP)
-	backdrop:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
-	clip:SetScrollChild(backdrop)
-	clip.backdrop = backdrop
-	chatBackdrops[#chatBackdrops + 1] = backdrop
-	return clip
+local function fitTabBackdrop(clip)
+	local width, height = clip:GetWidth(), clip:GetHeight()
+	if width >= 1 and height >= 1 then
+		clip:GetScrollChild():SetSize(width, height + BACKDROP.edgeSize)
+	end
 end
 
-local function fitClippedBackdrop(clip)
-	local width, height = clip:GetWidth(), clip:GetHeight()
-	if width < 1 or height < 1 then
+local function isFirstTab(tab)
+	if tab:GetParent() ~= GeneralDockManager then
+		return true
+	end
+	local left = tab:GetLeft()
+	if not left then
 		return false
 	end
-	clip.backdrop:SetSize(width, height + BORDER_BAND)
+	for i = 1, #tabs do
+		local other = tabs[i]
+		if other ~= tab and other:IsShown() and other:GetParent() == GeneralDockManager then
+			local otherLeft = other:GetLeft()
+			if otherLeft and otherLeft < left then
+				return false
+			end
+		end
+	end
 	return true
 end
 
-local function layoutPanel(clip)
-	if fitClippedBackdrop(clip) then
-		clip:SetVerticalScroll(BORDER_BAND)
-	end
-end
-
-local function layoutRail(clip)
-	local width = clip:GetWidth()
-	if width < 1 then
-		return
-	end
-	clip.backdrop:SetSize(width + BORDER_BAND, BORDER_BAND * 3)
-	clip:SetHorizontalScroll(clip.clipLeft and BORDER_BAND or 0)
-end
-
-local function edgeTabs(chatFrame)
-	local docked = FCFDock_GetChatFrames(GeneralDockManager)
-	if not ns.tContains(docked, chatFrame) then
-		local own = _G[chatFrame:GetName() .. "Tab"]
-		if own:IsShown() then
-			return own, own
-		end
-		return
-	end
-	local first, last
-	for i = 1, #docked do
-		local tab = _G[docked[i]:GetName() .. "Tab"]
-		if tab:IsShown() then
-			if not first or tab:GetLeft() < first:GetLeft() then
-				first = tab
-			end
-			if not last or tab:GetRight() > last:GetRight() then
-				last = tab
-			end
-		end
-	end
-	return first, last
-end
-
-local function updateRail(chatFrame)
-	local rail, dockRail = chatFrame.rail, chatFrame.dockRail
-	if not rail then
-		return
-	end
-	local first, last = edgeTabs(chatFrame)
+local function layoutTabs()
 	for i = 1, #tabs do
 		local tab = tabs[i]
-		tab.clip:SetPoint("TOPLEFT", tab == first and -PANEL_INSET or 0, -(tab:GetHeight() - TAB_HEIGHT))
+		if tab:GetParent() == GeneralDockManagerScrollFrameChild then
+			tab:SetParent(GeneralDockManager)
+		end
 	end
-	rail:ClearAllPoints()
-	rail:SetHeight(BORDER_BAND)
-	rail:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", PANEL_INSET, BORDER_BAND)
-	rail.clipLeft = last ~= nil
-	if last then
-		rail:SetPoint("LEFT", last, "RIGHT")
-		dockRail:ClearAllPoints()
-		dockRail:SetHeight(BORDER_BAND)
-		dockRail:SetPoint("TOPLEFT", chatFrame, "TOPLEFT", -PANEL_INSET, BORDER_BAND)
-		dockRail:SetPoint("RIGHT", last, "RIGHT")
-		dockRail:Show()
-	else
-		rail:SetPoint("LEFT", chatFrame, "LEFT", -PANEL_INSET, 0)
-		dockRail:Hide()
-	end
-	layoutRail(rail)
-	layoutRail(dockRail)
-end
-
-local function updateRails()
-	for i = 1, NUM_CHAT_WINDOWS do
-		updateRail(_G["ChatFrame" .. i])
+	for i = 1, #tabs do
+		local tab = tabs[i]
+		tab.clip:SetPoint("BOTTOMLEFT", isFirstTab(tab) and -PANEL_INSET or 0, 0)
 	end
 end
 
@@ -934,20 +878,23 @@ local function setupTab(name)
 
 	tab.chatFrame = _G[name:gsub("Tab$", "")]
 
-	local clip = createClipped(tab, tab:GetFrameLevel() - 1)
-	clip:SetPoint("TOPLEFT", 0, -(tab:GetHeight() - TAB_HEIGHT))
-	clip:SetPoint("RIGHT")
-	clip:SetPoint("BOTTOM", tab.chatFrame.panel, "TOP")
-
-	tab.clip, tab.backdrop = clip, clip.backdrop
-	fitClippedBackdrop(clip)
-	tab:HookScript("OnSizeChanged", updateRails)
-	clip:SetScript("OnSizeChanged", fitClippedBackdrop)
+	local clip = CreateFrame("ScrollFrame", nil, tab)
+	clip:SetFrameLevel(max(tab:GetFrameLevel() - 1, 0))
+	clip:SetPoint("BOTTOMLEFT")
+	clip:SetPoint("TOPRIGHT", tab, "BOTTOMRIGHT", 0, TAB_HEIGHT)
+	local backdrop = CreateFrame("Frame", nil, clip)
+	backdrop:SetBackdrop(BACKDROP)
+	clip:SetScrollChild(backdrop)
+	clip:SetScript("OnSizeChanged", fitTabBackdrop)
+	chatBackdrops[#chatBackdrops + 1] = backdrop
+	tab.clip, tab.backdrop = clip, backdrop
+	fitTabBackdrop(clip)
+	tab:HookScript("OnSizeChanged", layoutTabs)
 
 	local highlight = tab:CreateTexture(nil, "HIGHLIGHT")
 	highlight:SetTexture(1, 1, 1, 0.08)
-	highlight:SetPoint("TOPLEFT", clip, "TOPLEFT")
-	highlight:SetPoint("BOTTOMRIGHT", clip, "BOTTOMRIGHT")
+	highlight:SetPoint("TOPLEFT", clip, "TOPLEFT", 3, -3)
+	highlight:SetPoint("BOTTOMRIGHT", clip, "BOTTOMRIGHT", -3, 0)
 
 	tabs[#tabs + 1] = tab
 	updateTabColors(tab)
@@ -1017,22 +964,7 @@ local function skinChatFrame(name)
 		"BottomRightTexture"
 	)
 
-	local level = chatFrame:GetFrameLevel() - 1
-	local panel = createClipped(chatFrame, level)
-	panel:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", PANEL_INSET, 0)
-	panel:SetPoint("BOTTOMLEFT", chatFrame, "BOTTOMLEFT", -PANEL_INSET, -PANEL_INSET)
-	panel:SetScript("OnSizeChanged", layoutPanel)
-	layoutPanel(panel)
-
-	local rail = createClipped(chatFrame, level)
-	rail:SetScript("OnSizeChanged", layoutRail)
-
-	local dockRail = createClipped(chatFrame, level)
-	dockRail:SetScript("OnSizeChanged", layoutRail)
-	dockRails[#dockRails + 1] = dockRail
-
-	chatFrame.panel, chatFrame.rail, chatFrame.dockRail = panel, rail, dockRail
-	updateRail(chatFrame)
+	addBackdrop(chatFrame, PANEL_INSET)
 end
 
 function Chat:HookMessages()
@@ -1107,6 +1039,10 @@ function Chat:Skin()
 	end)
 	FriendsMicroButtonCount:Hide()
 
+	GeneralDockManager:ClearAllPoints()
+	GeneralDockManager:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, DOCK_OFFSET)
+	GeneralDockManager:SetPoint("BOTTOMRIGHT", ChatFrame1, "TOPRIGHT", 0, DOCK_OFFSET)
+
 	for i = 1, NUM_CHAT_WINDOWS do
 		local name = "ChatFrame" .. i
 		skinChatFrame(name)
@@ -1114,6 +1050,6 @@ function Chat:Skin()
 		setupEditBox(name .. "EditBox", _G[name])
 	end
 	hooksecurefunc("FCFTab_UpdateColors", updateTabColors)
-	hooksecurefunc("FCFDock_UpdateTabs", updateRails)
-	updateRails()
+	hooksecurefunc("FCFDock_UpdateTabs", layoutTabs)
+	layoutTabs()
 end

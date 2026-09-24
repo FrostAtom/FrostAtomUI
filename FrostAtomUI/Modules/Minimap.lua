@@ -29,8 +29,30 @@ local DEFAULT_ZONE_COLOR = { 1, 0.82, 0 }
 
 local LFG_BUTTON_SIZE = 33
 
+local BLIP_HIDE_ALPHA = 0.5
+local BLIP_TEXTURES = {
+	SetBlipTexture = "Interface\\Minimap\\ObjectIcons",
+	SetIconTexture = "Interface\\Minimap\\POIIcons",
+	SetClassBlipTexture = "Interface\\Minimap\\PartyRaidBlips",
+	SetPlayerTexture = "Interface\\Minimap\\MinimapArrow",
+	SetPOIArrowTexture = "Interface\\Minimap\\ROTATING-MINIMAPGUIDEARROW",
+	SetStaticPOIArrowTexture = "Interface\\Minimap\\ROTATING-MINIMAPARROW",
+	SetCorpsePOIArrowTexture = "Interface\\Minimap\\ROTATING-MINIMAPCORPSEARROW",
+}
+
 local clock, zoneText, lfgHolder, fader
 local cornerIcons = {}
+local blipsHidden = false
+
+local function setBlipsHidden(hidden)
+	if hidden == blipsHidden then
+		return
+	end
+	blipsHidden = hidden
+	for method, texture in pairs(BLIP_TEXTURES) do
+		Minimap[method](Minimap, hidden and ns.Media.transparent or texture)
+	end
+end
 
 local function skinCornerIcon(frame, icon, border, texture, point, dx, dy)
 	border:Hide()
@@ -214,6 +236,11 @@ function MinimapModule:Initialize()
 	MiniMapLFGFrame:SetFrameStrata("MEDIUM")
 
 	fader = ns.CreateFader({ Minimap, MinimapBackdrop }, { Minimap })
+	local faderSetAlpha = fader.SetAlpha
+	function fader:SetAlpha(alpha)
+		faderSetAlpha(self, alpha)
+		setBlipsHidden(alpha < BLIP_HIDE_ALPHA)
+	end
 
 	applyConfig()
 	self:RegisterMover(lfgHolder, "minimap.lfgPoint", "Queue eye", {
