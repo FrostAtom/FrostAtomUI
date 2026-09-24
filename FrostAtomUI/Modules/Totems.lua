@@ -1,6 +1,7 @@
 local _, ns = ...
 
 local GetTotemInfo = GetTotemInfo
+local DestroyTotem = DestroyTotem
 
 local Totems = ns:NewModule("Totems")
 local CooldownTimer = ns:GetModule("CooldownTimer")
@@ -36,13 +37,16 @@ function Totems:UpdateAll()
 	end
 end
 
+local function onClick(self)
+	DestroyTotem(self:GetID())
+end
+
 local function createButton(slot, parent)
-	local button = CreateFrame("Button", nil, parent, "SecureActionButtonTemplate")
+	local button = CreateFrame("Button", nil, parent)
 	button:SetID(slot)
 	button:SetAlpha(0)
 	button:RegisterForClicks("RightButtonUp")
-	button:SetAttribute("type", "destroytotem")
-	button:SetAttribute("totem-slot", slot)
+	button:SetScript("OnClick", onClick)
 
 	button.icon = button:CreateTexture(nil, "BACKGROUND")
 	button.icon:SetAllPoints()

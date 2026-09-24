@@ -1457,7 +1457,6 @@ local AUTO_SHOW_EVENTS = {
 }
 
 local blizzardToggleBag = ToggleBag
-local blizzardIsBagOpen = IsBagOpen
 
 local function toggleBag(bag)
 	local frame = bagFrames[bag]
@@ -1494,14 +1493,6 @@ local function closeAllBags()
 	local wasShown = inventory:IsShown()
 	inventory:Hide()
 	return wasShown
-end
-
-local function isBagOpen(bag)
-	local frame = bagFrames[bag]
-	if frame then
-		return frame:IsShown() or nil
-	end
-	return blizzardIsBagOpen(bag)
 end
 
 local function loadSaved(db)
@@ -1576,7 +1567,6 @@ function Bags:Initialize()
 	CloseBackpack = closeBackpack
 	OpenAllBags = openAllBags
 	CloseAllBags = closeAllBags
-	IsBagOpen = isBagOpen
 
 	self:WatchConfig("bags", function()
 		forEachShownFrame("Layout")

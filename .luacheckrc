@@ -48,7 +48,7 @@ read_globals = {
 	"GetComboPoints", "UnitHasVehicleUI", "GetRaidTargetIndex", "SetRaidTargetIconTexture",
 	"UnitInRange", "CheckInteractDistance", "UnitLevel", "UnitXP", "UnitXPMax", "GetXPExhaustion",
 	"GetWatchedFactionInfo", "UnitCanAssist", "UnitCanAttack", "GetPlayerInfoByGUID", "UnitIsFeignDeath",
-	"IsResting", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitFactionGroup", "GetTotemInfo",
+	"IsResting", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitFactionGroup", "GetTotemInfo", "DestroyTotem",
 	"RequestBattlefieldScoreData", "UnitReaction", "GetGuildInfo", "GetItemCount",
 	"CanMerchantRepair", "GetRepairAllCost", "RepairAllItems", "GetMoney", "GetContainerNumSlots",
 	"GetContainerItemLink", "GetContainerItemInfo", "UseContainerItem", "GetNumGuildMembers",
@@ -145,7 +145,7 @@ globals = {
 	"Minimap_UpdateRotationSetting", "UnitPopup_OnClick", "ChatEdit_OnSpacePressed", "SetItemRef",
 	"InspectPaperDollItemSlotButton_Update", "GetMinimapShape",
 	"ToggleSpellBook", "ToggleTalentFrame", "ToggleGlyphFrame", "OpenGlyphFrame",
-	"ToggleBag", "ToggleBackpack", "OpenBackpack", "CloseBackpack", "OpenAllBags", "CloseAllBags", "IsBagOpen",
+	"ToggleBag", "ToggleBackpack", "OpenBackpack", "CloseBackpack", "OpenAllBags", "CloseAllBags",
 	-- chat constants
 	"CHAT_FRAME_FADE_OUT_TIME", "CHAT_TAB_HIDE_DELAY",
 	"CHAT_FRAME_TAB_SELECTED_MOUSEOVER_ALPHA", "CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA",
