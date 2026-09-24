@@ -192,6 +192,15 @@ local function setIconSize(icon, size)
 	end
 end
 
+local function createOverlay(icon)
+	local overlay = icon:CreateTexture(nil, "OVERLAY")
+	overlay:SetTexture("Interface\\Buttons\\UI-Debuff-Overlays")
+	overlay:SetAllPoints()
+	overlay:SetTexCoord(0.296875, 0.5703125, 0, 0.515625)
+	icon.overlay = overlay
+	return overlay
+end
+
 local function createIcon(container, index)
 	local icon = CreateFrame("Button", nil, container)
 	icon:SetFrameLevel(container:GetFrameLevel() + 1)
@@ -234,10 +243,7 @@ local function createIcon(container, index)
 	end
 
 	if container.isDebuff or canPurge then
-		icon.overlay = icon:CreateTexture(nil, "OVERLAY")
-		icon.overlay:SetTexture("Interface\\Buttons\\UI-Debuff-Overlays")
-		icon.overlay:SetAllPoints()
-		icon.overlay:SetTexCoord(0.296875, 0.5703125, 0, 0.515625)
+		createOverlay(icon)
 		icon.isDebuff = container.isDebuff
 	end
 
@@ -277,7 +283,7 @@ local function setIcon(icon, texture, count, debuffType, duration, endTime, stea
 		if icon.isDebuff then
 			local color = debuffType and debuffColors[debuffType] or NO_TYPE_COLOR
 			overlay:SetVertexColor(color[1], color[2], color[3])
-		elseif stealable then
+		elseif stealable and canPurge then
 			overlay:SetVertexColor(STEALABLE_COLOR[1], STEALABLE_COLOR[2], STEALABLE_COLOR[3])
 			overlay:Show()
 		else
@@ -412,6 +418,7 @@ local function syncCatchers(container)
 
 	local catchers = container.catchers
 	local byName = sorters[config.playerBuffSort] ~= nil
+	local lead = container.enchantLead or 0
 	local active = 0
 	if not UF.testing and container:IsVisible() and container:GetLeft() then
 		active = min(container.limit, container.shown + (byName and 0 or SPARE_CANCEL_SLOTS))
@@ -448,8 +455,10 @@ local function syncCatchers(container)
 				else
 					setCatcherAura(catcher, NO_AURA_INDEX, nil)
 				end
+			elseif i > lead then
+				setCatcherAura(catcher, i - lead, nil)
 			else
-				setCatcherAura(catcher, i, nil)
+				setCatcherAura(catcher, NO_AURA_INDEX, nil)
 			end
 			catcher:Show()
 		end
@@ -485,17 +494,10 @@ local function layoutContainer(container, shown)
 	end
 end
 
-local sortSet, sortCount, sortExtra
-
-local function sortEntry(key)
-	if key > sortCount then
-		return sortExtra[key - sortCount]
-	end
-	return sortSet[key]
-end
+local sortSet
 
 function sorters.own(a, b)
-	local ownA, ownB = OWN_CASTERS[sortEntry(a).caster] or false, OWN_CASTERS[sortEntry(b).caster] or false
+	local ownA, ownB = OWN_CASTERS[sortSet[a].caster] or false, OWN_CASTERS[sortSet[b].caster] or false
 	if ownA ~= ownB then
 		return ownA
 	end
@@ -508,64 +510,102 @@ local function expiresOf(aura)
 end
 
 function sorters.time(a, b)
-	local expiresA, expiresB = expiresOf(sortEntry(a)), expiresOf(sortEntry(b))
+	local expiresA, expiresB = expiresOf(sortSet[a]), expiresOf(sortSet[b])
 	if expiresA ~= expiresB then
 		return expiresA < expiresB
 	end
 	return a < b
 end
 
-local function sortedOrder(container, auras, count, extra, total)
+local function sortedOrder(container, auras, count)
 	local sorter = container.sortable and sorters[config.playerBuffSort]
 	if not sorter then
 		return nil
 	end
 	local order = container.order
-	for i = 1, total do
+	for i = 1, count do
 		order[i] = i
 	end
-	for i = total + 1, container.orderCount do
+	for i = count + 1, container.orderCount do
 		order[i] = nil
 	end
-	container.orderCount = total
-	sortSet, sortCount, sortExtra = auras, count, extra
+	container.orderCount = count
+	sortSet = auras
 	sort(order, sorter)
-	sortSet, sortExtra = nil, nil
+	sortSet = nil
 	return order
 end
 
 local enchantContainer
 local weaponEnchants, weaponEnchantCount = nil, 0
 
+local function enchantLead(container, enchantCount)
+	if not InCombatLockdown() or not container.enchantLead then
+		container.enchantLead = enchantCount
+	end
+	return container.enchantLead
+end
+
+local function showEnchant(icon, enchant)
+	icon.index = nil
+	icon.spellName = nil
+	icon.big = false
+	setEnchant(icon, enchant)
+	if enchant then
+		setIcon(icon, enchant.icon, nil, nil, enchant.duration, enchant.expires)
+		local color = enchant.quality and ITEM_QUALITY_COLORS[enchant.quality]
+		if color then
+			local overlay = icon.overlay or createOverlay(icon)
+			overlay:SetVertexColor(color.r, color.g, color.b)
+			overlay:Show()
+		end
+	else
+		if icon.start then
+			clearCooldown(icon)
+		end
+		if icon == hoveredIcon then
+			onIconLeave(icon)
+		end
+		icon:Hide()
+	end
+end
+
 local function updateContainer(container)
 	local auras, count = Auras.Get(container.unit, container.filter)
-	local enchants, enchantCount = nil, 0
-	if container == enchantContainer and weaponEnchants then
-		enchants, enchantCount = weaponEnchants, weaponEnchantCount
-	end
-	local total = count + enchantCount
-	local order = sortedOrder(container, auras, count, enchants, total)
-	local enlarge = ownScale(container) ~= nil
-
-	local shown = min(total, container.limit)
-	for i = 1, shown do
-		local index = order and order[i] or i
-		local icon = acquireIcon(container, i)
-		if index > count then
-			local enchant = enchants[index - count]
-			icon.index = nil
-			icon.spellName = nil
-			icon.big = false
-			setEnchant(icon, enchant)
-			setIcon(icon, enchant.icon, nil, nil, enchant.duration, enchant.expires)
-		else
-			local aura = auras[index]
-			icon.index = index
-			icon.spellName = aura.name
-			icon.big = enlarge and OWN_CASTERS[aura.caster] or false
-			setEnchant(icon, nil)
-			setIcon(icon, aura.icon, aura.count, aura.debuffType, aura.duration, aura.expires, aura.stealable)
+	local enchants, enchantCount, lead = nil, 0, 0
+	if container == enchantContainer then
+		if weaponEnchants then
+			enchants, enchantCount = weaponEnchants, weaponEnchantCount
 		end
+		lead = enchantLead(container, enchantCount)
+	end
+	local order = sortedOrder(container, auras, count)
+	local enlarge = ownScale(container) ~= nil
+	local limit = container.limit
+
+	local shown = min(lead, limit)
+	for i = 1, shown do
+		showEnchant(acquireIcon(container, i), i <= enchantCount and enchants[i] or nil)
+	end
+
+	for i = 1, min(count, limit - shown) do
+		local index = order and order[i] or i
+		local aura = auras[index]
+		local icon = acquireIcon(container, shown + i)
+		icon.index = index
+		icon.spellName = aura.name
+		icon.big = enlarge and OWN_CASTERS[aura.caster] or false
+		setEnchant(icon, nil)
+		setIcon(icon, aura.icon, aura.count, aura.debuffType, aura.duration, aura.expires, aura.stealable)
+	end
+	shown = min(shown + count, limit)
+
+	for i = lead + 1, enchantCount do
+		if shown == limit then
+			break
+		end
+		shown = shown + 1
+		showEnchant(acquireIcon(container, shown), enchants[i])
 	end
 
 	layoutContainer(container, shown)
@@ -693,6 +733,10 @@ UF:WatchConfig("general", queueAllCatchers)
 local combatEvents = ns.Mixin({}, ns.EventMixin)
 
 combatEvents:RegisterEvent("PLAYER_REGEN_ENABLED", function()
+	local container = enchantContainer
+	if container and container.enchantLead ~= weaponEnchantCount and not UF.testing and container:IsVisible() then
+		updateContainer(container)
+	end
 	for i = 1, #cancelContainers do
 		local container = cancelContainers[i]
 		if container.catchersPending then
