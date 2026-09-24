@@ -38,6 +38,10 @@ local TICK_WIDTH = 2
 local TICK_COLOR = { 0, 0, 0, 0.75 }
 local MAX_LATENCY_SHARE = 0.4
 local LATENCY_TIMEOUT = 2
+local SPARK_TEXTURE = "Interface\\CastingBar\\UI-CastingBar-Spark"
+local SPARK_WIDTH = 16
+local START_FLASH_TIME = 0.3
+local START_FLASH_ALPHA = 0.7
 
 UF.CAST_INTERRUPTED = "FrostAtomUI_CAST_INTERRUPTED"
 UF.INTERRUPTED_TEXT = INTERRUPTED_TEXT
@@ -225,13 +229,15 @@ local function showInterruptible(castbar)
 	if interruptible and not castbar.isPlayer and not castbar.testing and ns.HasCastImmunity(castbar.unit) then
 		interruptible = false
 	end
+	local color
 	if interruptible or castbar.isPlayer then
 		castbar.icon:SetDesaturated(nil)
-		castbar.bar:SetStatusBarColor(unpack(config.castbarColor))
+		color = castbar.isChannel and config.castbarChannelColor or config.castbarColor
 	else
 		castbar.icon:SetDesaturated(1)
-		castbar.bar:SetStatusBarColor(unpack(config.castbarLockedColor))
+		color = config.castbarLockedColor
 	end
+	UF.SetBarColor(castbar.bar, color[1], color[2], color[3])
 end
 
 local function setInterruptible(castbar, interruptible)
@@ -293,10 +299,20 @@ local function setTimes(castbar, startTime, endTime)
 end
 
 local function setProgress(castbar, remain)
+	local bar, duration = castbar.bar, castbar.duration
+	local elapsed = duration - remain
 	if castbar.isChannel then
-		castbar.bar:SetValue(castbar.startTime + remain)
+		bar:SetValue(castbar.startTime + remain)
 	else
-		castbar.bar:SetValue(castbar.endTime - remain)
+		bar:SetValue(castbar.endTime - remain)
+	end
+	local spark = castbar.spark
+	if duration > 0 and remain > 0 and elapsed > 0 then
+		local fill = (castbar.isChannel and remain or elapsed) / duration
+		spark:SetPoint("CENTER", bar, "LEFT", bar:GetWidth() * fill, 0)
+		spark:Show()
+	else
+		spark:Hide()
 	end
 	if castbar.showTotal then
 		castbar.timer:SetFormattedText("%.1f / %.1f", remain, castbar.duration)
@@ -387,6 +403,9 @@ local function stopCast(castbar, hold, fadeSpeed)
 	castbar.timer:SetText("")
 	castbar.target:SetText("")
 	castbar.glow:Hide()
+	castbar.spark:Hide()
+	castbar.startFlash = 0
+	castbar.flash:Hide()
 	hideTicks(castbar)
 	if castbar.latency then
 		castbar.latency:Hide()
@@ -417,7 +436,7 @@ local function showInterrupted(castbar, text)
 	local bar = castbar.bar
 	local _, max = bar:GetMinMaxValues()
 	bar:SetValue(max)
-	bar:SetStatusBarColor(INTERRUPT_COLOR[1], INTERRUPT_COLOR[2], INTERRUPT_COLOR[3])
+	UF.SetBarColor(bar, INTERRUPT_COLOR[1], INTERRUPT_COLOR[2], INTERRUPT_COLOR[3])
 	castbar:SetAlpha(1)
 end
 
@@ -445,6 +464,16 @@ local function onUpdate(castbar, elapsed)
 			return
 		else
 			setProgress(castbar, 0)
+		end
+		local startFlash = castbar.startFlash
+		if startFlash > 0 then
+			startFlash = startFlash - elapsed
+			castbar.startFlash = startFlash
+			if startFlash > 0 then
+				castbar.flash:SetAlpha(START_FLASH_ALPHA * startFlash / START_FLASH_TIME)
+			else
+				castbar.flash:Hide()
+			end
 		end
 		if castbar.important then
 			pulseCastGlow(castbar.glow, elapsed)
@@ -484,13 +513,20 @@ local function startCast(castbar, name, texture, startTime, endTime, isChannel, 
 	layoutText(castbar)
 	castbar.name:SetText(name ~= "" and name or UNKNOWN)
 	castbar.icon:SetTexture(texture ~= "" and texture or ns.Media.questionMark)
+	castbar.isChannel = isChannel
 	setInterruptible(castbar, interruptible)
 
-	castbar.isChannel = isChannel
 	castbar.castId = castId
 	castbar.interrupted = false
 	castbar.flashing = false
-	castbar.flash:Hide()
+	if castbar.casting then
+		castbar.startFlash = 0
+		castbar.flash:Hide()
+	else
+		castbar.startFlash = START_FLASH_TIME
+		castbar.flash:SetAlpha(START_FLASH_ALPHA)
+		castbar.flash:Show()
+	end
 	castbar.showTotal = config.castbarTimeFormat == "total"
 	setTimes(castbar, startTime, endTime)
 	setProgress(castbar, castbar.remain)
@@ -712,6 +748,17 @@ local function create(frame, iconSide)
 	bar:SetMinMaxValues(0, 1)
 	ns.SkinStatusBar(bar)
 	castbar.bar = bar
+
+	bar.bg = bar:CreateTexture(nil, "BORDER")
+	bar.bg:SetAllPoints()
+	bar.bg:SetTexture(ns.Media.blank)
+
+	castbar.spark = bar:CreateTexture(nil, "ARTWORK", nil, 7)
+	castbar.spark:SetTexture(SPARK_TEXTURE)
+	castbar.spark:SetBlendMode("ADD")
+	castbar.spark:SetWidth(SPARK_WIDTH)
+	castbar.spark:Hide()
+	castbar.startFlash = 0
 
 	castbar.flash = bar:CreateTexture(nil, "OVERLAY")
 	castbar.flash:SetAllPoints()

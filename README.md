@@ -154,8 +154,11 @@ in arenas and battlegrounds the window opens by itself.
 ### 🧊 Cooldowns, trackers & auras
 
 - Enemy and party cooldown tracker (trinkets, defensives, interrupts, racials) with shared-cooldown
-  and talent-reset logic, shown as icons next to arena/party frames; an icon flashes when the cooldown is ready.
-  Type `/cdtest` in a group to preview it.
+  and talent-reset logic, shown in two panels under the party and arena frames. Every tracked ability is always
+  visible, rows group them by type (trinket, defensive, burst, interrupt, control, mobility, utility), icons of one
+  player stay together with a class-colored border; dark with a timer on cooldown, glowing while the effect is up,
+  a flash when ready. Each spell can be shown or hidden per class in the settings. Type `/cdtest` in a group to
+  start fake cooldowns on real party / arena members.
 - **Trackers** — your own small TellMeWhen. Build groups of icons that watch buffs and debuffs, spell and item
   cooldowns (trinket slots included), totems, internal cooldowns, enemy cooldowns and diminishing returns
   on you, your target, focus, pet, party or arena units. Show an icon when the aura is there or missing,
@@ -337,7 +340,7 @@ in arenas and battlegrounds the window opens by itself.
 | `/noparty` | Toggle automatic group invite decline |
 | `/notrade` | Toggle automatic trade decline |
 | `/vr` | Toggle the button click animation (for video recording) |
-| `/cdtest` | Preview the cooldown tracker on your party / arena frames |
+| `/cdtest` | Start fake cooldowns on your party / arena members |
 | `/uftest` | Toggle unit frame test mode: every frame is shown with random data |
 | `/guid` | Print your target's GUID |
 | `/rl` | Reload the UI |

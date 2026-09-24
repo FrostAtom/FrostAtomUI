@@ -3,6 +3,7 @@ local UF = ns:GetModule("UnitFrames")
 
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
+local IsInInstance = IsInInstance
 local random = math.random
 
 local CooldownTimer = ns:GetModule("CooldownTimer")
@@ -25,8 +26,18 @@ for spellId, cooldown in pairs(TRINKET_SPELLS) do
 	end
 end
 
+local function isShown(frame)
+	local config = ns.Config.arenaTrinket
+	if not config.enabled then
+		return false
+	elseif not frame.trinket.arenaOnly then
+		return true
+	end
+	return config.party and (frame.test ~= nil or select(2, IsInInstance()) == "arena")
+end
+
 local function update(frame)
-	ns.SetShown(frame.trinket, ns.Config.arenaTrinket.enabled)
+	ns.SetShown(frame.trinket, isShown(frame))
 end
 
 local function test(frame)
@@ -49,6 +60,11 @@ local function reset(frame)
 	frame.trinket.cooldown:SetCooldown(0, 0)
 end
 
+local function onEnteringWorld(frame)
+	reset(frame)
+	update(frame)
+end
+
 local function onOpponentUpdate(frame, unit, reason)
 	if unit == frame.unit and reason == "cleared" then
 		reset(frame)
@@ -66,6 +82,10 @@ local function create(frame, options)
 	local trinket = CreateFrame("Frame", nil, frame)
 	trinket:SetSize(size, size)
 	trinket.SetIconSize = setIconSize
+	trinket.arenaOnly = options and options.arenaOnly
+	trinket.Refresh = function()
+		update(frame)
+	end
 
 	trinket.icon = trinket:CreateTexture(nil, "BORDER")
 	trinket.icon:SetTexture(TRINKET_ICON)
@@ -77,7 +97,7 @@ local function create(frame, options)
 
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", onSpellSucceeded)
 	frame:RegisterEvent("ARENA_OPPONENT_UPDATE", onOpponentUpdate)
-	frame:RegisterEvent("PLAYER_ENTERING_WORLD", reset)
+	frame:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 
 	return trinket
 end

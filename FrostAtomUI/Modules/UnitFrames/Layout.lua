@@ -2,7 +2,7 @@ local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 local max = math.max
 
-local MAX_PARTY_FRAMES = 3
+local MAX_PARTY_FRAMES = MAX_PARTY_MEMBERS or 4
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
@@ -18,12 +18,6 @@ local RESIZE_KEYS = {
 	ownAuraScale = true,
 }
 local AURA_GROWTH_ANCHORS = { LEFT = "TOPRIGHT", RIGHT = "TOPLEFT" }
-
-local ARENA_COOLDOWN_SKIP = {
-	[42292] = true, -- PvP Trinket
-	[59752] = true, -- Every Man for Himself
-	[7744] = true, -- Will of the Forsaken
-}
 
 local player, castbar, pet, target, focus
 local party, arena, bosses = {}, {}, {}
@@ -94,15 +88,13 @@ end
 
 local function applySizes()
 	local config = ns.Config.unitFrames
-	for i = 1, #party do
-		party[i].cooldowns:SetIconSize(config.partyCooldownSize)
-	end
-	local trinketConfig = ns.Config.arenaTrinket
-	for i = 1, #arena do
-		arena[i].cooldowns:SetIconSize(config.arenaCooldownSize)
-		local trinket = arena[i].trinket
-		trinket:SetIconSize(trinketConfig.size)
-		ns.SetShown(trinket, trinketConfig.enabled)
+	local trinketSize = ns.Config.arenaTrinket.size
+	for _, frames in ipairs({ party, arena }) do
+		for i = 1, #frames do
+			local trinket = frames[i].trinket
+			trinket:SetIconSize(trinketSize)
+			trinket:Refresh()
+		end
 	end
 	sizePlayerCastbar(config)
 	local auraAnchor = playerAuraAnchor(config)
@@ -120,21 +112,18 @@ local function resizeGroupFrame(frame, groupPet, width, height)
 	if frame.buffs then
 		frame.buffs:SetLayout(width, config.partyBuffSize)
 	end
-	UF.SetCastbarSize(frame.castbar, width * GROUP_CASTBAR_WIDTH_SCALE, height)
+	UF.SetCastbarSize(frame.castbar, width * GROUP_CASTBAR_WIDTH_SCALE, config.castbarHeight)
 	groupPet:SetFrameSize(height, height)
 end
 
 local function anchorGroupGrids(frame)
 	local gap = ns.Config.unitFrames.gridGap
-	local debuffs, cooldowns, buffs = frame.debuffs, frame.cooldowns, frame.buffs
+	local debuffs, buffs = frame.debuffs, frame.buffs
 	debuffs:ClearAllPoints()
-	cooldowns:ClearAllPoints()
 	if frame.iconSide == "LEFT" then
 		debuffs:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", 0, -gap)
-		cooldowns:SetPoint("TOPLEFT", debuffs, "TOPRIGHT", gap, 0)
 	else
 		debuffs:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -gap)
-		cooldowns:SetPoint("TOPRIGHT", debuffs, "TOPLEFT", -gap, 0)
 	end
 	if buffs then
 		buffs:ClearAllPoints()
@@ -170,12 +159,6 @@ local function setGroupWatched(frames, watched)
 	end
 end
 
-local function setGroupCooldowns(frames, shown)
-	for i = 1, #frames do
-		ns.SetShown(frames[i].cooldowns, shown)
-	end
-end
-
 local function applyVisibility()
 	local config = ns.Config.unitFrames
 	pet:SetWatched(config.showPet)
@@ -186,8 +169,6 @@ local function applyVisibility()
 	setGroupWatched(arena, config.showArena)
 	setGroupWatched(arenaPets, config.showArena and config.showPet)
 	setGroupWatched(bosses, config.showBoss)
-	setGroupCooldowns(party, config.showPartyCooldowns)
-	setGroupCooldowns(arena, config.showArenaCooldowns)
 end
 
 local function applyElements()
@@ -337,17 +318,16 @@ local function createParty(self, config)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
 		frame:RegisterEvent("PARTY_MEMBER_ENABLE", "QueueUpdate")
 		frame:RegisterEvent("PARTY_MEMBER_DISABLE", "QueueUpdate")
-		frame:EnableVehicleSwap("party" .. i, "partypet" .. i, { cooldowns = true, procs = true })
+		frame:EnableVehicleSwap("party" .. i, "partypet" .. i, { procs = true })
 
 		addLeader(self, frame)
 		addRaidIconAbove(self, frame)
 
 		self:AddElement(frame, "debuffs", debuffOptions)
-		self:AddElement(frame, "cooldowns", { size = config.partyCooldownSize })
 		self:AddElement(frame, "buffs", buffOptions)
 		anchorGroupGrids(frame)
 
-		self:CreateSideCastbar(frame, "RIGHT", width * GROUP_CASTBAR_WIDTH_SCALE, height)
+		self:CreateSideCastbar(frame, "RIGHT", width * GROUP_CASTBAR_WIDTH_SCALE, config.castbarHeight)
 		self:AddElement(frame, "procs")
 
 		self:AddElement(frame, "losecontrol")
@@ -360,6 +340,9 @@ local function createParty(self, config)
 		pet:SetPoint("RIGHT", frame, "LEFT", -2, 0)
 		pet:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
 		partyPets[i] = pet
+
+		local trinket = self:AddElement(frame, "trinket", { size = ns.Config.arenaTrinket.size, arenaOnly = true })
+		trinket:SetPoint("RIGHT", pet, "LEFT", -2, 0)
 	end
 end
 
@@ -382,7 +365,7 @@ local function createArena(self, config)
 
 		self:AddElement(frame, "debuffs", debuffOptions)
 
-		self:CreateSideCastbar(frame, "LEFT", width * GROUP_CASTBAR_WIDTH_SCALE, height)
+		self:CreateSideCastbar(frame, "LEFT", width * GROUP_CASTBAR_WIDTH_SCALE, config.castbarHeight)
 
 		self:AddElement(frame, "losecontrol")
 
@@ -400,12 +383,6 @@ local function createArena(self, config)
 
 		self:AddElement(frame, "diminish")
 		self:AddElement(frame, "procs")
-
-		self:AddElement(
-			frame,
-			"cooldowns",
-			{ size = config.arenaCooldownSize, skip = ARENA_COOLDOWN_SKIP, anchor = "TOPRIGHT" }
-		)
 		anchorGroupGrids(frame)
 	end
 end

@@ -15,6 +15,7 @@ local CLASS_ICON_INSET = 2
 local CLASS_ICON_GAP = 2
 local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
+local CASTBAR_SPARK_SCALE = 2
 local TARGET_AURA_ROWS = 2
 local BAR_BACKGROUND_DIM = 0.3
 local RIGHT_CLICK_ACTIONS = { menu = "menu", focus = "focus" }
@@ -85,9 +86,15 @@ function UF.SetBarColor(bar, r, g, b)
 	bar.bg:SetVertexColor(r * BAR_BACKGROUND_DIM, g * BAR_BACKGROUND_DIM, b * BAR_BACKGROUND_DIM)
 end
 
-function UF.SetCastbarSize(castbar, width, height)
-	castbar:SetSize(width, height)
+function UF.SetCastbarHeight(castbar, height)
+	castbar:SetHeight(height)
 	castbar.icon:SetSize(height, height)
+	castbar.spark:SetHeight(height * CASTBAR_SPARK_SCALE)
+end
+
+function UF.SetCastbarSize(castbar, width, height)
+	castbar:SetWidth(width)
+	UF.SetCastbarHeight(castbar, height)
 end
 
 local function isArenaUnit(unit)
@@ -516,9 +523,9 @@ end
 function UF:CreateSideCastbar(frame, side, width, height)
 	local castbar = self:AddElement(frame, "castbar", side)
 	if side == "RIGHT" then
-		castbar:SetPoint("TOPLEFT", frame, "TOPRIGHT", BORDER_INSET, 0)
+		castbar:SetPoint("LEFT", frame, "RIGHT", BORDER_INSET, 0)
 	else
-		castbar:SetPoint("TOPRIGHT", frame, "TOPLEFT", -BORDER_INSET, 0)
+		castbar:SetPoint("RIGHT", frame, "LEFT", -BORDER_INSET, 0)
 	end
 	UF.SetCastbarSize(castbar, width, height)
 	return castbar
@@ -640,9 +647,9 @@ function UF:ResizeTarget(frame, width, height)
 	local gridHeight = TARGET_AURA_ROWS * (rowSize + debuffs.gap) - debuffs.gap
 	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2
 	local castbar = frame.castbar
-	castbar:SetHeight(height)
+	local castbarHeight = config.castbarHeight
+	UF.SetCastbarHeight(castbar, castbarHeight)
 	castbar:ClearAllPoints()
-	castbar:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", height + CASTBAR_ICON_GAP, -castbarOffset)
+	castbar:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", castbarHeight + CASTBAR_ICON_GAP, -castbarOffset)
 	castbar:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -castbarOffset)
-	castbar.icon:SetSize(height, height)
 end

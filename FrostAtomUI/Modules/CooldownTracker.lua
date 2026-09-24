@@ -46,6 +46,8 @@ for _, spells in pairs(SPELLS) do
 			dynamic = entry.dynamic,
 			tree = entry.tree,
 			points = entry.points,
+			category = entry.cat,
+			hidden = entry.hide,
 		}
 		baseSpell[id] = id
 		local ranks = entry.ranks
@@ -87,36 +89,37 @@ local function endsBefore(entry, endTime)
 	return not entry or not entry.start or entry.start + entry.duration < endTime
 end
 
+local function hasTalent(guid, id, info, talents, entries, strict)
+	if not info.talent then
+		return true
+	elseif talents then
+		return talents[info.talent] ~= nil
+	elseif not info.tree then
+		return true
+	elseif strict then
+		return (entries and entries[id]) ~= nil or Talents:GetObserved(guid, info.tree) >= info.points
+	end
+	return not Talents:IsExcluded(guid, info.tree, info.points)
+end
+
 local trackedList = {}
-function CooldownTracker:GetTracked(unit)
-	local _, class = UnitClass(unit)
+function CooldownTracker:GetTrackedFor(guid, class, race, strict)
 	local spells = class and SPELLS[class]
 	if not spells then
 		return
 	end
 
-	local guid = UnitGUID(unit)
-	local talents = Talents:Get(guid)
-	local entries = cooldowns[guid]
+	local talents = guid and Talents:Get(guid)
+	local entries = guid and cooldowns[guid]
 
 	wipe(trackedList)
 	for i = 1, #spells do
 		local id = spells[i][1]
-		local info = spellInfo[id]
-		local shown = true
-		if info.talent then
-			if talents then
-				shown = talents[info.talent] ~= nil
-			elseif info.tree then
-				shown = not Talents:IsExcluded(guid, info.tree, info.points)
-			end
-		end
-		if shown then
+		if hasTalent(guid, id, spellInfo[id], talents, entries, strict) then
 			trackedList[#trackedList + 1] = id
 		end
 	end
 	trackedList[#trackedList + 1] = PVP_TRINKET
-	local _, race = UnitRace(unit)
 	local racial = RACIALS[race]
 	if racial then
 		trackedList[#trackedList + 1] = racial
@@ -132,6 +135,16 @@ function CooldownTracker:GetTracked(unit)
 		end
 	end
 	return trackedList
+end
+
+function CooldownTracker:GetTracked(unit)
+	local _, class = UnitClass(unit)
+	local _, race = UnitRace(unit)
+	return self:GetTrackedFor(UnitGUID(unit), class, race)
+end
+
+function CooldownTracker:GetInfo(id)
+	return spellInfo[id]
 end
 
 function CooldownTracker:GetCooldown(guid, id)

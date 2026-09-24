@@ -20,6 +20,7 @@ Pages\Player.lua
 Pages\Trackers.lua
 Pages\Hud.lua
 Pages\Arena.lua
+Pages\Cooldowns.lua
 Pages\PvP.lua
 Pages\QualityOfLife.lua
 Pages\Bags.lua

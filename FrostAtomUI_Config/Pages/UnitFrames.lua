@@ -73,18 +73,6 @@ local function testFramesButton()
 	}
 end
 
-local function testCooldownsButton()
-	return {
-		label = L["Test cooldowns"],
-		type = "execute",
-		text = L["Toggle"],
-		desc = L["Start fake cooldowns on party and arena frames to preview the layout."],
-		func = function()
-			SlashCmdList.FROSTATOMUI_COOLDOWN_TEST()
-		end,
-	}
-end
-
 local function mainFrameSize()
 	return {
 		{ header = L["Size"] },
@@ -150,7 +138,7 @@ local function groupDebuffEntries()
 			L["Party / arena icon gap"],
 			0,
 			20,
-			L["Space between the frame, its debuffs, buffs and cooldown icons."]
+			L["Space between the frame, its debuffs and buffs."]
 		),
 	}
 end
@@ -439,26 +427,18 @@ ns.RegisterElement({
 					40,
 					L["Most buffs shown per party frame; the rest are dropped."]
 				),
-				{ header = L["Cooldowns"] },
+				{ header = L["Trinket"] },
 				{
-					path = "unitFrames.showPartyCooldowns",
-					label = L["Show party cooldowns"],
+					path = "arenaTrinket.party",
+					label = L["Show party trinkets in arena"],
 					type = "toggle",
-					desc = L["Tracked cooldown icons to the right of party debuffs."],
+					enabledBy = "arenaTrinket.enabled",
+					desc = L["PvP trinket cooldown icon left of each party pet, only inside arenas. Size is shared with arena trinkets."],
 				},
-				size(
-					"unitFrames.partyCooldownSize",
-					L["Party cooldown size"],
-					12,
-					48,
-					nil,
-					"unitFrames.showPartyCooldowns"
-				),
 				{ header = L["Castbar"] },
 				castbarToggle("unitFrames.showPartyCastbar"),
 				{ header = L["Test"] },
 				testFramesButton(),
-				testCooldownsButton(),
 			}
 		)
 	),
@@ -478,21 +458,7 @@ ns.RegisterElement({
 			},
 			groupDebuffEntries(),
 			{
-				{ header = L["Cooldowns"] },
-				{
-					path = "unitFrames.showArenaCooldowns",
-					label = L["Show arena cooldowns"],
-					type = "toggle",
-					desc = L["Tracked cooldown icons to the left of arena debuffs."],
-				},
-				size(
-					"unitFrames.arenaCooldownSize",
-					L["Arena cooldown size"],
-					12,
-					48,
-					nil,
-					"unitFrames.showArenaCooldowns"
-				),
+				{ header = L["Trinket"] },
 				{
 					path = "arenaTrinket.enabled",
 					label = L["Show arena trinkets"],
@@ -504,7 +470,6 @@ ns.RegisterElement({
 				castbarToggle("unitFrames.showArenaCastbar"),
 				{ header = L["Test"] },
 				testFramesButton(),
-				testCooldownsButton(),
 			}
 		)
 	),
@@ -675,17 +640,9 @@ ns.RegisterPage({
 			new = "1.4.0",
 			label = L["Cooldown ready flash"],
 			type = "toggle",
-			enabledByAny = { "unitFrames.showPartyCooldowns", "unitFrames.showArenaCooldowns" },
+			enabledBy = "internalCooldowns.enabled",
 			desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
 		},
-		{
-			path = "unitFrames.cooldownGlowColor",
-			label = L["Cooldown glow"],
-			type = "color",
-			enabledByAny = { "unitFrames.showPartyCooldowns", "unitFrames.showArenaCooldowns" },
-			desc = L["Glow around a cooldown icon while the spell's effect is still active."],
-		},
-		testCooldownsButton(),
 		{ header = L["Indicators"] },
 		{
 			path = "unitFrames.showClassIcon",
@@ -715,6 +672,13 @@ ns.RegisterPage({
 			desc = L["Icon and timer of the longest crowd control effect over the class icon of target, focus, party and arena frames."],
 		},
 		{ header = L["Castbar"] },
+		size(
+			"unitFrames.castbarHeight",
+			L["Castbar height"],
+			10,
+			50,
+			L["Target, focus, party and arena castbars."]
+		),
 		{
 			path = "unitFrames.castbarTargetName",
 			new = "1.4.0",
@@ -796,6 +760,7 @@ ns.RegisterPage({
 			desc = L["Border of the party or arena frame of your current focus."],
 		},
 		{ path = "unitFrames.castbarColor", label = L["Castbar"], type = "color" },
+		{ path = "unitFrames.castbarChannelColor", label = L["Castbar (channel)"], type = "color" },
 		{ path = "unitFrames.castbarLockedColor", label = L["Castbar (not interruptible)"], type = "color" },
 		{
 			path = "unitFrames.castbarTargetingYouColor",

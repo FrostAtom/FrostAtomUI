@@ -2,238 +2,271 @@ local _, ns = ...
 
 local SPELLS = {
 	DEATHKNIGHT = {
-		{ 47528, 10 }, -- Mind Freeze
-		{ 47476, 120 }, -- Strangulate
-		{ 49203, 60, talent = true, tree = 2, points = 30 }, -- Hungering Cold
-		{ 48707, 45, buff = true }, -- Anti-Magic Shell
-		{ 48792, 120, buff = true }, -- Icebound Fortitude
-		{ 49039, 120, talent = true, tree = 2, points = 10, buff = true }, -- Lichborne
-		{ 51052, 120, talent = true, tree = 3, points = 30 }, -- Anti-Magic Zone
-		{ 48743, 120 }, -- Death Pact
-		{ 55233, 60, talent = true, tree = 1, points = 40, buff = true }, -- Vampiric Blood
-		{ 49222, 60, talent = true, tree = 3, points = 35, buff = true }, -- Bone Shield
-		{ 51271, 60, talent = true, tree = 2, points = 40, buff = true }, -- Unbreakable Armor
-		{ 49005, 180, talent = true, tree = 1, points = 20 }, -- Mark of Blood
-		{ 49576, 35 }, -- Death Grip
-		{ 49028, 90, talent = true, tree = 1, points = 50, buff = true }, -- Dancing Rune Weapon
-		{ 49016, 180, talent = true, tree = 1, points = 30, buff = true }, -- Hysteria
-		{ 49206, 180, talent = true, tree = 3, points = 50 }, -- Summon Gargoyle
-		{ 47568, 300 }, -- Empower Rune Weapon
-		{ 46584, 180 }, -- Raise Dead
-		{ 42650, 600 }, -- Army of the Dead
-		{ 45529, 60 }, -- Blood Tap
-		{ 43265, 30, ranks = { 49936, 49937, 49938 } }, -- Death and Decay
+		{ 47528, 10, cat = "interrupt" }, -- Mind Freeze
+		{ 47476, 120, cat = "interrupt" }, -- Strangulate
+		{ 49203, 60, cat = "cc", talent = true, tree = 2, points = 30 }, -- Hungering Cold
+		{ 48707, 45, cat = "defensive", buff = true }, -- Anti-Magic Shell
+		{ 48792, 120, cat = "defensive", buff = true }, -- Icebound Fortitude
+		{ 49039, 120, cat = "defensive", talent = true, tree = 2, points = 10, buff = true }, -- Lichborne
+		{ 51052, 120, cat = "defensive", talent = true, tree = 3, points = 30 }, -- Anti-Magic Zone
+		{ 48743, 120, cat = "defensive" }, -- Death Pact
+		{ 55233, 60, cat = "defensive", talent = true, tree = 1, points = 40, buff = true }, -- Vampiric Blood
+		{ 49222, 60, cat = "defensive", talent = true, tree = 3, points = 35, buff = true, hide = true }, -- Bone Shield
+		{ 51271, 60, cat = "defensive", talent = true, tree = 2, points = 40, buff = true }, -- Unbreakable Armor
+		{ 49005, 180, cat = "defensive", talent = true, tree = 1, points = 20, hide = true }, -- Mark of Blood
+		{ 49576, 35, cat = "cc" }, -- Death Grip
+		{ 49028, 90, cat = "offensive", talent = true, tree = 1, points = 50, buff = true }, -- Dancing Rune Weapon
+		{ 49016, 180, cat = "offensive", talent = true, tree = 1, points = 30, buff = true }, -- Hysteria
+		{ 49206, 180, cat = "offensive", talent = true, tree = 3, points = 50 }, -- Summon Gargoyle
+		{ 47568, 300, cat = "offensive" }, -- Empower Rune Weapon
+		{ 46584, 180, cat = "utility" }, -- Raise Dead
+		{ 42650, 600, cat = "utility", hide = true }, -- Army of the Dead
+		{ 45529, 60, cat = "utility", hide = true }, -- Blood Tap
+		{ 43265, 30, cat = "utility", ranks = { 49936, 49937, 49938 }, hide = true }, -- Death and Decay
 	},
 	DRUID = {
-		{ 16979, 15, talent = 49377, tree = 2, points = 25 }, -- Feral Charge - Bear
-		{ 49376, 30, talent = 49377, tree = 2, points = 25 }, -- Feral Charge - Cat
-		{ 5211, 60, ranks = { 6798, 8983 } }, -- Bash
-		{ 22570, 10, ranks = { 49802 } }, -- Maim
+		{ 16979, 15, cat = "interrupt", talent = 49377, tree = 2, points = 25 }, -- Feral Charge - Bear
+		{ 49376, 30, cat = "mobility", talent = 49377, tree = 2, points = 25 }, -- Feral Charge - Cat
+		{ 5211, 60, cat = "cc", ranks = { 6798, 8983 } }, -- Bash
+		{ 22570, 10, cat = "cc", ranks = { 49802 } }, -- Maim
 		{
 			50516,
 			20,
+			cat = "cc",
 			ranks = { 53223, 53225, 53226, 53227, 61384, 61387, 61388, 61390, 61391 },
 			talent = true,
 			tree = 1,
 			points = 40,
 		}, -- Typhoon
-		{ 22812, 60, buff = true }, -- Barkskin
-		{ 61336, 180, talent = true, tree = 2, points = 10, buff = true }, -- Survival Instincts
-		{ 22842, 180, buff = true }, -- Frenzied Regeneration
-		{ 17116, 180, talent = true, tree = 3, points = 20, preactive = true }, -- Nature's Swiftness
-		{ 18562, 15, talent = true, tree = 3, points = 30 }, -- Swiftmend
-		{ 16689, 60, ranks = { 16810, 16811, 16812, 16813, 17329, 27009, 53312 }, buff = true }, -- Nature's Grasp
-		{ 29166, 180, buff = true }, -- Innervate
-		{ 50334, 180, talent = true, tree = 2, points = 50, buff = true }, -- Berserk
-		{ 33831, 180, talent = true, tree = 1, points = 40 }, -- Force of Nature
-		{ 48505, 90, ranks = { 53199, 53200, 53201 }, talent = true, tree = 1, points = 50 }, -- Starfall
-		{ 1850, 180, ranks = { 9821, 33357 }, buff = true }, -- Dash
-		{ 20484, 600, ranks = { 20739, 20742, 20747, 20748, 26994, 48477 } }, -- Rebirth
+		{ 22812, 60, cat = "defensive", buff = true }, -- Barkskin
+		{ 61336, 180, cat = "defensive", talent = true, tree = 2, points = 10, buff = true }, -- Survival Instincts
+		{ 22842, 180, cat = "defensive", buff = true }, -- Frenzied Regeneration
+		{ 17116, 180, cat = "utility", talent = true, tree = 3, points = 20, preactive = true }, -- Nature's Swiftness
+		{ 18562, 15, cat = "utility", talent = true, tree = 3, points = 30, hide = true }, -- Swiftmend
+		{ 16689, 60, cat = "cc", ranks = { 16810, 16811, 16812, 16813, 17329, 27009, 53312 }, buff = true }, -- Nature's Grasp
+		{ 29166, 180, cat = "utility", buff = true }, -- Innervate
+		{ 50334, 180, cat = "offensive", talent = true, tree = 2, points = 50, buff = true }, -- Berserk
+		{ 33831, 180, cat = "offensive", talent = true, tree = 1, points = 40 }, -- Force of Nature
+		{ 48505, 90, cat = "offensive", ranks = { 53199, 53200, 53201 }, talent = true, tree = 1, points = 50 }, -- Starfall
+		{ 1850, 180, cat = "mobility", ranks = { 9821, 33357 }, buff = true }, -- Dash
+		{ 20484, 600, cat = "utility", ranks = { 20739, 20742, 20747, 20748, 26994, 48477 }, hide = true }, -- Rebirth
 	},
 	HUNTER = {
-		{ 34490, 20, talent = true, tree = 2, points = 45 }, -- Silencing Shot
-		{ 19503, 30, talent = true, tree = 3, points = 10 }, -- Scatter Shot
-		{ 19386, 60, ranks = { 24132, 24133, 27068, 49011, 49012 }, talent = true, tree = 3, points = 30 }, -- Wyvern Sting
-		{ 1499, 30, ranks = { 14310, 14311 } }, -- Freezing Trap
-		{ 60192, 30 }, -- Freezing Arrow
-		{ 13809, 30 }, -- Frost Trap
-		{ 34600, 30 }, -- Snake Trap
-		{ 19577, 60, talent = true, tree = 1, points = 20 }, -- Intimidation
-		{ 19263, 90, buff = true }, -- Deterrence
-		{ 5384, 30, buff = true }, -- Feign Death
-		{ 53271, 60, buff = true }, -- Master's Call
-		{ 781, 25 }, -- Disengage
-		{ 23989, 180, talent = true, tree = 2, points = 25 }, -- Readiness
-		{ 19574, 120, talent = true, tree = 1, points = 35, buff = true }, -- Bestial Wrath
-		{ 3045, 300, buff = true }, -- Rapid Fire
-		{ 19801, 8 }, -- Tranquilizing Shot
-		{ 53480, 60, pet = true }, -- Roar of Sacrifice
-		{ 1543, 20 }, -- Flare
+		{ 34490, 20, cat = "interrupt", talent = true, tree = 2, points = 45 }, -- Silencing Shot
+		{ 19503, 30, cat = "cc", talent = true, tree = 3, points = 10 }, -- Scatter Shot
+		{
+			19386,
+			60,
+			cat = "cc",
+			ranks = { 24132, 24133, 27068, 49011, 49012 },
+			talent = true,
+			tree = 3,
+			points = 30,
+		}, -- Wyvern Sting
+		{ 1499, 30, cat = "cc", ranks = { 14310, 14311 } }, -- Freezing Trap
+		{ 60192, 30, cat = "cc", hide = true }, -- Freezing Arrow
+		{ 13809, 30, cat = "cc", hide = true }, -- Frost Trap
+		{ 34600, 30, cat = "utility", hide = true }, -- Snake Trap
+		{ 19577, 60, cat = "cc", talent = true, tree = 1, points = 20 }, -- Intimidation
+		{ 19263, 90, cat = "defensive", buff = true }, -- Deterrence
+		{ 5384, 30, cat = "defensive", buff = true, hide = true }, -- Feign Death
+		{ 53271, 60, cat = "mobility", buff = true }, -- Master's Call
+		{ 781, 25, cat = "mobility" }, -- Disengage
+		{ 23989, 180, cat = "utility", talent = true, tree = 2, points = 25 }, -- Readiness
+		{ 19574, 120, cat = "offensive", talent = true, tree = 1, points = 35, buff = true }, -- Bestial Wrath
+		{ 3045, 300, cat = "offensive", buff = true }, -- Rapid Fire
+		{ 19801, 8, cat = "utility", hide = true }, -- Tranquilizing Shot
+		{ 53480, 60, cat = "defensive", pet = true }, -- Roar of Sacrifice
+		{ 1543, 20, cat = "utility", hide = true }, -- Flare
 	},
 	MAGE = {
-		{ 2139, 24 }, -- Counterspell
-		{ 44572, 30, talent = true, tree = 3, points = 50 }, -- Deep Freeze
-		{ 31661, 20, ranks = { 33041, 33042, 33043, 42949, 42950 }, talent = true, tree = 2, points = 40 }, -- Dragon's Breath
+		{ 2139, 24, cat = "interrupt" }, -- Counterspell
+		{ 44572, 30, cat = "cc", talent = true, tree = 3, points = 50 }, -- Deep Freeze
+		{
+			31661,
+			20,
+			cat = "cc",
+			ranks = { 33041, 33042, 33043, 42949, 42950 },
+			talent = true,
+			tree = 2,
+			points = 40,
+		}, -- Dragon's Breath
 		{
 			11113,
 			30,
+			cat = "cc",
 			ranks = { 13018, 13019, 13020, 13021, 27133, 33933, 42944, 42945 },
 			talent = true,
 			tree = 2,
 			points = 25,
+			hide = true,
 		}, -- Blast Wave
-		{ 122, 25, ranks = { 865, 6131, 10230, 27088, 42917 } }, -- Frost Nova
-		{ 45438, 300, buff = true }, -- Ice Block
-		{ 11958, 480, talent = true, tree = 3, points = 20 }, -- Cold Snap
+		{ 122, 25, cat = "cc", ranks = { 865, 6131, 10230, 27088, 42917 } }, -- Frost Nova
+		{ 45438, 300, cat = "defensive", buff = true }, -- Ice Block
+		{ 11958, 480, cat = "utility", talent = true, tree = 3, points = 20 }, -- Cold Snap
 		{
 			11426,
 			30,
+			cat = "defensive",
 			ranks = { 13031, 13032, 13033, 27134, 33405, 43038, 43039 },
 			talent = true,
 			tree = 3,
 			points = 30,
 			buff = true,
+			hide = true,
 		}, -- Ice Barrier
-		{ 543, 30, ranks = { 8457, 8458, 10223, 10225, 27128, 43010 }, buff = true }, -- Fire Ward
-		{ 6143, 30, ranks = { 8461, 8462, 10177, 28609, 32796, 43012 }, buff = true }, -- Frost Ward
-		{ 66, 180, buff = true }, -- Invisibility
-		{ 1953, 15 }, -- Blink
-		{ 12472, 180, talent = true, tree = 3, points = 10, buff = true }, -- Icy Veins
-		{ 12042, 120, talent = true, tree = 1, points = 35, buff = true }, -- Arcane Power
-		{ 12043, 120, talent = true, tree = 1, points = 25, preactive = true }, -- Presence of Mind
-		{ 11129, 120, talent = true, tree = 2, points = 30, preactive = 28682 }, -- Combustion
-		{ 55342, 180, buff = true }, -- Mirror Image
-		{ 31687, 180, talent = true, tree = 3, points = 40 }, -- Summon Water Elemental
-		{ 12051, 240 }, -- Evocation
+		{ 543, 30, cat = "defensive", ranks = { 8457, 8458, 10223, 10225, 27128, 43010 }, buff = true, hide = true }, -- Fire Ward
+		{ 6143, 30, cat = "defensive", ranks = { 8461, 8462, 10177, 28609, 32796, 43012 }, buff = true, hide = true }, -- Frost Ward
+		{ 66, 180, cat = "defensive", buff = true }, -- Invisibility
+		{ 1953, 15, cat = "mobility" }, -- Blink
+		{ 12472, 180, cat = "offensive", talent = true, tree = 3, points = 10, buff = true }, -- Icy Veins
+		{ 12042, 120, cat = "offensive", talent = true, tree = 1, points = 35, buff = true }, -- Arcane Power
+		{ 12043, 120, cat = "offensive", talent = true, tree = 1, points = 25, preactive = true }, -- Presence of Mind
+		{ 11129, 120, cat = "offensive", talent = true, tree = 2, points = 30, preactive = 28682 }, -- Combustion
+		{ 55342, 180, cat = "defensive", buff = true }, -- Mirror Image
+		{ 31687, 180, cat = "utility", talent = true, tree = 3, points = 40, hide = true }, -- Summon Water Elemental
+		{ 12051, 240, cat = "utility" }, -- Evocation
 	},
 	PALADIN = {
-		{ 853, 60, ranks = { 5588, 5589, 10308 } }, -- Hammer of Justice
-		{ 20066, 60, talent = true, tree = 3, points = 35 }, -- Repentance
-		{ 31935, 30, ranks = { 32699, 32700, 48826, 48827 }, talent = true, tree = 2, points = 45 }, -- Avenger's Shield
-		{ 2812, 30, ranks = { 10318, 27139, 48816, 48817 } }, -- Holy Wrath
-		{ 642, 300, buff = true }, -- Divine Shield
-		{ 498, 180, buff = true }, -- Divine Protection
-		{ 1022, 300, ranks = { 5599, 10278 }, buff = true }, -- Hand of Protection
-		{ 6940, 120, buff = true }, -- Hand of Sacrifice
-		{ 64205, 120, talent = true, tree = 2, points = 10, buff = true }, -- Divine Sacrifice
-		{ 1044, 25, buff = true }, -- Hand of Freedom
-		{ 31821, 120, talent = true, tree = 1, points = 15, buff = true }, -- Aura Mastery
-		{ 633, 1200, ranks = { 2799, 10310, 27154, 48788 } }, -- Lay on Hands
-		{ 19752, 600 }, -- Divine Intervention
-		{ 31884, 180, buff = true }, -- Avenging Wrath
-		{ 20216, 120, talent = true, tree = 1, points = 20, preactive = true }, -- Divine Favor
-		{ 31842, 180, talent = true, tree = 1, points = 40, buff = true }, -- Divine Illumination
-		{ 54428, 60 }, -- Divine Plea
+		{ 853, 60, cat = "cc", ranks = { 5588, 5589, 10308 } }, -- Hammer of Justice
+		{ 20066, 60, cat = "cc", talent = true, tree = 3, points = 35 }, -- Repentance
+		{
+			31935,
+			30,
+			cat = "cc",
+			ranks = { 32699, 32700, 48826, 48827 },
+			talent = true,
+			tree = 2,
+			points = 45,
+			hide = true,
+		}, -- Avenger's Shield
+		{ 2812, 30, cat = "cc", ranks = { 10318, 27139, 48816, 48817 }, hide = true }, -- Holy Wrath
+		{ 642, 300, cat = "defensive", buff = true }, -- Divine Shield
+		{ 498, 180, cat = "defensive", buff = true }, -- Divine Protection
+		{ 1022, 300, cat = "defensive", ranks = { 5599, 10278 }, buff = true }, -- Hand of Protection
+		{ 6940, 120, cat = "defensive", buff = true }, -- Hand of Sacrifice
+		{ 64205, 120, cat = "defensive", talent = true, tree = 2, points = 10, buff = true }, -- Divine Sacrifice
+		{ 1044, 25, cat = "mobility", buff = true }, -- Hand of Freedom
+		{ 31821, 120, cat = "defensive", talent = true, tree = 1, points = 15, buff = true }, -- Aura Mastery
+		{ 633, 1200, cat = "defensive", ranks = { 2799, 10310, 27154, 48788 } }, -- Lay on Hands
+		{ 19752, 600, cat = "utility", hide = true }, -- Divine Intervention
+		{ 31884, 180, cat = "offensive", buff = true }, -- Avenging Wrath
+		{ 20216, 120, cat = "offensive", talent = true, tree = 1, points = 20, preactive = true }, -- Divine Favor
+		{ 31842, 180, cat = "utility", talent = true, tree = 1, points = 40, buff = true }, -- Divine Illumination
+		{ 54428, 60, cat = "utility" }, -- Divine Plea
 	},
 	PRIEST = {
-		{ 15487, 45, talent = true, tree = 3, points = 20 }, -- Silence
-		{ 64044, 120, talent = true, tree = 3, points = 40 }, -- Psychic Horror
-		{ 8122, 30, ranks = { 8124, 10888, 10890 } }, -- Psychic Scream
-		{ 33206, 180, talent = true, tree = 1, points = 45, buff = true }, -- Pain Suppression
-		{ 47788, 180, talent = true, tree = 2, points = 50, buff = true }, -- Guardian Spirit
-		{ 47585, 120, talent = true, tree = 3, points = 50, buff = true }, -- Dispersion
+		{ 15487, 45, cat = "interrupt", talent = true, tree = 3, points = 20 }, -- Silence
+		{ 64044, 120, cat = "cc", talent = true, tree = 3, points = 40 }, -- Psychic Horror
+		{ 8122, 30, cat = "cc", ranks = { 8124, 10888, 10890 } }, -- Psychic Scream
+		{ 33206, 180, cat = "defensive", talent = true, tree = 1, points = 45, buff = true }, -- Pain Suppression
+		{ 47788, 180, cat = "defensive", talent = true, tree = 2, points = 50, buff = true }, -- Guardian Spirit
+		{ 47585, 120, cat = "defensive", talent = true, tree = 3, points = 50, buff = true }, -- Dispersion
 		{
 			19236,
 			120,
+			cat = "defensive",
 			ranks = { 19238, 19240, 19241, 19242, 19243, 25437, 48172, 48173 },
 			talent = true,
 			tree = 2,
 			points = 10,
 		}, -- Desperate Prayer
-		{ 6346, 180, buff = true }, -- Fear Ward
-		{ 586, 30, ranks = { 9578, 9579, 9592, 10941, 10942, 25429 }, buff = true }, -- Fade
-		{ 32379, 12, ranks = { 32996, 48157, 48158 } }, -- Shadow Word: Death
-		{ 14751, 180, talent = true, tree = 1, points = 10, preactive = true }, -- Inner Focus
-		{ 10060, 120, talent = true, tree = 1, points = 30, buff = true }, -- Power Infusion
-		{ 34433, 300 }, -- Shadowfiend
+		{ 6346, 180, cat = "defensive", buff = true }, -- Fear Ward
+		{ 586, 30, cat = "defensive", ranks = { 9578, 9579, 9592, 10941, 10942, 25429 }, buff = true, hide = true }, -- Fade
+		{ 32379, 12, cat = "utility", ranks = { 32996, 48157, 48158 }, hide = true }, -- Shadow Word: Death
+		{ 14751, 180, cat = "utility", talent = true, tree = 1, points = 10, preactive = true }, -- Inner Focus
+		{ 10060, 120, cat = "offensive", talent = true, tree = 1, points = 30, buff = true }, -- Power Infusion
+		{ 34433, 300, cat = "utility" }, -- Shadowfiend
 	},
 	ROGUE = {
-		{ 1766, 10, ranks = { 1767, 1768, 1769, 38768 } }, -- Kick
-		{ 2094, 180 }, -- Blind
-		{ 408, 20, ranks = { 8643 } }, -- Kidney Shot
-		{ 1776, 10, ranks = { 1777, 8629, 11285, 11286, 38764 } }, -- Gouge
-		{ 51722, 60 }, -- Dismantle
-		{ 31224, 90, buff = true }, -- Cloak of Shadows
-		{ 5277, 180, ranks = { 26669 }, buff = true }, -- Evasion
-		{ 1856, 180, ranks = { 1857, 26889 } }, -- Vanish
-		{ 14185, 480, talent = true, tree = 3, points = 20 }, -- Preparation
-		{ 36554, 30, talent = true, tree = 3, points = 45 }, -- Shadowstep
-		{ 2983, 180, ranks = { 8696, 11305 }, buff = true }, -- Sprint
-		{ 51713, 60, talent = true, tree = 3, points = 50, buff = true }, -- Shadow Dance
-		{ 14177, 180, talent = true, tree = 1, points = 20, preactive = true }, -- Cold Blood
-		{ 13750, 180, talent = true, tree = 2, points = 30, buff = true }, -- Adrenaline Rush
-		{ 51690, 120, talent = true, tree = 2, points = 50 }, -- Killing Spree
-		{ 13877, 120, talent = true, tree = 2, points = 20, buff = true }, -- Blade Flurry
-		{ 14183, 20, talent = true, tree = 3, points = 30 }, -- Premeditation
-		{ 57934, 30, preactive = true }, -- Tricks of the Trade
-		{ 1784, 10, ranks = { 1785, 1786, 1787 }, preactive = true }, -- Stealth
+		{ 1766, 10, cat = "interrupt", ranks = { 1767, 1768, 1769, 38768 } }, -- Kick
+		{ 2094, 180, cat = "cc" }, -- Blind
+		{ 408, 20, cat = "cc", ranks = { 8643 } }, -- Kidney Shot
+		{ 1776, 10, cat = "cc", ranks = { 1777, 8629, 11285, 11286, 38764 } }, -- Gouge
+		{ 51722, 60, cat = "cc" }, -- Dismantle
+		{ 31224, 90, cat = "defensive", buff = true }, -- Cloak of Shadows
+		{ 5277, 180, cat = "defensive", ranks = { 26669 }, buff = true }, -- Evasion
+		{ 1856, 180, cat = "defensive", ranks = { 1857, 26889 } }, -- Vanish
+		{ 14185, 480, cat = "utility", talent = true, tree = 3, points = 20 }, -- Preparation
+		{ 36554, 30, cat = "mobility", talent = true, tree = 3, points = 45 }, -- Shadowstep
+		{ 2983, 180, cat = "mobility", ranks = { 8696, 11305 }, buff = true }, -- Sprint
+		{ 51713, 60, cat = "offensive", talent = true, tree = 3, points = 50, buff = true }, -- Shadow Dance
+		{ 14177, 180, cat = "offensive", talent = true, tree = 1, points = 20, preactive = true }, -- Cold Blood
+		{ 13750, 180, cat = "offensive", talent = true, tree = 2, points = 30, buff = true }, -- Adrenaline Rush
+		{ 51690, 120, cat = "offensive", talent = true, tree = 2, points = 50 }, -- Killing Spree
+		{ 13877, 120, cat = "offensive", talent = true, tree = 2, points = 20, buff = true }, -- Blade Flurry
+		{ 14183, 20, cat = "utility", talent = true, tree = 3, points = 30, hide = true }, -- Premeditation
+		{ 57934, 30, cat = "utility", preactive = true, hide = true }, -- Tricks of the Trade
+		{ 1784, 10, cat = "utility", ranks = { 1785, 1786, 1787 }, preactive = true, hide = true }, -- Stealth
 	},
 	SHAMAN = {
-		{ 57994, 6 }, -- Wind Shear
-		{ 51514, 45 }, -- Hex
-		{ 8177, 15 }, -- Grounding Totem
-		{ 2484, 15 }, -- Earthbind Totem
-		{ 51490, 45, ranks = { 59156, 59158, 59159 }, talent = true, tree = 1, points = 50 }, -- Thunderstorm
-		{ 30823, 60, talent = true, tree = 2, points = 45, buff = true }, -- Shamanistic Rage
-		{ 16188, 120, talent = true, tree = 3, points = 20, preactive = true }, -- Nature's Swiftness
-		{ 16190, 300, talent = true, tree = 3, points = 30 }, -- Mana Tide Totem
-		{ 2825, 300, ranks = { 32182 }, buff = true }, -- Bloodlust / Heroism
-		{ 16166, 180, talent = true, tree = 1, points = 30, preactive = true }, -- Elemental Mastery
-		{ 51533, 180, talent = true, tree = 2, points = 50 }, -- Feral Spirit
-		{ 55198, 180, talent = true, tree = 3, points = 10, buff = true }, -- Tidal Force
+		{ 57994, 6, cat = "interrupt" }, -- Wind Shear
+		{ 51514, 45, cat = "cc" }, -- Hex
+		{ 8177, 15, cat = "defensive" }, -- Grounding Totem
+		{ 2484, 15, cat = "utility", hide = true }, -- Earthbind Totem
+		{ 51490, 45, cat = "cc", ranks = { 59156, 59158, 59159 }, talent = true, tree = 1, points = 50 }, -- Thunderstorm
+		{ 30823, 60, cat = "defensive", talent = true, tree = 2, points = 45, buff = true }, -- Shamanistic Rage
+		{ 16188, 120, cat = "utility", talent = true, tree = 3, points = 20, preactive = true }, -- Nature's Swiftness
+		{ 16190, 300, cat = "utility", talent = true, tree = 3, points = 30 }, -- Mana Tide Totem
+		{ 2825, 300, cat = "offensive", ranks = { 32182 }, buff = true }, -- Bloodlust / Heroism
+		{ 16166, 180, cat = "offensive", talent = true, tree = 1, points = 30, preactive = true }, -- Elemental Mastery
+		{ 51533, 180, cat = "offensive", talent = true, tree = 2, points = 50 }, -- Feral Spirit
+		{ 55198, 180, cat = "utility", talent = true, tree = 3, points = 10, buff = true, hide = true }, -- Tidal Force
 	},
 	WARLOCK = {
-		{ 19244, 24, ranks = { 19647 }, pet = true }, -- Spell Lock
-		{ 19505, 8, ranks = { 19731, 19734, 19736, 27276, 27277 }, pet = true }, -- Devour Magic
-		{ 6789, 120, ranks = { 17925, 17926, 27223, 47859, 47860 } }, -- Death Coil
-		{ 5484, 40, ranks = { 17928 } }, -- Howl of Terror
-		{ 30283, 20, ranks = { 30413, 30414, 47846, 47847 }, talent = true, tree = 3, points = 40 }, -- Shadowfury
-		{ 54785, 45, talent = 59672, tree = 2, points = 50 }, -- Demon Charge
-		{ 48020, 30 }, -- Demonic Circle: Teleport
-		{ 6229, 30, ranks = { 11739, 11740, 28610, 47890, 47891 }, buff = true }, -- Shadow Ward
-		{ 47241, 180, talent = 59672, tree = 2, points = 50, buff = true }, -- Metamorphosis
-		{ 47193, 60, talent = true, tree = 2, points = 30, buff = true }, -- Demonic Empowerment
-		{ 18708, 180, talent = true, tree = 2, points = 10, buff = true }, -- Fel Domination
+		{ 19244, 24, cat = "interrupt", ranks = { 19647 }, pet = true }, -- Spell Lock
+		{ 19505, 8, cat = "utility", ranks = { 19731, 19734, 19736, 27276, 27277 }, pet = true, hide = true }, -- Devour Magic
+		{ 6789, 120, cat = "cc", ranks = { 17925, 17926, 27223, 47859, 47860 } }, -- Death Coil
+		{ 5484, 40, cat = "cc", ranks = { 17928 } }, -- Howl of Terror
+		{ 30283, 20, cat = "cc", ranks = { 30413, 30414, 47846, 47847 }, talent = true, tree = 3, points = 40 }, -- Shadowfury
+		{ 54785, 45, cat = "mobility", talent = 59672, tree = 2, points = 50 }, -- Demon Charge
+		{ 48020, 30, cat = "mobility" }, -- Demonic Circle: Teleport
+		{ 6229, 30, cat = "defensive", ranks = { 11739, 11740, 28610, 47890, 47891 }, buff = true, hide = true }, -- Shadow Ward
+		{ 47241, 180, cat = "offensive", talent = 59672, tree = 2, points = 50, buff = true }, -- Metamorphosis
+		{ 47193, 60, cat = "utility", talent = true, tree = 2, points = 30, buff = true, hide = true }, -- Demonic Empowerment
+		{ 18708, 180, cat = "utility", talent = true, tree = 2, points = 10, buff = true, hide = true }, -- Fel Domination
 	},
 	WARRIOR = {
-		{ 6552, 10, ranks = { 6554 } }, -- Pummel
-		{ 72, 12, ranks = { 1671, 1672, 29704 } }, -- Shield Bash
-		{ 100, 15, ranks = { 6178, 11578 } }, -- Charge
-		{ 20252, 30, ranks = { 20616, 20617, 25272, 25275 } }, -- Intercept
-		{ 5246, 120 }, -- Intimidating Shout
-		{ 12809, 30, talent = true, tree = 3, points = 20 }, -- Concussion Blow
-		{ 46968, 20, talent = true, tree = 3, points = 50 }, -- Shockwave
-		{ 676, 60 }, -- Disarm
-		{ 23920, 10, buff = true }, -- Spell Reflection
-		{ 3411, 30 }, -- Intervene
-		{ 57755, 60 }, -- Heroic Throw
-		{ 871, 300, buff = true }, -- Shield Wall
-		{ 12975, 180, talent = true, tree = 3, points = 10, buff = true }, -- Last Stand
-		{ 55694, 180, buff = true }, -- Enraged Regeneration
-		{ 2565, 60, buff = true }, -- Shield Block
-		{ 18499, 30, buff = true }, -- Berserker Rage
-		{ 46924, 90, talent = true, tree = 1, points = 50, buff = true }, -- Bladestorm
-		{ 12292, 180, talent = true, tree = 2, points = 25, buff = true }, -- Death Wish
-		{ 1719, 300, buff = true }, -- Recklessness
-		{ 20230, 300, buff = true }, -- Retaliation
-		{ 60970, 45, talent = true, tree = 2, points = 45 }, -- Heroic Fury
-		{ 64382, 300 }, -- Shattering Throw
+		{ 6552, 10, cat = "interrupt", ranks = { 6554 } }, -- Pummel
+		{ 72, 12, cat = "interrupt", ranks = { 1671, 1672, 29704 } }, -- Shield Bash
+		{ 100, 15, cat = "mobility", ranks = { 6178, 11578 } }, -- Charge
+		{ 20252, 30, cat = "mobility", ranks = { 20616, 20617, 25272, 25275 } }, -- Intercept
+		{ 5246, 120, cat = "cc" }, -- Intimidating Shout
+		{ 12809, 30, cat = "cc", talent = true, tree = 3, points = 20 }, -- Concussion Blow
+		{ 46968, 20, cat = "cc", talent = true, tree = 3, points = 50 }, -- Shockwave
+		{ 676, 60, cat = "cc" }, -- Disarm
+		{ 23920, 10, cat = "defensive", buff = true }, -- Spell Reflection
+		{ 3411, 30, cat = "mobility" }, -- Intervene
+		{ 57755, 60, cat = "utility", hide = true }, -- Heroic Throw
+		{ 871, 300, cat = "defensive", buff = true }, -- Shield Wall
+		{ 12975, 180, cat = "defensive", talent = true, tree = 3, points = 10, buff = true }, -- Last Stand
+		{ 55694, 180, cat = "defensive", buff = true }, -- Enraged Regeneration
+		{ 2565, 60, cat = "defensive", buff = true, hide = true }, -- Shield Block
+		{ 18499, 30, cat = "defensive", buff = true }, -- Berserker Rage
+		{ 46924, 90, cat = "offensive", talent = true, tree = 1, points = 50, buff = true }, -- Bladestorm
+		{ 12292, 180, cat = "offensive", talent = true, tree = 2, points = 25, buff = true }, -- Death Wish
+		{ 1719, 300, cat = "offensive", buff = true }, -- Recklessness
+		{ 20230, 300, cat = "defensive", buff = true }, -- Retaliation
+		{ 60970, 45, cat = "mobility", talent = true, tree = 2, points = 45 }, -- Heroic Fury
+		{ 64382, 300, cat = "utility" }, -- Shattering Throw
 	},
 	COMMON = {
-		{ 42292, 120 }, -- PvP Trinket
-		{ 59752, 120 }, -- Every Man for Himself
-		{ 7744, 120 }, -- Will of the Forsaken
-		{ 20549, 120 }, -- War Stomp
-		{ 20589, 105 }, -- Escape Artist
-		{ 28730, 120, ranks = { 25046, 50613 } }, -- Arcane Torrent
-		{ 20572, 120, ranks = { 33697, 33702 }, buff = true }, -- Blood Fury
-		{ 26297, 180, buff = true }, -- Berserking
-		{ 20594, 120, buff = true }, -- Stoneform
-		{ 58984, 120 }, -- Shadowmeld
-		{ 28880, 180, ranks = { 59542, 59543, 59544, 59545, 59547, 59548 } }, -- Gift of the Naaru
-		{ 47875, 120, ranks = { 47876, 47877 }, dynamic = true }, -- Fel Healthstone
+		{ 42292, 120, cat = "trinket" }, -- PvP Trinket
+		{ 59752, 120, cat = "trinket" }, -- Every Man for Himself
+		{ 7744, 120, cat = "trinket" }, -- Will of the Forsaken
+		{ 20549, 120, cat = "cc" }, -- War Stomp
+		{ 20589, 105, cat = "mobility" }, -- Escape Artist
+		{ 28730, 120, cat = "interrupt", ranks = { 25046, 50613 } }, -- Arcane Torrent
+		{ 20572, 120, cat = "offensive", ranks = { 33697, 33702 }, buff = true }, -- Blood Fury
+		{ 26297, 180, cat = "offensive", buff = true }, -- Berserking
+		{ 20594, 120, cat = "defensive", buff = true }, -- Stoneform
+		{ 58984, 120, cat = "defensive" }, -- Shadowmeld
+		{ 28880, 180, cat = "utility", ranks = { 59542, 59543, 59544, 59545, 59547, 59548 }, hide = true }, -- Gift of the Naaru
+		{ 47875, 120, cat = "defensive", ranks = { 47876, 47877 }, dynamic = true }, -- Fel Healthstone
 	},
 }
+
+local CATEGORIES = { "defensive", "offensive", "interrupt", "cc", "mobility", "utility" }
 
 local SPEC_HINTS = {
 	DEATHKNIGHT = {
@@ -525,6 +558,7 @@ local CDMOD_MULT = {
 
 ns.CooldownData = {
 	SPELLS = SPELLS,
+	CATEGORIES = CATEGORIES,
 	SPEC_HINTS = specHints,
 	SHARED_COOLDOWNS = SHARED_COOLDOWNS,
 	RESETS = RESETS,

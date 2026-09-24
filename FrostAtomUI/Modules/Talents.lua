@@ -202,6 +202,11 @@ function Talents:Observe(guid, hint)
 	end
 end
 
+function Talents:GetObserved(guid, tree)
+	local trees = observed[guid]
+	return trees and trees[tree] or 0
+end
+
 function Talents:IsExcluded(guid, tree, points)
 	local trees = observed[guid]
 	if not trees then

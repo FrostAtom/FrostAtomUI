@@ -67,7 +67,6 @@ Modules\UnitFrames\Elements\ComboPoints.lua
 Modules\UnitFrames\Elements\Range.lua
 Modules\UnitFrames\Elements\Highlight.lua
 Modules\UnitFrames\Elements\Trinket.lua
-Modules\UnitFrames\Elements\Cooldowns.lua
 Modules\UnitFrames\Elements\Dispel.lua
 Modules\UnitFrames\Elements\Status.lua
 Modules\UnitFrames\Elements\Auras.lua
@@ -91,6 +90,7 @@ Modules\NamePlates\Healers.lua
 
 Modules\PlayerPlate.lua
 Modules\Trackers.lua
+Modules\GroupCooldowns.lua
 Modules\LossOfControl.lua
 Modules\ExternalDefensives.lua
 Modules\Runes.lua
