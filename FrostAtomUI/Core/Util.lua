@@ -314,8 +314,19 @@ function ns.HealthColor(percent)
 	return color[1], color[2], color[3]
 end
 
+local REFERENCE_HEIGHT = 768
+
+function ns.ScreenHeight()
+	local height = tonumber((GetCVar("gxResolution") or ""):match("%d+x(%d+)"))
+	return height or REFERENCE_HEIGHT
+end
+
+function ns.PixelPerfectScale()
+	return REFERENCE_HEIGHT / ns.ScreenHeight()
+end
+
 function ns.PixelPerfect(size)
-	return size * (2 - UIParent:GetEffectiveScale())
+	return size * ns.PixelPerfectScale() / UIParent:GetEffectiveScale()
 end
 
 local PRINT_PREFIX = "|cff177cbf[" .. ADDON_NAME .. "]|r: "

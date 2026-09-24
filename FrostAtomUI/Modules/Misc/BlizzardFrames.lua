@@ -49,7 +49,7 @@ local function pin(module, frame, path, label, size)
 	end)
 	apply()
 	module:WatchConfig(path, apply)
-	module:RegisterMover(frame, path, label, size and { size = size })
+	module:RegisterMover(frame, path, label, { size = size, floating = true })
 end
 
 local inCombat = false
@@ -81,7 +81,7 @@ end
 function BlizzardFrames:Initialize()
 	captureHolder = CreateFrame("Frame", "FrostAtomUICaptureBars", UIParent)
 	captureHolder:SetSize(CAPTURE_BAR_WIDTH, CAPTURE_BAR_HEIGHT)
-	self:AnchorToConfig(captureHolder, "blizzardFrames.captureBarPoint", "Capture bars")
+	self:AnchorToConfig(captureHolder, "blizzardFrames.captureBarPoint", "Capture bars", { context = "battleground" })
 	hooksecurefunc("WorldStateAlwaysUpFrame_Update", stackCaptureBars)
 	stackCaptureBars()
 

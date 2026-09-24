@@ -506,7 +506,7 @@ local function squareResizer(key)
 	return frameResize(key .. "Width", key .. "Height", 20, 20)
 end
 
-local function registerGroupMovers(self, frames, prefix, name)
+local function registerGroupMovers(self, frames, prefix, name, context)
 	local shownPath = "unitFrames.show" .. name
 	local castbarShownPath = "unitFrames.show" .. name .. "Castbar"
 	local resize = frameResize(prefix .. "Width", prefix .. "Height", 80, 20)
@@ -520,21 +520,25 @@ local function registerGroupMovers(self, frames, prefix, name)
 			resize = resize,
 			enabledPath = shownPath,
 			insets = auraInsets(frame),
+			context = context,
 		})
 		self:RegisterMover(frame.castbar, frame.castbar.moverPath, name .. " " .. i .. " castbar", {
 			enabledPath = { shownPath, castbarShownPath },
 			insets = castbarInsets(frame.castbar),
 			resize = castbarResize,
+			context = context,
 		})
 		self:RegisterMover(frame.pet, frame.pet.moverPath, name .. " " .. i .. " pet", {
 			secure = true,
 			enabledPath = { shownPath, "unitFrames." .. frame.pet.shownKey },
 			resize = petResize,
+			context = context,
 		})
 		self:RegisterMover(frame.unitTarget, frame.unitTarget.moverPath, name .. " " .. i .. " target", {
 			secure = true,
 			enabledPath = { shownPath, "unitFrames." .. frame.unitTarget.shownKey },
 			resize = targetResize,
+			context = context,
 		})
 	end
 end
@@ -603,7 +607,7 @@ function UF:Initialize()
 		end,
 	})
 	registerGroupMovers(self, party, "party", "Party")
-	registerGroupMovers(self, arena, "arena", "Arena")
+	registerGroupMovers(self, arena, "arena", "Arena", "arena")
 	self:RegisterMover(bosses[1], "unitFrames.boss", "Boss", {
 		secure = true,
 		resize = frameResize("bossWidth", "bossHeight", 80, 20),

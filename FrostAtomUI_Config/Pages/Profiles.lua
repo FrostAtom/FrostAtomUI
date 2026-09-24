@@ -88,6 +88,9 @@ local function showImportWindow(heading, onImport)
 	window.box:SetFocus()
 end
 
+ns.ShowTextWindow = showText
+ns.ShowImportWindow = showImportWindow
+
 local function showExport()
 	showText(L["Export profile: %s"]:format(ui:GetActiveProfile()), ui:ExportProfile())
 end
@@ -105,24 +108,10 @@ local function showImport()
 	end)
 end
 
-local function showLayoutExport(name)
-	local text = ui.Movers.ExportLayout(name)
-	if text then
-		showText(L["Export layout: %s"]:format(name), text)
+function ns.HideTextWindow()
+	if window then
+		window:Hide()
 	end
-end
-
-local function showLayoutImport()
-	showImportWindow(L["Import layout"], function(text)
-		local ok, result = ui.Movers.ImportLayout(text)
-		if ok then
-			window:Hide()
-			ui.Print(L["layout %q imported"], result)
-			ns.RefreshPage()
-		else
-			ui.Print(L["import failed: %s"], result)
-		end
-	end)
 end
 
 local function profileOptions(excluded)
@@ -145,39 +134,6 @@ end
 
 local function switchProfile(name)
 	ui:SetProfile(name)
-end
-
-local function layoutOptions()
-	local options = {}
-	for _, name in ipairs(ui.Movers.GetLayoutNames()) do
-		options[#options + 1] = { name, name }
-	end
-	return options
-end
-
-local function noLayouts()
-	return #ui.Movers.GetLayoutNames() == 0
-end
-
-local function saveLayout(name)
-	local ok, saved = ui.Movers.SaveLayout(name)
-	if ok then
-		ui.Print(L["layout %q saved"], saved)
-		ns.RefreshPage()
-	end
-end
-
-local function loadLayout(name)
-	ns.Confirm(L["Move all frames to the positions saved in layout %q?"]:format(name), function()
-		ui.Movers.LoadLayout(name)
-	end)
-end
-
-local function deleteLayout(name)
-	ns.Confirm(L["Delete layout %q?"]:format(name), function()
-		ui.Movers.DeleteLayout(name)
-		ns.RefreshPage()
-	end)
 end
 
 local schema = {
@@ -273,62 +229,6 @@ local schema = {
 		glyph = "file-import",
 		func = showImport,
 		desc = L["Paste a profile string to replace the active profile."],
-	},
-	{ header = L["Layouts"], new = "1.4.1", glyph = "layer-group" },
-	{
-		description = L["A layout keeps only frame positions, shared by all characters. Loading one moves the frames of the active profile and leaves every other setting alone."],
-	},
-	{
-		label = L["Save layout"],
-		new = "1.4.1",
-		type = "string",
-		width = 160,
-		maxLetters = 32,
-		get = function()
-			return ""
-		end,
-		set = saveLayout,
-		desc = L["Type a name and press Enter to save the current frame positions. An existing layout with that name is overwritten."],
-	},
-	{
-		label = L["Load layout"],
-		new = "1.4.1",
-		type = "select",
-		placeholder = L["Select layout..."],
-		values = layoutOptions,
-		get = function() end,
-		set = loadLayout,
-		disabled = noLayouts,
-	},
-	{
-		label = L["Delete layout"],
-		new = "1.4.1",
-		type = "select",
-		placeholder = L["Select layout..."],
-		values = layoutOptions,
-		get = function() end,
-		set = deleteLayout,
-		disabled = noLayouts,
-	},
-	{
-		label = L["Export layout"],
-		new = "1.4.1",
-		type = "select",
-		placeholder = L["Select layout..."],
-		values = layoutOptions,
-		get = function() end,
-		set = showLayoutExport,
-		disabled = noLayouts,
-		desc = L["Show a layout as a string to copy."],
-	},
-	{
-		label = L["Import layout"],
-		new = "1.4.1",
-		type = "execute",
-		text = L["Import"],
-		glyph = "file-import",
-		func = showLayoutImport,
-		desc = L["Paste a layout string to add it to the list."],
 	},
 }
 

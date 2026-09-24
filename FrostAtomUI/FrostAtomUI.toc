@@ -29,6 +29,7 @@ Core\Encode.lua
 Core\DB.lua
 Core\CVars.lua
 Core\Config.lua
+Core\LayoutPresets.lua
 Core\Movers.lua
 
 # Shared widgets

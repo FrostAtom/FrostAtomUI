@@ -297,7 +297,7 @@ Misc:WatchConfig("tooltip.enabled", applyScale)
 
 local anchor = CreateFrame("Frame", nil, UIParent)
 anchor:SetSize(220, 120)
-Misc:AnchorToConfig(anchor, "tooltip.point", "Tooltip")
+Misc:AnchorToConfig(anchor, "tooltip.point", "Tooltip", { floating = true })
 
 local function screenHalves(frame)
 	local x, y = frame:GetCenter()

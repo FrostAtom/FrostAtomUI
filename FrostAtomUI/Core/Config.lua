@@ -59,6 +59,7 @@ ns.Defaults = {
 		fontBold = "Fonts\\FRIZQT__.ttf",
 		statusbar = "Interface\\Buttons\\WHITE8x8",
 		useUiScale = false,
+		pixelPerfectScale = false,
 		uiScale = 0.7,
 		showGrid = true,
 		gridSize = 32,
@@ -130,7 +131,7 @@ ns.Defaults = {
 		playerAuras = { "TOPRIGHT", -168, -10 },
 		targetCastbar = { "TOPLEFT", 27, -111, "unitFrames.target", "BOTTOMLEFT" },
 		focusCastbar = { "TOPLEFT", 27, -111, "unitFrames.focus", "BOTTOMLEFT" },
-		party = { "LEFT", 150, 230 },
+		party = { "TOPLEFT", 130, -200 },
 		party2 = { "LEFT", 0, -160, "unitFrames.party", "LEFT" },
 		party3 = { "LEFT", 0, -160, "unitFrames.party2", "LEFT" },
 		party4 = { "LEFT", 0, -160, "unitFrames.party3", "LEFT" },
@@ -146,7 +147,7 @@ ns.Defaults = {
 		party2Target = { "RIGHT", -2, 0, "unitFrames.party2Pet", "LEFT" },
 		party3Target = { "RIGHT", -2, 0, "unitFrames.party3Pet", "LEFT" },
 		party4Target = { "RIGHT", -2, 0, "unitFrames.party4Pet", "LEFT" },
-		arena = { "RIGHT", -150, 230 },
+		arena = { "TOPRIGHT", -150, -200 },
 		arena2 = { "RIGHT", 0, -160, "unitFrames.arena", "RIGHT" },
 		arena3 = { "RIGHT", 0, -160, "unitFrames.arena2", "RIGHT" },
 		arena1Castbar = { "RIGHT", -4, 0, "unitFrames.arena", "LEFT" },
@@ -639,7 +640,7 @@ ns.Defaults = {
 		timingMethod = "",
 		muteArmorFoley = false,
 		soundAtHead = false,
-		worldStatePoint = { "BOTTOMLEFT", 52, 289 },
+		worldStatePoint = { "TOP", 0, -40 },
 	},
 
 	popups = {
@@ -670,8 +671,8 @@ ns.Defaults = {
 		enabled = true,
 		friendly = true,
 		enemy = true,
-		friendlyPoint = { "TOPLEFT", 420, -380, "unitFrames.party", "BOTTOMLEFT" },
-		enemyPoint = { "TOPRIGHT", -420, -380, "unitFrames.arena", "BOTTOMRIGHT" },
+		friendlyPoint = { "BOTTOMLEFT", -370, 190, nil, "BOTTOM" },
+		enemyPoint = { "BOTTOMRIGHT", 370, 190, nil, "BOTTOM" },
 		friendlyGrowth = "RIGHT",
 		enemyGrowth = "LEFT",
 		size = 24,
@@ -1078,14 +1079,47 @@ function ns:IsDefaultConfig(path)
 	return type(store[key]) == "table" and next(store[key]) == nil
 end
 
+local CVAR_MIN_SCALE, CVAR_MAX_SCALE = 0.64, 1
+local MIN_UI_SCALE, MAX_UI_SCALE = 0.4, 1.15
+
+function ns.GetTargetUiScale()
+	local general = ns.Config.general
+	if not general.useUiScale then
+		return nil
+	end
+	local scale = general.pixelPerfectScale and ns.PixelPerfectScale() or general.uiScale
+	return math.max(MIN_UI_SCALE, math.min(MAX_UI_SCALE, scale))
+end
+
+local function applyUiScale()
+	local scale = ns.GetTargetUiScale()
+	if not scale or InCombatLockdown() then
+		return
+	end
+	local cvarScale = math.max(CVAR_MIN_SCALE, math.min(CVAR_MAX_SCALE, scale))
+	if GetCVar("useUiScale") ~= "1" then
+		SetCVar("useUiScale", 1)
+	end
+	if math.abs((tonumber(GetCVar("uiScale")) or 0) - cvarScale) > 0.001 then
+		SetCVar("uiScale", cvarScale)
+	end
+	if math.abs(UIParent:GetScale() - scale) > 0.001 then
+		UIParent:SetScale(scale)
+	end
+end
+
 local function applyGeneral()
 	local general = ns.Config.general
 	ns.ApplyMedia(general)
-	if general.useUiScale then
-		SetCVar("useUiScale", 1)
-		SetCVar("uiScale", general.uiScale)
-	end
+	applyUiScale()
 end
+
+local scaleWatcher = CreateFrame("Frame")
+scaleWatcher:RegisterEvent("UI_SCALE_CHANGED")
+scaleWatcher:RegisterEvent("DISPLAY_SIZE_CHANGED")
+scaleWatcher:RegisterEvent("PLAYER_REGEN_ENABLED")
+scaleWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
+scaleWatcher:SetScript("OnEvent", applyUiScale)
 
 local function isSection(value, default)
 	return type(value) == "table"

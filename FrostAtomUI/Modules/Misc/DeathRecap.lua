@@ -473,7 +473,7 @@ end
 
 local function createFrame()
 	frame = ns.CreateWindow(FRAME_NAME, { width = WIDTH, title = L["Death recap"] })
-	Misc:AnchorToConfig(frame, "deathRecap.point", "Death recap")
+	Misc:AnchorToConfig(frame, "deathRecap.point", "Death recap", { floating = true })
 	frame:SetScript("OnShow", refresh)
 	frame.rows = {}
 

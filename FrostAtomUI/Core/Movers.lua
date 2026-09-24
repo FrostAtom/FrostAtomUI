@@ -20,6 +20,9 @@ local GRIP_COLOR = { 0.8, 0.95, 1, 0.8 }
 local GRID_COLOR = { 1, 1, 1, 0.12 }
 local GRID_CENTER_COLOR = { 1, 0.4, 0.4, 0.4 }
 local SELECTED_BORDER_COLOR = { 1, 0.82, 0 }
+local CONFLICT_BORDER_COLOR = { 1, 0.25, 0.2 }
+local STATUS_OK_COLOR = { 0.45, 0.85, 0.45 }
+local STATUS_WARN_COLOR = { 1, 0.35, 0.3 }
 local SNAP_LINE_COLOR = { 1, 0.82, 0, 0.9 }
 local ATTACH_LINE_COLOR = { 0.4, 1, 0.5, 0.9 }
 local GRID_BUTTON_ON_COLOR = { 0.5, 0.8, 1 }
@@ -33,11 +36,14 @@ local SNAP_DISTANCE = 10
 local SNAP_GAP = 4
 local ADJACENT_GAP = 24
 local SHIFT_NUDGE = 10
+local OVERLAP_TOLERANCE = 4
+local MAX_STATUS_LINES = 12
 local NUDGE_BUTTON = "FrostAtomUIMoversNudge"
 local CONFIG_ADDON = "FrostAtomUI_Config"
 local OVERLAY_STRATA = "DIALOG"
 local LAYOUT_PREFIX = "FAUIL1:"
 local MAX_LAYOUT_NAME = 32
+local LAYOUT_DROPDOWN_WIDTH = 150
 
 local NUDGE_KEYS = {
 	UP = { 0, 1 },
@@ -186,11 +192,16 @@ function Movers.GetLabel(path)
 	return mover and L[mover.label] or path and humanize(path)
 end
 
+local function unpackPoint(value)
+	return value[1], value[2], value[3], value[4], value[5]
+end
+ns.UnpackPoint = unpackPoint
+
 function ns.ApplyPoint(frame, path, offset)
-	local point, x, y, anchorPath, anchorPoint = unpack(ns:GetConfig(path))
+	local point, x, y, anchorPath, anchorPoint = unpackPoint(ns:GetConfig(path))
 	local parent = anchorPath and registeredFrame(anchorPath)
 	frame:ClearAllPoints()
-	frame:SetPoint(point, parent or UIParent, parent and anchorPoint or point, x, y - (offset or 0))
+	frame:SetPoint(point, parent or UIParent, (parent or not anchorPath) and anchorPoint or point, x, y - (offset or 0))
 end
 
 local function notifyDependents(path)
@@ -319,7 +330,7 @@ end
 
 local function showTooltip(overlay)
 	local mover = overlay.mover
-	local point, x, y, anchorPath, anchorPoint = unpack(ns:GetConfig(mover.path))
+	local point, x, y, anchorPath, anchorPoint = unpackPoint(ns:GetConfig(mover.path))
 	GameTooltip:SetOwner(overlay, "ANCHOR_TOP")
 	GameTooltip:SetText(L[mover.label], 1, 1, 1)
 	if anchorPath then
@@ -329,8 +340,20 @@ local function showTooltip(overlay)
 			1,
 			0.5
 		)
+	elseif anchorPoint and anchorPoint ~= point then
+		GameTooltip:AddLine(L["%s  %d, %d  of screen %s"]:format(point, x, y, anchorPoint), 0.8, 0.8, 0.8)
 	else
 		GameTooltip:AddLine(("%s  %d, %d"):format(point, x, y), 0.8, 0.8, 0.8)
+	end
+	if mover.offScreen then
+		GameTooltip:AddLine(L["Partly off screen"], 1, 0.35, 0.3)
+	end
+	if mover.conflicts then
+		local names = {}
+		for i = 1, #mover.conflicts do
+			names[i] = L[mover.conflicts[i].label]
+		end
+		GameTooltip:AddLine(L["Overlaps: %s"]:format(tconcat(names, ", ")), 1, 0.35, 0.3, true)
 	end
 	GameTooltip:AddLine(L["Click to open settings"], 0.6, 0.6, 0.6)
 	GameTooltip:AddLine(L["Drag to move, right-click to reset, hold Shift to drop snapping"], 0.6, 0.6, 0.6)
@@ -440,6 +463,7 @@ local function showSnapLine(axis, value, attached)
 end
 
 local updateSnapLines
+local updateConflicts
 
 local dragging
 local dragFrame = CreateFrame("Frame")
@@ -473,7 +497,7 @@ local function updateDrag()
 	updateSnapLines(mover)
 	if x ~= mover.lastX or y ~= mover.lastY then
 		mover.lastX, mover.lastY = x, y
-		local point, _, _, anchorPath, anchorPoint = unpack(ns:GetConfig(mover.path))
+		local point, _, _, anchorPath, anchorPoint = unpackPoint(ns:GetConfig(mover.path))
 		ns:SetConfig(mover.path, { point, x, y, anchorPath, anchorPoint })
 		showTooltip(mover.overlay)
 	end
@@ -515,21 +539,37 @@ local function anchorTo(mover, target, xPart, yPart, theirXPart, theirYPart)
 	})
 end
 
-local function detach(mover)
-	local point, offsetX, offsetY, anchorPath = unpack(ns:GetConfig(mover.path))
-	if not anchorPath then
-		return
+local function screenPart(low, size, total)
+	local center = low + size / 2
+	if center < total / 3 then
+		return 1
+	elseif center > total * 2 / 3 then
+		return 3
 	end
+	return 2
+end
+
+local function placeOnScreen(mover)
+	local point, offsetX, offsetY = unpackPoint(ns:GetConfig(mover.path))
 	local left, bottom, width, height = draggedFrameRect(mover)
 	if not left then
 		ns:SetConfig(mover.path, { point, offsetX, offsetY })
 		return
 	end
+	local screenWidth, screenHeight = UIParent:GetWidth(), UIParent:GetHeight()
 	local xPart, yPart = unpack(POINT_PARTS[point] or POINT_PARTS.CENTER)
+	local screenX, screenY = screenPart(left, width, screenWidth), screenPart(bottom, height, screenHeight)
+	local relative = PART_POINTS[screenY][screenX]
 	local factor = uiToFrameFactor(mover)
-	local x = (edge(left, width, xPart) - edge(0, UIParent:GetWidth(), xPart)) * factor
-	local y = (edge(bottom, height, yPart) - edge(0, UIParent:GetHeight(), yPart)) * factor
-	ns:SetConfig(mover.path, { point, floor(x + 0.5), floor(y + 0.5) })
+	local x = (edge(left, width, xPart) - edge(0, screenWidth, screenX)) * factor
+	local y = (edge(bottom, height, yPart) - edge(0, screenHeight, screenY)) * factor
+	ns:SetConfig(mover.path, { point, floor(x + 0.5), floor(y + 0.5), nil, relative ~= point and relative or nil })
+end
+
+local function detach(mover)
+	if ns:GetConfig(mover.path)[4] then
+		placeOnScreen(mover)
+	end
 end
 
 local function isNear(mover, target, axis)
@@ -689,8 +729,12 @@ local function onDragStop(overlay)
 	dragFrame:Hide()
 	hideSnapLines()
 	applySnapAnchor(mover)
+	if not ns:GetConfig(mover.path)[4] then
+		placeOnScreen(mover)
+	end
 	mover.finalLeft, mover.finalBottom, mover.frameLeft, mover.frameBottom = nil, nil, nil, nil
 	attach(mover)
+	updateConflicts()
 	if overlay:IsMouseOver() then
 		showTooltip(overlay)
 	end
@@ -788,6 +832,8 @@ local function updateColors(mover, hover)
 	end
 	if mover == selected then
 		overlay:SetBackdropBorderColor(unpack(SELECTED_BORDER_COLOR))
+	elseif mover.conflicts or mover.offScreen then
+		overlay:SetBackdropBorderColor(unpack(CONFLICT_BORDER_COLOR))
 	else
 		overlay:SetBackdropBorderColor(unpack(anchored and ANCHORED_BORDER_COLOR or BORDER_COLOR))
 	end
@@ -879,8 +925,8 @@ local function nudge(_, button)
 	end
 	local distance = key ~= button and SHIFT_NUDGE or 1
 	detach(mover)
-	local point, x, y = unpack(ns:GetConfig(mover.path))
-	ns:SetConfig(mover.path, { point, x + step[1] * distance, y + step[2] * distance })
+	local point, x, y, _, anchorPoint = unpackPoint(ns:GetConfig(mover.path))
+	ns:SetConfig(mover.path, { point, x + step[1] * distance, y + step[2] * distance, nil, anchorPoint })
 	if mover.overlay:IsMouseOver() then
 		showTooltip(mover.overlay)
 	end
@@ -947,7 +993,7 @@ function Movers.SetScale(frame, scale, keepPosition)
 		frame:SetScale(scale)
 		return
 	end
-	local point, x, y, anchorPath, anchorPoint = unpack(ns:GetConfig(mover.path))
+	local point, x, y, anchorPath, anchorPoint = unpackPoint(ns:GetConfig(mover.path))
 	local kept = mover.kept
 	if not kept or kept.x ~= x or kept.y ~= y then
 		kept = { visualX = x * old, visualY = y * old }
@@ -969,6 +1015,9 @@ function Movers.Register(frame, path, label, options)
 	end
 	if frame then
 		byFrame[frame] = mover
+		if not (InCombatLockdown() and frame:IsProtected()) then
+			frame:SetClampedToScreen(true)
+		end
 		if not sizeHooked[frame] then
 			sizeHooked[frame] = true
 			frame:HookScript("OnSizeChanged", queueRefresh)
@@ -1009,6 +1058,16 @@ function Movers.Unregister(frame)
 	if mover.overlay then
 		mover.overlay:Hide()
 	end
+end
+
+function Movers.GetFrameSize(path)
+	local mover = byPath[path]
+	local frame = mover and mover.frame
+	if not frame then
+		return nil
+	end
+	local scale = scaleOf(frame)
+	return frame:GetWidth() * scale, frame:GetHeight() * scale, scale
 end
 
 function Movers.Detach(path)
@@ -1061,6 +1120,10 @@ function Movers.ResetPositions()
 	for i = 1, #paths do
 		ns:ResetConfig(paths[i])
 	end
+	local compact = Movers.IsCompactScreen() and ns.LayoutPresets[1].compact
+	for path, value in pairs(compact and compact.points or {}) do
+		ns:SetConfig(path, value)
+	end
 end
 
 StaticPopupDialogs.FROSTATOMUI_RESET_POSITIONS = {
@@ -1107,7 +1170,7 @@ local function isValidPoint(value)
 	end
 	local anchorPath = value[4]
 	if anchorPath == nil then
-		return true
+		return value[5] == nil or POINT_PARTS[value[5]] ~= nil
 	end
 	return type(anchorPath) == "string" and POINT_PARTS[value[5]] ~= nil and type(ns:GetConfig(anchorPath)) == "table"
 end
@@ -1119,18 +1182,235 @@ local function sanitizeLayout(points)
 	local result, count = {}, 0
 	for path, value in pairs(points) do
 		if type(path) == "string" and isStorable(path) and isValidPoint(value) then
-			local anchorPath = value[4]
 			result[path] = {
 				value[1],
 				floor(value[2] + 0.5),
 				floor(value[3] + 0.5),
-				anchorPath,
-				anchorPath and value[5] or nil,
+				value[4],
+				(value[4] or value[5] ~= value[1]) and value[5] or nil,
 			}
 			count = count + 1
 		end
 	end
 	return count > 0 and result or nil
+end
+
+local layoutSettings = {}
+for _, path in ipairs(ns.LayoutSettings) do
+	layoutSettings[path] = true
+end
+
+local function defaultValue(path)
+	local node = ns.Defaults
+	for key in path:gmatch("[^.]+") do
+		if type(node) ~= "table" then
+			return nil
+		end
+		node = node[key]
+	end
+	return node
+end
+
+local function sanitizeSettings(settings)
+	if type(settings) ~= "table" then
+		return nil
+	end
+	local result, count = {}, 0
+	for path, value in pairs(settings) do
+		local default = layoutSettings[path] and defaultValue(path)
+		if default ~= nil and type(value) == type(default) and type(value) ~= "table" then
+			result[path] = value
+			count = count + 1
+		end
+	end
+	return count > 0 and result or nil
+end
+
+local allPointPaths
+
+local function collectPointPaths(node, prefix, paths)
+	for key, value in pairs(node) do
+		if type(key) == "string" and type(value) == "table" then
+			local path = prefix and prefix .. "." .. key or key
+			if POINT_PARTS[value[1]] then
+				paths[#paths + 1] = path
+			else
+				collectPointPaths(value, path, paths)
+			end
+		end
+	end
+	return paths
+end
+
+local function pointPaths()
+	if not allPointPaths then
+		allPointPaths = collectPointPaths(ns.Defaults, nil, {})
+		local depths = {}
+		for i = 1, #allPointPaths do
+			depths[allPointPaths[i]] = anchorDepth(allPointPaths[i])
+		end
+		sort(allPointPaths, function(a, b)
+			if depths[a] ~= depths[b] then
+				return depths[a] < depths[b]
+			end
+			return a < b
+		end)
+	end
+	return allPointPaths
+end
+
+local function samePoint(a, b)
+	for i = 1, 5 do
+		if a[i] ~= b[i] then
+			return false
+		end
+	end
+	return true
+end
+
+local function resetUnless(path, keep)
+	if not keep and not ns:IsDefaultConfig(path) then
+		ns:ResetConfig(path)
+	end
+end
+
+local function breakLoops(points)
+	for path in pairs(points) do
+		local point, x, y, anchorPath = unpackPoint(ns:GetConfig(path))
+		if anchorPath and wouldLoop(path, anchorPath) then
+			ns:SetConfig(path, { point, x, y })
+		end
+	end
+end
+
+local function applyLayout(points, settings, full)
+	if full then
+		local paths = pointPaths()
+		for i = 1, #paths do
+			resetUnless(paths[i], points[paths[i]])
+		end
+	end
+	if settings or full then
+		for i = 1, #ns.LayoutSettings do
+			local path = ns.LayoutSettings[i]
+			resetUnless(path, settings and settings[path] ~= nil)
+		end
+	end
+	for path, value in pairs(settings or {}) do
+		ns:SetConfig(path, value)
+	end
+	for path, value in pairs(points) do
+		ns:SetConfig(path, value)
+	end
+	breakLoops(points)
+end
+
+local function matchesLayout(points, settings)
+	local paths = pointPaths()
+	for i = 1, #paths do
+		local path = paths[i]
+		local expected = points[path] or defaultPoint(path)
+		if not samePoint(ns:GetConfig(path), expected) then
+			return false
+		end
+	end
+	for i = 1, #ns.LayoutSettings do
+		local path = ns.LayoutSettings[i]
+		local expected = settings and settings[path]
+		if expected == nil then
+			expected = defaultValue(path)
+		end
+		if ns:GetConfig(path) ~= expected then
+			return false
+		end
+	end
+	return true
+end
+
+local function presetByKey(key)
+	for _, preset in ipairs(ns.LayoutPresets) do
+		if preset.key == key then
+			return preset
+		end
+	end
+end
+
+local function merged(base, overrides)
+	local result = {}
+	for key, value in pairs(base or {}) do
+		result[key] = value
+	end
+	for key, value in pairs(overrides or {}) do
+		result[key] = value
+	end
+	return result
+end
+
+local function compactLayout(preset)
+	local compact = preset.compact
+	if not compact then
+		return nil
+	end
+	if not compact.merged then
+		compact.merged = {
+			points = merged(preset.points, compact.points),
+			settings = merged(preset.settings, compact.settings),
+		}
+	end
+	return compact.merged.points, compact.merged.settings
+end
+
+function Movers.IsCompactScreen()
+	return UIParent:GetHeight() < ns.COMPACT_SCREEN_HEIGHT
+end
+
+local function presetLayout(preset)
+	if Movers.IsCompactScreen() and preset.compact then
+		return compactLayout(preset)
+	end
+	return preset.points, preset.settings
+end
+
+local function presetMatches(preset)
+	if matchesLayout(preset.points, preset.settings) then
+		return true
+	end
+	local points, settings = compactLayout(preset)
+	return points ~= nil and matchesLayout(points, settings)
+end
+
+function Movers.GetPresets()
+	return ns.LayoutPresets
+end
+
+function Movers.GetPresetLayout(key)
+	local preset = presetByKey(key)
+	if preset then
+		return presetLayout(preset)
+	end
+end
+
+function Movers.ApplyPreset(key)
+	local preset = presetByKey(key)
+	if not preset or not canMove() then
+		return false
+	end
+	local points, settings = presetLayout(preset)
+	applyLayout(points, settings, true)
+	return true
+end
+
+function Movers.IsPresetActive(key)
+	local preset = presetByKey(key)
+	return preset and presetMatches(preset) or false
+end
+
+function Movers.GetActivePreset()
+	for _, preset in ipairs(ns.LayoutPresets) do
+		if presetMatches(preset) then
+			return preset.key
+		end
+	end
 end
 
 local function cleanName(name)
@@ -1150,35 +1430,59 @@ function Movers.GetLayoutNames()
 	return names
 end
 
+local function storedLayout(name)
+	local layout = layoutStore()[name]
+	if type(layout) ~= "table" then
+		return nil
+	elseif layout.points then
+		return layout.points, layout.settings
+	end
+	return layout
+end
+
 function Movers.SaveLayout(name)
 	name = cleanName(name)
 	if not name then
 		return false
 	end
-	local points = {}
-	for i = 1, #movers do
-		local path = movers[i].path
-		if isStorable(path) then
-			local value = ns:GetConfig(path)
-			points[path] = { value[1], value[2], value[3], value[4], value[5] }
-		end
+	local points, settings = {}, {}
+	local paths = pointPaths()
+	for i = 1, #paths do
+		local value = ns:GetConfig(paths[i])
+		points[paths[i]] = { value[1], value[2], value[3], value[4], value[5] }
 	end
-	layoutStore()[name] = points
+	for _, path in ipairs(ns.LayoutSettings) do
+		settings[path] = ns:GetConfig(path)
+	end
+	layoutStore()[name] = { points = points, settings = settings }
 	return true, name
 end
 
 function Movers.LoadLayout(name)
-	local points = sanitizeLayout(layoutStore()[name])
+	local stored, storedSettings = storedLayout(name)
+	local points = sanitizeLayout(stored)
 	if not points or not canMove() then
 		return false
 	end
-	for path, value in pairs(points) do
-		ns:SetConfig(path, value)
+	applyLayout(points, sanitizeSettings(storedSettings))
+	return true
+end
+
+function Movers.IsLayoutActive(name)
+	local stored, storedSettings = storedLayout(name)
+	local points = sanitizeLayout(stored)
+	if not points then
+		return false
 	end
-	for path in pairs(points) do
-		local point, x, y, anchorPath = unpack(ns:GetConfig(path))
-		if anchorPath and wouldLoop(path, anchorPath) then
-			ns:SetConfig(path, { point, x, y })
+	local settings = sanitizeSettings(storedSettings)
+	for path, value in pairs(points) do
+		if not samePoint(ns:GetConfig(path), value) then
+			return false
+		end
+	end
+	for path, value in pairs(settings or {}) do
+		if ns:GetConfig(path) ~= value then
+			return false
 		end
 	end
 	return true
@@ -1189,11 +1493,11 @@ function Movers.DeleteLayout(name)
 end
 
 function Movers.ExportLayout(name)
-	local points = layoutStore()[name]
+	local points, settings = storedLayout(name)
 	if not points then
 		return nil
 	end
-	return LAYOUT_PREFIX .. ns.Encode(ns.Serialize({ name = name, points = points }))
+	return LAYOUT_PREFIX .. ns.Encode(ns.Serialize({ name = name, points = points, settings = settings }))
 end
 
 function Movers.ImportLayout(text)
@@ -1217,7 +1521,7 @@ function Movers.ImportLayout(text)
 		suffix = suffix + 1
 		name = ("%s %d"):format(base, suffix)
 	end
-	store[name] = points
+	store[name] = { points = points, settings = sanitizeSettings(data.settings) }
 	return true, name
 end
 
@@ -1246,11 +1550,11 @@ local function drawGridLine(index, color, vertical, offset)
 	local line = gridLine(index)
 	line:SetTexture(unpack(color))
 	if vertical then
-		line:SetWidth(1)
+		line:SetWidth(ns.PixelPerfect(1))
 		line:SetPoint("TOP", grid, "TOP", offset, 0)
 		line:SetPoint("BOTTOM", grid, "BOTTOM", offset, 0)
 	else
-		line:SetHeight(1)
+		line:SetHeight(ns.PixelPerfect(1))
 		line:SetPoint("LEFT", grid, "LEFT", 0, offset)
 		line:SetPoint("RIGHT", grid, "RIGHT", 0, offset)
 	end
@@ -1324,6 +1628,7 @@ local function onTestModeClick(check)
 	UF:SetTestMode(check:GetChecked() and true or false)
 	testModeOwned = UF.testing or false
 	check:SetChecked(UF.testing)
+	queueRefresh()
 end
 
 local function createPanelButton(text, glyph, onClick)
@@ -1342,6 +1647,95 @@ local function createPanelButton(text, glyph, onClick)
 	icon:SetTextColor(0.8, 0.8, 0.8)
 	icon:SetPoint("RIGHT", label, "LEFT", -PANEL_GLYPH_GAP, 0)
 	return button
+end
+
+local PRESET_PREFIX, SAVED_PREFIX = "preset:", "saved:"
+
+local function layoutValues()
+	local values = {}
+	for _, preset in ipairs(ns.LayoutPresets) do
+		values[#values + 1] = { PRESET_PREFIX .. preset.key, L[preset.name] }
+	end
+	for _, name in ipairs(Movers.GetLayoutNames()) do
+		values[#values + 1] = { SAVED_PREFIX .. name, name }
+	end
+	return values
+end
+
+local function activeLayoutValue()
+	local preset = Movers.GetActivePreset()
+	if preset then
+		return PRESET_PREFIX .. preset
+	end
+	for _, name in ipairs(Movers.GetLayoutNames()) do
+		if Movers.IsLayoutActive(name) then
+			return SAVED_PREFIX .. name
+		end
+	end
+end
+
+local function updateLayoutDropdown()
+	local dropdown = panel and panel.layouts
+	if not dropdown or not panel:IsShown() then
+		return
+	end
+	local value = activeLayoutValue()
+	if value then
+		dropdown:Select(value)
+	else
+		dropdown.selected = nil
+		UIDropDownMenu_SetSelectedValue(dropdown, nil)
+		UIDropDownMenu_SetText(dropdown, L["Custom"])
+	end
+end
+
+local layoutKey = {}
+
+local function queueLayoutDropdown()
+	ns.Defer(layoutKey, updateLayoutDropdown)
+end
+
+local pendingLayout
+
+StaticPopupDialogs.FROSTATOMUI_APPLY_LAYOUT = {
+	text = "%s",
+	button1 = YES,
+	button2 = NO,
+	OnAccept = function()
+		local value = pendingLayout
+		if value:sub(1, #PRESET_PREFIX) == PRESET_PREFIX then
+			Movers.ApplyPreset(value:sub(#PRESET_PREFIX + 1))
+		else
+			Movers.LoadLayout(value:sub(#SAVED_PREFIX + 1))
+		end
+	end,
+	OnHide = function(dialog)
+		dialog:SetFrameStrata("DIALOG")
+		queueLayoutDropdown()
+	end,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	preferredIndex = 3,
+}
+
+local function selectLayout(value)
+	pendingLayout = value
+	local name
+	for _, option in ipairs(layoutValues()) do
+		if option[1] == value then
+			name = option[2]
+		end
+	end
+	local dialog = StaticPopup_Show(
+		"FROSTATOMUI_APPLY_LAYOUT",
+		L["Apply the %s layout? Frames move, and bar columns, frame and castbar sizes change to the layout's. Other settings stay."]:format(
+			name or value
+		)
+	)
+	if dialog then
+		dialog:SetFrameStrata("FULLSCREEN_DIALOG")
+	end
 end
 
 local function createPanel()
@@ -1371,6 +1765,26 @@ local function createPanel()
 	gridButton:SetScript("OnClick", toggleGrid)
 	panel.gridButton = gridButton
 
+	local layouts =
+		ns.CreateDropdown(panel, LAYOUT_DROPDOWN_WIDTH, layoutValues, selectLayout, "FrostAtomUIMoversLayout")
+	local layoutLabel = createLabel(panel, 11, 0.85, L["Frame layout"])
+	local layoutWidth = layoutLabel:GetStringWidth() + LAYOUT_DROPDOWN_WIDTH + 30
+	layoutLabel:SetPoint("TOPLEFT", panel, "TOP", -layoutWidth / 2, -78)
+	layouts:SetPoint("LEFT", layoutLabel, "RIGHT", -10, -2)
+	panel.layouts = layouts
+
+	local status = CreateFrame("Frame", nil, panel)
+	status:SetHeight(16)
+	status:SetPoint("TOP", 0, -108)
+	status:EnableMouse(true)
+	status:SetScript("OnEnter", showStatusTooltip)
+	status:SetScript("OnLeave", GameTooltip_Hide)
+	status.icon = ns.CreateGlyph(status, "circle-check", 11)
+	status.icon:SetPoint("LEFT")
+	status.text = createLabel(status, 11, 1, "")
+	status.text:SetPoint("LEFT", status.icon, "RIGHT", 5, 0)
+	panel.status = status
+
 	local lock = createPanelButton(L["Lock frames"], "lock", Movers.Lock)
 	lock:SetPoint("BOTTOMRIGHT", panel, "BOTTOM", -4, 8)
 
@@ -1387,9 +1801,10 @@ local function createPanel()
 			hint:GetStringWidth() + 24,
 			nudgeHint:GetStringWidth() + 24,
 			buttonWidth * 2 + 24,
+			layoutWidth + 24,
 			22 + 2 + checkLabel:GetStringWidth() + 2 * (gridButton:GetWidth() + 12)
 		),
-		102
+		160
 	)
 end
 
@@ -1413,6 +1828,7 @@ function Movers.Unlock()
 		panel.testCheck:Hide()
 	end
 	panel:Show()
+	updateLayoutDropdown()
 	updateGrid()
 	for _, mover in ipairs(movers) do
 		if not mover.overlay then
@@ -1420,6 +1836,7 @@ function Movers.Unlock()
 		end
 		updateVisibility(mover)
 	end
+	queueRefresh()
 end
 
 function Movers.Lock()
@@ -1456,6 +1873,130 @@ function Movers.IsUnlocked()
 	return unlocked
 end
 
+local conflictPairs, offScreenMovers = {}, {}
+
+local function conflictRect(mover)
+	if mover.floating or not mover.overlay or not mover.overlay:IsShown() then
+		return nil
+	elseif mover.frame and not mover.frame:IsVisible() then
+		return nil
+	end
+	local left, bottom, width, height = moverRect(mover)
+	if not left or width <= 0 or height <= 0 then
+		return nil
+	end
+	return { left, bottom, left + width, bottom + height, mover = mover }
+end
+
+local function overlaps(a, b)
+	local contextA, contextB = a.mover.context, b.mover.context
+	if contextA and contextB and contextA ~= contextB then
+		return false
+	end
+	return min(a[3], b[3]) - max(a[1], b[1]) > OVERLAP_TOLERANCE
+		and min(a[4], b[4]) - max(a[2], b[2]) > OVERLAP_TOLERANCE
+end
+
+local function addConflict(mover, other)
+	mover.conflicts = mover.conflicts or {}
+	mover.conflicts[#mover.conflicts + 1] = other
+end
+
+local function updateStatus()
+	local status = panel and panel.status
+	if not status then
+		return
+	end
+	if #conflictPairs == 0 and #offScreenMovers == 0 then
+		status.text:SetText(L["No frames overlap"])
+		status.text:SetTextColor(unpack(STATUS_OK_COLOR))
+		ns.SetGlyph(status.icon, "circle-check")
+		status.icon:SetTextColor(unpack(STATUS_OK_COLOR))
+	else
+		local parts = {}
+		if #conflictPairs > 0 then
+			parts[#parts + 1] = L["Overlapping frames: %d"]:format(#conflictPairs)
+		end
+		if #offScreenMovers > 0 then
+			parts[#parts + 1] = L["Off screen: %d"]:format(#offScreenMovers)
+		end
+		status.text:SetText(tconcat(parts, ", "))
+		status.text:SetTextColor(unpack(STATUS_WARN_COLOR))
+		ns.SetGlyph(status.icon, "triangle-exclamation")
+		status.icon:SetTextColor(unpack(STATUS_WARN_COLOR))
+	end
+	status:SetWidth(status.text:GetStringWidth() + status.icon:GetStringWidth() + 5)
+end
+
+function updateConflicts()
+	wipe(conflictPairs)
+	wipe(offScreenMovers)
+	local rects = {}
+	local screenWidth, screenHeight = UIParent:GetWidth(), UIParent:GetHeight()
+	for _, mover in ipairs(movers) do
+		mover.conflicts, mover.offScreen = nil, nil
+		local rect = conflictRect(mover)
+		if rect then
+			rects[#rects + 1] = rect
+			if rect[1] < -1 or rect[2] < -1 or rect[3] > screenWidth + 1 or rect[4] > screenHeight + 1 then
+				mover.offScreen = true
+				offScreenMovers[#offScreenMovers + 1] = mover
+			end
+		end
+	end
+	for i = 1, #rects do
+		for j = i + 1, #rects do
+			local a, b = rects[i], rects[j]
+			if overlaps(a, b) then
+				addConflict(a.mover, b.mover)
+				addConflict(b.mover, a.mover)
+				conflictPairs[#conflictPairs + 1] = { a.mover, b.mover }
+			end
+		end
+	end
+	for _, mover in ipairs(movers) do
+		if mover.overlay and mover.overlay:IsShown() then
+			updateColors(mover, mover.overlay:IsMouseOver())
+		end
+	end
+	updateStatus()
+end
+
+local function showStatusTooltip(status)
+	GameTooltip:SetOwner(status, "ANCHOR_BOTTOM")
+	if #conflictPairs == 0 and #offScreenMovers == 0 then
+		GameTooltip:SetText(L["No frames overlap"], unpack(STATUS_OK_COLOR))
+		GameTooltip:AddLine(L["Turn on test unit frames to check party and arena frames too."], 0.8, 0.8, 0.8, true)
+		GameTooltip:Show()
+		return
+	end
+	GameTooltip:SetText(L["Frames to fix"], 1, 1, 1)
+	local lines = 0
+	for _, pair in ipairs(conflictPairs) do
+		if lines < MAX_STATUS_LINES then
+			GameTooltip:AddLine(("%s - %s"):format(L[pair[1].label], L[pair[2].label]), 1, 0.6, 0.55)
+		end
+		lines = lines + 1
+	end
+	for _, mover in ipairs(offScreenMovers) do
+		if lines < MAX_STATUS_LINES then
+			GameTooltip:AddLine(L["%s: partly off screen"]:format(L[mover.label]), 1, 0.6, 0.55)
+		end
+		lines = lines + 1
+	end
+	if lines > MAX_STATUS_LINES then
+		GameTooltip:AddLine(L["and %d more"]:format(lines - MAX_STATUS_LINES), 0.6, 0.6, 0.6)
+	end
+	GameTooltip:AddLine(
+		L["Such frames are outlined in red. A smaller UI scale or a layout preset leaves more room."],
+		0.8,
+		0.8,
+		0.8,
+		true
+	)
+	GameTooltip:Show()
+end
+
 function Movers.Refresh()
 	if not unlocked or dragging or resizing then
 		return
@@ -1465,9 +2006,24 @@ function Movers.Refresh()
 			attach(mover)
 		end
 	end
+	updateConflicts()
+end
+
+function Movers.GetConflicts()
+	return conflictPairs, offScreenMovers
 end
 
 Movers:RegisterEvent("PLAYER_REGEN_DISABLED", Movers.Lock)
+
+local function onScaleChanged()
+	if unlocked then
+		updateGrid()
+		queueRefresh()
+	end
+end
+
+Movers:RegisterEvent("UI_SCALE_CHANGED", onScaleChanged)
+Movers:RegisterEvent("DISPLAY_SIZE_CHANGED", onScaleChanged)
 
 Movers:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
 	if not unlocked then
@@ -1477,6 +2033,7 @@ Movers:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
 		updateGrid()
 	end
 	queueRefresh()
+	queueLayoutDropdown()
 	local toggled = not path or path:find("enabled$") ~= nil
 	for _, mover in ipairs(movers) do
 		if not path or path == mover.path then
