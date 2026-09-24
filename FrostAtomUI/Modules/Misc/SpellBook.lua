@@ -521,7 +521,13 @@ local function createFrame()
 	frame:SetToplevel(true)
 	frame:EnableMouse(true)
 	frame:SetHitRectInsets(0, 30, 0, 70)
-	frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", UIParent:GetAttribute("LEFT_OFFSET"), UIParent:GetAttribute("TOP_OFFSET"))
+	frame:SetPoint(
+		"TOPLEFT",
+		UIParent,
+		"TOPLEFT",
+		UIParent:GetAttribute("LEFT_OFFSET"),
+		UIParent:GetAttribute("TOP_OFFSET")
+	)
 	createArt()
 
 	panel = CreateFrame("Frame", FRAME_NAME .. "Panel", UIParent)

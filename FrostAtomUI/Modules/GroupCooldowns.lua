@@ -26,7 +26,8 @@ local GLOW_SCALE = 1.75
 local LABEL_GAP = 4
 local LABEL_FONT_SIZE = 10
 local PREVIEW_NAMES = { "Frostatom", "Nightshade", "Zephyra", "Thoralf", "Mirelle", "Kaelith", "Dravok", "Sylvara" }
-local PREVIEW_RACES = { "Human", "Scourge", "Tauren", "Gnome", "BloodElf", "Orc", "Troll", "Dwarf", "NightElf", "Draenei" }
+local PREVIEW_RACES =
+	{ "Human", "Scourge", "Tauren", "Gnome", "BloodElf", "Orc", "Troll", "Dwarf", "NightElf", "Draenei" }
 local PREVIEW_CLASSES = {
 	"WARRIOR",
 	"PALADIN",
@@ -185,8 +186,7 @@ local function collectSpells(owner, categories)
 	for _, list in pairs(byCategory) do
 		wipe(list)
 	end
-	local tracked = owner.spells
-		or CooldownTracker:GetTrackedFor(owner.guid, owner.class, owner.race, true)
+	local tracked = owner.spells or CooldownTracker:GetTrackedFor(owner.guid, owner.class, owner.race, true)
 	for i = 1, tracked and #tracked or 0 do
 		local id = tracked[i]
 		local category = categoryOf(id)

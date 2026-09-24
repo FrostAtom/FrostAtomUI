@@ -225,7 +225,8 @@ local function buttonRow(buttons)
 	return function(row)
 		local previous
 		for _, spec in ipairs(buttons) do
-			local button = spec.arrow and createArrow(row, spec.arrow) or CreateButton(row, spec[1], spec[3] or 90, spec.gray)
+			local button = spec.arrow and createArrow(row, spec.arrow)
+				or CreateButton(row, spec[1], spec[3] or 90, spec.gray)
 			if previous then
 				button:SetPoint("LEFT", previous, "RIGHT", BUTTON_GAP, 0)
 			else

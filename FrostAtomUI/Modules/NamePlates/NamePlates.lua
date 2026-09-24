@@ -4,7 +4,6 @@ local WorldFrame = WorldFrame
 local UnitExists = UnitExists
 local UnitName, UnitGUID, UnitIsUnit, UnitCanAttack = UnitName, UnitGUID, UnitIsUnit, UnitCanAttack
 local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
-local InCombatLockdown = InCombatLockdown
 local GetTime = GetTime
 local GetCurrentResolution, GetScreenResolutions = GetCurrentResolution, GetScreenResolutions
 local floor, huge, min, abs, exp = math.floor, math.huge, math.min, math.abs, math.exp

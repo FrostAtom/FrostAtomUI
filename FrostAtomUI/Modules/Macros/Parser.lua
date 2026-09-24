@@ -3,7 +3,7 @@ local L = ns.L
 
 local strbyte, strsub, strfind, strmatch, strlower, strupper, strgsub =
 	string.byte, string.sub, string.find, string.match, string.lower, string.upper, string.gsub
-local tconcat, wipe, pairs, tonumber, type, loadstring = table.concat, wipe, pairs, tonumber, type, loadstring
+local tconcat, pairs, tonumber, type, loadstring = table.concat, pairs, tonumber, type, loadstring
 local GetSpellInfo, GetSpellName, GetItemInfo, GetItemCount, IsEquippedItem =
 	GetSpellInfo, GetSpellName, GetItemInfo, GetItemCount, IsEquippedItem
 local GetContainerItemLink, GetInventoryItemLink = GetContainerItemLink, GetInventoryItemLink
@@ -15,7 +15,7 @@ ns.MacroParser = Parser
 
 local BYTE_SPACE, BYTE_TAB = strbyte(" "), strbyte("\t")
 local BYTE_SLASH, BYTE_HASH, BYTE_DASH = strbyte("/"), strbyte("#"), strbyte("-")
-local BYTE_OPEN, BYTE_CLOSE, BYTE_SEMICOLON = strbyte("["), strbyte("]"), strbyte(";")
+local BYTE_OPEN, BYTE_SEMICOLON = strbyte("["), strbyte(";")
 local BYTE_PIPE, BYTE_C, BYTE_R = strbyte("|"), strbyte("c"), strbyte("r")
 
 Parser.RUN_LIMIT = 1023

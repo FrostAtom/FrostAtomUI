@@ -29,7 +29,10 @@ ns.ProcData = {
 	[75458] = { event = "buff", duration = 15, items = { [54569] = 45 } }, -- Piercing Twilight (Sharpened Twilight Scale)
 	[75477] = { event = "buff", duration = 10, items = { [54571] = 45 } }, -- Scaly Nimbleness (Petrified Twilight Scale)
 	[75466] = { event = "buff", duration = 15, items = { [54572] = 50 } }, -- Twilight Flames (Charred Twilight Scale)
-	[62458] = { event = "energize", items = { [51414] = 0, [40811] = 0, [40809] = 0, [40806] = 0, [40799] = 0, [40803] = 0, [42655] = 0 } }, -- Bonus Runic Power (Wrathful Gladiator's Dreadplate Gauntlets, Relentless Gladiator's Dreadplate Gauntlets, Furious Gladiator's Dreadplate Gauntlets, Deadly Gladiator's Dreadplate Gauntlets, Savage Gladiator's Dreadplate Gauntlets, Hateful Gladiator's Dreadplate Gauntlets)
+	[62458] = {
+		event = "energize",
+		items = { [51414] = 0, [40811] = 0, [40809] = 0, [40806] = 0, [40799] = 0, [40803] = 0, [42655] = 0 },
+	}, -- Bonus Runic Power (Wrathful Gladiator's Dreadplate Gauntlets, Relentless Gladiator's Dreadplate Gauntlets, Furious Gladiator's Dreadplate Gauntlets, Deadly Gladiator's Dreadplate Gauntlets, Savage Gladiator's Dreadplate Gauntlets, Hateful Gladiator's Dreadplate Gauntlets)
 	[60570] = { event = "buff", duration = 10, items = { [51437] = 0, [51513] = 0 } }, -- Intuition of the Gladiator (Wrathful Gladiator's Idol of Steadfastness, Wrathful Gladiator's Totem of Survival)
 	[71169] = { event = "debuff", items = { [49888] = 0 } }, -- Shadow's Fate (Shadow's Edge)
 	[71843] = { event = "summon", items = { [49992] = 0 } }, -- Summon Val'kyr (Nibelung)

@@ -2,12 +2,13 @@
 -- The game embeds Lua 5.1; the WoW API and FrameXML are globals.
 
 std = "lua51"
-max_line_length = 120
+max_line_length = false
 exclude_files = { "node_modules/", "FrostAtomUI/Libs/" }
 
 -- Code is loaded as an addon chunk: `local ADDON_NAME, ns = ...`
 allow_defined_top = false
 unused_args = false
+ignore = { "421", "431", "432" }
 
 read_globals = {
 	-- Lua extensions provided by the client
@@ -19,7 +20,7 @@ read_globals = {
 	"GetFramerate", "GetNetStats",
 	"CanGuildBankRepair", "GetGuildBankWithdrawMoney", "GetGuildBankMoney",
 	"GetScreenWidth", "GetScreenHeight", "GetCursorPosition", "GetMouseFocus",
-	"UIParent", "WorldFrame", "Minimap", "GameTooltip", "ItemRefTooltip",
+	"UIParent", "WorldFrame", "GameTooltip", "ItemRefTooltip",
 	"ShoppingTooltip1", "ShoppingTooltip2", "ShoppingTooltip3",
 	"RegisterStateDriver", "RegisterUnitWatch", "UnregisterUnitWatch",
 	"UnitClass", "UnitName", "UnitGUID", "UnitExists", "UnitIsUnit", "UnitIsPlayer",
@@ -62,13 +63,19 @@ read_globals = {
 	"GetItemFamily", "GetAuctionItemClasses", "GetAuctionItemSubClasses", "GetCursorInfo",
 	"PickupContainerItem", "SplitContainerItem", "GetBackpackCurrencyInfo", "MAX_WATCHED_TOKENS",
 	"BackpackTokenFrame_Update", "GameTooltip_Hide",
+	"GetRealmName", "strtrim", "ClearOverrideBindings", "SetOverrideBindingClick",
 
 	-- FrameXML functions
 	"CooldownFrame_SetTimer", "GameTooltip_SetDefaultAnchor", "UnitFrame_OnEnter", "UnitFrame_OnLeave", "Minimap_OnClick",
 	"ChatEdit_UpdateHeader", "ChatFrame_AddMessageEventFilter", "ChatFrame_RemoveMessageEventFilter",
-	"ChatTypeInfo", "SetChatColorNameByClass",
+	"SetChatColorNameByClass",
 	"StaticPopup_Show", "StaticPopup_Hide", "ToggleDropDownMenu", "UIDropDownMenu_Initialize",
-	"UIDropDownMenu_CreateInfo", "UIDropDownMenu_AddButton", "UIDropDownMenu_SetWidth",
+	"UIDropDownMenu_CreateInfo", "UIDropDownMenu_SetWidth",
+	"StaticPopup_Visible", "StaticPopup_FindVisible", "ContainerFrameItemButton_OnEnter",
+	"FCFOptionsDropDown_Initialize", "FCF_SetLocked", "LFDQueueFrameRandomCooldownFrame_Update",
+	"ScrollingEdit_OnTextChanged", "ScrollingEdit_OnCursorChanged", "ScrollingEdit_OnUpdate",
+	"WorldMap_GetVehicleTexture", "WorldMapFrame_UpdateQuests", "WorldMapButton_OnClick",
+	"BattlefieldMinimap_OnUpdate",
 	"UIDropDownMenu_SetSelectedValue", "UIDropDownMenu_SetText", "YES", "NO",
 	"DEAD", "AFK", "DND", "FRIENDS_LIST_OFFLINE", "INTERRUPTED", "FAILED", "UNKNOWN",
 	"UnitPopup_ShowMenu", "FauxScrollFrame_Update", "FauxScrollFrame_OnVerticalScroll",
@@ -80,14 +87,25 @@ read_globals = {
 	"ShowUIPanel", "HideUIPanel", "HideParentPanel", "PVPFrame",
 
 	-- FrameXML tables & constants
-	"UIDROPDOWNMENU_INIT_MENU", "RAID_CLASS_COLORS", "PowerBarColor", "DebuffTypeColor", "RAID_TARGET_ICON",
+	"UIDROPDOWNMENU_INIT_MENU", "UIDROPDOWNMENU_MENU_LEVEL", "UIDROPDOWNMENU_MAXLEVELS", "RAID_CLASS_COLORS", "PowerBarColor", "DebuffTypeColor", "RAID_TARGET_ICON",
 	"NUM_ACTIONBAR_BUTTONS", "NUM_PET_ACTION_SLOTS", "NUM_SHAPESHIFT_SLOTS", "NUM_BAG_SLOTS",
 	"VEHICLE_MAX_ACTIONBUTTONS", "MAX_PARTY_MEMBERS", "NUM_CHAT_WINDOWS", "MAX_COMBO_POINTS",
 	"MAX_BOSS_FRAMES", "MAX_PLAYER_LEVEL", "FACTION_BAR_COLORS", "CLOSE", "MAX_TOTEMS",
 	"MAX_BATTLEFIELD_QUEUES", "LEAVE_QUEUE", "ENTER_BATTLE", "LEAVE_ARENA",
 	"STATICPOPUP_NUMDIALOGS", "DELETE_ITEM_CONFIRM_STRING", "SELECTED_DOCK_FRAME",
 	"WORLDMAP_SETTINGS", "WORLDMAP_WINDOWED_SIZE", "WorldMap_ToggleSizeUp", "ToggleMapFramerate",
-	"WorldMapBlobFrame_CalculateHitTranslations", "UIPanelWindows",
+	"WorldMapBlobFrame_CalculateHitTranslations",
+	"VEHICLE_TEXTURES", "NUM_WORLDMAP_FLAGS", "WORLDMAP_POI_FRAMELEVEL", "WORLDMAP_WORLD_ID",
+	"STANDARD_TEXT_FONT", "COPPER_PER_GOLD", "COPPER_PER_SILVER", "ICON_TAG_LIST", "ICON_LIST",
+	"LOCK_WINDOW", "UNLOCK_WINDOW", "DEFAULT_CHAT_FRAME", "PLAYER_LIST_DELIMITER", "ERR_BG_PLAYER_JOINED_SS",
+	"ERR_PLAYER_LEFT_BATTLE_D", "ERR_PLAYERLIST_LEFT_BATTLE", "ERR_PLAYERS_LEFT_BATTLE_D",
+	"ERR_PLAYER_JOINED_BATTLE_D", "ERR_PLAYERLIST_JOINED_BATTLE", "ERR_PLAYERS_JOINED_BATTLE_D",
+	"ERR_DUEL_CANCELLED", "ERR_TRADE_CANCELLED", "ARENA_COMPLETE_MESSAGE", "BATTLEGROUND_COMPLETE_MESSAGE",
+	"MAX_ACCOUNT_MACROS", "MAX_CHARACTER_MACROS", "NUM_ACTIONBAR_PAGES",
+	"SLASH_USE1", "SLASH_EQUIP1", "SLASH_CAST1", "SLASH_EQUIP_SET1",
+	"NUM_EXTENDED_UI_FRAMES", "MERCHANT_ITEMS_PER_PAGE", "BUYBACK_ITEMS_PER_PAGE",
+	"COPY_NAME", "PVP_REPORT_AFK", "LOCALIZED_CLASS_NAMES_MALE",
+	"CAMERA_SMART", "CAMERA_SMARTER", "CAMERA_ALWAYS", "CAMERA_NEVER",
 	"ERR_SET_LOOT_FREEFORALL", "ERR_SET_LOOT_GROUP", "ERR_SET_LOOT_MASTER", "ERR_SET_LOOT_ROUNDROBIN",
 	"ERR_SET_LOOT_THRESHOLD_S", "ERR_RAID_YOU_JOINED", "ERR_RAID_YOU_LEFT", "ERR_RAID_MEMBER_ADDED_S",
 	"ERR_RAID_MEMBER_REMOVED_S", "ERR_BG_PLAYER_LEFT_S", "ERR_PLAYER_DIED_S", "ERR_LEFT_GROUP_S",
@@ -117,6 +135,8 @@ globals = {
 	-- FrameXML tables the addon extends
 	"SlashCmdList", "StaticPopupDialogs", "UnitPopupButtons", "UnitPopupMenus",
 	"UIPARENT_MANAGED_FRAME_POSITIONS", "MultiCastActionBarFrame", "UISpecialFrames",
+	"ChatTypeInfo", "UIPanelWindows", "CHAT_FONT_HEIGHTS", "Minimap", "WorldMapPing", "MAP_VEHICLES",
+	"UIDropDownMenu_AddButton", "FCF_ToggleLock", "ShowMacroFrame",
 	-- overridden Blizzard functions
 	"MainMenuBarVehicleLeaveButton_Update", "TalentFrame_LoadUI", "Arena_LoadUI",
 	"TimeManager_LoadUI", "CombatLog_LoadUI", "Blizzard_CombatLog_Update_QuickButtons",
@@ -144,6 +164,10 @@ files["FrostAtomUI/Modules/**/*.lua"] = {
 		"113/[A-Z][A-Za-z0-9]+", -- accessing undefined variable (frame globals)
 		"111/SLASH_FROSTATOMUI_.*", -- setting undefined variable (slash commands)
 	},
+}
+
+files["FrostAtomUI/Modules/InternalCooldowns.lua"] = {
+	ignore = { "113/[A-Z][A-Za-z0-9]+", "331/memory" },
 }
 
 files["FrostAtomUI_Config/**/*.lua"] = {

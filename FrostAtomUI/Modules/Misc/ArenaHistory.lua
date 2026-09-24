@@ -916,10 +916,8 @@ local function onFilterSelect(index)
 end
 
 local function createFrame()
-	frame = ns.CreateWindow(
-		FRAME_NAME,
-		{ width = WIDTH, title = L["Arena history"], background = "dark", movable = false }
-	)
+	frame =
+		ns.CreateWindow(FRAME_NAME, { width = WIDTH, title = L["Arena history"], background = "dark", movable = false })
 	frame:SetPoint("CENTER")
 	frame:SetScript("OnShow", function()
 		PlaySound("igCharacterInfoOpen")

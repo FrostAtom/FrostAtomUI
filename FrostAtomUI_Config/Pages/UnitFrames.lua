@@ -672,13 +672,7 @@ ns.RegisterPage({
 			desc = L["Icon and timer of the longest crowd control effect over the class icon of target, focus, party and arena frames."],
 		},
 		{ header = L["Castbar"] },
-		size(
-			"unitFrames.castbarHeight",
-			L["Castbar height"],
-			10,
-			50,
-			L["Target, focus, party and arena castbars."]
-		),
+		size("unitFrames.castbarHeight", L["Castbar height"], 10, 50, L["Target, focus, party and arena castbars."]),
 		{
 			path = "unitFrames.castbarTargetName",
 			new = "1.4.0",

@@ -1973,7 +1973,7 @@ local function openMenu(menu, items, owner, point, relativeTo, relativePoint, x,
 	for i = 1, #items do
 		menu.buttons[i]:SetWidth(width + 20)
 	end
-	menu:SetSize(width + 45,#items * MENU_BUTTON_HEIGHT + 30)
+	menu:SetSize(width + 45, #items * MENU_BUTTON_HEIGHT + 30)
 	menu:ClearAllPoints()
 	menu:SetPoint(point, relativeTo, relativePoint, x, y)
 	menu.owner = owner

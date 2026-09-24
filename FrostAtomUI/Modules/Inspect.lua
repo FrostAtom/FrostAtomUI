@@ -270,7 +270,14 @@ queue:SetScript("OnUpdate", function(self, elapsed)
 		send(now)
 	end
 
-	if not request.guid and not gearGuid and not teamsGuid and not urgentGuid and not next(pending) and arenaRefreshes == 0 then
+	if
+		not request.guid
+		and not gearGuid
+		and not teamsGuid
+		and not urgentGuid
+		and not next(pending)
+		and arenaRefreshes == 0
+	then
 		self:Hide()
 	end
 end)

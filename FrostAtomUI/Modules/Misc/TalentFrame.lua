@@ -116,7 +116,13 @@ local GLYPH_HIGHLIGHT_ALPHA = 0.4
 
 local SPECS = {
 	{ group = 1, pet = false, unit = "player", name = "TALENT_SPEC_PRIMARY", glyphName = "TALENT_SPEC_PRIMARY_GLYPH" },
-	{ group = 2, pet = false, unit = "player", name = "TALENT_SPEC_SECONDARY", glyphName = "TALENT_SPEC_SECONDARY_GLYPH" },
+	{
+		group = 2,
+		pet = false,
+		unit = "player",
+		name = "TALENT_SPEC_SECONDARY",
+		glyphName = "TALENT_SPEC_SECONDARY_GLYPH",
+	},
 	{ group = 1, pet = true, unit = "pet", name = "TALENT_SPEC_PET_PRIMARY" },
 }
 
