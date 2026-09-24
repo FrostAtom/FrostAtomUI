@@ -36,7 +36,7 @@ read_globals = {
 	"GetNumShapeshiftForms", "GetShapeshiftForm", "GetShapeshiftFormInfo", "GetShapeshiftFormCooldown",
 	"GetRuneType", "GetRuneCooldown",
 	"GetWeaponEnchantInfo", "GetInventoryItemTexture", "CancelItemTempEnchantment",
-	"GetBindingKey", "GetBindingByKey", "SetBinding", "SetBindingClick", "SaveBindings", "LoadBindings",
+	"GetBindingKey", "GetBindingByKey", "GetBindingAction", "GetBindingText", "SetBinding", "SetBindingClick", "SaveBindings", "LoadBindings",
 	"GetCurrentBindingSet", "IsAltKeyDown", "IsControlKeyDown", "IsShiftKeyDown",
 	"GetNumFriends", "GetFriendInfo", "GetPartyLeaderIndex", "IsPartyLeader",
 	"UnitInParty", "GetNumRaidMembers", "GetRaidRosterInfo",

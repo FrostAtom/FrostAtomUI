@@ -8,6 +8,17 @@ local NEW = "1.4.1"
 
 local schema = {}
 
+local function cameraKey(binding)
+	return {
+		type = "keybind",
+		binding = binding,
+		label = L["Key binding"],
+		indent = true,
+		new = NEW,
+		desc = L["Left-click, then press a key or mouse button to bind it."] .. "\n" .. L["Right-click to clear."],
+	}
+end
+
 Section(schema, L["Camera"], "tweaks", {
 	{
 		path = "cameraDistanceMax",
@@ -88,7 +99,7 @@ Section(schema, L["Camera"], "tweaks", {
 		desc = L["The camera jumps to the new height right away when you shapeshift or mount instead of sliding."],
 	},
 	{
-		description = L["Key bindings in Key Bindings > FrostAtomUI snap the camera to these distances."],
+		description = L["Keys that snap the camera to these distances. Also in Key Bindings > FrostAtomUI."],
 	},
 	{
 		path = "cameraDistanceClose",
@@ -99,6 +110,7 @@ Section(schema, L["Camera"], "tweaks", {
 		step = 1,
 		desc = L["Distance the Close camera distance key binding snaps to."],
 	},
+	cameraKey("FROSTATOMUI_CAMERA_CLOSE"),
 	{
 		path = "cameraDistanceMedium",
 		label = L["Medium camera distance"],
@@ -108,6 +120,7 @@ Section(schema, L["Camera"], "tweaks", {
 		step = 1,
 		desc = L["Distance the Medium camera distance key binding snaps to."],
 	},
+	cameraKey("FROSTATOMUI_CAMERA_MEDIUM"),
 	{
 		path = "cameraDistanceFar",
 		label = L["Far camera distance"],
@@ -117,6 +130,7 @@ Section(schema, L["Camera"], "tweaks", {
 		step = 1,
 		desc = L["Distance the Far camera distance key binding snaps to."],
 	},
+	cameraKey("FROSTATOMUI_CAMERA_FAR"),
 })
 
 local function customMouseSpeedOff()

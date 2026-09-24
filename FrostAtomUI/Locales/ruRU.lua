@@ -1241,7 +1241,7 @@ ns.SetLocale("ruRU", {
 	["Quality of life"] = "Удобства",
 	["Error messages"] = "Сообщения об ошибках",
 	["Camera"] = "Камера",
-	["Key bindings in Key Bindings > FrostAtomUI snap the camera to these distances."] = "Клавиши в меню «Назначение клавиш > FrostAtomUI» мгновенно переводят камеру на эти дистанции.",
+	["Keys that snap the camera to these distances. Also in Key Bindings > FrostAtomUI."] = "Клавиши, мгновенно переводящие камеру на эти дистанции. Также в меню «Назначение клавиш > FrostAtomUI».",
 	["Use guild bank funds"] = "Чинить за счёт гильдии",
 	["Repair from the guild bank when your rank allows it and the guild can pay; otherwise from your own money."] = "Чинить из банка гильдии, если звание это позволяет и в банке хватает денег; иначе за свои деньги.",
 	["repaired for %s from the guild bank"] = "починка за %s из банка гильдии",

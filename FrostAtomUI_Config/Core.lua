@@ -990,6 +990,144 @@ function creators.execute(parent, entry)
 	return row
 end
 
+local IGNORED_KEYS = {
+	LSHIFT = true,
+	RSHIFT = true,
+	LCTRL = true,
+	RCTRL = true,
+	LALT = true,
+	RALT = true,
+	UNKNOWN = true,
+}
+
+local MOUSE_KEYS = {
+	LeftButton = "BUTTON1",
+	RightButton = "BUTTON2",
+	MiddleButton = "BUTTON3",
+}
+
+local function keyCombo(key)
+	local combo = MOUSE_KEYS[key] or (key:find("^Button%d+$") and key:upper()) or key
+	if IsShiftKeyDown() then
+		combo = "SHIFT-" .. combo
+	end
+	if IsControlKeyDown() then
+		combo = "CTRL-" .. combo
+	end
+	if IsAltKeyDown() then
+		combo = "ALT-" .. combo
+	end
+	return combo
+end
+
+local function keysText(action)
+	local keys = { GetBindingKey(action) }
+	if #keys == 0 then
+		return GRAY_FONT_COLOR_CODE .. L["Not bound"] .. FONT_COLOR_CODE_CLOSE
+	end
+	for i = 1, #keys do
+		keys[i] = GetBindingText(keys[i], "KEY_")
+	end
+	return table.concat(keys, ", ")
+end
+
+local function clearBinding(action)
+	local key = GetBindingKey(action)
+	while key do
+		SetBinding(key)
+		key = GetBindingKey(action)
+	end
+end
+
+function creators.keybind(parent, entry)
+	local row = createRow(parent, entry)
+	local action = entry.binding
+
+	local button = createButton(row, keysText(action), entry.width or 160, true)
+	button:SetPoint("LEFT", CONTROL_X, 0)
+	button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	button:GetFontString():SetWidth((entry.width or 160) - 12)
+	bindRow(button, row)
+
+	local catcher = CreateFrame("Button", nil, button)
+	catcher:SetAllPoints()
+	catcher:Hide()
+	catcher:EnableKeyboard(true)
+	catcher:EnableMouseWheel(true)
+	catcher:RegisterForClicks("AnyUp")
+
+	local function stopCapture()
+		catcher:Hide()
+		row.Refresh()
+	end
+
+	local function bindKey(key)
+		local combo = keyCombo(key)
+		if InCombatLockdown() or combo == "BUTTON1" or combo == "BUTTON2" then
+			stopCapture()
+			return
+		end
+		local previous = GetBindingAction(combo)
+		if previous and previous ~= "" and previous ~= action then
+			ui.Print(
+				L["%s was unbound from %s"],
+				GetBindingText(combo, "KEY_"),
+				GetBindingText(previous, "BINDING_NAME_")
+			)
+		end
+		clearBinding(action)
+		SetBinding(combo, action)
+		SaveBindings(GetCurrentBindingSet())
+		stopCapture()
+	end
+
+	catcher:SetScript("OnKeyDown", function(_, key)
+		if key == "ESCAPE" then
+			stopCapture()
+		elseif not IGNORED_KEYS[key] then
+			bindKey(key)
+		end
+	end)
+	catcher:SetScript("OnMouseDown", function(_, mouse)
+		bindKey(mouse)
+	end)
+	catcher:SetScript("OnMouseWheel", function(_, delta)
+		bindKey(delta > 0 and "MOUSEWHEELUP" or "MOUSEWHEELDOWN")
+	end)
+	catcher:SetScript("OnHide", function()
+		button:UnlockHighlight()
+	end)
+
+	button:SetScript("OnClick", function(_, mouse)
+		if InCombatLockdown() then
+			ui.Print(L["cannot change bindings in combat"])
+			return
+		end
+		if mouse == "RightButton" then
+			clearBinding(action)
+			SaveBindings(GetCurrentBindingSet())
+			row.Refresh()
+			return
+		end
+		button:LockHighlight()
+		button:SetText(NORMAL_FONT_COLOR_CODE .. L["Press a key..."] .. FONT_COLOR_CODE_CLOSE)
+		catcher:Show()
+	end)
+
+	row.Refresh = function()
+		if not catcher:IsShown() then
+			button:SetText(keysText(action))
+		end
+	end
+	row.SetEnabled = function(_, enabled)
+		if not enabled then
+			catcher:Hide()
+		end
+		setControlEnabled(button, enabled)
+	end
+	return row
+end
+
 function creators.custom(parent, entry)
 	local row = createRow(parent, entry)
 	if entry.height then
@@ -1794,6 +1932,7 @@ end
 local watcher = ui.Mixin({}, ui.EventMixin)
 watcher:RegisterEvent(ui.CONFIG_CHANGED, refreshShown)
 watcher:RegisterEvent(ui.PROFILES_CHANGED, refreshShown)
+watcher:RegisterEvent("UPDATE_BINDINGS", refreshShown)
 
 local function pageByKey(key)
 	for _, page in ipairs(pages) do
