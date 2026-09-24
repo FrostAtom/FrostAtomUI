@@ -399,20 +399,12 @@ local function unitColor(unit)
 end
 
 local function reactionTint(unit)
-	if isDead(unit) or (UnitIsPlayer(unit) and not UnitIsConnected(unit)) then
+	if isDead(unit) or not UnitIsConnected(unit) then
 		return DEAD_R, DEAD_G, DEAD_B
 	elseif UnitCanAttack("player", unit) then
 		return 1, 0.1, 0.1
-	elseif UnitIsPlayer(unit) then
-		return 0.2, 0.4, 1
 	end
-	local reaction = UnitReaction(unit, "player") or 4
-	if reaction < 4 then
-		return 1, 0.1, 0.1
-	elseif reaction == 4 then
-		return 1, 0.8, 0
-	end
-	return 0.1, 0.8, 0.1
+	return 0.2, 0.4, 1
 end
 
 local function colorize(unit, text)
@@ -973,7 +965,7 @@ local function onTooltipSetUnit(tooltip)
 	if config.colorBorder then
 		Skin.SetBorder(tooltip, unitColor(unit))
 	end
-	if config.reactionBackground then
+	if config.reactionBackground and isPlayer then
 		Skin.SetTint(tooltip, reactionTint(unit))
 	end
 	Skin.PrepareUnit(tooltip)

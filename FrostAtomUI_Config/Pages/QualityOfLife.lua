@@ -251,24 +251,6 @@ Section(schema, L["Character model"], "modelControls", {
 	},
 })
 
-Section(schema, L["Character stats"], "characterStats", {
-	{
-		path = "enabled",
-		new = "1.4.1",
-		label = L["Stats panel"],
-		type = "toggle",
-		desc = L["A panel next to the character window with defenses (including resilience), melee, spell, ranged and base stats at once."],
-	},
-	{
-		path = "classCategories",
-		new = "1.4.1",
-		label = L["Only categories for your class"],
-		type = "toggle",
-		enabledBy = "characterStats.enabled",
-		desc = L["Skip categories your class does not use, such as spell stats for a warrior. Off shows all five."],
-	},
-})
-
 Section(schema, L["Macros"], "macros", {
 	{
 		path = "enabled",

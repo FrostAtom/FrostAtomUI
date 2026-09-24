@@ -315,7 +315,7 @@ Hidden client settings (checked against the 3.3.5a client itself), all off or at
   PvP and faction lines are dropped.
 - Buff and debuff icons with cooldown swirls above unit tooltips (all, or crowd control only).
 - Own skin for every tooltip and dropdown menu: flat dark background, thin border in class, reaction or item
-  quality color, faint reaction tint, top highlight, addon font (size adjustable), flat close button.
+  quality color, faint reaction tint behind players, top highlight, addon font (size adjustable), flat close button.
 - Health bar inside the tooltip with values, as a thin strip, or below it; class colored.
 - Optional large item/spell icon beside the tooltip.
 - The tooltip can follow the cursor (with an offset), sit next to the hovered frame or grow from its mover away
@@ -323,8 +323,6 @@ Hidden client settings (checked against the 3.3.5a client itself), all off or at
   world, Shift shows them right away.
 - Character and Inspect windows show the item level on every slot and the average under the model
   (read from the item tooltip for other players, so transmogrified gear is counted correctly).
-- A stats panel next to the character window with every category at once — resilience, hit, expertise,
-  spell penetration, … — only your class's categories by default.
 - Drag the model with the left mouse button to rotate, right button to move, wheel to zoom, middle click to reset.
 - Friends / team member menus get a **Spectate** entry.
 

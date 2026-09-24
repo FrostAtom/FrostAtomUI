@@ -524,11 +524,6 @@ ns.Defaults = {
 		zoomStep = 0.15,
 	},
 
-	characterStats = {
-		enabled = true,
-		classCategories = true,
-	},
-
 	macros = {
 		enabled = true,
 	},

@@ -151,7 +151,7 @@ ns.RegisterPage({
 			label = L["Tint background by reaction"],
 			type = "toggle",
 			enabledBy = "tooltip.skin",
-			desc = L["Faint red behind enemies, blue behind friendly players, green behind friendly NPCs, grey behind dead units."],
+			desc = L["Faint red behind enemy players, blue behind friendly players, grey behind dead ones. NPCs keep the plain background."],
 		},
 		{
 			path = "tooltip.gradient",

@@ -139,7 +139,6 @@ Modules\Misc\Battleground.lua
 Modules\Misc\Merchant.lua
 Modules\Misc\Equipment.lua
 Modules\Misc\ModelControls.lua
-Modules\Misc\CharacterStats.lua
 Modules\Misc\CombatAlert.lua
 Modules\Misc\ShieldIndicator.lua
 Modules\Misc\Performance.lua
