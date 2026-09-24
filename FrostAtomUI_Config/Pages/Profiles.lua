@@ -330,25 +330,14 @@ local schema = {
 		func = showLayoutImport,
 		desc = L["Paste a layout string to add it to the list."],
 	},
-	{
-		label = L["Reset positions"],
-		new = "1.4.1",
-		type = "execute",
-		text = L["Reset"],
-		glyph = "rotate-left",
-		confirm = L["Reset the positions of all frames to defaults?"],
-		func = function()
-			ui.Movers.ResetPositions()
-		end,
-		desc = L["Move every frame back to its default position. Other settings stay. Also: /fui reset"],
-	},
 }
 
 ns.RegisterPage({
 	key = "profiles",
 	name = L["Profiles"],
 	glyph = "address-card",
-	order = 60,
+	order = 90,
+	group = "system",
 	schema = schema,
 	noReset = true,
 })

@@ -10,7 +10,10 @@ local function errorsHidden()
 	return ui:GetConfig("tweaks.hideErrors")
 end
 
-local schema = {}
+local schema = {
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
+	{ type = "elements" },
+}
 
 Section(schema, L["Tweaks"], "tweaks", {
 	{
@@ -20,18 +23,11 @@ Section(schema, L["Tweaks"], "tweaks", {
 		reload = true,
 		desc = L["Pinned CVars (no tutorials, ground clutter, script errors and everything on the Game client page), world state frame position and the Spectate entry in friend menus."],
 	},
-	{ type = "elements" },
 	{
 		path = "scriptErrors",
 		label = L["Show Lua errors"],
 		type = "toggle",
 		desc = L["Pop up addon script errors instead of silently ignoring them."],
-	},
-	{
-		path = "hideGroundClutter",
-		label = L["Hide ground clutter"],
-		type = "toggle",
-		desc = L["Grass and other ground decorations. Turning it off restores the game default."],
 	},
 }, nil, nil, "screwdriver-wrench")
 
@@ -48,6 +44,7 @@ Section(schema, L["Error messages"], "tweaks", {
 		label = L["Merge repeated error messages"],
 		type = "toggle",
 		disabled = errorsHidden,
+		disabledDesc = L["All red error messages are hidden."],
 		desc = L["A repeated error flashes the line already on screen instead of adding another one."],
 	},
 	{
@@ -56,6 +53,7 @@ Section(schema, L["Error messages"], "tweaks", {
 		label = L["Hide cooldown and resource errors"],
 		type = "toggle",
 		disabled = errorsHidden,
+		disabledDesc = L["All red error messages are hidden."],
 		desc = L['"Spell is not ready yet", "Another action is in progress", "Not enough mana / rage / energy / runic power" and similar.'],
 	},
 }, nil, nil, "triangle-exclamation")
@@ -161,12 +159,19 @@ Section(schema, L["Equipment"], "equipment", {
 		type = "toggle",
 		desc = L["Per-slot item level and the average on the paper doll."],
 	},
-	{ path = "slotFont", label = L["Slot item level font"], type = "font", enabledBy = "equipment.showItemLevels" },
+	{
+		path = "slotFont",
+		label = L["Slot item level font"],
+		type = "font",
+		enabledBy = "equipment.showItemLevels",
+		desc = L["Item level on each equipment slot."],
+	},
 	{
 		path = "averageFont",
 		label = L["Average item level font"],
 		type = "font",
 		enabledBy = "equipment.showItemLevels",
+		desc = L["Average item level of the equipped gear on the character and inspect windows."],
 	},
 	{
 		path = "qualityThresholds.uncommon",
@@ -175,6 +180,7 @@ Section(schema, L["Equipment"], "equipment", {
 		min = 1,
 		max = 400,
 		step = 1,
+		advanced = true,
 		enabledBy = "equipment.showItemLevels",
 		desc = L["Average item level colored by quality tier. Grey below this value."],
 	},
@@ -185,6 +191,7 @@ Section(schema, L["Equipment"], "equipment", {
 		min = 1,
 		max = 400,
 		step = 1,
+		advanced = true,
 		enabledBy = "equipment.showItemLevels",
 	},
 	{
@@ -194,6 +201,7 @@ Section(schema, L["Equipment"], "equipment", {
 		min = 1,
 		max = 400,
 		step = 1,
+		advanced = true,
 		enabledBy = "equipment.showItemLevels",
 	},
 	{
@@ -203,6 +211,7 @@ Section(schema, L["Equipment"], "equipment", {
 		min = 1,
 		max = 400,
 		step = 1,
+		advanced = true,
 		enabledBy = "equipment.showItemLevels",
 	},
 	{
@@ -218,6 +227,7 @@ Section(schema, L["Equipment"], "equipment", {
 		min = 0.05,
 		max = 0.9,
 		step = 0.05,
+		percent = true,
 		enabledBy = "equipment.durabilityWarning",
 		desc = L["Warn when any equipped item drops below this durability."],
 	},
@@ -238,6 +248,7 @@ Section(schema, L["Character model"], "modelControls", {
 		min = 0.002,
 		max = 0.05,
 		step = 0.002,
+		advanced = true,
 		desc = L["Radians per pixel of mouse movement."],
 	},
 	{
@@ -247,65 +258,57 @@ Section(schema, L["Character model"], "modelControls", {
 		min = 0.05,
 		max = 0.5,
 		step = 0.05,
+		percent = true,
+		advanced = true,
 		desc = L["Size change per mouse wheel notch, as a fraction of the current zoom."],
 	},
 }, nil, nil, "street-view")
 
-Section(schema, L["Macros"], "macros", {
-	{
-		path = "enabled",
-		new = "1.4.1",
-		label = L["Macro editor"],
-		type = "toggle",
-		reload = true,
-		desc = L["Replaces the /macro window: unlimited macros of any length, syntax and error highlighting, key bindings right in the window. /macro opens it."],
-	},
-}, nil, nil, "code")
-
-Section(schema, L["Spellbook"], "spellBook", {
-	{
-		path = "enabled",
-		new = "1.4.1",
-		label = L["Spellbook window"],
-		type = "toggle",
-		reload = true,
-		desc = L["Replaces the spellbook: every tab and the pet book in one wide window, four columns, search and a switch to hide passive abilities."],
-	},
-}, nil, nil, "book")
-
-Section(schema, L["Talents"], "talentFrame", {
-	{
-		path = "enabled",
-		new = "1.4.1",
-		label = L["Talents window"],
-		type = "toggle",
-		reload = true,
-		desc = L["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."],
-	},
-}, nil, nil, "sitemap")
-
-schema[#schema + 1] = { header = L["Interface"], glyph = "computer-mouse" }
+schema[#schema + 1] = { header = L["Blizzard windows"], glyph = "window-maximize" }
+schema[#schema + 1] = {
+	path = "macros.enabled",
+	new = "1.4.1",
+	label = L["Macro editor"],
+	type = "toggle",
+	reload = true,
+	desc = L["Replaces the /macro window: unlimited macros of any length, syntax and error highlighting, key bindings right in the window. /macro opens it."],
+}
+schema[#schema + 1] = {
+	path = "spellBook.enabled",
+	new = "1.4.1",
+	label = L["Spellbook"],
+	type = "toggle",
+	reload = true,
+	desc = L["Replaces the spellbook: every tab and the pet book in one wide window, four columns, search and a switch to hide passive abilities."],
+}
+schema[#schema + 1] = {
+	path = "talentFrame.enabled",
+	new = "1.4.1",
+	label = L["Talents"],
+	type = "toggle",
+	reload = true,
+	desc = L["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."],
+}
 schema[#schema + 1] = {
 	path = "wheelPaging.enabled",
 	label = L["Mouse wheel paging"],
 	type = "toggle",
 	desc = L["Scroll pages in the merchant, spellbook, mailbox, auction house and calendar with the mouse wheel."],
 }
-
-Section(schema, L["Combat log"], "combatLogFix", {
-	{
-		path = "enabled",
-		label = L["Fix stalled combat log"],
-		type = "toggle",
-		desc = L["Clear the combat log when it stops delivering events inside instances."],
-	},
-}, not FrostAtomUI.IS_WOWCIRCLE, nil, "scroll")
+schema[#schema + 1] = {
+	path = "combatLogFix.enabled",
+	label = L["Fix stalled combat log"],
+	type = "toggle",
+	hidden = not FrostAtomUI.IS_WOWCIRCLE,
+	desc = L["Clear the combat log when it stops delivering events inside instances."],
+}
 
 ns.RegisterPage({
 	key = "qol",
 	name = L["Quality of life"],
 	glyph = "star",
-	order = 45,
+	order = 60,
+	group = "system",
 	schema = schema,
 })
 

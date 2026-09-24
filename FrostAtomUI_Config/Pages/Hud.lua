@@ -21,19 +21,21 @@ ns.RegisterElement({
 		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "combatAlert.duration",
-			label = L["Show for (seconds)"],
+			label = L["Duration"],
 			type = "number",
 			min = 0.5,
 			max = 5,
 			step = 0.1,
+			desc = L["Seconds the message stays fully visible before it fades."],
 		},
 		{
 			path = "combatAlert.fadeTime",
-			label = L["Fade out (seconds)"],
+			label = L["Fade time"],
 			type = "number",
 			min = 0.1,
 			max = 3,
 			step = 0.1,
+			advanced = true,
 			desc = L["Fade duration after the message has been shown."],
 		},
 		{
@@ -56,8 +58,6 @@ ns.RegisterElement({
 	glyph = "gauge-high",
 	enabledBy = "performance.enabled",
 	schema = {
-		{ path = "performance.showFps", label = L["Show FPS"], type = "toggle" },
-		{ path = "performance.showLatency", label = L["Show latency"], type = "toggle" },
 		{ header = L["Text"], glyph = "font" },
 		{ path = "performance.valueFont", label = L["Value font"], type = "font" },
 		{
@@ -76,7 +76,7 @@ ns.RegisterElement({
 	glyph = "chart-line",
 	enabledBy = "experienceBar.enabled",
 	schema = {
-		{ header = L["Size"], glyph = "up-down-left-right" },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "experienceBar.width", label = L["Width"], type = "number", min = 100, max = 1200, step = 1 },
 		{ path = "experienceBar.height", label = L["Height"], type = "number", min = 2, max = 30, step = 1 },
 		{ header = L["Colors"], glyph = "palette" },
@@ -95,6 +95,7 @@ ns.RegisterElement({
 			min = 0,
 			max = 1,
 			step = 0.05,
+			percent = true,
 		},
 	},
 })
@@ -120,6 +121,8 @@ Section(schema, L["FPS / latency"], "performance", {
 		type = "toggle",
 		desc = L["Framerate and world latency readout colored by tier."],
 	},
+	{ path = "showFps", label = L["FPS"], type = "toggle" },
+	{ path = "showLatency", label = L["Latency"], type = "toggle", desc = L["World latency in milliseconds."] },
 	{
 		path = "fpsRed",
 		label = L["FPS: red below"],
@@ -127,6 +130,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 120,
 		step = 1,
+		advanced = true,
 		enabledBy = "performance.showFps",
 	},
 	{
@@ -136,6 +140,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 150,
 		step = 1,
+		advanced = true,
 		enabledBy = "performance.showFps",
 	},
 	{
@@ -145,6 +150,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 300,
 		step = 1,
+		advanced = true,
 		enabledBy = "performance.showFps",
 		desc = L["Green at or above this value."],
 	},
@@ -155,6 +161,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 500,
 		step = 5,
+		advanced = true,
 		enabledBy = "performance.showLatency",
 		desc = L["Green below this value (ms)."],
 	},
@@ -165,6 +172,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 1000,
 		step = 5,
+		advanced = true,
 		enabledBy = "performance.showLatency",
 	},
 	{
@@ -174,6 +182,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 2000,
 		step = 5,
+		advanced = true,
 		enabledBy = "performance.showLatency",
 	},
 }, nil, nil, "gauge-high")
@@ -202,6 +211,7 @@ Section(schema, L["Low health flash"], "lowHealthFlash", {
 		min = 0.05,
 		max = 0.9,
 		step = 0.01,
+		percent = true,
 		desc = L["Fraction of maximum health below which the flash shows."],
 	},
 	{
@@ -211,6 +221,7 @@ Section(schema, L["Low health flash"], "lowHealthFlash", {
 		min = 0.2,
 		max = 5,
 		step = 0.1,
+		advanced = true,
 		desc = L["Higher pulses faster; 1 fades fully in and out in two seconds."],
 	},
 }, nil, nil, "heart-crack")
@@ -222,8 +233,16 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 		type = "toggle",
 		desc = L["Lightning trail following the mouse cursor."],
 	},
-	{ path = "hideInCombat", label = L["Hide in combat"], type = "toggle" },
-	{ path = "scale", label = L["Scale"], type = "number", min = 0.5, max = 2, step = 0.1 },
+	{
+		path = "scale",
+		label = L["Scale"],
+		type = "number",
+		min = 0.5,
+		max = 2,
+		step = 0.1,
+		percent = true,
+		desc = L["Size of the lightning trail and the glow at the cursor tip."],
+	},
 	{
 		path = "trailAlpha",
 		label = L["Trail alpha"],
@@ -231,6 +250,8 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 		min = 0.1,
 		max = 1,
 		step = 0.05,
+		percent = true,
+		advanced = true,
 		desc = L["Lightning bolt trailing behind the cursor."],
 	},
 	{
@@ -240,8 +261,11 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 		min = 0,
 		max = 1,
 		step = 0.05,
+		percent = true,
+		advanced = true,
 		desc = L["Glow at the cursor tip."],
 	},
+	{ path = "hideInCombat", label = L["Hide in combat"], type = "toggle" },
 }, nil, nil, "arrow-pointer")
 
 for _, element in ipairs({
@@ -268,19 +292,15 @@ Section(schema, L["Blizzard frames"], "blizzardFrames", {
 		desc = L["Movable capture bars, vehicle seats, error messages and raid warnings; quest tracker hiding."],
 	},
 	{
-		path = "questTracker.arena",
-		label = L["Hide quest tracker in arenas"],
-		type = "toggle",
-	},
-	{
-		path = "questTracker.battleground",
-		label = L["Hide quest tracker in battlegrounds"],
-		type = "toggle",
-	},
-	{
-		path = "questTracker.combat",
-		label = L["Hide quest tracker in combat"],
-		type = "toggle",
+		path = "questTracker",
+		label = L["Hide quest tracker"],
+		type = "multiselect",
+		values = {
+			{ "arena", L["Arena"] },
+			{ "battleground", L["Battleground"] },
+			{ "combat", L["In combat"] },
+		},
+		desc = L["The quest tracker comes back when you leave the arena or battleground and when combat ends."],
 	},
 }, nil, "1.4.0", "window-maximize")
 
@@ -288,6 +308,7 @@ ns.RegisterPage({
 	key = "hud",
 	name = L["HUD"],
 	glyph = "gauge",
-	order = 31,
+	order = 40,
+	group = "interface",
 	schema = schema,
 })

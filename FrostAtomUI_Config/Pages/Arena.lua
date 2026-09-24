@@ -22,62 +22,8 @@ ns.RegisterElement({
 			path = "arena.countdownUrgentColor",
 			label = L["Countdown final seconds color"],
 			type = "color",
+			advanced = true,
 			desc = L["Used for the last 3 seconds, when tenths are shown."],
-		},
-	}),
-})
-
-ns.RegisterElement({
-	path = "soloQueue.point",
-	page = "arena",
-	name = L["Solo queue"],
-	glyph = "user-clock",
-	enabledBy = "soloQueue.enabled",
-	hidden = not FrostAtomUI.IS_WOWCIRCLE,
-	schema = Requires("soloQueue.enabled", {
-		{ header = L["Size"], glyph = "up-down-left-right" },
-		{
-			path = "soloQueue.buttonSize",
-			label = L["Button size"],
-			type = "number",
-			min = 12,
-			max = 40,
-			step = 1,
-		},
-		{
-			path = "soloQueue.queuedSize",
-			label = L["Button size in queue"],
-			type = "number",
-			min = 12,
-			max = 60,
-			step = 1,
-			desc = L["Button size while waiting in the queue or ready to enter."],
-		},
-		{ header = L["Text"], glyph = "font" },
-		{
-			path = "soloQueue.rangeFont",
-			label = L["Search range font"],
-			type = "font",
-			desc = L["Rating range shown under the button while searching."],
-		},
-		{ header = L["Colors"], glyph = "palette" },
-		{
-			path = "soloQueue.glowColor",
-			label = L["Ready glow color"],
-			type = "color",
-			desc = L["Glow around the button when the arena is ready to enter."],
-		},
-		{
-			path = "soloQueue.teamSearchColor",
-			label = L["Team search color"],
-			type = "color",
-			desc = L["Range text while the queue is looking for teammates."],
-		},
-		{
-			path = "soloQueue.opponentSearchColor",
-			label = L["Opponent search color"],
-			type = "color",
-			desc = L["Range text once a team is formed and the queue is looking for opponents."],
 		},
 	}),
 })
@@ -92,6 +38,17 @@ ns.RegisterElement({
 })
 
 local schema = {
+	{
+		label = L["Test frames"],
+		type = "execute",
+		text = L["Toggle"],
+		glyph = "flask",
+		enabledBy = "unitFrames.enabled",
+		desc = L["Show every frame with fake units to preview the layout."],
+		func = function()
+			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
+		end,
+	},
 	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
 }
@@ -121,7 +78,7 @@ Section(schema, L["Arena"], "arena", {
 	},
 	{
 		path = "pillarsFirstToggle",
-		label = L["First pillar toggle (seconds)"],
+		label = L["First pillar toggle"],
 		type = "number",
 		min = 10,
 		max = 120,
@@ -131,7 +88,7 @@ Section(schema, L["Arena"], "arena", {
 	},
 	{
 		path = "pillarsPeriod",
-		label = L["Pillar toggle period (seconds)"],
+		label = L["Pillar toggle period"],
 		type = "number",
 		min = 5,
 		max = 120,
@@ -157,7 +114,7 @@ local DR_TARGET_SIDES = {
 
 local DR_TARGET_OR_FOCUS = { "diminishingReturns.target", "diminishingReturns.focus" }
 
-local function drOffset(path, label, enabledBy, enabledByAny)
+local function offset(path, label, enabledBy, enabledByAny)
 	return {
 		path = path,
 		label = label,
@@ -165,6 +122,7 @@ local function drOffset(path, label, enabledBy, enabledByAny)
 		min = -200,
 		max = 200,
 		step = 1,
+		advanced = true,
 		enabledBy = enabledBy,
 		enabledByAny = enabledByAny,
 	}
@@ -177,9 +135,21 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 		type = "toggle",
 		desc = L["Crowd control categories recently used on enemy players, with the time until they reset. Border color shows the next duration: green half, orange quarter, red immune."],
 	},
-	{ path = "arena", label = L["Show on arena frames"], type = "toggle" },
-	{ path = "target", label = L["Show on target frame"], type = "toggle" },
-	{ path = "focus", label = L["Show on focus frame"], type = "toggle" },
+	{ path = "halfColor", label = L["Next: 50% duration"], type = "color" },
+	{ path = "quarterColor", label = L["Next: 25% duration"], type = "color" },
+	{ path = "immuneColor", label = L["Next: immune"], type = "color" },
+}, nil, "1.4.0", "arrow-trend-down")
+
+tinsert(schema, #schema - 2, {
+	path = "diminishingReturns",
+	label = L["Show on"],
+	type = "multiselect",
+	values = { { "arena", L["Arena"] }, { "target", L["Target"] }, { "focus", L["Focus"] } },
+	enabledBy = "diminishingReturns.enabled",
+	desc = L["Unit frames that show the diminishing returns icons."],
+})
+
+Section(schema, L["Diminishing returns layout"], "diminishingReturns", {
 	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
 	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
 	{
@@ -189,8 +159,8 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 		values = DR_ARENA_SIDES,
 		enabledBy = "diminishingReturns.arena",
 	},
-	drOffset("arenaOffsetX", L["Arena X offset"], "diminishingReturns.arena"),
-	drOffset("arenaOffsetY", L["Arena Y offset"], "diminishingReturns.arena"),
+	offset("arenaOffsetX", L["Arena X offset"], "diminishingReturns.arena"),
+	offset("arenaOffsetY", L["Arena Y offset"], "diminishingReturns.arena"),
 	{
 		path = "targetSide",
 		label = L["Target / focus position"],
@@ -198,24 +168,11 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 		values = DR_TARGET_SIDES,
 		enabledByAny = DR_TARGET_OR_FOCUS,
 	},
-	drOffset("targetOffsetX", L["Target / focus X offset"], nil, DR_TARGET_OR_FOCUS),
-	drOffset("targetOffsetY", L["Target / focus Y offset"], nil, DR_TARGET_OR_FOCUS),
-	{ path = "halfColor", label = L["Next: 50% duration"], type = "color" },
-	{ path = "quarterColor", label = L["Next: 25% duration"], type = "color" },
-	{ path = "immuneColor", label = L["Next: immune"], type = "color" },
-	{
-		label = L["Test frames"],
-		type = "execute",
-		text = L["Toggle"],
-		glyph = "flask",
-		desc = L["Show every frame with fake units to preview the layout."],
-		func = function()
-			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
-		end,
-	},
-}, nil, "1.4.0", "arrow-trend-down")
+	offset("targetOffsetX", L["Target / focus X offset"], nil, DR_TARGET_OR_FOCUS),
+	offset("targetOffsetY", L["Target / focus Y offset"], nil, DR_TARGET_OR_FOCUS),
+}, nil, nil, "up-down-left-right")
 
-Section(schema, L["Trinket internal cooldowns"], "internalCooldowns", {
+Section(schema, L["Internal cooldowns"], "internalCooldowns", {
 	{
 		path = "enabled",
 		label = L["Enable"],
@@ -227,8 +184,6 @@ Section(schema, L["Trinket internal cooldowns"], "internalCooldowns", {
 	{ path = "arena", label = L["Show on arena frames"], type = "toggle" },
 	{ path = "target", label = L["Show on target frame"], type = "toggle" },
 	{ path = "focus", label = L["Show on focus frame"], type = "toggle" },
-	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
-	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
 	{
 		path = "hideReady",
 		label = L["Only while on cooldown"],
@@ -247,28 +202,22 @@ Section(schema, L["Trinket internal cooldowns"], "internalCooldowns", {
 		type = "color",
 		desc = L["Border and glow while the proc buff is up. The timer shows the buff time left, then the internal cooldown."],
 	},
-	drOffset("offsetX", L["X offset from the top right corner"]),
-	drOffset("offsetY", L["Y offset from the top right corner"]),
-	{
-		label = L["Test frames"],
-		type = "execute",
-		text = L["Toggle"],
-		glyph = "flask",
-		desc = L["Show every frame with fake units to preview the layout."],
-		func = function()
-			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
-		end,
-	},
 }, nil, "1.4.0", "gem")
 
-Section(schema, L["Solo queue"], "soloQueue", {
-	{
-		path = "enabled",
-		label = L["Queue button"],
-		type = "toggle",
-		desc = L["Join, leave and enter the solo queue from a button next to the queue eye."],
-	},
-}, not FrostAtomUI.IS_WOWCIRCLE, nil, "user-clock")
+tinsert(schema, #schema, {
+	path = "unitFrames.cooldownReadyFlash",
+	label = L["Cooldown ready flash"],
+	type = "toggle",
+	enabledBy = { "internalCooldowns.enabled", "unitFrames.enabled" },
+	desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
+})
+
+Section(schema, L["Internal cooldowns layout"], "internalCooldowns", {
+	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
+	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
+	offset("offsetX", L["X offset from the top right corner"]),
+	offset("offsetY", L["Y offset from the top right corner"]),
+}, nil, nil, "up-down-left-right")
 
 Section(schema, L["Match results"], "matchResults", {
 	{
@@ -295,7 +244,7 @@ Section(schema, L["Match results"], "matchResults", {
 Section(schema, L["Arena history"], "arenaHistory", {
 	{
 		path = "enabled",
-		label = L["Record games"],
+		label = L["Enable"],
 		type = "toggle",
 		desc = L["Save arena scoreboards. Open with /history."],
 	},
@@ -308,8 +257,18 @@ Section(schema, L["Arena history"], "arenaHistory", {
 		step = 50,
 		desc = L["Oldest games are dropped past this count."],
 	},
-	{ path = "winColor", label = L["Win color"], type = "color" },
-	{ path = "lossColor", label = L["Loss color"], type = "color" },
+	{
+		path = "winColor",
+		label = L["Win color"],
+		type = "color",
+		desc = L["Result text of won games in the history window."],
+	},
+	{
+		path = "lossColor",
+		label = L["Loss color"],
+		type = "color",
+		desc = L["Result text of lost games in the history window."],
+	},
 	{
 		label = L["History window"],
 		type = "execute",
@@ -325,6 +284,7 @@ ns.RegisterPage({
 	key = "arena",
 	name = L["Arena"],
 	glyph = "trophy",
-	order = 33,
+	order = 30,
+	group = "pvp",
 	schema = schema,
 })

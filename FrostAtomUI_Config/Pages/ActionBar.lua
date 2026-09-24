@@ -25,6 +25,7 @@ ns.COMBAT_VISIBILITY_VALUES = {
 local PAGE = "actionbar"
 local ENABLE = "actionBar.enabled"
 local COMBAT_DESC = L["Fade out of combat or in combat. With mouseover the cursor still reveals it."]
+local FADE_DISABLED_DESC = L["Used only with mouseover or when Visible is not Always."]
 
 local function fadeDisabled(mouseoverPath, combatPath)
 	return function()
@@ -35,11 +36,12 @@ end
 local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 	local prefix = "actionBar." .. key
 	local enabledBy
-	local schema = { { header = L["Layout"], glyph = "up-down-left-right" } }
+	local schema = {}
 	if hasToggle then
 		enabledBy = prefix .. ".enabled"
 		schema[#schema + 1] = { path = enabledBy, label = L["Show"], type = "toggle" }
 	end
+	schema[#schema + 1] = { header = L["Layout"], glyph = "up-down-left-right" }
 	if hasCount then
 		schema[#schema + 1] = {
 			path = prefix .. ".buttons",
@@ -53,6 +55,15 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 		}
 	end
 	schema[#schema + 1] = {
+		path = prefix .. ".buttonSize",
+		label = L["Button size"],
+		type = "number",
+		min = 16,
+		max = 60,
+		step = 1,
+		enabledBy = enabledBy,
+	}
+	schema[#schema + 1] = {
 		path = prefix .. ".columns",
 		label = L["Columns"],
 		type = "number",
@@ -61,15 +72,6 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 		step = 1,
 		enabledBy = enabledBy,
 		desc = L["Buttons per row."],
-	}
-	schema[#schema + 1] = {
-		path = prefix .. ".buttonSize",
-		label = L["Button size"],
-		type = "number",
-		min = 16,
-		max = 60,
-		step = 1,
-		enabledBy = enabledBy,
 	}
 	schema[#schema + 1] = {
 		path = prefix .. ".spacing",
@@ -81,6 +83,10 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 		enabledBy = enabledBy,
 		desc = L["Gap between buttons."],
 	}
+	for _, entry in ipairs(extra or {}) do
+		entry.enabledBy = entry.path and enabledBy
+		schema[#schema + 1] = entry
+	end
 	schema[#schema + 1] = { header = L["Visibility"], glyph = "eye" }
 	schema[#schema + 1] = {
 		path = prefix .. ".mouseover",
@@ -107,13 +113,12 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 		min = 0,
 		max = 1,
 		step = 0.05,
+		percent = true,
 		enabledBy = enabledBy,
 		disabled = fadeDisabled(prefix .. ".mouseover", prefix .. ".combat"),
+		disabledDesc = FADE_DISABLED_DESC,
+		desc = L["Bar alpha while it is faded by mouseover or combat visibility."],
 	}
-	for _, entry in ipairs(extra or {}) do
-		entry.enabledBy = entry.path and enabledBy
-		schema[#schema + 1] = entry
-	end
 
 	ns.RegisterElement({
 		path = prefix .. ".point",
@@ -138,7 +143,7 @@ barElement(L["Totem bar"], "totemBar", true, false, "1.4.1", ns.NotClass("SHAMAN
 	{ header = L["Totem menu"], glyph = "fire" },
 	{
 		path = "actionBar.totemBar.flyoutButtonSize",
-		label = L["Button size"],
+		label = L["Menu button size"],
 		type = "number",
 		min = 16,
 		max = 60,
@@ -155,7 +160,7 @@ barElement(L["Totem bar"], "totemBar", true, false, "1.4.1", ns.NotClass("SHAMAN
 	},
 	{
 		path = "actionBar.totemBar.flyoutSpacing",
-		label = L["Spacing"],
+		label = L["Menu spacing"],
 		type = "number",
 		min = 0,
 		max = 12,
@@ -198,6 +203,7 @@ ns.RegisterElement({
 			min = 0.5,
 			max = 2,
 			step = 0.05,
+			percent = true,
 		},
 		{ header = L["Visibility"], glyph = "eye" },
 		{
@@ -216,13 +222,14 @@ ns.RegisterElement({
 		},
 		{
 			path = "actionBar.menuFadeAlpha",
-			label = L["Faded alpha"],
+			label = L["Faded alpha (micro menu, bag button)"],
 			type = "number",
 			min = 0,
 			max = 1,
 			step = 0.05,
+			percent = true,
 			disabled = fadeDisabled("actionBar.microMenuMouseover", "actionBar.microMenuCombat"),
-			desc = L["Shared by the micro menu and the bag button."],
+			disabledDesc = FADE_DISABLED_DESC,
 		},
 	},
 })
@@ -250,13 +257,14 @@ ns.RegisterElement({
 		},
 		{
 			path = "actionBar.menuFadeAlpha",
-			label = L["Faded alpha"],
+			label = L["Faded alpha (micro menu, bag button)"],
 			type = "number",
 			min = 0,
 			max = 1,
 			step = 0.05,
+			percent = true,
 			disabled = fadeDisabled("actionBar.bagButtonMouseover", "actionBar.bagButtonCombat"),
-			desc = L["Shared by the micro menu and the bag button."],
+			disabledDesc = FADE_DISABLED_DESC,
 		},
 	},
 })
@@ -269,6 +277,7 @@ local schema = {
 		reload = true,
 		desc = L["Replace Blizzard action bars."],
 	},
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
 	{ header = L["General"], glyph = "gear" },
 	{
@@ -290,63 +299,6 @@ local schema = {
 		type = "select",
 		values = DRAG_MODIFIER_VALUES,
 		desc = L["Key to hold while dragging a spell off a bar. Without a modifier a spell can be dragged away by accident."],
-	},
-	{ header = L["Text"], glyph = "font" },
-	{ path = "actionBar.showHotkeys", label = L["Show hotkeys"], type = "toggle" },
-	{
-		path = "actionBar.showShapeshiftHotkeys",
-		label = L["Stance bar hotkeys"],
-		type = "toggle",
-		enabledBy = "actionBar.showHotkeys",
-		desc = L["Also show key bindings on stance / form buttons."],
-	},
-	{ path = "actionBar.hotkeyFont", label = L["Hotkey font"], type = "font", enabledBy = "actionBar.showHotkeys" },
-	{
-		path = "actionBar.showNames",
-		label = L["Show macro names"],
-		type = "toggle",
-		desc = L["Macro name at the bottom of the button."],
-	},
-	{ path = "actionBar.nameFont", label = L["Name font"], type = "font", enabledBy = "actionBar.showNames" },
-	{
-		path = "actionBar.showCounts",
-		new = "1.4.1",
-		label = L["Show item counts"],
-		type = "toggle",
-		desc = L["Stack or charge count in the bottom-right corner of the button."],
-	},
-	{
-		path = "actionBar.countFont",
-		new = "1.4.1",
-		label = L["Count font"],
-		type = "font",
-		enabledBy = "actionBar.showCounts",
-	},
-	{
-		path = "actionBar.cooldownFont",
-		new = "1.4.1",
-		label = L["Cooldown font"],
-		type = "font",
-		desc = L["Remaining cooldown text on action bar buttons."],
-	},
-	{ header = L["Colors"], glyph = "palette" },
-	{
-		path = "actionBar.rangeColor",
-		label = L["Out of range"],
-		type = "color",
-		desc = L["Icon tint when the target is out of range."],
-	},
-	{
-		path = "actionBar.manaColor",
-		label = L["Not enough mana"],
-		type = "color",
-		desc = L["Icon tint when the ability cannot be afforded."],
-	},
-	{
-		path = "actionBar.unusableColor",
-		label = L["Unusable"],
-		type = "color",
-		desc = L["Icon tint when the ability cannot be used for any other reason."],
 	},
 	{ header = L["Range and cooldowns"], glyph = "hourglass-half" },
 	{
@@ -392,13 +344,71 @@ local schema = {
 		alpha = true,
 		enabledByAny = { "actionBar.lossOfControl", "actionBar.interruptLockout" },
 	},
+	{ header = L["Text"], glyph = "font" },
+	{ path = "actionBar.showHotkeys", label = L["Hotkeys"], type = "toggle" },
+	{
+		path = "actionBar.showShapeshiftHotkeys",
+		label = L["Stance bar hotkeys"],
+		type = "toggle",
+		enabledBy = "actionBar.showHotkeys",
+		desc = L["Also show key bindings on stance / form buttons."],
+	},
+	{ path = "actionBar.hotkeyFont", label = L["Hotkey font"], type = "font", enabledBy = "actionBar.showHotkeys" },
+	{
+		path = "actionBar.showNames",
+		label = L["Macro names"],
+		type = "toggle",
+		desc = L["Macro name at the bottom of the button."],
+	},
+	{ path = "actionBar.nameFont", label = L["Name font"], type = "font", enabledBy = "actionBar.showNames" },
+	{
+		path = "actionBar.showCounts",
+		new = "1.4.1",
+		label = L["Item counts"],
+		type = "toggle",
+		desc = L["Stack or charge count in the bottom-right corner of the button."],
+	},
+	{
+		path = "actionBar.countFont",
+		new = "1.4.1",
+		label = L["Count font"],
+		type = "font",
+		enabledBy = "actionBar.showCounts",
+	},
+	{
+		path = "actionBar.cooldownFont",
+		new = "1.4.1",
+		label = L["Cooldown font"],
+		type = "font",
+		desc = L["Remaining cooldown text on action bar buttons."],
+	},
+	{ header = L["Colors"], glyph = "palette" },
+	{
+		path = "actionBar.rangeColor",
+		label = L["Out of range"],
+		type = "color",
+		desc = L["Icon tint when the target is out of range."],
+	},
+	{
+		path = "actionBar.manaColor",
+		label = L["Not enough mana"],
+		type = "color",
+		desc = L["Icon tint when the ability cannot be afforded."],
+	},
+	{
+		path = "actionBar.unusableColor",
+		label = L["Unusable"],
+		type = "color",
+		desc = L["Icon tint when the ability cannot be used for any other reason."],
+	},
 }
 
 ns.RegisterPage({
 	key = PAGE,
 	name = L["Action bars"],
 	glyph = "table-cells",
-	order = 15,
+	order = 24,
+	group = "frames",
 	schema = schema,
 	enable = ENABLE,
 })

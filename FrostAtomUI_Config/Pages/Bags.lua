@@ -35,7 +35,8 @@ ns.RegisterPage({
 	key = "bags",
 	name = L["Bags"],
 	glyph = "bag-shopping",
-	order = 50,
+	order = 48,
+	group = "interface",
 	enable = "bags.enabled",
 	schema = {
 		{
@@ -45,6 +46,7 @@ ns.RegisterPage({
 			reload = true,
 			desc = L["Replace Blizzard bags."],
 		},
+		{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 		{ type = "elements" },
 		{ header = L["General"], glyph = "gear" },
 		{
@@ -53,7 +55,12 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Open the inventory when a merchant, mailbox, auction house, trade or bank window opens."],
 		},
-		{ path = "bags.playSounds", label = L["Open / close sounds"], type = "toggle" },
+		{
+			path = "bags.playSounds",
+			label = L["Open / close sounds"],
+			type = "toggle",
+			desc = L["Play the backpack sounds when the inventory or bank opens and closes."],
+		},
 		{
 			path = "bags.offlineBank",
 			new = "1.4.1",
@@ -70,7 +77,15 @@ ns.RegisterPage({
 		},
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ description = L["Shared by the inventory and the bank; columns are set for each window separately."] },
-		{ path = "bags.buttonSize", label = L["Button size"], type = "number", min = 20, max = 50, step = 1 },
+		{
+			path = "bags.buttonSize",
+			label = L["Button size"],
+			type = "number",
+			min = 20,
+			max = 50,
+			step = 1,
+			desc = L["Item slot size in pixels."],
+		},
 		{
 			path = "bags.spacing",
 			label = L["Spacing"],
@@ -87,6 +102,7 @@ ns.RegisterPage({
 			min = 2,
 			max = 20,
 			step = 1,
+			advanced = true,
 			desc = L["Space between the frame border and its contents."],
 		},
 		{
@@ -96,11 +112,13 @@ ns.RegisterPage({
 			min = 0,
 			max = 1,
 			step = 0.05,
+			percent = true,
+			desc = L["Black background of the inventory and bank windows."],
 		},
 		{ header = L["Items"], glyph = "box-open" },
 		{
 			path = "bags.showItemLevel",
-			label = L["Show item level"],
+			label = L["Item level"],
 			type = "toggle",
 			desc = L["Item level in the top-left corner of equippable items."],
 		},
@@ -122,6 +140,7 @@ ns.RegisterPage({
 			new = "1.4.1",
 			label = L["Free slots on bag buttons"],
 			type = "toggle",
+			desc = L["Number of empty slots on each bag button."],
 		},
 		{
 			path = "bags.searchFadeAlpha",
@@ -130,6 +149,7 @@ ns.RegisterPage({
 			min = 0,
 			max = 1,
 			step = 0.05,
+			percent = true,
 			desc = L["Alpha of items that do not match the search text."],
 		},
 		{ header = L["Sorting"], new = "1.4.1", glyph = "arrow-down-short-wide" },

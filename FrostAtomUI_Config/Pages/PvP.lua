@@ -22,7 +22,7 @@ ns.RegisterElement({
 	glyph = "lock",
 	enabledBy = LOSS_OF_CONTROL,
 	schema = Requires(LOSS_OF_CONTROL, {
-		{ header = L["Size"], glyph = "up-down-left-right" },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{
 			path = "lossOfControl.scale",
 			label = L["Scale"],
@@ -30,15 +30,18 @@ ns.RegisterElement({
 			min = 0.5,
 			max = 2,
 			step = 0.05,
+			percent = true,
+			desc = L["Size of the alert icon and text."],
 		},
-		{ header = L["Visibility"], glyph = "eye" },
+		{ header = L["Display"], glyph = "bars-staggered" },
 		{
 			path = "lossOfControl.background",
 			new = "1.4.0",
-			label = L["Show background"],
+			label = L["Background"],
 			type = "toggle",
 			desc = L["Dark backdrop and red lines around the icon and text."],
 		},
+		{ header = L["Test"], glyph = "flask" },
 		{
 			label = L["Test"],
 			type = "execute",
@@ -58,7 +61,7 @@ ns.RegisterElement({
 	glyph = "shield-heart",
 	enabledBy = EXTERNALS,
 	schema = Requires(EXTERNALS, {
-		{ header = L["Size"], glyph = "up-down-left-right" },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{
 			path = "externalDefensives.size",
 			label = L["Icon size"],
@@ -85,6 +88,7 @@ ns.RegisterElement({
 			step = 1,
 			desc = L["Buffs past this count are not shown; the longest remaining come first."],
 		},
+		{ header = L["Test"], glyph = "flask" },
 		{
 			label = L["Test"],
 			type = "execute",
@@ -104,6 +108,64 @@ ns.RegisterElement({
 	glyph = "skull",
 	enabledBy = "deathRecap.enabled",
 	schema = {},
+})
+
+ns.RegisterElement({
+	path = "soloQueue.point",
+	page = "pvp",
+	name = L["Solo queue"],
+	glyph = "user-clock",
+	enabledBy = "soloQueue.enabled",
+	hidden = not FrostAtomUI.IS_WOWCIRCLE,
+	schema = Requires("soloQueue.enabled", {
+		{ header = L["Layout"], glyph = "up-down-left-right" },
+		{
+			path = "soloQueue.buttonSize",
+			label = L["Button size"],
+			type = "number",
+			min = 12,
+			max = 40,
+			step = 1,
+		},
+		{
+			path = "soloQueue.queuedSize",
+			label = L["Button size in queue"],
+			type = "number",
+			min = 12,
+			max = 60,
+			step = 1,
+			desc = L["Button size while waiting in the queue or ready to enter."],
+		},
+		{ header = L["Text"], glyph = "font" },
+		{
+			path = "soloQueue.rangeFont",
+			label = L["Search range font"],
+			type = "font",
+			desc = L["Rating range shown under the button while searching."],
+		},
+		{ header = L["Colors"], glyph = "palette" },
+		{
+			path = "soloQueue.glowColor",
+			label = L["Ready glow color"],
+			type = "color",
+			advanced = true,
+			desc = L["Glow around the button when the arena is ready to enter."],
+		},
+		{
+			path = "soloQueue.teamSearchColor",
+			label = L["Team search color"],
+			type = "color",
+			advanced = true,
+			desc = L["Range text while the queue is looking for teammates."],
+		},
+		{
+			path = "soloQueue.opponentSearchColor",
+			label = L["Opponent search color"],
+			type = "color",
+			advanced = true,
+			desc = L["Range text once a team is formed and the queue is looking for opponents."],
+		},
+	}),
 })
 
 local schema = {
@@ -164,14 +226,13 @@ local SOUND_VALUES = {
 	{ "WriteQuest", L["Quest update"] },
 }
 
-local function sound(path, label, enabledBy, hidden)
+local function sound(path, label, enabledBy)
 	return {
 		path = path,
 		label = label,
 		type = "select",
 		values = SOUND_VALUES,
 		enabledBy = enabledBy,
-		hidden = hidden,
 		desc = L["Plays once when selected."],
 	}
 end
@@ -205,6 +266,7 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		label = L["Only in arena"],
 		type = "toggle",
 		enabledBy = "soundAlerts.targeted",
+		desc = L["Stay silent when targeted outside arenas."],
 	},
 	{
 		path = "targetedText",
@@ -214,6 +276,9 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		desc = L['Class colored "Targeted by" message in the error text area at the top of the screen.'],
 	},
 	sound("targetedSound", L["Targeted sound"], "soundAlerts.targeted"),
+}, nil, "1.4.0", "volume-high")
+
+Section(schema, L["Interrupt sounds"], "soundAlerts", {
 	{
 		path = "interruptible",
 		label = L["Interruptible cast on target"],
@@ -225,14 +290,24 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		label = L["Also on focus"],
 		type = "toggle",
 		enabledBy = "soundAlerts.interruptible",
+		desc = L["Also alert on interruptible casts of a hostile focus."],
 	},
 	sound("interruptibleSound", L["Interruptible cast sound"], "soundAlerts.interruptible"),
+	{
+		path = "interruptSuccess",
+		label = L["Your interrupt succeeded"],
+		type = "toggle",
+		desc = L["When you or your pet interrupt a cast."],
+	},
+	sound("interruptSuccessSound", L["Interrupt sound"], "soundAlerts.interruptSuccess"),
+}, nil, nil, "hand")
+
+Section(schema, L["Dispel sounds"], "soundAlerts", {
 	{
 		path = "dispellable",
 		label = L["Dispellable debuff on you"],
 		type = "toggle",
 		desc = L["When a new debuff lands on you that your class can remove."],
-		hidden = cannotDispel,
 	},
 	{
 		path = "dispellableMinDuration",
@@ -243,17 +318,9 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		step = 1,
 		enabledBy = "soundAlerts.dispellable",
 		desc = L["Shorter debuffs are ignored."],
-		hidden = cannotDispel,
 	},
-	sound("dispellableSound", L["Dispellable debuff sound"], "soundAlerts.dispellable", cannotDispel),
-	{
-		path = "interruptSuccess",
-		label = L["Your interrupt succeeded"],
-		type = "toggle",
-		desc = L["When you or your pet interrupt a cast."],
-	},
-	sound("interruptSuccessSound", L["Interrupt sound"], "soundAlerts.interruptSuccess"),
-}, nil, "1.4.0", "volume-high")
+	sound("dispellableSound", L["Dispellable debuff sound"], "soundAlerts.dispellable"),
+}, cannotDispel, nil, "wand-magic-sparkles")
 
 Section(schema, L["Queue invite"], "queueInvite", {
 	{
@@ -286,11 +353,12 @@ Section(schema, L["Queue pop flash"], "queuePopFlash", {
 	},
 	{
 		path = "intensity",
-		label = L["Brightness"],
+		label = L["Flash alpha"],
 		type = "number",
 		min = 0.1,
 		max = 1,
 		step = 0.05,
+		percent = true,
 		desc = L["Peak opacity of the flash; it ramps up to this over the first 15 seconds."],
 	},
 	{
@@ -300,10 +368,20 @@ Section(schema, L["Queue pop flash"], "queuePopFlash", {
 		min = 0.2,
 		max = 5,
 		step = 0.1,
+		advanced = true,
 		desc = L["Flashes per second."],
 	},
-	{ path = "color", label = L["Color"], type = "color" },
+	{ path = "color", label = L["Flash color"], type = "color" },
 }, nil, nil, "bolt")
+
+Section(schema, L["Solo queue"], "soloQueue", {
+	{
+		path = "enabled",
+		label = L["Enable"],
+		type = "toggle",
+		desc = L["Join, leave and enter the solo queue from a button next to the queue eye."],
+	},
+}, not FrostAtomUI.IS_WOWCIRCLE, nil, "user-clock")
 
 Section(schema, L["Battleground"], "battleground", {
 	{ path = "enabled", label = L["Enable"], type = "toggle", desc = L["Battleground helpers."] },
@@ -372,6 +450,7 @@ ns.RegisterPage({
 	key = "pvp",
 	name = L["PvP"],
 	glyph = "hand-fist",
-	order = 34,
+	order = 36,
+	group = "pvp",
 	schema = schema,
 })

@@ -5,6 +5,26 @@ local L = FrostAtomUI.L
 local Section = ns.Section
 local NotClass = ns.NotClass
 
+local function skinEntry()
+	return {
+		path = "chat.skin",
+		label = L["Skin chat frames"],
+		type = "toggle",
+		reload = true,
+		desc = L["Flat backdrop, hidden buttons, auto-hiding tabs. Message features below work either way."],
+	}
+end
+
+local function lockEntry()
+	return {
+		path = "chat.lockFrames",
+		label = L["Lock frames"],
+		type = "toggle",
+		reload = true,
+		desc = L["Tabs cannot be dragged and frames cannot be resized; the main frame uses the position and size set in its frame settings. Off leaves positions to Blizzard's chat settings."],
+	}
+end
+
 local schema = {
 	{
 		path = "chat.enabled",
@@ -13,21 +33,11 @@ local schema = {
 		reload = true,
 		desc = L["Chat skin, message processing, filters, bubbles, history and whisper blocking."],
 	},
-	{
-		path = "chat.skin",
-		label = L["Skin chat frames"],
-		type = "toggle",
-		reload = true,
-		desc = L["Flat backdrop, hidden buttons, auto-hiding tabs. Message features below work either way."],
-	},
-	{
-		path = "chat.lockFrames",
-		label = L["Lock frames"],
-		type = "toggle",
-		reload = true,
-		desc = L["Tabs cannot be dragged and frames cannot be resized; the main frame uses the position and size set in its frame settings. Off leaves positions to Blizzard's chat settings."],
-	},
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
+	{ header = L["General"], glyph = "gear" },
+	skinEntry(),
+	lockEntry(),
 	{ header = L["Messages"], glyph = "message" },
 	{
 		path = "chat.timestamps",
@@ -163,6 +173,7 @@ local schema = {
 		min = 300,
 		max = 1200,
 		step = 10,
+		advanced = true,
 		desc = L["Size of the /copy window."],
 	},
 	{
@@ -172,21 +183,19 @@ local schema = {
 		min = 200,
 		max = 900,
 		step = 10,
+		advanced = true,
 		desc = L["Size of the /copy window."],
 	},
 	{ header = L["Chat bubbles"], glyph = "comment-dots" },
-	{ path = "chat.bubbleFont", label = L["Font"], type = "font" },
-	{ path = "chat.bubbleAlpha", label = L["Background alpha"], type = "number", min = 0, max = 1, step = 0.05 },
 	{
-		path = "chat.bubbleBorderAlpha",
-		label = L["Border alpha"],
+		path = "chat.bubbleMaxWidth",
+		label = L["Max width"],
 		type = "number",
-		min = 0,
-		max = 1,
-		step = 0.05,
-		desc = L["The border takes the color of the message type."],
+		min = 100,
+		max = 600,
+		step = 10,
+		desc = L["Longer messages wrap to the next line."],
 	},
-	{ path = "chat.bubbleMaxWidth", label = L["Max width"], type = "number", min = 100, max = 600, step = 10 },
 	{
 		path = "chat.bubblePadding",
 		label = L["Padding"],
@@ -194,16 +203,39 @@ local schema = {
 		min = 0,
 		max = 20,
 		step = 1,
+		advanced = true,
 		desc = L["Space between the text and the bubble edge."],
+	},
+	{ path = "chat.bubbleFont", label = L["Font"], type = "font" },
+	{
+		path = "chat.bubbleAlpha",
+		label = L["Background alpha"],
+		type = "number",
+		min = 0,
+		max = 1,
+		step = 0.05,
+		percent = true,
+		desc = L["Black background behind the bubble text."],
+	},
+	{
+		path = "chat.bubbleBorderAlpha",
+		label = L["Border alpha"],
+		type = "number",
+		min = 0,
+		max = 1,
+		step = 0.05,
+		percent = true,
+		advanced = true,
+		desc = L["The border takes the color of the message type."],
 	},
 }
 
 Section(schema, L["Whisper block"], "chat.whisperBlock", {
 	{
 		path = "enabled",
-		label = L["Block incoming whispers"],
+		label = L["Enable"],
 		type = "toggle",
-		desc = L["Hide whispers and store them; they are printed when you turn the block off or whisper the sender. " .. "Toggle with /nodm."],
+		desc = L["Hide whispers and store them; they are printed when you turn the block off or whisper the sender. Toggle with /nodm."],
 	},
 	{
 		path = "reply",
@@ -271,7 +303,8 @@ Section(schema, L["Announcements"], "announce", {
 }, nil, nil, "bullhorn")
 
 local chatFrame = {
-	{ header = L["Size"], glyph = "up-down-left-right" },
+	{ header = L["Layout"], glyph = "up-down-left-right" },
+	lockEntry(),
 	{
 		path = "chat.width",
 		label = L["Width"],
@@ -290,8 +323,19 @@ local chatFrame = {
 		step = 1,
 		enabledBy = "chat.lockFrames",
 	},
-	{ header = L["Appearance"], glyph = "palette" },
-	{ path = "chat.backgroundAlpha", label = L["Background alpha"], type = "number", min = 0, max = 1, step = 0.05 },
+	{ header = L["Display"], glyph = "bars-staggered" },
+	skinEntry(),
+	{
+		path = "chat.backgroundAlpha",
+		label = L["Background alpha"],
+		type = "number",
+		min = 0,
+		max = 1,
+		step = 0.05,
+		percent = true,
+		enabledBy = "chat.skin",
+		desc = L["Backdrop behind the chat frames, tabs and edit box."],
+	},
 	{
 		path = "chat.scrollToBottomButton",
 		new = "1.4.0",
@@ -310,6 +354,7 @@ local chatFrame = {
 			{ "below", L["Below the chat"] },
 			{ "above", L["Above the tabs"] },
 		},
+		desc = L["Where the edit box opens when you start typing."],
 	},
 	{ header = L["Visibility"], glyph = "eye" },
 	{
@@ -320,7 +365,7 @@ local chatFrame = {
 	},
 	{
 		path = "chat.fadeTime",
-		label = L["Fade after (seconds)"],
+		label = L["Fade delay"],
 		type = "number",
 		min = 5,
 		max = 600,
@@ -341,7 +386,9 @@ local chatFrame = {
 		min = 0,
 		max = 1,
 		step = 0.05,
+		percent = true,
 		enabledBy = "chat.mouseover",
+		desc = L["Alpha of the chat while the cursor is away from it."],
 	},
 }
 
@@ -361,7 +408,8 @@ ns.RegisterPage({
 	key = "chat",
 	name = L["Chat"],
 	glyph = "comments",
-	order = 35,
+	order = 42,
+	group = "interface",
 	schema = schema,
 })
 

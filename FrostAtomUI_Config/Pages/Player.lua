@@ -47,6 +47,7 @@ Section(schema, L["Player plate"], "playerPlate", {
 		disabled = function()
 			return ui:GetConfig("playerPlate.alwaysShow")
 		end,
+		disabledDesc = L["Not used while Always show is on."],
 	},
 }, nil, nil, "heart-pulse")
 
@@ -100,7 +101,8 @@ ns.RegisterPage({
 	key = "player",
 	name = L["Player resources"],
 	glyph = "user",
-	order = 30,
+	order = 26,
+	group = "frames",
 	schema = schema,
 })
 
@@ -111,13 +113,36 @@ ns.RegisterElement({
 	glyph = "heart-pulse",
 	enabledBy = "playerPlate.enabled",
 	schema = ElementSchema("playerPlate", {
-		{ header = L["Bars"], glyph = "bars-staggered" },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
+		{ path = "width", label = L["Width"], type = "number", min = 60, max = 400, step = 1 },
+		{ path = "healthHeight", label = L["Health bar height"], type = "number", min = 3, max = 40, step = 1 },
+		{ header = L["Display"], glyph = "bars-staggered" },
 		{
 			path = "showPower",
 			new = "1.4.0",
-			label = L["Show power bar"],
+			label = L["Power bar"],
 			type = "toggle",
 			desc = L["Mana, rage, energy or runic power below the health bar."],
+		},
+		{
+			path = "powerHeight",
+			label = L["Power bar height"],
+			type = "number",
+			min = 2,
+			max = 40,
+			step = 1,
+			enabledBy = "playerPlate.showPower",
+		},
+		{
+			path = "gap",
+			advanced = true,
+			label = L["Bar spacing"],
+			type = "number",
+			min = 0,
+			max = 20,
+			step = 1,
+			desc = L["Gap between the health and power bars."],
+			enabledBy = "playerPlate.showPower",
 		},
 		{
 			path = "druidMana",
@@ -141,32 +166,10 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Estimated size of absorb shields on you, with a glow at the bar edge while a shield is up. Colors are shared with the unit frames."],
 		},
-		{ header = L["Size"], glyph = "up-down-left-right" },
-		{ path = "width", label = L["Width"], type = "number", min = 60, max = 400, step = 1 },
-		{ path = "healthHeight", label = L["Health bar height"], type = "number", min = 3, max = 40, step = 1 },
-		{
-			path = "powerHeight",
-			label = L["Power bar height"],
-			type = "number",
-			min = 2,
-			max = 40,
-			step = 1,
-			enabledBy = "playerPlate.showPower",
-		},
-		{
-			path = "gap",
-			label = L["Bar spacing"],
-			type = "number",
-			min = 0,
-			max = 20,
-			step = 1,
-			desc = L["Gap between the health and power bars."],
-			enabledBy = "playerPlate.showPower",
-		},
 		{ header = L["Text"], glyph = "font" },
 		{
 			path = "showText",
-			label = L["Show values"],
+			label = L["Values"],
 			type = "toggle",
 			desc = L["Health and power numbers on the bars."],
 		},
@@ -207,6 +210,7 @@ ns.RegisterElement({
 	enabledBy = "shieldIndicator.enabled",
 	hidden = NotClass("WARRIOR"),
 	schema = ElementSchema("shieldIndicator", {
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 64, step = 1 },
 	}),
 })
@@ -219,7 +223,7 @@ ns.RegisterElement({
 	enabledBy = "runes.enabled",
 	hidden = NotClass("DEATHKNIGHT"),
 	schema = ElementSchema("runes", {
-		{ header = L["Size"], glyph = "up-down-left-right" },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "width", label = L["Rune width"], type = "number", min = 10, max = 100, step = 1 },
 		{ path = "height", label = L["Rune height"], type = "number", min = 4, max = 40, step = 1 },
 		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
@@ -240,9 +244,11 @@ ns.RegisterElement({
 	enabledBy = "totems.enabled",
 	hidden = NotClass("SHAMAN"),
 	schema = ElementSchema("totems", {
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
 		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
-		{ path = "timerFont", label = L["Timer font"], type = "font" },
+		{ header = L["Text"], glyph = "font" },
+		{ path = "timerFont", label = L["Timer font"], type = "font", desc = L["Remaining totem time on the icons."] },
 	}),
 })
 
@@ -256,12 +262,14 @@ ns.RegisterElement({
 		return ui:GetConfig("temporaryEnchant.showInAuras") and ui:GetConfig("unitFrames.enabled")
 	end,
 	schema = ElementSchema("temporaryEnchant", {
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
 		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+		{ header = L["Text"], glyph = "font" },
 		{
 			path = "showTimer",
 			new = "1.4.0",
-			label = L["Show timer"],
+			label = L["Timer"],
 			type = "toggle",
 			desc = L["Remaining enchant time on the icons."],
 		},
