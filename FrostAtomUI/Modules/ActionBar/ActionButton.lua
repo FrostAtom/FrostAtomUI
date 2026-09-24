@@ -34,6 +34,7 @@ local config = ns.Config.actionBar
 local WHITE = { 1, 1, 1 }
 local BUTTON_NAME = ADDON_NAME .. "ActionButton%d"
 local BINDING_NAME = "CLICK " .. BUTTON_NAME .. ":LeftButton"
+ActionBar.BINDING_NAME = BINDING_NAME
 local RANGE_CHECK_INTERVAL = 0.1
 local GCD_DURATION = 1.5
 local MAX_INTERRUPT_LOCKOUT = 8

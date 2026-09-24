@@ -11,10 +11,12 @@ local max, min, ceil = math.max, math.min, math.ceil
 local Media = ns.Media
 local ActionBar = ns:NewModule("ActionBar")
 ActionBar.configKey = "actionBar"
+ns.ActionBar = ActionBar
 
 local config = ns.Config.actionBar
 local BUTTONS_PER_BAR = 12
 local NUM_BARS = 6
+local FIRST_EXTRA_PAGE, LAST_EXTRA_PAGE = 7, 10
 local BAR_KEYS = { "bar1", "bar2", "bar3", "bar4", "bar5", "bar6", "stance", "pet" }
 local EQUIPPED_BORDER_SCALE = 62 / 36
 local AUTOCAST_BORDER_SCALE = 58 / 30
@@ -28,6 +30,9 @@ local PAGE_BINDINGS = {
 }
 
 ActionBar.NUM_BARS = NUM_BARS
+ActionBar.BUTTONS_PER_BAR = BUTTONS_PER_BAR
+ActionBar.FIRST_EXTRA_PAGE = FIRST_EXTRA_PAGE
+ActionBar.LAST_EXTRA_PAGE = LAST_EXTRA_PAGE
 
 ActionBar.bars = {}
 ActionBar.petButtons = {}
@@ -220,26 +225,30 @@ function ActionBar:LayoutBar(key)
 	end
 end
 
-function ActionBar:StyleButtons()
-	for page = 1, NUM_BARS do
-		for _, button in ipairs(self.bars[page].buttons) do
-			self:StyleHotkey(button.hotkey)
-			button:RegisterForDrag(config.dragButton)
-			button:UpdateColors()
-			ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
-			ns.SetFont(button.count, config.countFont.size, config.countFont.outline)
-			ns.SetFont(button.cooldown.timer, config.cooldownFont.size, config.cooldownFont.outline)
-			if config.showNames then
-				button.name:Show()
-			else
-				button.name:Hide()
-			end
-			if config.showCounts then
-				button.count:Show()
-			else
-				button.count:Hide()
-			end
+function ActionBar:StyleBarButtons(bar)
+	for _, button in ipairs(bar.buttons) do
+		self:StyleHotkey(button.hotkey)
+		button:RegisterForDrag(config.dragButton)
+		button:UpdateColors()
+		ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
+		ns.SetFont(button.count, config.countFont.size, config.countFont.outline)
+		ns.SetFont(button.cooldown.timer, config.cooldownFont.size, config.cooldownFont.outline)
+		if config.showNames then
+			button.name:Show()
+		else
+			button.name:Hide()
 		end
+		if config.showCounts then
+			button.count:Show()
+		else
+			button.count:Hide()
+		end
+	end
+end
+
+function ActionBar:StyleButtons()
+	for _, bar in pairs(self.bars) do
+		self:StyleBarButtons(bar)
 	end
 	self:StylePetButtons()
 	for i = 1, #self.shapeshiftButtons do
@@ -247,7 +256,65 @@ function ActionBar:StyleButtons()
 	end
 end
 
+function ActionBar.ExtraBarPath(page)
+	return "actionBar.extraBars.bar" .. page
+end
+
+function ActionBar.NewExtraBar(page)
+	return {
+		enabled = true,
+		point = { "CENTER", 0, (FIRST_EXTRA_PAGE - page) * 40 },
+		buttons = BUTTONS_PER_BAR,
+		columns = BUTTONS_PER_BAR,
+		buttonSize = 36,
+		spacing = 2,
+		mouseover = false,
+		combat = "any",
+		fadeAlpha = 0.1,
+	}
+end
+
+local function setButtonsActive(bar, active)
+	for _, button in ipairs(bar.buttons) do
+		button:SetAttribute("type", active and "action" or nil)
+	end
+end
+
+function ActionBar:UpdateExtraBar(page)
+	local path = self.ExtraBarPath(page)
+	local barConfig = config.extraBars["bar" .. page]
+	local bar = self.bars[page]
+	if barConfig then
+		if not bar then
+			bar = self:CreateBar(page)
+			self:StyleBarButtons(bar)
+		end
+		if not bar.active then
+			bar.active = true
+			setButtonsActive(bar, true)
+			self:RegisterMover(bar, path .. ".point", L["Action bar %d"]:format(page), { secure = true })
+		end
+		layoutBar(bar, barConfig, barConfig.buttons, path .. ".point")
+	elseif bar and bar.active then
+		bar.active = nil
+		bar:Hide()
+		setButtonsActive(bar, false)
+		ns.Movers.Unregister(bar)
+	end
+end
+
+function ActionBar:UpdateExtraBars()
+	for page = FIRST_EXTRA_PAGE, LAST_EXTRA_PAGE do
+		self:UpdateExtraBar(page)
+	end
+end
+
 function ActionBar:Layout(path)
+	local page = path and tonumber(path:match("^actionBar%.extraBars%.bar(%d+)"))
+	if page and page >= FIRST_EXTRA_PAGE and page <= LAST_EXTRA_PAGE then
+		self:UpdateExtraBar(page)
+		return
+	end
 	local key = path and path:match("^actionBar%.(%w+)%.")
 	if key and type(config[key]) == "table" and config[key].buttonSize then
 		self:LayoutBar(key)
@@ -256,6 +323,7 @@ function ActionBar:Layout(path)
 	for _, barKey in ipairs(BAR_KEYS) do
 		self:LayoutBar(barKey)
 	end
+	self:UpdateExtraBars()
 	self:LayoutVehicleExit()
 	self:LayoutTotemBar()
 	self:StyleButtons()

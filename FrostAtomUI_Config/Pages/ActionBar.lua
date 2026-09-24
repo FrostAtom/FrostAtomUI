@@ -33,8 +33,7 @@ local function fadeDisabled(mouseoverPath, combatPath)
 	end
 end
 
-local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
-	local prefix = "actionBar." .. key
+local function barSchema(prefix, hasToggle, hasCount, extra)
 	local enabledBy
 	local schema = {}
 	if hasToggle then
@@ -119,7 +118,11 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 		disabledDesc = FADE_DISABLED_DESC,
 		desc = L["Bar alpha while it is faded by mouseover or combat visibility."],
 	}
+	return schema
+end
 
+local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
+	local prefix = "actionBar." .. key
 	ns.RegisterElement({
 		path = prefix .. ".point",
 		page = PAGE,
@@ -127,7 +130,7 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 		new = new,
 		enabledBy = ENABLE,
 		hidden = hidden,
-		schema = schema,
+		schema = barSchema(prefix, hasToggle, hasCount, extra),
 	})
 end
 
@@ -269,6 +272,151 @@ ns.RegisterElement({
 	},
 })
 
+local ActionBar = ui.ActionBar
+local EXTRA_BARS = "actionBar.extraBars"
+local ROW_BUTTON_GAP = 4
+
+local CLASS_PAGE_SPELLS = {
+	WARRIOR = {
+		[7] = 2457, -- Battle Stance
+		[8] = 71, -- Defensive Stance
+		[9] = 2458, -- Berserker Stance
+	},
+	DRUID = {
+		[7] = 768, -- Cat Form
+		[8] = 5215, -- Prowl
+		[9] = 5487, -- Bear Form
+		[10] = 24858, -- Moonkin Form
+	},
+	ROGUE = {
+		[7] = 1784, -- Stealth
+		[8] = 51713, -- Shadow Dance
+	},
+	PRIEST = {
+		[7] = 15473, -- Shadowform
+	},
+}
+
+local function extraBars()
+	return ui.Config.actionBar.extraBars
+end
+
+local function extraBarName(page)
+	return L["Bar %d"]:format(page)
+end
+
+local function pageOwner(page)
+	local spells = CLASS_PAGE_SPELLS[ui.PLAYER_CLASS]
+	local spell = spells and spells[page]
+	return spell and GetSpellInfo(spell)
+end
+
+local function pageFromPath(path)
+	return tonumber(path:match("^actionBar%.extraBars%.bar(%d+)%."))
+end
+
+ns.RegisterElement({
+	match = "^actionBar%.extraBars%.bar%d+%.point$",
+	page = PAGE,
+	name = function(path)
+		return extraBarName(pageFromPath(path))
+	end,
+	build = function(path)
+		return barSchema(path:gsub("%.point$", ""), true, true)
+	end,
+})
+
+local function freePageValues()
+	local values = {}
+	for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
+		if not extraBars()["bar" .. page] then
+			local owner = pageOwner(page)
+			values[#values + 1] = {
+				page,
+				owner and L["Page %d (%s)"]:format(page, owner) or L["Page %d"]:format(page),
+			}
+		end
+	end
+	return values
+end
+
+local function clearButtonBindings(page)
+	local first = (page - 1) * ActionBar.BUTTONS_PER_BAR
+	for i = 1, ActionBar.BUTTONS_PER_BAR do
+		local command = ActionBar.BINDING_NAME:format(first + i)
+		local key = GetBindingKey(command)
+		while key do
+			SetBinding(key)
+			key = GetBindingKey(command)
+		end
+	end
+	SaveBindings(GetCurrentBindingSet())
+end
+
+local function removeExtraBar(page)
+	ns.Confirm(L["Remove %s? Key bindings of its buttons are cleared."]:format(extraBarName(page)), function()
+		if InCombatLockdown() then
+			ui.Print(L["cannot change bindings in combat"])
+			return
+		end
+		local path = ActionBar.ExtraBarPath(page)
+		if ns.GetOpenElement() == path .. ".point" then
+			ns.CloseElement()
+		end
+		clearButtonBindings(page)
+		ui:SetConfig(path, nil)
+	end)
+end
+
+local function extraBarRow(page)
+	local owner = pageOwner(page)
+	return {
+		type = "custom",
+		label = extraBarName(page),
+		desc = owner and L["Action page %d, the actions of %s."]:format(page, owner)
+			or L["Action page %d."]:format(page),
+		build = function(row)
+			local edit = ns.CreateButton(row, L["Edit"], 100, false, nil, "up-down-left-right")
+			edit:SetPoint("LEFT", ns.CONTROL_X, 0)
+			edit:SetScript("OnClick", function()
+				ns.EditElement(ActionBar.ExtraBarPath(page) .. ".point")
+			end)
+			local remove = ns.CreateButton(row, L["Remove"], 80, true, nil, "trash")
+			remove:SetPoint("LEFT", edit, "RIGHT", ROW_BUTTON_GAP, 0)
+			remove:SetScript("OnClick", function()
+				removeExtraBar(page)
+			end)
+			row.edit, row.remove = edit, remove
+		end,
+		setEnabled = function(row, enabled)
+			for _, button in ipairs({ row.edit, row.remove }) do
+				if enabled then
+					button:Enable()
+				else
+					button:Disable()
+				end
+			end
+		end,
+	}
+end
+
+local addBarEntry = {
+	label = L["Add bar"],
+	type = "select",
+	width = 200,
+	values = freePageValues,
+	placeholder = L["Choose a page..."],
+	desc = L["Another bar on a spare action page (7 - 10). A page of your stances or forms shows the actions of that stance or form."],
+	disabled = function()
+		return #freePageValues() == 0
+	end,
+	disabledDesc = L["All spare action pages are in use."],
+	get = function() end,
+	set = function(page)
+		ui:SetConfig(ActionBar.ExtraBarPath(page), ActionBar.NewExtraBar(page))
+	end,
+}
+
 local schema = {
 	{
 		path = ENABLE,
@@ -279,6 +427,7 @@ local schema = {
 	},
 	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
+	{ path = EXTRA_BARS, hidden = true },
 	{ header = L["General"], glyph = "gear" },
 	{
 		path = "actionBar.clickAnimation",
@@ -403,6 +552,32 @@ local schema = {
 	},
 }
 
+local function buildSchema()
+	local result = {}
+	for _, entry in ipairs(schema) do
+		result[#result + 1] = entry
+		if entry.path == EXTRA_BARS then
+			for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
+				if extraBars()["bar" .. page] then
+					result[#result + 1] = extraBarRow(page)
+				end
+			end
+			result[#result + 1] = addBarEntry
+		end
+	end
+	return result
+end
+
+local function signature()
+	local keys = {}
+	for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
+		if extraBars()["bar" .. page] then
+			keys[#keys + 1] = page
+		end
+	end
+	return table.concat(keys, ",")
+end
+
 ns.RegisterPage({
 	key = PAGE,
 	name = L["Action bars"],
@@ -410,5 +585,7 @@ ns.RegisterPage({
 	order = 24,
 	group = "frames",
 	schema = schema,
+	buildSchema = buildSchema,
+	signature = signature,
 	enable = ENABLE,
 })
