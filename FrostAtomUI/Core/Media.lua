@@ -12,6 +12,7 @@ local Media = {
 	border = "Interface\\Tooltips\\UI-Tooltip-Border",
 	font = "Fonts\\ARIALN.ttf",
 	fontBold = "Fonts\\FRIZQT__.ttf",
+	glyphFont = MEDIA_PATH .. "Fonts\\fa-solid-900.ttf",
 	statusbar = "Interface\\Buttons\\WHITE8x8",
 	emptySlot = "Interface\\PaperDoll\\UI-Backpack-EmptySlot",
 	questionMark = "Interface\\Icons\\INV_Misc_QuestionMark",

@@ -22,7 +22,12 @@ local GRID_CENTER_COLOR = { 1, 0.4, 0.4, 0.4 }
 local SELECTED_BORDER_COLOR = { 1, 0.82, 0 }
 local SNAP_LINE_COLOR = { 1, 0.82, 0, 0.9 }
 local ATTACH_LINE_COLOR = { 0.4, 1, 0.5, 0.9 }
+local GRID_BUTTON_ON_COLOR = { 0.5, 0.8, 1 }
+local GRID_BUTTON_OFF_COLOR = { 0.45, 0.45, 0.45 }
 local MIN_WIDTH, MIN_HEIGHT = 96, 26
+local LINK_SIZE, LINK_GAP = 9, 3
+local PANEL_BUTTON_WIDTH = 120
+local PANEL_GLYPH_SIZE, PANEL_GLYPH_GAP = 11, 5
 local GRIP_SIZE = 12
 local SNAP_DISTANCE = 10
 local SNAP_GAP = 4
@@ -287,11 +292,12 @@ end
 
 local function placeLabel(overlay)
 	local text = overlay.text
+	local linkWidth = overlay.link:IsShown() and LINK_SIZE + LINK_GAP or 0
 	text:ClearAllPoints()
-	if overlay:GetWidth() < text:GetStringWidth() + 8 or overlay:GetHeight() < MIN_HEIGHT then
-		text:SetPoint("BOTTOM", overlay, "TOP", 0, 2)
+	if overlay:GetWidth() < text:GetStringWidth() + linkWidth + 8 or overlay:GetHeight() < MIN_HEIGHT then
+		text:SetPoint("BOTTOM", overlay, "TOP", linkWidth / 2, 2)
 	else
-		text:SetPoint("CENTER")
+		text:SetPoint("CENTER", linkWidth / 2, 0)
 	end
 end
 
@@ -786,6 +792,10 @@ local function updateColors(mover, hover)
 		overlay:SetBackdropBorderColor(unpack(anchored and ANCHORED_BORDER_COLOR or BORDER_COLOR))
 	end
 	overlay.text:SetTextColor(unpack(anchored and ANCHORED_TEXT_COLOR or TEXT_COLOR))
+	if anchored ~= (overlay.link:IsShown() and true or false) then
+		ns.SetShown(overlay.link, anchored)
+		placeLabel(overlay)
+	end
 end
 
 local function onEnter(overlay)
@@ -822,6 +832,12 @@ local function createOverlay(mover)
 	text:SetPoint("CENTER")
 	text:SetText(L[mover.label])
 	overlay.text = text
+
+	local link = ns.CreateGlyph(overlay, "link", LINK_SIZE, "OVERLAY", "OUTLINE")
+	link:SetTextColor(ATTACH_LINE_COLOR[1], ATTACH_LINE_COLOR[2], ATTACH_LINE_COLOR[3])
+	link:SetPoint("RIGHT", text, "LEFT", -LINK_GAP, 0)
+	link:Hide()
+	overlay.link = link
 
 	if mover.resize then
 		overlay.grip = createGrip(overlay)
@@ -1240,6 +1256,18 @@ local function drawGridLine(index, color, vertical, offset)
 	end
 end
 
+local function toggleGrid()
+	ns:SetConfig("general.showGrid", not ns.Config.general.showGrid)
+end
+
+local function paintGridButton()
+	local button = panel and panel.gridButton
+	if button then
+		button.color = ns.Config.general.showGrid and GRID_BUTTON_ON_COLOR or GRID_BUTTON_OFF_COLOR
+		button:Paint()
+	end
+end
+
 local function updateGrid()
 	if not unlocked then
 		return
@@ -1272,6 +1300,7 @@ local function updateGrid()
 		grid.lines[i]:Hide()
 	end
 	grid:Show()
+	paintGridButton()
 end
 
 local function createLabel(parent, size, shade, text)
@@ -1297,16 +1326,21 @@ local function onTestModeClick(check)
 	check:SetChecked(UF.testing)
 end
 
-local function createPanelButton(text, onClick)
+local function createPanelButton(text, glyph, onClick)
 	local button = CreateFrame("Button", nil, panel)
-	button:SetSize(120, 20)
+	button:SetHeight(20)
 	button:SetBackdrop(ns.CreateBackdrop(8))
 	button:SetBackdropColor(0, 0, 0, 0.5)
 	button:SetBackdropBorderColor(0.6, 0.6, 0.6)
 	button:SetHighlightTexture(ns.Media.blank)
 	button:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.1)
 	button:SetScript("OnClick", onClick)
-	createLabel(button, 12, 0.8, text):SetPoint("CENTER")
+	local label = createLabel(button, 12, 0.8, text)
+	button:SetWidth(max(PANEL_BUTTON_WIDTH, label:GetStringWidth() + PANEL_GLYPH_SIZE + PANEL_GLYPH_GAP + 16))
+	label:SetPoint("CENTER", (PANEL_GLYPH_SIZE + PANEL_GLYPH_GAP) / 2, 0)
+	local icon = ns.CreateGlyph(button, glyph, PANEL_GLYPH_SIZE)
+	icon:SetTextColor(0.8, 0.8, 0.8)
+	icon:SetPoint("RIGHT", label, "LEFT", -PANEL_GLYPH_GAP, 0)
 	return button
 end
 
@@ -1331,13 +1365,32 @@ local function createPanel()
 	check:SetPoint("TOPLEFT", panel, "TOP", -(22 + 2 + checkLabel:GetStringWidth()) / 2, -44)
 	panel.testCheck = check
 
-	panel:SetSize(max(260, hint:GetStringWidth() + 24, nudgeHint:GetStringWidth() + 24), 102)
+	local gridButton = ns.CreateGlyphButton(panel, "border-all", 14, L["Alignment grid"])
+	gridButton.tooltipText = L["Grid over the screen while frames are unlocked. Screen center lines are always drawn."]
+	gridButton:SetPoint("RIGHT", panel, "TOPRIGHT", -8, -55)
+	gridButton:SetScript("OnClick", toggleGrid)
+	panel.gridButton = gridButton
 
-	local lock = createPanelButton(L["Lock frames"], Movers.Lock)
+	local lock = createPanelButton(L["Lock frames"], "lock", Movers.Lock)
 	lock:SetPoint("BOTTOMRIGHT", panel, "BOTTOM", -4, 8)
 
-	local reset = createPanelButton(L["Reset positions"], Movers.ConfirmResetPositions)
+	local reset = createPanelButton(L["Reset positions"], "rotate-left", Movers.ConfirmResetPositions)
 	reset:SetPoint("BOTTOMLEFT", panel, "BOTTOM", 4, 8)
+
+	local buttonWidth = max(lock:GetWidth(), reset:GetWidth())
+	lock:SetWidth(buttonWidth)
+	reset:SetWidth(buttonWidth)
+
+	panel:SetSize(
+		max(
+			260,
+			hint:GetStringWidth() + 24,
+			nudgeHint:GetStringWidth() + 24,
+			buttonWidth * 2 + 24,
+			22 + 2 + checkLabel:GetStringWidth() + 2 * (gridButton:GetWidth() + 12)
+		),
+		102
+	)
 end
 
 function Movers.Unlock()

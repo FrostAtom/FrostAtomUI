@@ -23,6 +23,8 @@ Core\Events.lua
 Core\Scheduler.lua
 Core\Auras.lua
 Core\Media.lua
+Core\GlyphData.lua
+Core\Glyphs.lua
 Core\Encode.lua
 Core\DB.lua
 Core\CVars.lua

@@ -5,7 +5,7 @@ local L = FrostAtomUI.L
 local ui = FrostAtomUI
 
 local schema = {
-	{ header = L["Language"] },
+	{ header = L["Language"], glyph = "language" },
 	{
 		label = L["Interface language"],
 		type = "select",
@@ -18,7 +18,7 @@ local schema = {
 		end,
 		desc = L["Language of FrostAtom UI text. Auto follows the game client."],
 	},
-	{ header = L["Appearance"] },
+	{ header = L["Appearance"], glyph = "palette" },
 	{ path = "general.font", label = L["Font"], type = "select", values = ui.Media.fonts },
 	{ path = "general.fontBold", label = L["Bold font"], type = "select", values = ui.Media.fonts },
 	{ path = "general.statusbar", label = L["Status bar texture"], type = "select", values = ui.Media.statusbars },
@@ -38,7 +38,7 @@ local schema = {
 		enabledBy = "general.useUiScale",
 		confirmRevert = true,
 	},
-	{ header = L["Cooldown timers"], new = "1.4.0" },
+	{ header = L["Cooldown timers"], new = "1.4.0", glyph = "stopwatch" },
 	{
 		description = L["Countdown text on action buttons, bags, unit frame cooldowns, nameplate auras and totems."],
 	},
@@ -77,11 +77,12 @@ local schema = {
 		type = "color",
 		desc = L["A minute or more left."],
 	},
-	{ header = L["Frame movers"] },
+	{ header = L["Frame movers"], glyph = "arrows-up-down-left-right" },
 	{
 		label = L["Move frames"],
 		type = "execute",
 		text = L["Unlock"],
+		glyph = "up-down-left-right",
 		desc = L["Drag frames to move them, drag the bottom-right corner of a frame to resize it. Frames snap to each other, to screen edges and to screen center lines, and stay attached to the frame they snapped to. Hold Shift to drop snapping and detach."],
 		func = function()
 			ui.Movers.Unlock()
@@ -110,24 +111,26 @@ local schema = {
 		new = "1.4.1",
 		type = "execute",
 		text = L["Reset"],
+		glyph = "rotate-left",
 		confirm = L["Reset the positions of all frames to defaults?"],
 		func = function()
 			ui.Movers.ResetPositions()
 		end,
 		desc = L["Move every frame back to its default position. Other settings stay. Also: /fui reset"],
 	},
-	{ header = L["Other addons"], new = "1.4.1" },
+	{ header = L["Other addons"], new = "1.4.1", glyph = "puzzle-piece" },
 	{
 		label = L["Conflicting addons"],
 		new = "1.4.1",
 		type = "execute",
 		text = L["Ask again"],
+		glyph = "arrows-rotate",
 		func = function()
 			ui.ResetConflictChoices()
 		end,
 		desc = L["Forget the answers given when another addon was found doing the same job as a FrostAtom UI module, and check the loaded addons again."],
 	},
-	{ header = L["Unit frames"] },
+	{ header = L["Unit frames"], glyph = "id-badge" },
 	{
 		path = "dispelHighlightAlpha",
 		label = L["Dispel highlight alpha"],
@@ -142,6 +145,7 @@ local schema = {
 ns.RegisterPage({
 	key = "general",
 	name = L["General"],
+	glyph = "gear",
 	order = 10,
 	schema = schema,
 })

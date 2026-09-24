@@ -424,7 +424,9 @@ function UnitFrameMixin:SetWatched(watched)
 		return
 	end
 	self.watched = watched
-	if watched then
+	if UF.testing and not self.baseUnit:find("^boss") then
+		UF.StartTest(self)
+	elseif watched then
 		RegisterUnitWatch(self)
 	else
 		UnregisterUnitWatch(self)
@@ -650,7 +652,6 @@ end
 
 function UF:ResizeTarget(frame, width, height)
 	frame:SetFrameSize(width, height)
-	frame.targetOfTarget:SetFrameSize(height, height)
 	local perRow = config.targetAuraPerRow
 	local auraSize, auraLimit = targetAuraSize(width, perRow), perRow * TARGET_AURA_ROWS
 	local debuffs, buffs = frame.debuffs, frame.buffs

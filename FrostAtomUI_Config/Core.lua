@@ -43,6 +43,14 @@ local HIGHLIGHT_COLOR = { 0.196, 0.388, 0.8 }
 local SPACER_TEXTURE = "Interface\\OptionsFrame\\UI-OptionsFrame-Spacer"
 local LIST_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border"
 local SWATCH_TEXTURE = "Interface\\ChatFrame\\ChatFrameColorSwatch"
+local GLYPH_SIZE = 12
+local GLYPH_BOX = GLYPH_SIZE + 4
+local GLYPH_GAP = 4
+local TITLE_GLYPH_SIZE = 16
+local MARKER_SIZE = 10
+local SEARCH_INSET = 14
+local NAV_GLYPH_X = 6
+local RELOAD_COLOR = { r = 1, g = 0.5, b = 0.25 }
 ns.CONTROL_X = CONTROL_X
 
 local FONT_OBJECTS = {
@@ -71,7 +79,7 @@ local lastNavPage
 local refreshing = false
 local widgetCount = 0
 
-local searchPage = { key = "search", name = L["Search"], schema = {}, noReset = true }
+local searchPage = { key = "search", name = L["Search"], glyph = "magnifying-glass", schema = {}, noReset = true }
 
 local function adoptEntries(schema, owner)
 	for _, entry in ipairs(schema) do
@@ -109,6 +117,7 @@ local function instantiateMatcher(matcher, path)
 		path = path,
 		page = matcher.page,
 		name = name,
+		glyph = matcher.glyph,
 		schema = matcher.build and matcher.build(path) or {},
 		noReset = true,
 	}
@@ -138,7 +147,9 @@ local function elementButton(element, page, enabledBy)
 		width = 100,
 		desc = L["Open this frame in move mode together with its settings."],
 		enabledBy = element.enabledBy or enabledBy,
+		disabled = element.disabled,
 		new = element.new,
+		glyph = element.glyph or "up-down-left-right",
 		page = page,
 		func = function()
 			ns.EditElement(element.path)
@@ -173,13 +184,13 @@ function ns.ElementSchema(prefix, entries)
 	return ns.Requires(prefix .. ".enabled", entries)
 end
 
-function ns.Section(schema, header, prefix, entries, hidden, new)
+function ns.Section(schema, header, prefix, entries, hidden, new, glyph)
 	if hidden then
 		return schema
 	end
 	local enable = prefix .. ".enabled"
 	prefixPaths(prefix, entries)
-	schema[#schema + 1] = { header = header, new = new }
+	schema[#schema + 1] = { header = header, new = new, glyph = glyph }
 	for _, entry in ipairs(entries) do
 		if entry.path ~= enable then
 			addRequirement(entry, enable)
@@ -242,6 +253,49 @@ end
 local function setTextEnabled(region, enabled)
 	local color = enabled and HIGHLIGHT_FONT_COLOR or GRAY_FONT_COLOR
 	region:SetTextColor(color.r, color.g, color.b)
+end
+
+local function createGlyph(parent, name, size, color)
+	local glyph = ui.CreateGlyph(parent, name, size)
+	glyph:SetTextColor(color.r, color.g, color.b)
+	return glyph
+end
+
+local function paintButtonGlyph(button)
+	local color = NORMAL_FONT_COLOR
+	if button:IsEnabled() ~= 1 then
+		color = GRAY_FONT_COLOR
+	elseif button.hovered or button.gray then
+		color = HIGHLIGHT_FONT_COLOR
+	end
+	button.glyph:SetTextColor(color.r, color.g, color.b)
+end
+
+local function hoverButtonGlyph(button)
+	button.hovered = true
+	paintButtonGlyph(button)
+end
+
+local function leaveButtonGlyph(button)
+	button.hovered = nil
+	paintButtonGlyph(button)
+end
+
+local function addButtonGlyph(button, name, minWidth, gray)
+	local glyph = ui.CreateGlyph(button, name, GLYPH_SIZE)
+	local width = glyph:GetStringWidth()
+	local text = button:GetFontString()
+	text:ClearAllPoints()
+	text:SetPoint("CENTER", (width + GLYPH_GAP) / 2, 0)
+	glyph:SetPoint("RIGHT", text, "LEFT", -GLYPH_GAP, 0)
+	button.glyph = glyph
+	button.gray = gray
+	button:HookScript("OnEnter", hoverButtonGlyph)
+	button:HookScript("OnLeave", leaveButtonGlyph)
+	button:HookScript("OnEnable", paintButtonGlyph)
+	button:HookScript("OnDisable", paintButtonGlyph)
+	paintButtonGlyph(button)
+	ui.FitButton(button, 20 + width + GLYPH_GAP, minWidth)
 end
 
 local function setControlEnabled(control, enabled)
@@ -335,13 +389,16 @@ local function rowEnter(row)
 	row.highlight:Show()
 	local entry = row.entry
 	local range = entry.type == "number"
-	if not entry.desc and not range then
+	if not entry.desc and not range and not entry.reload then
 		return
 	end
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(entry.label, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 	if entry.desc then
 		GameTooltip:AddLine(entry.desc, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
+	end
+	if entry.reload then
+		GameTooltip:AddLine(L["Requires a UI reload."], RELOAD_COLOR.r, RELOAD_COLOR.g, RELOAD_COLOR.b, true)
 	end
 	if range then
 		GameTooltip:AddLine(
@@ -368,10 +425,23 @@ local function bindRow(control, row)
 	end)
 end
 
-local function createButton(parent, text, width, gray, height)
+local function bindHighlight(control, row)
+	control:HookScript("OnEnter", function()
+		row.highlight:Show()
+	end)
+	control:HookScript("OnLeave", function()
+		row.highlight:Hide()
+	end)
+end
+
+local function createButton(parent, text, width, gray, height, glyph)
 	local button = ui.CreateButton(parent, text, width, height or 22, nextName(), gray)
 	setButtonFonts(button, gray and "GameFontHighlight" or "GameFontNormal")
-	ui.FitButton(button, 20, width)
+	if glyph then
+		addButtonGlyph(button, glyph, width, gray)
+	else
+		ui.FitButton(button, 20, width)
+	end
 	return button
 end
 ns.CreateButton = createButton
@@ -441,6 +511,9 @@ local function createRow(parent, entry)
 
 	local indent = isChildEntry(entry) and CHILD_INDENT or 0
 	local width = CONTROL_X - LABEL_X - 10 - indent
+	if entry.reload then
+		width = width - MARKER_SIZE - GLYPH_GAP
+	end
 	local label = row:CreateFontString(nil, "ARTWORK")
 	label:SetFontObject(font("GameFontHighlight"))
 	label:SetPoint("LEFT", LABEL_X + indent, 0)
@@ -450,8 +523,14 @@ local function createRow(parent, entry)
 	row.label = label
 	row:SetHeight(max(ROW_HEIGHT, label:GetStringHeight() + 8))
 
+	local offset = min(label:GetStringWidth(), width) + GLYPH_GAP
+	if entry.reload then
+		local marker = createGlyph(row, "rotate", MARKER_SIZE, RELOAD_COLOR)
+		marker:SetPoint("LEFT", label, "LEFT", offset, 0)
+		offset = offset + marker:GetStringWidth() + GLYPH_GAP
+	end
 	if isNewEntry(entry) then
-		addNewBadge(row, label, min(label:GetStringWidth(), width) + 4)
+		addNewBadge(row, label, offset)
 	end
 	return row
 end
@@ -595,10 +674,16 @@ function creators.header(parent, entry)
 	header:SetPoint("LEFT")
 	header:SetPoint("RIGHT")
 
+	local x = 4
 	local label = header:CreateFontString(nil, "ARTWORK")
 	label:SetFontObject(font("GameFontNormal"))
-	label:SetPoint("BOTTOMLEFT", 4, 6)
 	label:SetText(entry.header)
+	if entry.glyph then
+		local glyph = createGlyph(header, entry.glyph, GLYPH_SIZE, NORMAL_FONT_COLOR)
+		glyph:SetPoint("CENTER", label, "LEFT", -GLYPH_GAP - GLYPH_BOX / 2, 0)
+		x = x + GLYPH_BOX + GLYPH_GAP
+	end
+	label:SetPoint("BOTTOMLEFT", x, 6)
 	local width = label:GetStringWidth()
 	if isNewEntry(entry) then
 		local badge = addNewBadge(header, label, width + 6)
@@ -609,7 +694,7 @@ function creators.header(parent, entry)
 	line:SetTexture(SPACER_TEXTURE)
 	line:SetVertexColor(0.6, 0.6, 0.6)
 	line:SetHeight(16)
-	line:SetPoint("BOTTOMLEFT", 4 + width + 8, 4)
+	line:SetPoint("BOTTOMLEFT", x + width + 8, 4)
 	line:SetPoint("BOTTOMRIGHT", -4, 4)
 	return header
 end
@@ -846,14 +931,12 @@ function creators.color(parent, entry)
 		ColorPickerFrame:Show()
 	end)
 
-	local reset = createButton(row, L["Default"], 70, true, 20)
-	setButtonFonts(reset, "GameFontHighlightSmall", "GameFontHighlightSmall", "GameFontDisableSmall")
-	ui.FitButton(reset, 20, 70)
-	reset:SetPoint("LEFT", swatch, "RIGHT", 64, 0)
+	local reset = ui.CreateGlyphButton(row, "rotate-left", GLYPH_SIZE, L["Default"])
+	reset:SetPoint("LEFT", swatch, "RIGHT", 56, 0)
 	reset:SetScript("OnClick", function()
 		ui:ResetConfig(entry.path)
 	end)
-	bindRow(reset, row)
+	bindHighlight(reset, row)
 
 	row.Refresh = function()
 		local r, g, b = current()
@@ -912,20 +995,13 @@ function creators.point(parent, entry)
 	anchor:SetJustifyH("RIGHT")
 	anchor:SetPoint("RIGHT", row, "LEFT", CONTROL_X - 16, 0)
 
-	local detach = CreateFrame("Button", nextName(), row, "UIPanelCloseButton")
-	detach:SetSize(24, 24)
-	detach:SetPoint("LEFT", yBox, "RIGHT", 4, 0)
+	local detach = ui.CreateGlyphButton(row, "link-slash", GLYPH_SIZE, L["Detach"])
+	detach:SetPoint("LEFT", yBox, "RIGHT", 6, 0)
 	detach:SetScript("OnClick", function()
 		ui.Movers.Detach(entry.path)
 		row.Refresh()
 	end)
-	detach:SetScript("OnEnter", function(self)
-		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		GameTooltip:SetText(L["Detach"], HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-		GameTooltip:AddLine(anchor.tooltip or "", NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
-		GameTooltip:Show()
-	end)
-	detach:SetScript("OnLeave", GameTooltip_Hide)
+	bindHighlight(detach, row)
 
 	commit = function()
 		local x, y = tonumber(xBox:GetText()), tonumber(yBox:GetText())
@@ -953,7 +1029,7 @@ function creators.point(parent, entry)
 		if anchorPath then
 			local anchorLabel = ui.Movers.GetLabel(anchorPath)
 			anchor:SetText(L["of %s"]:format(anchorLabel))
-			anchor.tooltip = L["Offsets are relative to %s %s."]:format(anchorLabel, anchorPoint)
+			detach.tooltipText = L["Offsets are relative to %s %s."]:format(anchorLabel, anchorPoint)
 			detach:Show()
 		else
 			anchor:SetText("")
@@ -973,7 +1049,8 @@ end
 
 function creators.execute(parent, entry)
 	local row = createRow(parent, entry)
-	local button = createButton(row, entry.text or entry.label, entry.width or 140, entry.confirm ~= nil)
+	local button =
+		createButton(row, entry.text or entry.label, entry.width or 140, entry.confirm ~= nil, nil, entry.glyph)
 	button:SetPoint("LEFT", CONTROL_X, 0)
 	button:SetScript("OnClick", function()
 		if entry.confirm then
@@ -1318,6 +1395,29 @@ local function resetPage(page)
 	end
 end
 
+local function paintNavGlyph(button)
+	local glyph = button and button.glyph
+	if not glyph then
+		return
+	end
+	local color = NORMAL_FONT_COLOR
+	if button.hovered or (currentPage and currentPage.button == button) then
+		color = HIGHLIGHT_FONT_COLOR
+	end
+	glyph:SetTextColor(color.r, color.g, color.b)
+end
+
+local function showPageTitle(page)
+	local glyph = page.glyph
+	local title = frame.pageTitle
+	title:SetPoint("TOPLEFT", glyph and 16 + TITLE_GLYPH_SIZE + 4 + GLYPH_GAP or 16, -16)
+	title:SetText(page.name)
+	if glyph then
+		ui.SetGlyph(frame.pageGlyph, glyph)
+	end
+	ui.SetShown(frame.pageGlyph, glyph)
+end
+
 local function showPage(page)
 	if currentPage then
 		if currentPage.onHide then
@@ -1328,18 +1428,23 @@ local function showPage(page)
 			currentPage.button:UnlockHighlight()
 		end
 	end
+	local previous = currentPage
 	currentPage = page
+	if previous then
+		paintNavGlyph(previous.button)
+	end
 	if not page.content then
 		buildPage(page)
 	end
 	showContent(page, frame.scroll, 0)
 	if page.button then
 		page.button:LockHighlight()
+		paintNavGlyph(page.button)
 		lastNavPage = page
 		markSeen(page)
 		page.button.newBadge:Hide()
 	end
-	frame.pageTitle:SetText(page.name)
+	showPageTitle(page)
 	if page.onShow then
 		page.onShow()
 	end
@@ -1410,8 +1515,8 @@ local function scoreEntry(entry, section, search)
 	return scoreText(lower(entry.label), section, entry.desc and lower(entry.desc) or "", search)
 end
 
-local function addGroup(groups, title, order)
-	local group = { title = title, order = order, score = 0, results = {} }
+local function addGroup(groups, title, order, glyph)
+	local group = { title = title, glyph = glyph, order = order, score = 0, results = {} }
 	groups[#groups + 1] = group
 	return group
 end
@@ -1431,7 +1536,7 @@ local function byScore(a, b)
 	return a.order < b.order
 end
 
-local function collectEntries(groups, entries, title, context, search)
+local function collectEntries(groups, entries, title, context, search, glyph)
 	local group
 	local header, section = nil, context
 	for _, entry in ipairs(entries) do
@@ -1441,7 +1546,7 @@ local function collectEntries(groups, entries, title, context, search)
 		elseif not entry.hidden then
 			local score = scoreEntry(entry, section, search)
 			if score > 0 then
-				group = group or addGroup(groups, header and (title .. " / " .. header) or title, #groups)
+				group = group or addGroup(groups, header and (title .. " / " .. header) or title, #groups, glyph)
 				addResult(group, entry, score)
 			end
 		end
@@ -1452,17 +1557,17 @@ local function collectSearch(search)
 	local groups = {}
 	for _, page in ipairs(pages) do
 		local pageContext = lower(page.name)
-		collectEntries(groups, page.schema, page.name, pageContext, search)
+		collectEntries(groups, page.schema, page.name, pageContext, search, page.glyph)
 		for _, element in ipairs(elements) do
 			if element.page == page.key and not element.hidden then
 				local title = page.name .. " / " .. element.name
 				local context = pageContext .. " " .. lower(element.name)
 				local before = #groups
-				collectEntries(groups, element.schema, title, context, search)
+				collectEntries(groups, element.schema, title, context, search, page.glyph)
 				if #groups == before then
 					local score = scoreText(lower(element.name), pageContext, "", search)
 					if score > 0 then
-						addResult(addGroup(groups, title, #groups), elementButton(element, page), score)
+						addResult(addGroup(groups, title, #groups, page.glyph), elementButton(element, page), score)
 					end
 				end
 			end
@@ -1472,7 +1577,7 @@ local function collectSearch(search)
 	sort(groups, byScore)
 	local schema, count = {}, 0
 	for _, group in ipairs(groups) do
-		schema[#schema + 1] = { header = group.title }
+		schema[#schema + 1] = { header = group.title, glyph = group.glyph }
 		sort(group.results, byScore)
 		for _, result in ipairs(group.results) do
 			schema[#schema + 1] = result.entry
@@ -1531,9 +1636,12 @@ local function createSearchBox()
 	local box = createEditBox(frame, LIST_WIDTH - 15)
 	box:SetPoint("TOPLEFT", LIST_X + 8, PANEL_TOP + 2)
 	box:SetMaxLetters(40)
+	box:SetTextInsets(SEARCH_INSET, SEARCH_INSET, 0, 0)
 	box.OnCommit = function() end
 	box:SetScript("OnTextChanged", function(self)
-		ui.SetShown(self.placeholder, self:GetText() == "")
+		local empty = self:GetText() == ""
+		ui.SetShown(self.placeholder, empty)
+		ui.SetShown(self.clear, not empty)
 		scheduleSearch()
 	end)
 	box:SetScript("OnEnterPressed", function(self)
@@ -1547,9 +1655,21 @@ local function createSearchBox()
 
 	local placeholder = box:CreateFontString(nil, "ARTWORK")
 	placeholder:SetFontObject(font("GameFontDisableSmall"))
-	placeholder:SetPoint("LEFT", 2, 0)
+	placeholder:SetPoint("LEFT", SEARCH_INSET, 0)
 	placeholder:SetText(L["Search settings..."])
 	box.placeholder = placeholder
+
+	local icon = createGlyph(box, "magnifying-glass", MARKER_SIZE, GRAY_FONT_COLOR)
+	icon:SetPoint("LEFT", 0, 0)
+
+	local clear = ui.CreateGlyphButton(box, "xmark", MARKER_SIZE)
+	clear:SetPoint("RIGHT", 3, 0)
+	clear:SetScript("OnClick", function()
+		box:SetText("")
+		box:ClearFocus()
+	end)
+	clear:Hide()
+	box.clear = clear
 	frame.searchBox = box
 end
 
@@ -1611,8 +1731,22 @@ local function createNavButton(page, index)
 
 	local text = _G[name .. "Text"]
 	text:ClearAllPoints()
-	text:SetPoint("LEFT", 8, 2)
+	text:SetPoint("LEFT", NAV_GLYPH_X + GLYPH_BOX + GLYPH_GAP, 2)
 	text:SetPoint("RIGHT", -8, 2)
+
+	if page.glyph then
+		local glyph = createGlyph(button, page.glyph, GLYPH_SIZE, NORMAL_FONT_COLOR)
+		glyph:SetPoint("CENTER", button, "LEFT", NAV_GLYPH_X + GLYPH_BOX / 2, 2)
+		button.glyph = glyph
+		button:HookScript("OnEnter", function(self)
+			self.hovered = true
+			paintNavGlyph(self)
+		end)
+		button:HookScript("OnLeave", function(self)
+			self.hovered = nil
+			paintNavGlyph(self)
+		end)
+	end
 
 	local badge = button:CreateFontString(nil, "OVERLAY")
 	badge:SetFontObject(font("GameFontGreenSmall"))
@@ -1728,11 +1862,16 @@ local function createFrame()
 	title:SetJustifyH("LEFT")
 	frame.pageTitle = title
 
-	local defaults = createButton(frame, L["Defaults"], FOOTER_BUTTON_WIDTH, true)
+	local pageGlyph = createGlyph(panel, "gear", TITLE_GLYPH_SIZE, NORMAL_FONT_COLOR)
+	pageGlyph:SetPoint("CENTER", title, "LEFT", -GLYPH_GAP - (TITLE_GLYPH_SIZE + 4) / 2, 0)
+	pageGlyph:Hide()
+	frame.pageGlyph = pageGlyph
+
+	local defaults = createButton(frame, L["Defaults"], FOOTER_BUTTON_WIDTH, true, nil, "rotate-left")
 	defaults:SetPoint("BOTTOMLEFT", EDGE, EDGE)
 	defaults:SetScript("OnClick", confirmDefaults)
 
-	local unlock = createButton(frame, L["Unlock frames"], 120)
+	local unlock = createButton(frame, L["Unlock frames"], 120, nil, nil, "up-down-left-right")
 	unlock:SetPoint("LEFT", defaults, "RIGHT", 4, 0)
 	unlock:SetScript("OnClick", function()
 		ui.Movers.Unlock()
@@ -1747,7 +1886,7 @@ local function createFrame()
 		HideUIPanel(frame)
 	end)
 
-	local reloadButton = createButton(frame, L["Reload UI"], FOOTER_BUTTON_WIDTH)
+	local reloadButton = createButton(frame, L["Reload UI"], FOOTER_BUTTON_WIDTH, nil, nil, "rotate")
 	reloadButton:SetPoint("RIGHT", okay, "LEFT", -4, 0)
 	reloadButton:SetScript("OnClick", ReloadUI)
 	reloadButton:Hide()
@@ -1802,18 +1941,23 @@ local function createElementFrame()
 		ui.Movers.ClearSelection()
 	end)
 
+	local titleGlyph = createGlyph(elementFrame.header, "gear", GLYPH_SIZE, NORMAL_FONT_COLOR)
+	titleGlyph:SetPoint("RIGHT", elementFrame.title, "LEFT", -GLYPH_GAP, 0)
+	titleGlyph:Hide()
+	elementFrame.titleGlyph = titleGlyph
+
 	local panel = ui.CreateInset(elementFrame, "panel")
 	panel:SetPoint("TOPLEFT", EDGE, ELEMENT_TOP)
 	panel:SetPoint("BOTTOMRIGHT", -EDGE, ELEMENT_BOTTOM)
 
-	local resetPosition = createButton(elementFrame, L["Reset position"], 120, true)
+	local resetPosition = createButton(elementFrame, L["Reset position"], 120, true, nil, "location-crosshairs")
 	resetPosition:SetPoint("BOTTOMLEFT", EDGE, EDGE)
 	resetPosition:SetScript("OnClick", function()
 		ui:ResetConfig(elementFrame.view.element.path)
 	end)
 	elementFrame.resetPosition = resetPosition
 
-	local resetAll = createButton(elementFrame, L["Reset all"], 100, true)
+	local resetAll = createButton(elementFrame, L["Reset all"], 100, true, nil, "rotate-left")
 	resetAll:SetPoint("LEFT", resetPosition, "RIGHT", 4, 0)
 	resetAll:SetScript("OnClick", function()
 		local element = elementFrame.view.element
@@ -1823,7 +1967,7 @@ local function createElementFrame()
 	end)
 	elementFrame.resetAll = resetAll
 
-	local more = createButton(elementFrame, L["All settings"], 120)
+	local more = createButton(elementFrame, L["All settings"], 120, nil, nil, "sliders")
 	more:SetPoint("BOTTOMRIGHT", -EDGE, EDGE)
 	more:SetScript("OnClick", function()
 		local pageKey = elementFrame.view.element.page
@@ -1835,6 +1979,19 @@ local function createElementFrame()
 	local scroll = createPanelScroll(panel, FRAME_NAME .. "ElementScroll")
 	scroll:SetPoint("TOPLEFT", SCROLL_LEFT, -SCROLL_LEFT)
 	elementFrame.scroll = scroll
+end
+
+local function showElementTitle(element)
+	local glyph = element.glyph
+	local titleGlyph = elementFrame.titleGlyph
+	local shift = 0
+	if glyph then
+		ui.SetGlyph(titleGlyph, glyph)
+		shift = (titleGlyph:GetStringWidth() + GLYPH_GAP) / 2
+	end
+	ui.SetShown(titleGlyph, glyph)
+	elementFrame.title:SetPoint("TOP", elementFrame.header.middle, "TOP", shift, -14)
+	elementFrame.title:SetText(element.name)
 end
 
 local function elementView(element)
@@ -1879,7 +2036,7 @@ function ns.OpenElement(path, anchor)
 		elementFrame.view.content:Hide()
 	end
 	elementFrame.view = view
-	elementFrame.title:SetText(element.name)
+	showElementTitle(element)
 	if not view.content then
 		buildPage(view)
 	end

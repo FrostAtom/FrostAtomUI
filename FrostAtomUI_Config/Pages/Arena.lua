@@ -11,11 +11,12 @@ ns.RegisterElement({
 	path = "arena.countdownPoint",
 	page = "arena",
 	name = L["Arena countdown"],
+	glyph = "stopwatch",
 	enabledBy = COUNTDOWN,
 	schema = Requires(COUNTDOWN, {
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{ path = "arena.countdownFont", label = L["Countdown font"], type = "font" },
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{ path = "arena.countdownColor", label = L["Countdown color"], type = "color" },
 		{
 			path = "arena.countdownUrgentColor",
@@ -30,10 +31,11 @@ ns.RegisterElement({
 	path = "soloQueue.point",
 	page = "arena",
 	name = L["Solo queue"],
+	glyph = "user-clock",
 	enabledBy = "soloQueue.enabled",
 	hidden = not FrostAtomUI.IS_WOWCIRCLE,
 	schema = Requires("soloQueue.enabled", {
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		{
 			path = "soloQueue.buttonSize",
 			label = L["Button size"],
@@ -51,14 +53,14 @@ ns.RegisterElement({
 			step = 1,
 			desc = L["Button size while waiting in the queue or ready to enter."],
 		},
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{
 			path = "soloQueue.rangeFont",
 			label = L["Search range font"],
 			type = "font",
 			desc = L["Rating range shown under the button while searching."],
 		},
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{
 			path = "soloQueue.glowColor",
 			label = L["Ready glow color"],
@@ -84,12 +86,13 @@ ns.RegisterElement({
 	path = "matchResults.point",
 	page = "arena",
 	name = L["Match results"],
+	glyph = "ranking-star",
 	enabledBy = "matchResults.enabled",
 	schema = {},
 })
 
 local schema = {
-	{ header = L["Frames"] },
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
 }
 
@@ -136,7 +139,7 @@ Section(schema, L["Arena"], "arena", {
 		enabledBy = "arena.pillars",
 		desc = L["Seconds between pillar toggles after the first one. Depends on the server."],
 	},
-})
+}, nil, nil, "hand-fist")
 
 local DR_ARENA_SIDES = {
 	{ "RIGHT", L["Right of the trinket"] },
@@ -204,12 +207,13 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 		label = L["Test frames"],
 		type = "execute",
 		text = L["Toggle"],
+		glyph = "flask",
 		desc = L["Show every frame with fake units to preview the layout."],
 		func = function()
 			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
 		end,
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "arrow-trend-down")
 
 Section(schema, L["Trinket internal cooldowns"], "internalCooldowns", {
 	{
@@ -249,12 +253,13 @@ Section(schema, L["Trinket internal cooldowns"], "internalCooldowns", {
 		label = L["Test frames"],
 		type = "execute",
 		text = L["Toggle"],
+		glyph = "flask",
 		desc = L["Show every frame with fake units to preview the layout."],
 		func = function()
 			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
 		end,
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "gem")
 
 Section(schema, L["Solo queue"], "soloQueue", {
 	{
@@ -263,7 +268,7 @@ Section(schema, L["Solo queue"], "soloQueue", {
 		type = "toggle",
 		desc = L["Join, leave and enter the solo queue from a button next to the queue eye."],
 	},
-}, not FrostAtomUI.IS_WOWCIRCLE)
+}, not FrostAtomUI.IS_WOWCIRCLE, nil, "user-clock")
 
 Section(schema, L["Match results"], "matchResults", {
 	{
@@ -285,7 +290,7 @@ Section(schema, L["Match results"], "matchResults", {
 		type = "toggle",
 		desc = L["Keep the Blizzard scoreboard closed while the result window is open. The Scoreboard button still opens it."],
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "ranking-star")
 
 Section(schema, L["Arena history"], "arenaHistory", {
 	{
@@ -309,15 +314,17 @@ Section(schema, L["Arena history"], "arenaHistory", {
 		label = L["History window"],
 		type = "execute",
 		text = L["Open"],
+		glyph = "up-right-from-square",
 		func = function()
 			SlashCmdList.FROSTATOMUI_ARENA_HISTORY()
 		end,
 	},
-})
+}, nil, nil, "clock-rotate-left")
 
 ns.RegisterPage({
 	key = "arena",
 	name = L["Arena"],
+	glyph = "trophy",
 	order = 33,
 	schema = schema,
 })

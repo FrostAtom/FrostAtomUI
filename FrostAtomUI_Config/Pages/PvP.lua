@@ -19,9 +19,10 @@ ns.RegisterElement({
 	path = "lossOfControl.point",
 	page = "pvp",
 	name = L["Loss of control"],
+	glyph = "lock",
 	enabledBy = LOSS_OF_CONTROL,
 	schema = Requires(LOSS_OF_CONTROL, {
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		{
 			path = "lossOfControl.scale",
 			label = L["Scale"],
@@ -30,7 +31,7 @@ ns.RegisterElement({
 			max = 2,
 			step = 0.05,
 		},
-		{ header = L["Visibility"] },
+		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "lossOfControl.background",
 			new = "1.4.0",
@@ -42,6 +43,7 @@ ns.RegisterElement({
 			label = L["Test"],
 			type = "execute",
 			text = L["Toggle"],
+			glyph = "flask",
 			enabledBy = LOSS_OF_CONTROL,
 			desc = L["Cycle through fake effects to preview the alert. /uftest toggles it too."],
 			func = toggleTestMode("LossOfControl"),
@@ -53,9 +55,10 @@ ns.RegisterElement({
 	path = "externalDefensives.point",
 	page = "pvp",
 	name = L["External defensives"],
+	glyph = "shield-heart",
 	enabledBy = EXTERNALS,
 	schema = Requires(EXTERNALS, {
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		{
 			path = "externalDefensives.size",
 			label = L["Icon size"],
@@ -86,6 +89,7 @@ ns.RegisterElement({
 			label = L["Test"],
 			type = "execute",
 			text = L["Toggle"],
+			glyph = "flask",
 			enabledBy = EXTERNALS,
 			desc = L["Show fake buffs to preview the layout. /uftest toggles it too."],
 			func = toggleTestMode("ExternalDefensives"),
@@ -97,12 +101,13 @@ ns.RegisterElement({
 	path = "deathRecap.point",
 	page = "pvp",
 	name = L["Death recap"],
+	glyph = "skull",
 	enabledBy = "deathRecap.enabled",
 	schema = {},
 })
 
 local schema = {
-	{ header = L["Frames"] },
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
 }
 
@@ -133,7 +138,7 @@ Section(schema, L["Loss of control"], "lossOfControl", {
 		type = "toggle",
 		desc = L["Play a warning sound when a new effect starts."],
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "lock")
 
 Section(schema, L["External defensives"], "externalDefensives", {
 	{
@@ -142,7 +147,7 @@ Section(schema, L["External defensives"], "externalDefensives", {
 		type = "toggle",
 		desc = L["Row of defensive buffs other players cast on you, such as Pain Suppression, Guardian Spirit and Hand spells, longest remaining first."],
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "shield-heart")
 
 local SOUND_VALUES = {
 	{ "RaidWarning", L["Raid warning"] },
@@ -248,7 +253,7 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		desc = L["When you or your pet interrupt a cast."],
 	},
 	sound("interruptSuccessSound", L["Interrupt sound"], "soundAlerts.interruptSuccess"),
-}, nil, "1.4.0")
+}, nil, "1.4.0", "volume-high")
 
 Section(schema, L["Queue invite"], "queueInvite", {
 	{
@@ -270,7 +275,7 @@ Section(schema, L["Queue invite"], "queueInvite", {
 		type = "toggle",
 		desc = L["Play the invite sound on the Master channel, so it is heard with sound effects muted."],
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "bell")
 
 Section(schema, L["Queue pop flash"], "queuePopFlash", {
 	{
@@ -298,7 +303,7 @@ Section(schema, L["Queue pop flash"], "queuePopFlash", {
 		desc = L["Flashes per second."],
 	},
 	{ path = "color", label = L["Color"], type = "color" },
-})
+}, nil, nil, "bolt")
 
 Section(schema, L["Battleground"], "battleground", {
 	{ path = "enabled", label = L["Enable"], type = "toggle", desc = L["Battleground helpers."] },
@@ -315,7 +320,7 @@ Section(schema, L["Battleground"], "battleground", {
 		type = "toggle",
 		desc = L["After the match ends, warn in the middle of the screen 10 and 5 minutes, 60 and 15 seconds before the instance closes."],
 	},
-})
+}, nil, nil, "flag")
 
 Section(schema, L["Death recap"], "deathRecap", {
 	{
@@ -356,15 +361,17 @@ Section(schema, L["Death recap"], "deathRecap", {
 		label = L["Recap window"],
 		type = "execute",
 		text = L["Open"],
+		glyph = "up-right-from-square",
 		func = function()
 			SlashCmdList.FROSTATOMUI_DEATH_RECAP()
 		end,
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "skull")
 
 ns.RegisterPage({
 	key = "pvp",
 	name = L["PvP"],
+	glyph = "hand-fist",
 	order = 34,
 	schema = schema,
 })

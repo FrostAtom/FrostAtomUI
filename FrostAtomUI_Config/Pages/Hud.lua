@@ -8,16 +8,17 @@ ns.RegisterElement({
 	path = "combatAlert.point",
 	page = "hud",
 	name = L["Combat alert"],
+	glyph = "triangle-exclamation",
 	enabledBy = "combatAlert.enabled",
 	schema = {
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{ path = "combatAlert.font", label = L["Font"], type = "font" },
 		{ path = "combatAlert.enterText", label = L["Enter combat text"], type = "string" },
 		{ path = "combatAlert.leaveText", label = L["Leave combat text"], type = "string" },
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{ path = "combatAlert.enterColor", label = L["Enter combat color"], type = "color" },
 		{ path = "combatAlert.leaveColor", label = L["Leave combat color"], type = "color" },
-		{ header = L["Visibility"] },
+		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "combatAlert.duration",
 			label = L["Show for (seconds)"],
@@ -39,6 +40,7 @@ ns.RegisterElement({
 			label = L["Test"],
 			type = "execute",
 			text = L["Show"],
+			glyph = "flask",
 			desc = L["Show the enter combat message once."],
 			func = function()
 				FrostAtomUI:GetModule("Misc"):TestCombatAlert()
@@ -51,11 +53,12 @@ ns.RegisterElement({
 	path = "performance.point",
 	page = "hud",
 	name = L["FPS / latency"],
+	glyph = "gauge-high",
 	enabledBy = "performance.enabled",
 	schema = {
 		{ path = "performance.showFps", label = L["Show FPS"], type = "toggle" },
 		{ path = "performance.showLatency", label = L["Show latency"], type = "toggle" },
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{ path = "performance.valueFont", label = L["Value font"], type = "font" },
 		{
 			path = "performance.unitFont",
@@ -70,12 +73,13 @@ ns.RegisterElement({
 	path = "experienceBar.point",
 	page = "hud",
 	name = L["Experience bar"],
+	glyph = "chart-line",
 	enabledBy = "experienceBar.enabled",
 	schema = {
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		{ path = "experienceBar.width", label = L["Width"], type = "number", min = 100, max = 1200, step = 1 },
 		{ path = "experienceBar.height", label = L["Height"], type = "number", min = 2, max = 30, step = 1 },
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{ path = "experienceBar.xpColor", label = L["Experience"], type = "color" },
 		{
 			path = "experienceBar.restedColor",
@@ -96,7 +100,7 @@ ns.RegisterElement({
 })
 
 local schema = {
-	{ header = L["Frames"] },
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
 }
 
@@ -107,7 +111,7 @@ Section(schema, L["Combat alert"], "combatAlert", {
 		type = "toggle",
 		desc = L["Flash a message when entering or leaving combat."],
 	},
-})
+}, nil, nil, "triangle-exclamation")
 
 Section(schema, L["FPS / latency"], "performance", {
 	{
@@ -172,7 +176,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		step = 5,
 		enabledBy = "performance.showLatency",
 	},
-})
+}, nil, nil, "gauge-high")
 
 Section(schema, L["Experience bar"], "experienceBar", {
 	{
@@ -187,7 +191,7 @@ Section(schema, L["Experience bar"], "experienceBar", {
 		type = "toggle",
 		desc = L["Track the reputation selected in the Reputation window instead of experience."],
 	},
-})
+}, nil, nil, "chart-line")
 
 Section(schema, L["Low health flash"], "lowHealthFlash", {
 	{ path = "enabled", label = L["Enable"], type = "toggle", desc = L["Pulse a red screen edge at low health."] },
@@ -209,7 +213,7 @@ Section(schema, L["Low health flash"], "lowHealthFlash", {
 		step = 0.1,
 		desc = L["Higher pulses faster; 1 fades fully in and out in two seconds."],
 	},
-})
+}, nil, nil, "heart-crack")
 
 Section(schema, L["Cursor trail"], "cursorTrail", {
 	{
@@ -238,15 +242,21 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 		step = 0.05,
 		desc = L["Glow at the cursor tip."],
 	},
-})
+}, nil, nil, "arrow-pointer")
 
 for _, element in ipairs({
-	{ "blizzardFrames.captureBarPoint", L["Capture bars"] },
-	{ "blizzardFrames.vehicleSeatPoint", L["Vehicle seats"] },
-	{ "blizzardFrames.errorsPoint", L["Error messages"] },
-	{ "blizzardFrames.raidWarningPoint", L["Raid warnings"] },
+	{ "blizzardFrames.captureBarPoint", L["Capture bars"], "flag" },
+	{ "blizzardFrames.vehicleSeatPoint", L["Vehicle seats"], "car-side" },
+	{ "blizzardFrames.errorsPoint", L["Error messages"], "circle-exclamation" },
+	{ "blizzardFrames.raidWarningPoint", L["Raid warnings"], "bullhorn" },
 }) do
-	ns.RegisterElement({ path = element[1], page = "hud", name = element[2], enabledBy = "blizzardFrames.enabled" })
+	ns.RegisterElement({
+		path = element[1],
+		page = "hud",
+		name = element[2],
+		glyph = element[3],
+		enabledBy = "blizzardFrames.enabled",
+	})
 end
 
 Section(schema, L["Blizzard frames"], "blizzardFrames", {
@@ -272,11 +282,12 @@ Section(schema, L["Blizzard frames"], "blizzardFrames", {
 		label = L["Hide quest tracker in combat"],
 		type = "toggle",
 	},
-}, nil, "1.4.0")
+}, nil, "1.4.0", "window-maximize")
 
 ns.RegisterPage({
 	key = "hud",
 	name = L["HUD"],
+	glyph = "gauge",
 	order = 31,
 	schema = schema,
 })

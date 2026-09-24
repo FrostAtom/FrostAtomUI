@@ -138,12 +138,26 @@ ns.Defaults = {
 		party2Castbar = { "LEFT", 4, 0, "unitFrames.party2", "RIGHT" },
 		party3Castbar = { "LEFT", 4, 0, "unitFrames.party3", "RIGHT" },
 		party4Castbar = { "LEFT", 4, 0, "unitFrames.party4", "RIGHT" },
+		party1Pet = { "RIGHT", -2, 0, "unitFrames.party", "LEFT" },
+		party2Pet = { "RIGHT", -2, 0, "unitFrames.party2", "LEFT" },
+		party3Pet = { "RIGHT", -2, 0, "unitFrames.party3", "LEFT" },
+		party4Pet = { "RIGHT", -2, 0, "unitFrames.party4", "LEFT" },
+		party1Target = { "RIGHT", -2, 0, "unitFrames.party1Pet", "LEFT" },
+		party2Target = { "RIGHT", -2, 0, "unitFrames.party2Pet", "LEFT" },
+		party3Target = { "RIGHT", -2, 0, "unitFrames.party3Pet", "LEFT" },
+		party4Target = { "RIGHT", -2, 0, "unitFrames.party4Pet", "LEFT" },
 		arena = { "RIGHT", -150, 230 },
 		arena2 = { "RIGHT", 0, -160, "unitFrames.arena", "RIGHT" },
 		arena3 = { "RIGHT", 0, -160, "unitFrames.arena2", "RIGHT" },
 		arena1Castbar = { "RIGHT", -4, 0, "unitFrames.arena", "LEFT" },
 		arena2Castbar = { "RIGHT", -4, 0, "unitFrames.arena2", "LEFT" },
 		arena3Castbar = { "RIGHT", -4, 0, "unitFrames.arena3", "LEFT" },
+		arena1Pet = { "LEFT", 2, 0, "unitFrames.arena", "RIGHT" },
+		arena2Pet = { "LEFT", 2, 0, "unitFrames.arena2", "RIGHT" },
+		arena3Pet = { "LEFT", 2, 0, "unitFrames.arena3", "RIGHT" },
+		arena1Target = { "LEFT", 2, 0, "unitFrames.arena1Pet", "RIGHT" },
+		arena2Target = { "LEFT", 2, 0, "unitFrames.arena2Pet", "RIGHT" },
+		arena3Target = { "LEFT", 2, 0, "unitFrames.arena3Pet", "RIGHT" },
 		boss = { "RIGHT", -150, 300 },
 		bossSpacing = 60,
 		outOfRangeAlpha = 0.75,
@@ -169,6 +183,20 @@ ns.Defaults = {
 		partyCastbarHeight = 25,
 		arenaCastbarWidth = 160,
 		arenaCastbarHeight = 25,
+		petWidth = 45,
+		petHeight = 45,
+		targetOfTargetWidth = 45,
+		targetOfTargetHeight = 45,
+		focusTargetWidth = 45,
+		focusTargetHeight = 45,
+		partyPetWidth = 45,
+		partyPetHeight = 45,
+		partyTargetWidth = 45,
+		partyTargetHeight = 45,
+		arenaPetWidth = 45,
+		arenaPetHeight = 45,
+		arenaTargetWidth = 45,
+		arenaTargetHeight = 45,
 		playerAuraSize = 34,
 		playerAuraPerRow = 8,
 		playerAuraGrowth = "LEFT",
@@ -222,8 +250,12 @@ ns.Defaults = {
 		showPvpIcon = true,
 		showRaidIcon = true,
 		showPet = true,
+		showPartyPet = true,
+		showArenaPet = true,
 		showTargetOfTarget = true,
 		showFocusTarget = true,
+		showPartyTarget = false,
+		showArenaTarget = false,
 		showLoseControl = true,
 		rightClick = "menu",
 		hoverHighlight = true,
@@ -467,6 +499,7 @@ ns.Defaults = {
 	temporaryEnchant = {
 		enabled = true,
 		point = { "TOPRIGHT", -155, -163 },
+		showInAuras = false,
 		size = 30,
 		gap = 2,
 		showTimer = true,
@@ -1506,6 +1539,34 @@ local function migrateCastbarLayout(profile)
 	end
 end
 
+local SQUARE_SIZE_SOURCES = {
+	pet = "playerHeight",
+	targetOfTarget = "playerHeight",
+	focusTarget = "playerHeight",
+	partyPet = "partyHeight",
+	partyTarget = "partyHeight",
+	arenaPet = "arenaHeight",
+	arenaTarget = "arenaHeight",
+}
+
+local function migrateSquareFrames(profile)
+	local unitFrames = profile.unitFrames
+	if not unitFrames then
+		return
+	end
+	if unitFrames.showPet == false then
+		setChanged(unitFrames, "showPartyPet", false)
+		setChanged(unitFrames, "showArenaPet", false)
+	end
+	for key, source in pairs(SQUARE_SIZE_SOURCES) do
+		local height = unitFrames[source]
+		if height then
+			setChanged(unitFrames, key .. "Width", height)
+			setChanged(unitFrames, key .. "Height", height)
+		end
+	end
+end
+
 local function migrateCastbarHeight(profile)
 	local unitFrames = profile.unitFrames
 	local height = unitFrames and unitFrames.castbarHeight
@@ -1548,9 +1609,13 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 		if not db.castbarLayoutMigrated then
 			migrateCastbarLayout(profile)
 		end
+		if not db.squareFramesMigrated then
+			migrateSquareFrames(profile)
+		end
 		migrate(profile)
 	end
 	db.castbarLayoutMigrated = true
+	db.squareFramesMigrated = true
 	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)

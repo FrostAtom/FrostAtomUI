@@ -6,6 +6,7 @@ ns.RegisterElement({
 	path = "bags.inventory",
 	page = "bags",
 	name = L["Inventory"],
+	glyph = "bag-shopping",
 	enabledBy = "bags.enabled",
 	schema = {
 		{
@@ -23,6 +24,7 @@ ns.RegisterElement({
 	path = "bags.bank",
 	page = "bags",
 	name = L["Bank"],
+	glyph = "building-columns",
 	enabledBy = "bags.enabled",
 	schema = {
 		{ path = "bags.bankColumns", label = L["Columns"], type = "number", min = 4, max = 24, step = 1 },
@@ -32,6 +34,7 @@ ns.RegisterElement({
 ns.RegisterPage({
 	key = "bags",
 	name = L["Bags"],
+	glyph = "bag-shopping",
 	order = 50,
 	enable = "bags.enabled",
 	schema = {
@@ -43,7 +46,7 @@ ns.RegisterPage({
 			desc = L["Replace Blizzard bags."],
 		},
 		{ type = "elements" },
-		{ header = L["General"] },
+		{ header = L["General"], glyph = "gear" },
 		{
 			path = "bags.autoOpen",
 			label = L["Open at merchant / mail / bank"],
@@ -65,7 +68,7 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Hovering the money lists the gold of every character on this realm with the total."],
 		},
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ description = L["Shared by the inventory and the bank; columns are set for each window separately."] },
 		{ path = "bags.buttonSize", label = L["Button size"], type = "number", min = 20, max = 50, step = 1 },
 		{
@@ -94,7 +97,7 @@ ns.RegisterPage({
 			max = 1,
 			step = 0.05,
 		},
-		{ header = L["Items"] },
+		{ header = L["Items"], glyph = "box-open" },
 		{
 			path = "bags.showItemLevel",
 			label = L["Show item level"],
@@ -129,7 +132,7 @@ ns.RegisterPage({
 			step = 0.05,
 			desc = L["Alpha of items that do not match the search text."],
 		},
-		{ header = L["Sorting"], new = "1.4.1" },
+		{ header = L["Sorting"], new = "1.4.1", glyph = "arrow-down-short-wide" },
 		{
 			description = L["/sort sorts the bags, /sortbank the bank. Sorting the bank first tops up its stacks from your bags."],
 		},
@@ -151,6 +154,7 @@ ns.RegisterPage({
 			new = "1.4.1",
 			label = L["Locked slots"],
 			text = L["Unlock all"],
+			glyph = "lock-open",
 			confirm = L["Unlock every locked bag and bank slot of this character?"],
 			func = function()
 				FrostAtomUI:GetModule("Bags"):ClearSlotLocks()
@@ -170,10 +174,10 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L['"Sorting complete" and "already sorted" in chat.'],
 		},
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{ path = "bags.countFont", label = L["Stack count font"], type = "font" },
 		{ path = "bags.levelFont", label = L["Item level font"], type = "font", enabledBy = "bags.showItemLevel" },
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{
 			path = "bags.questItemColor",
 			label = L["Quest item border"],

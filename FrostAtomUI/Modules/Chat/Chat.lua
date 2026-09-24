@@ -764,19 +764,34 @@ local TOOLTIP_LINK_TYPES = {
 	glyph = true,
 }
 
-local function onHyperlinkEnter(chatFrame, link)
-	if TOOLTIP_LINK_TYPES[match(link, "^(%a+):")] then
-		GameTooltip:SetOwner(chatFrame, "ANCHOR_CURSOR")
-		GameTooltip:SetHyperlink(link)
-		GameTooltip:Show()
+local hoveredLink
+
+local function hideLinkTooltip(chatFrame)
+	hoveredLink = nil
+	if GameTooltip:IsOwned(chatFrame) then
+		GameTooltip:Hide()
 	end
 end
 
-local function onHyperlinkLeave()
-	GameTooltip:Hide()
+local function onHyperlinkEnter(chatFrame, link)
+	if not TOOLTIP_LINK_TYPES[match(link, "^(%a+):")] then
+		hideLinkTooltip(chatFrame)
+		return
+	end
+	hoveredLink = link
+	GameTooltip:SetOwner(chatFrame, "ANCHOR_CURSOR")
+	GameTooltip:SetHyperlink(link)
+	GameTooltip:Show()
+end
+
+local function onHyperlinkLeave(chatFrame, link)
+	if link == hoveredLink then
+		hideLinkTooltip(chatFrame)
+	end
 end
 
 local function onMouseWheel(chatFrame, delta)
+	hideLinkTooltip(chatFrame)
 	if IsControlKeyDown() then
 		if delta > 0 then
 			chatFrame:ScrollToTop()

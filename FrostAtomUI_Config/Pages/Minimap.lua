@@ -8,9 +8,10 @@ ns.RegisterElement({
 	path = "minimap.point",
 	page = "minimap",
 	name = L["Minimap"],
+	glyph = "map",
 	enabledBy = "minimap.enabled",
 	schema = {
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "minimap.size", label = L["Size"], type = "number", min = 100, max = 400, step = 1 },
 		{ path = "minimap.borderColor", label = L["Border color"], type = "color" },
 		{
@@ -35,7 +36,7 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Gather addon buttons from the minimap edge into a panel opened by the + button on the left side of the minimap."],
 		},
-		{ header = L["Clock"] },
+		{ header = L["Clock"], glyph = "clock" },
 		{ path = "minimap.showClock", label = L["Show clock"], type = "toggle" },
 		{
 			path = "minimap.clock24h",
@@ -52,7 +53,7 @@ ns.RegisterElement({
 			desc = L["Relative to the minimap."],
 		},
 		{ path = "minimap.clockFont", label = L["Clock font"], type = "font", enabledBy = "minimap.showClock" },
-		{ header = L["Zone text"] },
+		{ header = L["Zone text"], glyph = "location-dot" },
 		{
 			path = "minimap.showZoneText",
 			label = L["Show zone name"],
@@ -60,7 +61,7 @@ ns.RegisterElement({
 			desc = L["Current zone at the top of the minimap, colored by PvP status."],
 		},
 		{ path = "minimap.zoneFont", label = L["Zone font"], type = "font", enabledBy = "minimap.showZoneText" },
-		{ header = L["Visibility"] },
+		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "minimap.mouseover",
 			label = L["Show on mouseover"],
@@ -94,6 +95,7 @@ ns.RegisterElement({
 	path = "minimap.lfgPoint",
 	page = "minimap",
 	name = L["Queue eye"],
+	glyph = "eye",
 	enabledBy = "minimap.enabled",
 	schema = {
 		{
@@ -119,7 +121,7 @@ Section(schema, L["Minimap"], "minimap", {
 		desc = L["Square minimap, clock, hidden buttons."],
 	},
 	{ type = "elements" },
-})
+}, nil, nil, "map")
 
 Section(schema, L["World map"], "worldMap", {
 	{
@@ -181,11 +183,12 @@ Section(schema, L["World map"], "worldMap", {
 		step = 0.05,
 		enabledBy = "worldMap.fadeWhenMoving",
 	},
-})
+}, nil, nil, "map-location-dot")
 
 ns.RegisterPage({
 	key = "minimap",
 	name = L["Minimap & map"],
+	glyph = "map",
 	order = 37,
 	schema = schema,
 })

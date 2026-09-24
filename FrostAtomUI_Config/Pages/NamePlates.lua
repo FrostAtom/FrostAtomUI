@@ -18,6 +18,7 @@ local NEW = "1.4.1"
 ns.RegisterPage({
 	key = "nameplates",
 	name = L["Nameplates"],
+	glyph = "id-card",
 	order = 25,
 	enable = "namePlates.enabled",
 	schema = {
@@ -86,7 +87,7 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Border in the unit frame target color on the current target."],
 		},
-		{ header = L["Sizes"] },
+		{ header = L["Sizes"], glyph = "up-down-left-right" },
 		{ path = "namePlates.barWidth", label = L["Bar width"], type = "number", min = 40, max = 200, step = 1 },
 		{ path = "namePlates.barHeight", label = L["Health bar height"], type = "number", min = 3, max = 30, step = 1 },
 		{
@@ -107,7 +108,7 @@ ns.RegisterPage({
 			step = 1,
 			enabledBy = "namePlates.totemIcons",
 		},
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{ path = "namePlates.nameFont", label = L["Name font"], type = "font", enabledBy = "namePlates.showName" },
 		{
 			path = "namePlates.percentFont",
@@ -115,7 +116,7 @@ ns.RegisterPage({
 			type = "font",
 			enabledBy = "namePlates.showTargetPercent",
 		},
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{
 			path = "namePlates.healthColorMode",
 			label = L["Health bar color"],
@@ -131,7 +132,7 @@ ns.RegisterPage({
 			desc = L["Party, raid and arena teammates get their class color instead of the friendly blue."],
 		},
 		{ description = L["Backdrop, border and text colors follow the unit frame settings."] },
-		{ header = L["Castbar"] },
+		{ header = L["Castbar"], glyph = "bars-progress" },
 		{
 			path = "namePlates.castbarsAllPlates",
 			new = NEW,
@@ -221,7 +222,7 @@ ns.RegisterPage({
 			type = "color",
 			desc = L["Castbar color while the cast cannot be interrupted."],
 		},
-		{ header = L["Auras"] },
+		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		{
 			path = "namePlates.showAuras",
 			label = L["Show auras"],
@@ -327,7 +328,7 @@ ns.RegisterPage({
 			type = "font",
 			enabledBy = "namePlates.showAuras",
 		},
-		{ header = L["Enemy healers"] },
+		{ header = L["Enemy healers"], glyph = "user-nurse" },
 		{
 			path = "namePlates.showHealers",
 			label = L["Mark enemy healers"],

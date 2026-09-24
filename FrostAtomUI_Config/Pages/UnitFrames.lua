@@ -84,6 +84,7 @@ local function testFramesButton()
 		label = L["Test frames"],
 		type = "execute",
 		text = L["Toggle"],
+		glyph = "flask",
 		desc = L["Show every frame with fake units to preview the layout."],
 		func = function()
 			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
@@ -93,15 +94,9 @@ end
 
 local function mainFrameSize()
 	return {
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		size("unitFrames.playerWidth", L["Player / target width"], 120, 320, L["Also focus."]),
-		size(
-			"unitFrames.playerHeight",
-			L["Player / target height"],
-			30,
-			80,
-			L["Also focus, pet and target of target."]
-		),
+		size("unitFrames.playerHeight", L["Player / target height"], 30, 80, L["Also focus."]),
 	}
 end
 
@@ -145,6 +140,14 @@ local function ownAuraScale()
 	}
 end
 
+local function squareEntries(shownPath, sizeKey, label, new, desc)
+	return {
+		{ path = shownPath, new = new, label = label, type = "toggle", desc = desc },
+		size("unitFrames." .. sizeKey .. "Width", L["Width"], 20, 120, nil, shownPath),
+		size("unitFrames." .. sizeKey .. "Height", L["Height"], 20, 120, nil, shownPath),
+	}
+end
+
 local function castbarToggle(path)
 	return { path = path, new = "1.4.0", label = L["Show castbar"], type = "toggle" }
 end
@@ -177,7 +180,7 @@ end
 
 local function groupLayout(prefix)
 	return {
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		size("unitFrames." .. prefix .. "Width", L["Width"], 120, 320),
 		size("unitFrames." .. prefix .. "Height", L["Height"], 30, 80),
 		{
@@ -196,13 +199,39 @@ local function concat(...)
 	return list
 end
 
+local GROUP_SQUARES = {
+	Pet = {
+		header = L["Pet"],
+		desc = L["Each pet frame moves on its own; by default it is attached to its owner's frame."],
+	},
+	Target = {
+		header = L["Target"],
+		desc = L["Square frame with the unit's target. Each one moves on its own; by default it is attached to the pet frame."],
+	},
+}
+
+local function groupSquareEntries(prefix, name, kind, label)
+	local square = GROUP_SQUARES[kind]
+	return squareEntries("unitFrames.show" .. name .. kind, prefix .. kind, label, "1.4.1", square.desc)
+end
+
+local function groupSquareSections(prefix, name, petLabel, targetLabel)
+	return concat(
+		{ { header = GROUP_SQUARES.Pet.header, glyph = "paw" } },
+		groupSquareEntries(prefix, name, "Pet", petLabel),
+		{ { header = GROUP_SQUARES.Target.header, glyph = "bullseye" } },
+		groupSquareEntries(prefix, name, "Target", targetLabel)
+	)
+end
+
 ns.RegisterElement({
 	path = "unitFrames.player",
 	page = "unitframes",
 	name = L["Player"],
+	glyph = "user",
 	enabledBy = "unitFrames.enabled",
 	schema = concat(mainFrameSize(), {
-		{ header = L["Indicators"] },
+		{ header = L["Indicators"], glyph = "icons" },
 		iconSide("player"),
 		{ path = "unitFrames.showRestingIcon", label = L["Resting icon"], type = "toggle" },
 		{
@@ -242,16 +271,17 @@ ns.RegisterElement({
 	path = "unitFrames.target",
 	page = "unitframes",
 	name = L["Target"],
+	glyph = "bullseye",
 	enabledBy = "unitFrames.enabled",
 	schema = concat(mainFrameSize(), {
 		targetAurasPerRow(),
 		ownAuraScale(),
 		auraOrder(),
-		{ header = L["Indicators"] },
+		{ header = L["Indicators"], glyph = "icons" },
 		iconSide("target"),
-		{ header = L["Castbar"] },
+		{ header = L["Castbar"], glyph = "bars-progress" },
 		castbarToggle("unitFrames.showTargetCastbar"),
-		{ header = L["Combo points"] },
+		{ header = L["Combo points"], glyph = "circle-dot" },
 		size("unitFrames.comboPointSize", L["Combo point size"], 4, 20, L["Dots above the target frame."]),
 		{ path = "unitFrames.comboPointColor", label = L["Combo points (full)"], type = "color" },
 		{ path = "unitFrames.comboPointPartialColor", label = L["Combo points"], type = "color" },
@@ -262,14 +292,15 @@ ns.RegisterElement({
 	path = "unitFrames.focus",
 	page = "unitframes",
 	name = L["Focus"],
+	glyph = "eye",
 	enabledBy = "unitFrames.enabled",
 	schema = concat(mainFrameSize(), {
 		targetAurasPerRow(),
 		ownAuraScale(),
 		auraOrder(),
-		{ header = L["Indicators"] },
+		{ header = L["Indicators"], glyph = "icons" },
 		iconSide("focus"),
-		{ header = L["Castbar"] },
+		{ header = L["Castbar"], glyph = "bars-progress" },
 		castbarToggle("unitFrames.showFocusCastbar"),
 	}),
 })
@@ -278,14 +309,19 @@ ns.RegisterElement({
 	path = "unitFrames.pet",
 	page = "unitframes",
 	name = L["Pet"],
-	enabledBy = { "unitFrames.enabled", "unitFrames.showPet" },
-	schema = {
+	glyph = "paw",
+	enabledBy = "unitFrames.enabled",
+	schema = concat(squareEntries("unitFrames.showPet", "pet", L["Show player pet"]), {
 		{
-			path = "unitFrames.showPet",
-			label = L["Show pet frames"],
+			path = "unitFrames.petHappiness",
+			new = "1.4.1",
+			label = L["Pet happiness"],
 			type = "toggle",
-			desc = L["Square pet frames next to the player, party and arena frames."],
+			hidden = ns.NotClass("HUNTER"),
+			enabledBy = "unitFrames.showPet",
+			desc = L["Happiness icon in the corner of your pet frame."],
 		},
+		{ header = L["All pets"], glyph = "paw" },
 		{
 			path = "unitFrames.petPower",
 			new = "1.4.1",
@@ -293,55 +329,51 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Mana, focus or energy strip at the bottom of the pet frames."],
 		},
-		{
-			path = "unitFrames.petHappiness",
-			new = "1.4.1",
-			label = L["Pet happiness"],
-			type = "toggle",
-			hidden = ns.NotClass("HUNTER"),
-			desc = L["Happiness icon in the corner of your pet frame."],
-		},
-	},
+	}),
 })
 
 ns.RegisterElement({
 	path = "unitFrames.targetOfTarget",
 	page = "unitframes",
 	name = L["Target of target"],
-	enabledBy = { "unitFrames.enabled", "unitFrames.showTargetOfTarget" },
-	schema = {
-		{ path = "unitFrames.showTargetOfTarget", new = "1.4.0", label = L["Show target of target"], type = "toggle" },
+	glyph = "bullseye",
+	enabledBy = "unitFrames.enabled",
+	schema = concat(
+		squareEntries("unitFrames.showTargetOfTarget", "targetOfTarget", L["Show target of target"], "1.4.0"),
 		{
-			path = "unitFrames.hideTargetOfTargetSelf",
-			new = "1.4.1",
-			label = L["Hide when it is you"],
-			type = "toggle",
-			desc = L["Make the frame invisible while your target is targeting you. It still reacts to clicks, as secure frames cannot be hidden in combat."],
-		},
-	},
+			{
+				path = "unitFrames.hideTargetOfTargetSelf",
+				new = "1.4.1",
+				label = L["Hide when it is you"],
+				type = "toggle",
+				enabledBy = "unitFrames.showTargetOfTarget",
+				desc = L["Make the frame invisible while your target is targeting you. It still reacts to clicks, as secure frames cannot be hidden in combat."],
+			},
+		}
+	),
 })
 
 ns.RegisterElement({
 	path = "unitFrames.focusTarget",
 	page = "unitframes",
 	name = L["Target of focus"],
-	enabledBy = { "unitFrames.enabled", "unitFrames.showFocusTarget" },
-	schema = {
-		{ path = "unitFrames.showFocusTarget", new = "1.4.0", label = L["Show target of focus"], type = "toggle" },
-	},
+	glyph = "bullseye",
+	enabledBy = "unitFrames.enabled",
+	schema = squareEntries("unitFrames.showFocusTarget", "focusTarget", L["Show target of focus"], "1.4.0"),
 })
 
 ns.RegisterElement({
 	path = "unitFrames.playerCastbar",
 	page = "unitframes",
 	name = L["Player castbar"],
+	glyph = "bars-progress",
 	enabledBy = "unitFrames.enabled",
 	schema = {
 		castbarToggle("unitFrames.showPlayerCastbar"),
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		size("unitFrames.playerCastbarWidth", L["Width"], 100, 500, nil, "unitFrames.showPlayerCastbar"),
 		size("unitFrames.playerCastbarHeight", L["Height"], 10, 50, nil, "unitFrames.showPlayerCastbar"),
-		{ header = L["Latency"] },
+		{ header = L["Latency"], glyph = "signal" },
 		{
 			path = "unitFrames.castbarLatency",
 			new = "1.4.1",
@@ -365,9 +397,10 @@ ns.RegisterElement({
 	path = "unitFrames.playerAuras",
 	page = "unitframes",
 	name = L["Player buffs / debuffs"],
+	glyph = "wand-magic-sparkles",
 	enabledBy = "unitFrames.enabled",
 	schema = {
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{
 			path = "unitFrames.playerAuraGrowth",
 			new = "1.4.1",
@@ -376,7 +409,7 @@ ns.RegisterElement({
 			values = HORIZONTAL_GROWTH_VALUES,
 			desc = L["Debuffs go below the buffs."],
 		},
-		{ header = L["Buffs"] },
+		{ header = L["Buffs"], glyph = "wand-magic-sparkles" },
 		size("unitFrames.playerAuraSize", L["Icon size"], 16, 60),
 		{
 			path = "unitFrames.playerAuraPerRow",
@@ -395,7 +428,7 @@ ns.RegisterElement({
 			values = BUFF_SORT_VALUES,
 			desc = L["Right-click cancels a buff, in combat too. A sorted grid keeps the buff names it had when combat started, so after the order changes in combat a click may cancel a different buff."],
 		},
-		{ header = L["Debuffs"] },
+		{ header = L["Debuffs"], glyph = "skull-crossbones" },
 		{
 			path = "unitFrames.playerDebuffSize",
 			new = "1.4.1",
@@ -424,7 +457,7 @@ local function partySchema()
 			groupLayout("party"),
 			{
 				iconSide("party"),
-				{ header = L["Auras"] },
+				{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 				auraOrder(),
 			},
 			groupDebuffEntries(),
@@ -443,7 +476,10 @@ local function partySchema()
 					40,
 					L["Most buffs shown per party frame; the rest are dropped."]
 				),
-				{ header = L["Trinket"] },
+			},
+			groupSquareSections("party", "Party", L["Show party pets"], L["Show party member targets"]),
+			{
+				{ header = L["Trinket"], glyph = "medal" },
 				{
 					path = "arenaTrinket.party",
 					label = L["Show party trinkets in arena"],
@@ -451,9 +487,9 @@ local function partySchema()
 					enabledBy = "arenaTrinket.enabled",
 					desc = L["PvP trinket cooldown icon left of each party pet, only inside arenas. Size is shared with arena trinkets."],
 				},
-				{ header = L["Castbar"] },
+				{ header = L["Castbar"], glyph = "bars-progress" },
 				castbarToggle("unitFrames.showPartyCastbar"),
-				{ header = L["Test"] },
+				{ header = L["Test"], glyph = "flask" },
 				testFramesButton(),
 			}
 		)
@@ -467,11 +503,12 @@ local function arenaSchema()
 			groupLayout("arena"),
 			{
 				iconSide("arena"),
-				{ header = L["Auras"] },
+				{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 			},
 			groupDebuffEntries(),
+			groupSquareSections("arena", "Arena", L["Show arena pets"], L["Show arena opponent targets"]),
 			{
-				{ header = L["Trinket"] },
+				{ header = L["Trinket"], glyph = "medal" },
 				{
 					path = "arenaTrinket.enabled",
 					label = L["Show arena trinkets"],
@@ -479,9 +516,9 @@ local function arenaSchema()
 					desc = L["PvP trinket cooldown icon next to each arena frame."],
 				},
 				size("arenaTrinket.size", L["Arena trinket size"], 16, 60, nil, "arenaTrinket.enabled"),
-				{ header = L["Castbar"] },
+				{ header = L["Castbar"], glyph = "bars-progress" },
 				castbarToggle("unitFrames.showArenaCastbar"),
-				{ header = L["Test"] },
+				{ header = L["Test"], glyph = "flask" },
 				testFramesButton(),
 			}
 		)
@@ -496,11 +533,12 @@ local function castbarElement(prefix, path, name, enabledBy, hidden, desc)
 		page = "unitframes",
 		new = "1.4.1",
 		name = name,
+		glyph = "bars-progress",
 		hidden = hidden,
 		enabledBy = enabledBy,
 		schema = {
 			castbarToggle(shownPath),
-			{ header = L["Size"] },
+			{ header = L["Size"], glyph = "up-down-left-right" },
 			size(sizePrefix .. "Width", L["Width"], 60, 400, desc, shownPath),
 			size(sizePrefix .. "Height", L["Height"], 10, 50, L["The spell icon follows the height."], shownPath),
 		},
@@ -514,6 +552,7 @@ local function registerGroup(group)
 			path = "unitFrames." .. (i == 1 and group.prefix or group.prefix .. i),
 			page = "unitframes",
 			name = i == 1 and group.name or group.frames[i],
+			glyph = group.glyph,
 			hidden = i > 1,
 			enabledBy = enabledBy,
 			schema = group.schema(),
@@ -526,26 +565,50 @@ local function registerGroup(group)
 			true,
 			group.castbarSizeDesc
 		)
+		for kind, names in pairs({ Pet = group.pets, Target = group.targets }) do
+			ns.RegisterElement({
+				path = "unitFrames." .. group.prefix .. i .. kind,
+				page = "unitframes",
+				new = "1.4.1",
+				name = names[i],
+				glyph = kind == "Pet" and "paw" or "bullseye",
+				hidden = true,
+				enabledBy = enabledBy,
+				schema = groupSquareEntries(group.prefix, group.key, kind, group[kind:lower() .. "Label"]),
+			})
+		end
 	end
 end
 
 registerGroup({
 	prefix = "party",
 	name = L["Party"],
+	glyph = "users",
 	shownPath = "unitFrames.showParty",
 	castbarSizeDesc = L["Shared by all party castbars."],
 	frames = { L["Party 1"], L["Party 2"], L["Party 3"], L["Party 4"] },
 	castbars = { L["Party 1 castbar"], L["Party 2 castbar"], L["Party 3 castbar"], L["Party 4 castbar"] },
+	key = "Party",
+	pets = { L["Party 1 pet"], L["Party 2 pet"], L["Party 3 pet"], L["Party 4 pet"] },
+	targets = { L["Party 1 target"], L["Party 2 target"], L["Party 3 target"], L["Party 4 target"] },
+	petLabel = L["Show party pets"],
+	targetLabel = L["Show party member targets"],
 	schema = partySchema,
 })
 
 registerGroup({
 	prefix = "arena",
 	name = L["Arena"],
+	glyph = "crosshairs",
 	shownPath = "unitFrames.showArena",
 	castbarSizeDesc = L["Shared by all arena castbars."],
 	frames = { L["Arena 1"], L["Arena 2"], L["Arena 3"] },
 	castbars = { L["Arena 1 castbar"], L["Arena 2 castbar"], L["Arena 3 castbar"] },
+	key = "Arena",
+	pets = { L["Arena 1 pet"], L["Arena 2 pet"], L["Arena 3 pet"] },
+	targets = { L["Arena 1 target"], L["Arena 2 target"], L["Arena 3 target"] },
+	petLabel = L["Show arena pets"],
+	targetLabel = L["Show arena opponent targets"],
 	schema = arenaSchema,
 })
 
@@ -556,9 +619,10 @@ ns.RegisterElement({
 	path = "unitFrames.boss",
 	page = "unitframes",
 	name = L["Boss"],
+	glyph = "skull",
 	enabledBy = { "unitFrames.enabled", "unitFrames.showBoss" },
 	schema = Requires("unitFrames.showBoss", {
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		size("unitFrames.bossWidth", L["Width"], 120, 320),
 		size("unitFrames.bossHeight", L["Height"], 30, 80),
 		size(
@@ -574,6 +638,7 @@ ns.RegisterElement({
 ns.RegisterPage({
 	key = "unitframes",
 	name = L["Unit frames"],
+	glyph = "id-badge",
 	order = 20,
 	enable = "unitFrames.enabled",
 	schema = {
@@ -587,14 +652,37 @@ ns.RegisterPage({
 		{ path = "unitFrames.showParty", label = L["Show party frames"], type = "toggle" },
 		{ path = "unitFrames.showArena", label = L["Show arena frames"], type = "toggle" },
 		{ path = "unitFrames.showBoss", label = L["Show boss frames"], type = "toggle" },
+		{ path = "unitFrames.showPet", label = L["Show player pet"], type = "toggle" },
 		{
-			path = "unitFrames.showPet",
-			label = L["Show pet frames"],
+			path = "unitFrames.showPartyPet",
+			new = "1.4.1",
+			label = L["Show party pets"],
 			type = "toggle",
-			desc = L["Square pet frames next to the player, party and arena frames."],
+			enabledBy = "unitFrames.showParty",
+		},
+		{
+			path = "unitFrames.showArenaPet",
+			new = "1.4.1",
+			label = L["Show arena pets"],
+			type = "toggle",
+			enabledBy = "unitFrames.showArena",
 		},
 		{ path = "unitFrames.showTargetOfTarget", new = "1.4.0", label = L["Show target of target"], type = "toggle" },
 		{ path = "unitFrames.showFocusTarget", new = "1.4.0", label = L["Show target of focus"], type = "toggle" },
+		{
+			path = "unitFrames.showPartyTarget",
+			new = "1.4.1",
+			label = L["Show party member targets"],
+			type = "toggle",
+			enabledBy = "unitFrames.showParty",
+		},
+		{
+			path = "unitFrames.showArenaTarget",
+			new = "1.4.1",
+			label = L["Show arena opponent targets"],
+			type = "toggle",
+			enabledBy = "unitFrames.showArena",
+		},
 		{
 			path = "unitFrames.rightClick",
 			label = L["Right click"],
@@ -618,9 +706,9 @@ ns.RegisterPage({
 			enabledBy = "unitFrames.hoverHighlight",
 		},
 		testFramesButton(),
-		{ header = L["Frames"] },
+		{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 		{ type = "elements" },
-		{ header = L["Health bar"] },
+		{ header = L["Health bar"], glyph = "heart" },
 		{
 			path = "unitFrames.healthColorMode",
 			label = L["Health bar color"],
@@ -665,7 +753,7 @@ ns.RegisterPage({
 			step = 0.05,
 			desc = L["Fraction of the frame height taken by the power bar."],
 		},
-		{ header = L["Arena"] },
+		{ header = L["Arena"], glyph = "crosshairs" },
 		{
 			path = "arenaUnseen.enabled",
 			new = "1.4.0",
@@ -692,7 +780,7 @@ ns.RegisterPage({
 			enabledBy = "unitFrames.showArena",
 			desc = L["Placeholder frames for the expected opponents before the gates open, filled with class, spec and name as soon as an opponent is seen."],
 		},
-		{ header = L["Auras"] },
+		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		auraOrder(),
 		{
 			path = "unitFrames.auraTimers",
@@ -712,7 +800,7 @@ ns.RegisterPage({
 			enabledBy = "unitFrames.auraTimers",
 			desc = L["In seconds, by the full aura duration; 0 shows the timer on every aura."],
 		},
-		{ header = L["Cooldowns"] },
+		{ header = L["Cooldowns"], glyph = "hourglass-half" },
 		{
 			path = "unitFrames.cooldownReadyFlash",
 			new = "1.4.0",
@@ -721,7 +809,7 @@ ns.RegisterPage({
 			enabledBy = "internalCooldowns.enabled",
 			desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
 		},
-		{ header = L["Indicators"] },
+		{ header = L["Indicators"], glyph = "icons" },
 		{
 			path = "unitFrames.showClassIcon",
 			label = L["Class / spec icon"],
@@ -758,7 +846,7 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Icon and timer of the longest crowd control effect over the class icon of target, focus, party and arena frames."],
 		},
-		{ header = L["Castbar"] },
+		{ header = L["Castbar"], glyph = "bars-progress" },
 		{
 			path = "unitFrames.castbarTargetName",
 			new = "1.4.0",
@@ -808,7 +896,7 @@ ns.RegisterPage({
 			type = "select",
 			values = CAST_TIME_VALUES,
 		},
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{ description = TAGS_DESC },
 		{
 			path = "unitFrames.textFont",
@@ -823,7 +911,7 @@ ns.RegisterPage({
 		text("unitFrames.rightTextHover", L["Right text (mouseover)"], L["Empty to keep the right text on mouseover."]),
 		text("unitFrames.powerText", L["Power text"], L["Right side of the power bar."]),
 		text("unitFrames.powerTextHover", L["Power text (mouseover)"], L["Empty to keep the power text on mouseover."]),
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{ path = "unitFrames.textColor", label = L["Text"], type = "color" },
 		{ path = "unitFrames.backdropColor", label = L["Backdrop"], type = "color", alpha = true },
 		{ path = "unitFrames.borderColor", label = L["Border"], type = "color" },
@@ -889,7 +977,7 @@ ns.RegisterPage({
 			alpha = true,
 			enabledByAny = { "unitFrames.absorbs", "playerPlate.absorbs" },
 		},
-		{ header = L["Visibility"] },
+		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "unitFrames.outOfRangeAlpha",
 			label = L["Out of range alpha"],

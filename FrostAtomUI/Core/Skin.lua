@@ -29,6 +29,9 @@ local HEADER_CAP = 14
 local HEADER_PADDING = 36
 local HEADER_MIN_WIDTH = 100
 
+local PLACEHOLDER_GLYPH_SIZE = 9
+local PLACEHOLDER_GLYPH_GAP = 4
+
 local TAB_TEMPLATES = {
 	bottom = "CharacterFrameTabButtonTemplate",
 	top = "OptionsFrameTabButtonTemplate",
@@ -297,19 +300,31 @@ function ns.CreateRadioButton(parent, text, name)
 end
 
 local function updatePlaceholder(box)
-	ns.SetShown(box.placeholder, box:GetText() == "" and not box.focused)
+	local shown = box:GetText() == "" and not box.focused
+	ns.SetShown(box.placeholder, shown)
+	if box.placeholderGlyph then
+		ns.SetShown(box.placeholderGlyph, shown)
+	end
 end
 
-function ns.CreateEditBox(parent, width, height, name, placeholder)
+function ns.CreateEditBox(parent, width, height, name, placeholder, glyph)
 	local box = CreateFrame("EditBox", widgetName(name), parent, "InputBoxTemplate")
 	box:SetSize(width or 120, height or 20)
 	box:SetAutoFocus(false)
 	box:SetTextInsets(0, 0, 0, 0)
 	if placeholder then
 		local text = box:CreateFontString(nil, "ARTWORK", "GameFontDisable")
-		text:SetPoint("LEFT", 1, 0)
 		text:SetText(placeholder)
 		box.placeholder = text
+		if glyph ~= false then
+			local icon = ns.CreateGlyph(box, glyph or "magnifying-glass", PLACEHOLDER_GLYPH_SIZE, "ARTWORK")
+			icon:SetTextColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+			icon:SetPoint("LEFT", 1, 0)
+			text:SetPoint("LEFT", icon, "RIGHT", PLACEHOLDER_GLYPH_GAP, 0)
+			box.placeholderGlyph = icon
+		else
+			text:SetPoint("LEFT", 1, 0)
+		end
 		box:HookScript("OnEditFocusGained", function(self)
 			self.focused = true
 			updatePlaceholder(self)

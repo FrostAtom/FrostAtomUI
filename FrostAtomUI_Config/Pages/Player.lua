@@ -19,7 +19,7 @@ local HEALTH_TEXT_VALUES = {
 }
 
 local schema = {
-	{ header = L["Frames"] },
+	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 	{ type = "elements" },
 }
 
@@ -48,7 +48,7 @@ Section(schema, L["Player plate"], "playerPlate", {
 			return ui:GetConfig("playerPlate.alwaysShow")
 		end,
 	},
-})
+}, nil, nil, "heart-pulse")
 
 Section(schema, L["Shield indicator"], "shieldIndicator", {
 	{
@@ -57,7 +57,7 @@ Section(schema, L["Shield indicator"], "shieldIndicator", {
 		type = "toggle",
 		desc = L["Show the equipped shield icon next to the player plate."],
 	},
-}, NotClass("WARRIOR"))
+}, NotClass("WARRIOR"), nil, "shield-halved")
 
 Section(schema, L["Runes"], "runes", {
 	{
@@ -67,7 +67,7 @@ Section(schema, L["Runes"], "runes", {
 		reload = true,
 		desc = L["Replace the Blizzard rune frame."],
 	},
-}, NotClass("DEATHKNIGHT"))
+}, NotClass("DEATHKNIGHT"), nil, "gem")
 
 Section(schema, L["Totems"], "totems", {
 	{
@@ -76,7 +76,7 @@ Section(schema, L["Totems"], "totems", {
 		type = "toggle",
 		desc = L["Totem icons with timers, right-click to destroy."],
 	},
-}, NotClass("SHAMAN"))
+}, NotClass("SHAMAN"), nil, "monument")
 
 Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 	{
@@ -86,11 +86,20 @@ Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 		reload = true,
 		desc = L["Replace the Blizzard temporary enchant icons, right-click to cancel."],
 	},
-})
+	{
+		path = "showInAuras",
+		new = "1.4.1",
+		label = L["Show in player buffs"],
+		type = "toggle",
+		desc = L["Show the enchants in the player buff list like buffs, after the buffs or in the chosen buff order, instead of separate icons. Needs the unit frames."],
+		enabledBy = "unitFrames.enabled",
+	},
+}, nil, nil, "wand-sparkles")
 
 ns.RegisterPage({
 	key = "player",
 	name = L["Player resources"],
+	glyph = "user",
 	order = 30,
 	schema = schema,
 })
@@ -99,9 +108,10 @@ ns.RegisterElement({
 	path = "playerPlate.point",
 	page = "player",
 	name = L["Player plate"],
+	glyph = "heart-pulse",
 	enabledBy = "playerPlate.enabled",
 	schema = ElementSchema("playerPlate", {
-		{ header = L["Bars"] },
+		{ header = L["Bars"], glyph = "bars-staggered" },
 		{
 			path = "showPower",
 			new = "1.4.0",
@@ -131,7 +141,7 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Estimated size of absorb shields on you, with a glow at the bar edge while a shield is up. Colors are shared with the unit frames."],
 		},
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		{ path = "width", label = L["Width"], type = "number", min = 60, max = 400, step = 1 },
 		{ path = "healthHeight", label = L["Health bar height"], type = "number", min = 3, max = 40, step = 1 },
 		{
@@ -153,7 +163,7 @@ ns.RegisterElement({
 			desc = L["Gap between the health and power bars."],
 			enabledBy = "playerPlate.showPower",
 		},
-		{ header = L["Text"] },
+		{ header = L["Text"], glyph = "font" },
 		{
 			path = "showText",
 			label = L["Show values"],
@@ -169,7 +179,7 @@ ns.RegisterElement({
 			enabledBy = "playerPlate.showText",
 		},
 		{ path = "font", label = L["Font"], type = "font", enabledBy = "playerPlate.showText" },
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{
 			path = "healthColorMode",
 			label = L["Health bar color"],
@@ -193,6 +203,7 @@ ns.RegisterElement({
 	path = "shieldIndicator.point",
 	page = "player",
 	name = L["Shield indicator"],
+	glyph = "shield-halved",
 	enabledBy = "shieldIndicator.enabled",
 	hidden = NotClass("WARRIOR"),
 	schema = ElementSchema("shieldIndicator", {
@@ -204,14 +215,15 @@ ns.RegisterElement({
 	path = "runes.point",
 	page = "player",
 	name = L["Runes"],
+	glyph = "gem",
 	enabledBy = "runes.enabled",
 	hidden = NotClass("DEATHKNIGHT"),
 	schema = ElementSchema("runes", {
-		{ header = L["Size"] },
+		{ header = L["Size"], glyph = "up-down-left-right" },
 		{ path = "width", label = L["Rune width"], type = "number", min = 10, max = 100, step = 1 },
 		{ path = "height", label = L["Rune height"], type = "number", min = 4, max = 40, step = 1 },
 		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
-		{ header = L["Colors"] },
+		{ header = L["Colors"], glyph = "palette" },
 		{ path = "bloodColor", label = L["Blood"], type = "color" },
 		{ path = "unholyColor", label = L["Unholy"], type = "color" },
 		{ path = "frostColor", label = L["Frost"], type = "color" },
@@ -224,6 +236,7 @@ ns.RegisterElement({
 	path = "totems.point",
 	page = "player",
 	name = L["Totems"],
+	glyph = "monument",
 	enabledBy = "totems.enabled",
 	hidden = NotClass("SHAMAN"),
 	schema = ElementSchema("totems", {
@@ -237,7 +250,11 @@ ns.RegisterElement({
 	path = "temporaryEnchant.point",
 	page = "player",
 	name = L["Weapon enchants"],
+	glyph = "wand-sparkles",
 	enabledBy = "temporaryEnchant.enabled",
+	disabled = function()
+		return ui:GetConfig("temporaryEnchant.showInAuras") and ui:GetConfig("unitFrames.enabled")
+	end,
 	schema = ElementSchema("temporaryEnchant", {
 		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
 		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
