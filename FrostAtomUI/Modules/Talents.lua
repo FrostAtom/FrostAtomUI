@@ -116,6 +116,7 @@ local data = {}
 local dataTime = {}
 local observed = {}
 local specs = {}
+local points = {}
 local pending = {}
 local retries = {}
 local lastRequestGUID, lastRequestTime, lastRequestClass = nil, 0, nil
@@ -134,12 +135,16 @@ local function inspectDataMatchesClass(class)
 	return false
 end
 
+local treePoints = {}
+
 local function readTalents(isInspect, into)
 	local group = GetActiveTalentGroup(isInspect)
 	local spent, bestTab, bestPoints = 0, nil, 0
-	for tab = 1, GetNumTalentTabs(isInspect) do
+	local numTabs = GetNumTalentTabs(isInspect)
+	for tab = 1, numTabs do
 		local _, _, tabPoints = GetTalentTabInfo(tab, isInspect, nil, group)
 		tabPoints = tabPoints or 0
+		treePoints[tab] = tabPoints
 		for i = 1, GetNumTalents(tab, isInspect) do
 			local name, _, _, _, rank = GetTalentInfo(tab, i, isInspect, nil, group)
 			if rank and rank > 0 then
@@ -159,6 +164,9 @@ local function readTalents(isInspect, into)
 			bestTab = nil
 		end
 	end
+	for tab = numTabs + 1, #treePoints do
+		treePoints[tab] = nil
+	end
 	return spent, group, bestTab
 end
 
@@ -166,6 +174,7 @@ local function storeTalents(guid, talents, spec)
 	data[guid] = talents
 	dataTime[guid] = GetTime()
 	specs[guid] = spec
+	points[guid] = table.concat(treePoints, "/")
 	retries[guid] = nil
 	pending[guid] = nil
 	ns:Fire(ns.TALENTS_UPDATED, guid)
@@ -210,6 +219,10 @@ function Talents:GetSpec(guid)
 		end
 	end
 	return bestTree
+end
+
+function Talents:GetPoints(guid)
+	return points[guid]
 end
 
 function Talents:Has(guid, id)
@@ -293,6 +306,7 @@ function Talents:Invalidate(guid)
 	dataTime[guid] = nil
 	observed[guid] = nil
 	specs[guid] = nil
+	points[guid] = nil
 	retries[guid] = nil
 	local unit = guidToUnit(guid)
 	if unit then

@@ -211,9 +211,18 @@ in arenas and battlegrounds the window opens by itself.
 |---|---|
 | ![Tooltip](docs/screenshots/tooltip.png) | ![Character window](docs/screenshots/character.png) |
 
-- Spell and item tooltips show their **ID**, item level colored by quality and how many you carry in bags/bank.
-- Player tooltips show **average item level** (inspects nearby players automatically), guild and the unit's target.
-- The tooltip can follow the cursor; health numbers on its bar can be turned off.
+- Spell and item tooltips show their **ID**, item level colored by quality and how many you carry in bags/bank;
+  quest and achievement links show their ID too.
+- Player tooltips show **average item level** and **talent spec with points** (inspects nearby players
+  automatically; arena enemies from their auras), guild with rank, AFK/DND, realm (full name with Shift) and the
+  unit's target. Target and "targeted by" lines update live.
+- Level line rebuilt: level colored by difficulty, race, class in class color; elite/rare/boss tags for NPCs.
+  PvP and faction lines are dropped.
+- Buff and debuff icons with cooldown swirls above unit tooltips (all, or crowd control only).
+- Border in class, reaction or item quality color; class colored health bar.
+- The tooltip can follow the cursor (with an offset), sit next to the hovered frame or grow from its mover away
+  from the screen edge; its scale is adjustable. Unit tooltips can be hidden in combat over frames and/or in the
+  world, Shift shows them right away.
 - Character and Inspect windows show the item level on every slot and the average under the model.
 - Drag the model with the left mouse button to rotate, right button to move, wheel to zoom.
 - Friends / team member menus get a **Spectate** entry.
