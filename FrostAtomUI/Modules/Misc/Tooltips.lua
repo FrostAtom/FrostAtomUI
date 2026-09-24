@@ -39,7 +39,7 @@ local GetNumPartyMembers = GetNumPartyMembers
 local InCombatLockdown = InCombatLockdown
 local IsShiftKeyDown = IsShiftKeyDown
 local GetTime = GetTime
-local tconcat = table.concat
+local tconcat, sort = table.concat, table.sort
 local floor, ceil, max = math.floor, math.ceil, math.max
 
 local Misc = ns:GetModule("Misc")
@@ -656,6 +656,56 @@ local function unitItemLevel(tooltip, unit, guid)
 	end
 end
 
+local TEAMS_CACHE_TIME = 600
+
+local arenaTeams = {}
+
+local function sortBySize(a, b)
+	return a.size < b.size
+end
+
+Misc:RegisterEvent(ns.INSPECT_TEAMS_READY, function(_, guid, teams)
+	sort(teams, sortBySize)
+	arenaTeams[guid] = { teams = teams, time = GetTime() }
+	if config.enabled and config.showArenaTeams then
+		refreshUnit(guid)
+	end
+end)
+
+local function applyArenaTeams()
+	if config.enabled and config.showArenaTeams then
+		Inspect:WantTeams()
+	end
+end
+
+applyArenaTeams()
+Misc:WatchConfig("tooltip.showArenaTeams", applyArenaTeams)
+Misc:WatchConfig("tooltip.enabled", applyArenaTeams)
+
+local teamParts = {}
+
+local function addArenaTeams(tooltip, unit, guid)
+	local cached = arenaTeams[guid]
+	if not cached or GetTime() - cached.time > TEAMS_CACHE_TIME then
+		arenaTeams[guid] = { teams = cached and cached.teams, time = GetTime() }
+		Inspect:Request(unit, nil, true)
+	end
+	local teams = cached and cached.teams
+	if not teams or #teams == 0 then
+		return
+	end
+	wipe(teamParts)
+	for i = 1, #teams do
+		local team = teams[i]
+		local text = GREY_HEX .. team.size .. "v" .. team.size .. "|r " .. team.rating
+		if team.personal ~= team.rating then
+			text = text .. " " .. GREY_HEX .. "(" .. team.personal .. ")|r"
+		end
+		teamParts[i] = text
+	end
+	tooltip:AddDoubleLine(L["Arena"], tconcat(teamParts, "  "), nil, nil, nil, 1, 1, 1)
+end
+
 local AURA_SPACING = 2
 local AURA_BAR_GAP = 12
 local MAX_AURAS = 40
@@ -881,6 +931,9 @@ local function onTooltipSetUnit(tooltip)
 		end
 		if config.showSpec then
 			addSpec(tooltip, unit, guid)
+		end
+		if config.showArenaTeams and not UnitIsUnit(unit, "player") and not UnitCanAttack("player", unit) then
+			addArenaTeams(tooltip, unit, guid)
 		end
 		local Version = ns.Version
 		local userVersion, userBuild = Version.GetUser(UnitName(unit))

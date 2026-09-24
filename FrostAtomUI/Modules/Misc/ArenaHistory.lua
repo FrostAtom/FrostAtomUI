@@ -8,6 +8,8 @@ local GetBattlefieldTeamInfo = GetBattlefieldTeamInfo
 local GetBattlefieldWinner = GetBattlefieldWinner
 local GetBattlefieldInstanceRunTime = GetBattlefieldInstanceRunTime
 local RequestBattlefieldScoreData = RequestBattlefieldScoreData
+local IsActiveBattlefieldArena = IsActiveBattlefieldArena
+local GetBattlefieldArenaFaction = GetBattlefieldArenaFaction
 local IsInInstance = IsInInstance
 local GetRealZoneText = GetRealZoneText
 local GetNumPartyMembers = GetNumPartyMembers
@@ -66,12 +68,29 @@ local specIcons = UF.specIcons
 
 local FILTERS = { { "all", "All" }, { "2v2", "2v2" }, { "3v3", "3v3" }, { "solo", "Solo" } }
 local BRACKET_LABELS = { solo = "Solo" }
+local MAP_KEYS = {
+	["Nagrand Arena"] = "nagrand",
+	["Арена Награнда"] = "nagrand",
+	["Blade's Edge Arena"] = "bladesEdge",
+	["Арена Острогорья"] = "bladesEdge",
+	["Ruins of Lordaeron"] = "lordaeron",
+	["Руины Лордерона"] = "lordaeron",
+	["Dalaran Sewers"] = "dalaran",
+	["Dalaran Arena"] = "dalaran",
+	["Стоки Даларана"] = "dalaran",
+	["Арена Даларана"] = "dalaran",
+	["The Ring of Valor"] = "ringOfValor",
+	["Арена Доблести"] = "ringOfValor",
+	["Круг Доблести"] = "ringOfValor",
+	["Кольцо Доблести"] = "ringOfValor",
+}
+ns.ARENA_MAP_KEYS = MAP_KEYS
 local MAP_LABELS = {
-	["Nagrand Arena"] = "Nagrand",
-	["Blade's Edge Arena"] = "Blade's Edge",
-	["Ruins of Lordaeron"] = "Lordaeron",
-	["Dalaran Sewers"] = "Dalaran",
-	["The Ring of Valor"] = "Ring of Valor",
+	nagrand = "Nagrand",
+	bladesEdge = "Blade's Edge",
+	lordaeron = "Lordaeron",
+	dalaran = "Dalaran",
+	ringOfValor = "Ring of Valor",
 }
 
 local ICONS_WIDTH = MAX_TEAM * (ICON_SIZE + ICON_GAP) + 8
@@ -172,7 +191,8 @@ local function addPlayer(name, side)
 end
 
 local function collectUnit(unit, side)
-	if not UnitExists(unit) or not UnitIsPlayer(unit) then
+	local guid = UnitGUID(unit)
+	if not guid or UnitExists(unit) and not UnitIsPlayer(unit) then
 		return
 	end
 	local name = stripRealm(UnitName(unit))
@@ -180,7 +200,7 @@ local function collectUnit(unit, side)
 		return
 	end
 	local entry = addPlayer(name, side)
-	entry.guid = UnitGUID(unit) or entry.guid
+	entry.guid = guid
 	entry.class = select(2, UnitClass(unit)) or entry.class
 	entry.race = UnitRace(unit) or entry.race
 end
@@ -246,6 +266,12 @@ local function readScores(rows)
 end
 
 local function playerTeamOf(rows)
+	if IsActiveBattlefieldArena() then
+		local faction = GetBattlefieldArenaFaction()
+		if faction == 0 or faction == 1 then
+			return faction
+		end
+	end
 	local playerName = UnitName("player")
 	for i = 1, #rows do
 		if rows[i].name == playerName then
@@ -316,6 +342,7 @@ local function snapshot()
 		end
 	end
 	record.map = GetRealZoneText()
+	record.mapKey = MAP_KEYS[record.map]
 	if not record.duration then
 		local runTime = floor(GetBattlefieldInstanceRunTime() / 1000)
 		record.duration = runTime > 0 and runTime or startTime and time() - startTime or 0
@@ -366,7 +393,7 @@ Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	inArena = select(2, IsInInstance()) == "arena"
 	current = nil
 	currentTeam = nil
-	preparing = false
+	preparing = inArena and UnitBuff("player", ARENA_PREPARATION) ~= nil
 	startTime = nil
 	wipe(seen)
 	wipe(sightings)
@@ -486,7 +513,8 @@ local function bracketLabel(record)
 end
 
 local function mapLabel(record)
-	return MAP_LABELS[record.map] or record.map or UNKNOWN_NAME
+	local key = record.mapKey or MAP_KEYS[record.map]
+	return key and MAP_LABELS[key] or record.map or UNKNOWN_NAME
 end
 
 local function teamLabel(record, side)

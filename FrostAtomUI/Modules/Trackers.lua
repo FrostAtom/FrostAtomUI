@@ -578,6 +578,7 @@ local function createIcon(group)
 	icon:Hide()
 
 	icon.texture = icon:CreateTexture(nil, "BORDER")
+	icon.texture:SetNonBlocking(true)
 	icon.texture:SetPoint("TOPLEFT", 1, -1)
 	icon.texture:SetPoint("BOTTOMRIGHT", -1, 1)
 	icon.texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)

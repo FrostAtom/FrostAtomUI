@@ -15,7 +15,7 @@ read_globals = {
 	"CopyTable", "tContains", "getglobal", "setglobal",
 
 	-- WoW API (only what the addon uses)
-	"CreateFrame", "GetTime", "GetGameTime", "GetCVar", "SetCVar", "InCombatLockdown",
+	"CreateFrame", "GetTime", "GetGameTime", "GetCVar", "SetCVar", "GetCVarDefault", "RegisterCVar", "InCombatLockdown", "PlaySoundFile",
 	"GetFramerate", "GetNetStats",
 	"CanGuildBankRepair", "GetGuildBankWithdrawMoney", "GetGuildBankMoney",
 	"GetScreenWidth", "GetScreenHeight", "GetCursorPosition", "GetMouseFocus",

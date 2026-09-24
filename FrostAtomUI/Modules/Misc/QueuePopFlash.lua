@@ -147,7 +147,7 @@ local function updateInvite()
 		if confirm then
 			pendingInvite = true
 			if not confirmed[i] and config.enabled and config.sound and GetCVar("Sound_EnableSFX") == "0" then
-				PlaySoundFile(INVITE_SOUND, "Master")
+				PlaySoundFile(INVITE_SOUND)
 			end
 		end
 		confirmed[i] = confirm

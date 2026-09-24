@@ -196,6 +196,13 @@ ns.RegisterPage({
 			desc = L["Main talent tree and points of inspected players; enemies in arena from the auras they cast."],
 		},
 		{
+			path = "tooltip.showArenaTeams",
+			new = "1.4.1",
+			label = L["Arena ratings"],
+			type = "toggle",
+			desc = L["Team rating for 2v2, 3v3 and 5v5 of inspected players, personal rating in brackets when it differs. Friendly players only: enemies can't be inspected."],
+		},
+		{
 			path = "tooltip.showTitle",
 			new = "1.4.0",
 			label = L["PvP titles"],

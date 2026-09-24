@@ -528,7 +528,7 @@ function CastbarMixin:StartCast()
 	self:UpdateTarget()
 end
 
-local function showCastResult(plate, texture, iconShown, locked, interruptText)
+local function showCastResult(plate, texture, iconShown, locked, interruptText, cancelled)
 	local result = plate.castbar.result
 	local plateHolder = plate.holder
 	result:SetPoint("TOPLEFT", plateHolder, "BOTTOMLEFT", 0, -config.castbarGap)
@@ -551,20 +551,28 @@ local function showCastResult(plate, texture, iconShown, locked, interruptText)
 	else
 		local color = locked and config.castbarLockedColor or config.castbarColor
 		bar:SetVertexColor(color[1], color[2], color[3])
-		result.text:SetText("")
-		result.hold = CAST_FLASH_TIME
-		result.flashing = true
-		result.flash:SetAlpha(CAST_FLASH_ALPHA)
-		result.flash:Show()
+		if cancelled then
+			result.text:SetText(UF.CANCELLED_TEXT)
+			result.hold = CAST_INTERRUPT_HOLD
+			result.flashing = false
+			result.flash:Hide()
+		else
+			result.text:SetText("")
+			result.hold = CAST_FLASH_TIME
+			result.flashing = true
+			result.flash:SetAlpha(CAST_FLASH_ALPHA)
+			result.flash:Show()
+		end
 	end
 	result.interrupted = interruptText ~= nil
+	result.cancelled = not interruptText and cancelled or false
 	result:SetAlpha(1)
 	result:Show()
 end
 NamePlates.ShowCastResult = showCastResult
 
-function CastbarMixin:ShowResult(interruptText)
-	showCastResult(self:GetParent(), self.icon:GetTexture(), self.icon:IsShown(), self.locked, interruptText)
+function CastbarMixin:ShowResult(interruptText, cancelled)
+	showCastResult(self:GetParent(), self.icon:GetTexture(), self.icon:IsShown(), self.locked, interruptText, cancelled)
 end
 
 local function onCastResultUpdate(result, elapsed)
@@ -608,7 +616,23 @@ end
 local function onTargetCastInterrupted()
 	local castbar = stopActiveCast()
 	if castbar and config.castbarInterrupter then
-		castbar:ShowResult(UF.INTERRUPTED_TEXT)
+		local text = UF.RecentSilence(castbar.guid)
+		if text then
+			castbar:ShowResult(text)
+		else
+			castbar:ShowResult(nil, true)
+		end
+	end
+end
+
+local function onCastSilenced(_, guid, text)
+	local castbar = activeCastbar
+	if not (config.castbarInterrupter and castbar and castbar.guid == guid) or castbar.casting then
+		return
+	end
+	local result = castbar.result
+	if result:IsShown() and result.cancelled and GetTime() - castbar.stoppedAt < CAST_LATE_INTERRUPT then
+		castbar:ShowResult(text)
 	end
 end
 
@@ -744,6 +768,7 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	castbar.holder = holder
 
 	local icon = castbar:CreateTexture(nil, "BORDER")
+	icon:SetNonBlocking(true)
 	icon:SetSize(config.castbarIconSize, config.castbarIconSize)
 	icon:SetPoint("RIGHT", holder, "LEFT", -ICON_GAP, 0)
 	NamePlates.SkinIcon(castbar, icon)
@@ -782,6 +807,7 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	flash:SetBlendMode("ADD")
 	result.flash = flash
 	local resultIcon = result:CreateTexture(nil, "BORDER")
+	resultIcon:SetNonBlocking(true)
 	resultIcon:SetPoint("RIGHT", result, "LEFT", -ICON_GAP, 0)
 	NamePlates.SkinIcon(result, resultIcon)
 	result.icon = resultIcon
@@ -1110,6 +1136,7 @@ function NamePlates:Initialize()
 	self:RegisterUnitEvent("UNIT_NAME_UPDATE", "target", updateTargetName)
 	self:RegisterUnitEvent("UNIT_AURA", "target", onTargetAura)
 	self:RegisterEvent(UF.CAST_INTERRUPTED, onCastInterrupter)
+	self:RegisterEvent(UF.CAST_SILENCED, onCastSilenced)
 	self:RegisterUnitEvent("UNIT_TARGET", "target", onTargetTargetChanged)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_START", "target", onTargetCastStart)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "target", onTargetCastStart)

@@ -18,7 +18,7 @@ Section(schema, L["Tweaks"], "tweaks", {
 		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = L["Pinned CVars (no tutorials, ground clutter, camera distance, script errors), world state frame position and the Spectate entry in friend menus."],
+		desc = L["Pinned CVars (no tutorials, ground clutter, script errors and everything on the Game client page), world state frame position and the Spectate entry in friend menus."],
 	},
 	{ type = "elements" },
 	{
@@ -57,48 +57,6 @@ Section(schema, L["Error messages"], "tweaks", {
 		type = "toggle",
 		disabled = errorsHidden,
 		desc = L['"Spell is not ready yet", "Another action is in progress", "Not enough mana / rage / energy / runic power" and similar.'],
-	},
-})
-
-Section(schema, L["Camera"], "tweaks", {
-	{
-		path = "cameraDistanceMax",
-		label = L["Max camera distance"],
-		type = "number",
-		min = 10,
-		max = 50,
-		step = 1,
-		desc = L["How far the camera can zoom out."],
-	},
-	{
-		description = L["Key bindings in Key Bindings > FrostAtomUI snap the camera to these distances."],
-	},
-	{
-		path = "cameraDistanceClose",
-		label = L["Close camera distance"],
-		type = "number",
-		min = 0,
-		max = 50,
-		step = 1,
-		desc = L["Distance the Close camera distance key binding snaps to."],
-	},
-	{
-		path = "cameraDistanceMedium",
-		label = L["Medium camera distance"],
-		type = "number",
-		min = 0,
-		max = 50,
-		step = 1,
-		desc = L["Distance the Medium camera distance key binding snaps to."],
-	},
-	{
-		path = "cameraDistanceFar",
-		label = L["Far camera distance"],
-		type = "number",
-		min = 0,
-		max = 50,
-		step = 1,
-		desc = L["Distance the Far camera distance key binding snaps to."],
 	},
 })
 

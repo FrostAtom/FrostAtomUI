@@ -23,5 +23,6 @@ Pages\Arena.lua
 Pages\Cooldowns.lua
 Pages\PvP.lua
 Pages\QualityOfLife.lua
+Pages\Client.lua
 Pages\Bags.lua
 Pages\Profiles.lua

@@ -10,11 +10,11 @@ local bit_band = bit.band
 local tremove = table.remove
 local wipe = wipe
 local GetTime = GetTime
-local UnitGUID, UnitDebuff = UnitGUID, UnitDebuff
+local UnitGUID, UnitDebuff, UnitBuff = UnitGUID, UnitDebuff, UnitBuff
 local COMBATLOG_OBJECT_CONTROL_PLAYER = 0x100
 local COMBATLOG_OBJECT_REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
 
-local BATTLE_BEGUN_MESSAGE = "The Arena battle has begun!"
+local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
 local MAX_STACKS = 3
 
 ns.DR_UPDATED = "FrostAtomUI_DR_UPDATED"
@@ -22,6 +22,11 @@ ns.DR_UPDATED = "FrostAtomUI_DR_UPDATED"
 local DR = ns:NewModule("DiminishingReturns")
 
 local states = {}
+local preparing = false
+
+local function hasArenaPreparation()
+	return ARENA_PREPARATION and UnitBuff("player", ARENA_PREPARATION) and true or false
+end
 
 local function prune(state, now)
 	local order = state.order
@@ -106,7 +111,16 @@ end
 
 local carried = {}
 
-local function onUnitAura(_, unit)
+local function onUnitAura(self, unit)
+	if unit == "player" then
+		if hasArenaPreparation() then
+			preparing = true
+		elseif preparing then
+			preparing = false
+			self:Reset()
+		end
+		return
+	end
 	if not RECONCILE_UNITS[unit] then
 		return
 	end
@@ -165,23 +179,22 @@ function DR:Reset()
 	ns:Fire(ns.DR_UPDATED)
 end
 
-local function onSystemMessage(self, message)
-	if message == BATTLE_BEGUN_MESSAGE then
-		self:Reset()
-	end
+local function onEnteringWorld(self)
+	preparing = hasArenaPreparation()
+	self:Reset()
 end
 
 local function applyEnabled(self)
 	if ns.Config.diminishingReturns.enabled then
+		preparing = hasArenaPreparation()
 		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
-		self:RegisterEvent("PLAYER_ENTERING_WORLD", self.Reset)
-		self:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL", onSystemMessage)
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 		self:RegisterEvent("UNIT_AURA", onUnitAura)
 	else
 		self:UnregisterEvent("UNIT_AURA")
 		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 		self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-		self:UnregisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
+		preparing = false
 		self:Reset()
 	end
 end

@@ -64,6 +64,7 @@ local function createIcon(container, index)
 	icon:SetScript("OnLeave", onIconLeave)
 
 	icon.texture = icon:CreateTexture(nil, "BORDER")
+	icon.texture:SetNonBlocking(true)
 	icon.texture:SetAllPoints()
 
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)

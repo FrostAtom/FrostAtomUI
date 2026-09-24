@@ -215,7 +215,7 @@ local SPELLS = {
 	},
 	WARLOCK = {
 		{ 19244, 24, cat = "interrupt", ranks = { 19647 }, pet = true }, -- Spell Lock
-		{ 19505, 8, cat = "utility", ranks = { 19731, 19734, 19736, 27276, 27277 }, pet = true, hide = true }, -- Devour Magic
+		{ 19505, 8, cat = "utility", ranks = { 19731, 19734, 19736, 27276, 27277, 48011 }, pet = true, hide = true }, -- Devour Magic
 		{ 6789, 120, cat = "cc", ranks = { 17925, 17926, 27223, 47859, 47860 } }, -- Death Coil
 		{ 5484, 40, cat = "cc", ranks = { 17928 } }, -- Howl of Terror
 		{ 30283, 20, cat = "cc", ranks = { 30413, 30414, 47846, 47847 }, talent = true, tree = 3, points = 40 }, -- Shadowfury

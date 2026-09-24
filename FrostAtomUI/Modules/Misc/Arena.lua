@@ -1,12 +1,19 @@
 local _, ns = ...
 
 local GetTime = GetTime
-local GetZoneText = GetZoneText
+local GetRealZoneText = GetRealZoneText
+local IsInInstance = IsInInstance
+local UnitBuff = UnitBuff
 local ceil = math.ceil
 
 local Misc = ns:GetModule("Misc")
 
-local COUNTDOWN_MESSAGE = "Fifteen seconds until the Arena battle begins!"
+local COUNTDOWN_MESSAGES = {
+	"Fifteen seconds until the Arena battle begins!",
+	"Пятнадцать секунд",
+	"пятнадцать секунд",
+	"15 секунд",
+}
 local COUNTDOWN_SECONDS = 15
 local COUNTDOWN_URGENT_SECONDS = 3
 
@@ -36,10 +43,29 @@ countdown:SetScript("OnUpdate", function(self, elapsed)
 	end
 end)
 
+local function inArena()
+	return select(2, IsInInstance()) == "arena"
+end
+
+local function isCountdownMessage(message)
+	for i = 1, #COUNTDOWN_MESSAGES do
+		if message:find(COUNTDOWN_MESSAGES[i], 1, true) then
+			return true
+		end
+	end
+	return false
+end
+
 countdown:SetScript("OnEvent", function(self, event, message)
 	if event == "PLAYER_ENTERING_WORLD" then
 		self:Hide()
-	elseif ns.Config.arena.enabled and ns.Config.arena.countdown and message:find(COUNTDOWN_MESSAGE, 1, true) then
+	elseif
+		ns.Config.arena.enabled
+		and ns.Config.arena.countdown
+		and message
+		and inArena()
+		and isCountdownMessage(message)
+	then
 		self.remain = COUNTDOWN_SECONDS
 		self:Show()
 	end
@@ -47,8 +73,7 @@ end)
 countdown:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
 countdown:RegisterEvent("PLAYER_ENTERING_WORLD")
 
-local RING_OF_VALOR = "The Ring of Valor"
-local BATTLE_BEGUN_MESSAGE = "The Arena battle has begun!"
+local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
 local TICK_INTERVAL = 0.05
 
 local pillars = CreateFrame("StatusBar", nil, UIParent)
@@ -104,17 +129,27 @@ pillars:SetScript("OnShow", function(self)
 	self:SetScript("OnUpdate", onUpdateWaiting)
 end)
 
-pillars:SetScript("OnEvent", function(self, event, message)
+local function hasArenaPreparation()
+	return ARENA_PREPARATION and UnitBuff("player", ARENA_PREPARATION) and true or false
+end
+
+pillars:SetScript("OnEvent", function(self, event, unit)
 	if event == "PLAYER_ENTERING_WORLD" then
 		self:Hide()
-	elseif message == BATTLE_BEGUN_MESSAGE and GetZoneText() == RING_OF_VALOR then
-		local config = ns.Config.arena
-		if config.enabled and config.pillars then
-			self:Show()
+		self.preparing = inArena() and hasArenaPreparation()
+	elseif unit == "player" then
+		if hasArenaPreparation() then
+			self.preparing = inArena()
+		elseif self.preparing then
+			self.preparing = false
+			local config = ns.Config.arena
+			if config.enabled and config.pillars and ns.ARENA_MAP_KEYS[GetRealZoneText()] == "ringOfValor" then
+				self:Show()
+			end
 		end
 	end
 end)
-pillars:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
+pillars:RegisterEvent("UNIT_AURA")
 pillars:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 local function applyConfig()

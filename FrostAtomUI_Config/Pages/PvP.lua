@@ -178,7 +178,7 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		path = "enabled",
 		label = L["Enable"],
 		type = "toggle",
-		desc = L["Short sounds for important combat events. Uses the sound effects volume."],
+		desc = L["Short sounds for important combat events. Play even with sound effects turned off."],
 	},
 	{
 		path = "throttle",

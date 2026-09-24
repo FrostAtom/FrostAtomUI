@@ -33,6 +33,7 @@ local GLOW_SIZE = 6
 local TEXT_INSET = 3
 local FAILED_TEXT = "|cff808080" .. FAILED .. "|r"
 local INTERRUPTED_TEXT = "|cff8B0000" .. INTERRUPTED .. "|r"
+local CANCELLED_TEXT = "|cff808080" .. L["Cancelled"] .. "|r"
 local PLAYER_FLAG = COMBATLOG_OBJECT_TYPE_PLAYER or 0x400
 local TICK_WIDTH = 2
 local TICK_COLOR = { 0, 0, 0, 0.75 }
@@ -44,7 +45,16 @@ local START_FLASH_TIME = 0.3
 local START_FLASH_ALPHA = 0.7
 
 UF.CAST_INTERRUPTED = "FrostAtomUI_CAST_INTERRUPTED"
+UF.CAST_SILENCED = "FrostAtomUI_CAST_SILENCED"
 UF.INTERRUPTED_TEXT = INTERRUPTED_TEXT
+UF.CANCELLED_TEXT = CANCELLED_TEXT
+
+ns.OnLocaleReady(function()
+	CANCELLED_TEXT = "|cff808080" .. L["Cancelled"] .. "|r"
+	UF.CANCELLED_TEXT = CANCELLED_TEXT
+end)
+
+local DR_SPELLS = ns.DRData.SPELLS
 
 local IMPORTANT_CASTS = {
 	118, -- Polymorph
@@ -230,7 +240,7 @@ local function showInterruptible(castbar)
 		interruptible = false
 	end
 	local color
-	if interruptible or castbar.isPlayer then
+	if interruptible or castbar.isPlayer or not castbar.testing and not UnitCanAttack("player", castbar.unit) then
 		castbar.icon:SetDesaturated(nil)
 		color = castbar.isChannel and config.castbarChannelColor or config.castbarColor
 	else
@@ -396,6 +406,7 @@ end
 
 local function stopCast(castbar, hold, fadeSpeed)
 	castbar.casting = false
+	castbar.cancelled = false
 	castbar.stoppedAt = GetTime()
 	castbar.hold = hold or 0
 	castbar.fadeSpeed = fadeSpeed or FADE_SPEED
@@ -438,6 +449,16 @@ local function showInterrupted(castbar, text)
 	bar:SetValue(max)
 	UF.SetBarColor(bar, INTERRUPT_COLOR[1], INTERRUPT_COLOR[2], INTERRUPT_COLOR[3])
 	castbar:SetAlpha(1)
+end
+
+local function showCancelled(castbar)
+	if config.castbarInterrupter then
+		stopCast(castbar, INTERRUPT_HOLD, INTERRUPT_FADE_SPEED)
+	else
+		stopCast(castbar)
+	end
+	castbar.cancelled = true
+	castbar.name:SetText(CANCELLED_TEXT)
 end
 
 local testCast, finishTest
@@ -625,6 +646,16 @@ function UF.SetCastbarShown(castbar, shown)
 	end
 end
 
+local silencedAt, silenceTexts = {}, {}
+
+local function recentSilence(guid)
+	local at = guid and silencedAt[guid]
+	if at and GetTime() - at < LATE_INTERRUPT then
+		return silenceTexts[guid]
+	end
+end
+UF.RecentSilence = recentSilence
+
 local function onCastFailed(frame, _, _, castId)
 	local castbar = frame.castbar
 	if castbar.casting and not castbar.isChannel and castId and castId == castbar.castId then
@@ -636,7 +667,12 @@ end
 local function onCastInterrupted(frame, _, _, castId)
 	local castbar = frame.castbar
 	if castbar.casting and (castbar.isChannel or castId == castbar.castId) then
-		showInterrupted(castbar)
+		local text = recentSilence(castbar.guid)
+		if text then
+			showInterrupted(castbar, text)
+		else
+			showCancelled(castbar)
+		end
 	end
 end
 
@@ -708,19 +744,34 @@ local function onInterrupter(frame, guid, text)
 	end
 end
 
+local function onSilenced(frame, guid, text)
+	local castbar = frame.castbar
+	if castbar.guid ~= guid or not castbar:IsShown() then
+		return
+	end
+	if castbar.cancelled and not castbar.casting and GetTime() - castbar.stoppedAt < LATE_INTERRUPT then
+		showInterrupted(castbar, text)
+	end
+end
+
 local interruptWatcher = ns.Mixin({}, ns.EventMixin)
 interruptWatcher:RegisterEvent(
 	"COMBAT_LOG_EVENT_UNFILTERED",
-	function(_, _, event, sourceGUID, sourceName, sourceFlags, destGUID)
-		if event ~= "SPELL_INTERRUPT" then
-			return
+	function(_, _, event, sourceGUID, sourceName, sourceFlags, destGUID, _, _, spellId)
+		if event == "SPELL_INTERRUPT" then
+			ns:Fire(UF.CAST_INTERRUPTED, destGUID, interrupterText(sourceGUID, sourceName, sourceFlags))
+		elseif event == "SPELL_AURA_APPLIED" and DR_SPELLS[spellId] == "silence" then
+			local text = interrupterText(sourceGUID, sourceName, sourceFlags)
+			silencedAt[destGUID] = GetTime()
+			silenceTexts[destGUID] = text
+			ns:Fire(UF.CAST_SILENCED, destGUID, text)
 		end
-		if not (config.castbarInterrupter or ns.Config.namePlates.castbarInterrupter) then
-			return
-		end
-		ns:Fire(UF.CAST_INTERRUPTED, destGUID, interrupterText(sourceGUID, sourceName, sourceFlags))
 	end
 )
+interruptWatcher:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+	wipe(silencedAt)
+	wipe(silenceTexts)
+end)
 
 local function createText(bar)
 	local text = bar:CreateFontString(nil, "OVERLAY")
@@ -779,6 +830,7 @@ local function create(frame, iconSide)
 	castbar.glow = UF.CreateCastGlow(castbar, castbar, GLOW_SIZE)
 
 	castbar.icon = castbar:CreateTexture(nil, "BORDER")
+	castbar.icon:SetNonBlocking(true)
 	if iconSide == "RIGHT" then
 		castbar.icon:SetPoint("LEFT", castbar, "RIGHT", ICON_GAP, 0)
 	else
@@ -804,15 +856,19 @@ local function create(frame, iconSide)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_START", update)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", update)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", onCastFailed)
+	frame:RegisterUnitEvent("UNIT_SPELLCAST_FAILED_QUIET", onCastFailed)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_STOP", onCastStop)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", onCastInterrupted)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", onCastStop)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_DELAYED", onCastDelayed)
 	frame:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", onChannelUpdate)
-	frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTIBLE", onInterruptible)
-	frame:RegisterUnitEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", onNotInterruptible)
+	if frame.unit == "target" or frame.unit == "focus" then
+		frame:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTIBLE", onInterruptible)
+		frame:RegisterUnitEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", onNotInterruptible)
+	end
 	frame:RegisterUnitEvent("UNIT_TARGET", onUnitTarget)
 	frame:RegisterEvent(UF.CAST_INTERRUPTED, onInterrupter)
+	frame:RegisterEvent(UF.CAST_SILENCED, onSilenced)
 	if castbar.isPlayer then
 		frame:RegisterEvent("UNIT_SPELLCAST_SENT", onCastSent)
 	else

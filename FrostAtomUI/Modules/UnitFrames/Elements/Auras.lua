@@ -166,6 +166,7 @@ local function createIcon(container, index)
 	cooldown.timerMaxDuration = timerMaxDuration
 
 	icon.texture = icon:CreateTexture(nil, "BACKGROUND")
+	icon.texture:SetNonBlocking(true)
 	UF.SkinIcon(icon, icon.texture)
 
 	icon.count = text:CreateFontString(nil, "OVERLAY")

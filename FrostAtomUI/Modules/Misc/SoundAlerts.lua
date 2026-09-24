@@ -5,8 +5,10 @@ local L = ns.L
 local UnitGUID, UnitName, UnitClass = UnitGUID, UnitName, UnitClass
 local UnitIsPlayer, UnitCanAttack, UnitIsUnit = UnitIsPlayer, UnitCanAttack, UnitIsUnit
 local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
-local IsInInstance, GetTime, PlaySound = IsInInstance, GetTime, PlaySound
+local IsInInstance, GetTime = IsInInstance, GetTime
+local IsSpellKnown, GetSpellInfo, GetPetActionInfo = IsSpellKnown, GetSpellInfo, GetPetActionInfo
 local wipe = wipe
+local NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS or 10
 
 local Misc = ns:GetModule("Misc")
 local UF = ns:GetModule("UnitFrames")
@@ -31,7 +33,7 @@ local function play(sound)
 		return
 	end
 	lastPlayed = now
-	PlaySound(sound)
+	ns.PlayAlertSound(sound)
 end
 
 local function classColoredName(unit)
@@ -87,24 +89,94 @@ local function onZoneChanged()
 	wipe(targeting)
 end
 
-local function alertCast(unit, notInterruptible)
-	if notInterruptible or not UnitCanAttack("player", unit) then
+local interrupts, petInterrupts = {}, {}
+do
+	local _, class = UnitClass("player")
+	local SPELLS = ns.CooldownData.SPELLS
+	for _, spells in ipairs({ SPELLS[class] or {}, SPELLS.COMMON }) do
+		for i = 1, #spells do
+			local entry = spells[i]
+			if entry.cat == "interrupt" then
+				local list = entry.pet and petInterrupts or interrupts
+				list[#list + 1] = entry[1]
+				local ranks = entry.ranks
+				if ranks then
+					for j = 1, #ranks do
+						list[#list + 1] = ranks[j]
+					end
+				end
+			end
+		end
+	end
+end
+
+local petInterruptNames = {}
+for i = 1, #petInterrupts do
+	local name = GetSpellInfo(petInterrupts[i])
+	if name then
+		petInterruptNames[name] = true
+	end
+end
+
+local function hasInterrupt()
+	for i = 1, #interrupts do
+		if IsSpellKnown(interrupts[i]) then
+			return true
+		end
+	end
+	if #petInterrupts == 0 then
+		return false
+	end
+	for i = 1, #petInterrupts do
+		if IsSpellKnown(petInterrupts[i], true) then
+			return true
+		end
+	end
+	for i = 1, NUM_PET_ACTION_SLOTS do
+		local name = GetPetActionInfo(i)
+		if name and petInterruptNames[name] then
+			return true
+		end
+	end
+	return false
+end
+
+local uninterruptible = {}
+for _, spellId in ipairs({ 49050, 49052 }) do -- Aimed Shot, Steady Shot
+	local name = GetSpellInfo(spellId)
+	if name then
+		uninterruptible[name] = true
+	end
+end
+
+local function alertCast(unit, spell, notInterruptible)
+	if not spell or not UnitCanAttack("player", unit) then
 		return
 	end
 	if unit == "focus" and UnitIsUnit("focus", "target") then
+		return
+	end
+	if not hasInterrupt() then
+		return
+	end
+	if notInterruptible then
+		uninterruptible[spell] = true
+		return
+	end
+	if uninterruptible[spell] or ns.HasCastImmunity(unit) then
 		return
 	end
 	play(ns.Config.soundAlerts.interruptibleSound)
 end
 
 local function onCastStart(_, unit)
-	local _, _, _, _, _, _, _, _, notInterruptible = UnitCastingInfo(unit)
-	alertCast(unit, notInterruptible)
+	local spell, _, _, _, _, _, _, _, notInterruptible = UnitCastingInfo(unit)
+	alertCast(unit, spell, notInterruptible)
 end
 
 local function onChannelStart(_, unit)
-	local _, _, _, _, _, _, _, notInterruptible = UnitChannelInfo(unit)
-	alertCast(unit, notInterruptible)
+	local spell, _, _, _, _, _, _, notInterruptible = UnitChannelInfo(unit)
+	alertCast(unit, spell, notInterruptible)
 end
 
 local function scanDebuffs(silent)
@@ -183,7 +255,7 @@ end
 
 Misc:WatchConfig("soundAlerts", function(_, path)
 	if path and path:find("Sound$") then
-		PlaySound(ns:GetConfig(path))
+		ns.PlayAlertSound(ns:GetConfig(path))
 	end
 	applyConfig()
 end)

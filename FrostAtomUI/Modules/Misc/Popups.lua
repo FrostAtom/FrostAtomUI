@@ -84,7 +84,7 @@ hooksecurefunc("StaticPopup_Show", function(which)
 	end
 	if which == "DEATH" then
 		local _, instanceType = IsInInstance()
-		if config.autoRelease and instanceType == "pvp" then
+		if config.autoRelease and instanceType == "pvp" and not HasSoulstone() then
 			StaticPopupDialogs[which].OnAccept()
 		end
 	elseif which == "TRADE" then

@@ -14,6 +14,8 @@ local UnitCanAttack = UnitCanAttack
 local UnitLevel = UnitLevel
 local GetInventoryItemID = GetInventoryItemID
 local GetInventoryItemLink = GetInventoryItemLink
+local GetInspectArenaTeamData = GetInspectArenaTeamData
+local RequestInspectHonorData = RequestInspectHonorData
 local GetSpellInfo = GetSpellInfo
 local GetTalentInfo = GetTalentInfo
 local GetNumTalents = GetNumTalents
@@ -33,6 +35,8 @@ local MIN_LEVEL = 10
 local CACHE_TIME = 900
 local ARENA_REFRESH_INTERVAL = 12
 local ARENA_REFRESH_COUNT = 6
+local HONOR_WAIT = 1
+local MAX_ARENA_TEAMS = 3
 local PARTY_UNITS = { "party1", "party2", "party3", "party4" }
 local WATCHED_UNITS = { "party1", "party2", "party3", "party4", "target", "focus", "mouseover" }
 local LOOKUP_UNITS = {}
@@ -56,6 +60,7 @@ local TREE1_TALENTS = {
 
 ns.INSPECT_TALENTS_READY = "FrostAtomUI_INSPECT_TALENTS_READY"
 ns.INSPECT_GEAR_READY = "FrostAtomUI_INSPECT_GEAR_READY"
+ns.INSPECT_TEAMS_READY = "FrostAtomUI_INSPECT_TEAMS_READY"
 
 local Inspect = ns:NewModule("Inspect")
 
@@ -66,6 +71,7 @@ local request = {}
 local urgentGuid, urgentTime
 local gearGuid, gearUnit, gearTries, gearAt
 local loadedGuid
+local teamsWanted, teamsGuid, teamsAt, teamsReplied
 local lastSend, manualTime = -SEND_INTERVAL, -MANUAL_BACKOFF
 local arenaRefreshes, nextArenaRefresh = 0, 0
 
@@ -113,6 +119,10 @@ function Inspect:Request(unit, maxAge, urgent)
 		urgentGuid, urgentTime = guid, now
 	end
 	queue:Show()
+end
+
+function Inspect:WantTeams()
+	teamsWanted = true
 end
 
 function Inspect:IsLoaded(guid)
@@ -182,6 +192,22 @@ local function checkGear(now)
 	ns:Fire(ns.INSPECT_GEAR_READY, guid, unit)
 end
 
+local function readTeams()
+	local guid = teamsGuid
+	teamsGuid = nil
+	if not teamsReplied then
+		return
+	end
+	local teams = {}
+	for i = 1, MAX_ARENA_TEAMS do
+		local name, size, rating, _, _, _, personal = GetInspectArenaTeamData(i)
+		if name then
+			teams[#teams + 1] = { name = name, size = size, rating = rating, personal = personal }
+		end
+	end
+	ns:Fire(ns.INSPECT_TEAMS_READY, guid, teams)
+end
+
 local function send(now)
 	if InCombatLockdown() or (InspectFrame and InspectFrame:IsShown()) then
 		return
@@ -236,11 +262,15 @@ queue:SetScript("OnUpdate", function(self, elapsed)
 		checkGear(now)
 	end
 
-	if not request.guid and not gearGuid then
+	if teamsGuid and now >= teamsAt then
+		readTeams()
+	end
+
+	if not request.guid and not gearGuid and not teamsGuid then
 		send(now)
 	end
 
-	if not request.guid and not gearGuid and not urgentGuid and not next(pending) and arenaRefreshes == 0 then
+	if not request.guid and not gearGuid and not teamsGuid and not urgentGuid and not next(pending) and arenaRefreshes == 0 then
 		self:Hide()
 	end
 end)
@@ -257,6 +287,9 @@ hooksecurefunc("NotifyInspect", function(unit)
 	if guid ~= gearGuid then
 		gearGuid = nil
 	end
+	if guid ~= teamsGuid then
+		teamsGuid = nil
+	end
 	local _, class = UnitClass(unit)
 	request.guid, request.unit, request.class, request.time = guid, unit, class, lastSend
 	queue:Show()
@@ -269,6 +302,7 @@ end)
 hooksecurefunc("ClearInspectPlayer", function()
 	request.guid = nil
 	gearGuid = nil
+	teamsGuid = nil
 	loadedGuid = nil
 end)
 
@@ -295,6 +329,17 @@ function Inspect:INSPECT_TALENT_READY()
 		gearGuid, gearUnit, gearTries, gearAt = guid, unit, 0, now
 		queue:Show()
 	end
+	if teamsWanted then
+		teamsGuid, teamsAt, teamsReplied = guid, now + HONOR_WAIT, false
+		RequestInspectHonorData()
+		queue:Show()
+	end
+end
+
+function Inspect:INSPECT_HONOR_UPDATE()
+	if teamsGuid then
+		teamsReplied = true
+	end
 end
 
 function Inspect:PARTY_MEMBERS_CHANGED()
@@ -319,6 +364,7 @@ function Inspect:PLAYER_ENTERING_WORLD()
 	request.guid = nil
 	urgentGuid = nil
 	gearGuid = nil
+	teamsGuid = nil
 	loadedGuid = nil
 	requestUnits(WATCHED_UNITS, CACHE_TIME)
 	if select(2, IsInInstance()) == "arena" then
@@ -337,4 +383,5 @@ function Inspect:Initialize()
 	self:RegisterEvent("PLAYER_FOCUS_CHANGED")
 	self:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 	self:RegisterEvent("INSPECT_TALENT_READY")
+	self:RegisterEvent("INSPECT_HONOR_UPDATE")
 end

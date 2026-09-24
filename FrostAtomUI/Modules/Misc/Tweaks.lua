@@ -157,6 +157,115 @@ local function applyCameraDistance()
 	ns:GetModule("CVars"):Pin("cameraDistanceMax", tostring(ns.Config.tweaks.cameraDistanceMax))
 end
 
+local CVAR_TOGGLES = {
+	keepCameraPitch = { cameraSmoothPitch = "0" },
+	instantCameraHeight = { cameraHeightSmoothSpeed = "50" },
+	keepShapeshift = { autoUnshift = "0" },
+	keepMount = { autoDismount = "0" },
+	keepSitting = { autoStand = "0" },
+	hideSelectionCircle = { ObjectSelectionCircle = "0" },
+	hideUnitHighlight = { unitHighlights = "0" },
+	allSpellMechanics = { fctAllSpellMechanics = "1" },
+	hideScreenEffects = { ffx = "0" },
+	hideInvisibilityEffect = { ffxNetherWorld = "0" },
+	fullViewDistance = { farClipOverride = "1" },
+	muteArmorFoley = { Sound_EnableArmorFoleySoundForSelf = "0", Sound_EnableArmorFoleySoundForOthers = "0" },
+}
+
+local CVAR_VALUES = {
+	cameraYawSpeed = "cameraYawMoveSpeed",
+	cameraPitchSpeed = "cameraPitchMoveSpeed",
+	cameraZoomSpeed = "cameraDistanceMoveSpeed",
+	cameraFollowTime = "cameraSmoothTimeMax",
+	cameraFollowStyle = "cameraSmoothStyle",
+	maxFPS = "maxFPS",
+	maxFPSBackground = "maxFPSBk",
+	assetLoadTime = "asyncHandlerTimeout",
+	timingMethod = "timingMethod",
+}
+
+local MOUSE_SPEED_ROUNDING = 0.005
+
+local SOUND_LISTENER = {
+	Sound_ListenerBackDist = { "0", "2" },
+	Sound_ListenerUpDist = { "1.5", "4" },
+}
+
+local function applyCVarToggle(key)
+	local CVars = ns:GetModule("CVars")
+	local enabled = ns.Config.tweaks[key]
+	for name, value in pairs(CVAR_TOGGLES[key]) do
+		if enabled then
+			CVars:Pin(name, value)
+		else
+			CVars:Unpin(name)
+		end
+	end
+end
+
+local function applyCVarValue(key)
+	local CVars = ns:GetModule("CVars")
+	local name = CVAR_VALUES[key]
+	local value = ns.Config.tweaks[key]
+	if value == "" or tonumber(value) == tonumber(GetCVarDefault(name)) then
+		CVars:Unpin(name)
+	else
+		CVars:Pin(name, tostring(value))
+	end
+end
+
+local appliedAmbient = 0
+
+local function applyCharacterAmbient()
+	local value = ns.Config.tweaks.characterAmbient
+	if value > 0 or appliedAmbient > 0 then
+		ConsoleExec(("characterAmbient %.2f"):format(value))
+		appliedAmbient = value
+	end
+end
+
+local sunGlareHidden
+
+local function applySunGlare()
+	if ns.Config.tweaks.hideSunGlare then
+		ConsoleExec("SkySunGlare 0")
+		sunGlareHidden = true
+	elseif sunGlareHidden then
+		ConsoleExec("SkySunGlare 1")
+		sunGlareHidden = nil
+	end
+end
+
+local function applyWorldCommands()
+	applyCharacterAmbient()
+	applySunGlare()
+end
+
+local function applyMouseSpeed()
+	local CVars = ns:GetModule("CVars")
+	local mode = ns.Config.tweaks.mouseSpeedMode
+	if mode == "windows" then
+		CVars:Pin("mouseSpeed", ("%.3f"):format(tonumber(GetCVarDefault("mouseSpeed")) + MOUSE_SPEED_ROUNDING))
+	elseif mode == "custom" then
+		CVars:Pin("mouseSpeed", ("%.3f"):format(ns.Config.tweaks.mouseSpeed + MOUSE_SPEED_ROUNDING))
+	else
+		CVars:Unpin("mouseSpeed")
+	end
+end
+
+local function applySoundListener()
+	local CVars = ns:GetModule("CVars")
+	local enabled = ns.Config.tweaks.soundAtHead
+	for name, values in pairs(SOUND_LISTENER) do
+		if enabled then
+			CVars:Pin(name, values[1])
+		else
+			CVars:Unpin(name)
+			SetCVar(name, values[2])
+		end
+	end
+end
+
 local function fixLFDCooldownFrame()
 	LFDQueueFrameCooldownFrame:SetScript("OnEvent", function(_, event, unit)
 		if event ~= "UNIT_AURA" or unit == "player" or (unit and unit:find("^party")) then
@@ -192,6 +301,31 @@ Misc:OnInitialize(function(self)
 	self:WatchConfig("tweaks.hideErrors", applyErrors)
 	self:WatchConfig("tweaks.dedupErrors", applyErrors)
 	self:WatchConfig("tweaks.filterCooldownErrors", applyErrors)
+
+	for key in pairs(CVAR_TOGGLES) do
+		applyCVarToggle(key)
+		self:WatchConfig("tweaks." .. key, function()
+			applyCVarToggle(key)
+		end)
+	end
+	for key in pairs(CVAR_VALUES) do
+		applyCVarValue(key)
+		self:WatchConfig("tweaks." .. key, function()
+			applyCVarValue(key)
+		end)
+	end
+	applyWorldCommands()
+	self:WatchConfig("tweaks.characterAmbient", applyCharacterAmbient)
+	self:WatchConfig("tweaks.hideSunGlare", applySunGlare)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", applyWorldCommands)
+	applyMouseSpeed()
+	self:WatchConfig("tweaks.mouseSpeedMode", applyMouseSpeed)
+	self:WatchConfig("tweaks.mouseSpeed", applyMouseSpeed)
+	for name, values in pairs(SOUND_LISTENER) do
+		RegisterCVar(name, values[2])
+	end
+	applySoundListener()
+	self:WatchConfig("tweaks.soundAtHead", applySoundListener)
 
 	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", "World state", { size = { 200, 30 } })
 

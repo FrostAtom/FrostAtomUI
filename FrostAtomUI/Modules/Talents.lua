@@ -19,7 +19,8 @@ local SPEC_HINTS = Data.SPEC_HINTS
 
 local NUM_GLYPH_SOCKETS = 6
 local MAX_AURAS = 40
-local HOSTILE_SCAN_UNITS = { arena1 = true, arena2 = true, arena3 = true, target = true, focus = true }
+local HOSTILE_SCAN_UNITS =
+	{ arena1 = true, arena2 = true, arena3 = true, arena4 = true, arena5 = true, target = true, focus = true }
 
 ns.TALENTS_UPDATED = "FrostAtomUI_TALENTS_UPDATED"
 

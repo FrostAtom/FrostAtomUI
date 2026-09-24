@@ -24,7 +24,7 @@ local LATE_INTERRUPT = NamePlates.CAST_LATE_INTERRUPT
 local STOP_TIMEOUT = 0.5
 local TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
-local INTERRUPTED_TEXT = UF.INTERRUPTED_TEXT
+local CANCELLED = {}
 
 local casts = {}
 local pool = {}
@@ -87,6 +87,8 @@ local function removeCast(guid, result)
 		if config.castbarFinishFlash then
 			NamePlates.ShowCastResult(plate, entry.texture, bar.icon:IsShown(), entry.locked)
 		end
+	elseif result == CANCELLED then
+		NamePlates.ShowCastResult(plate, entry.texture, bar.icon:IsShown(), entry.locked, nil, true)
 	elseif result then
 		NamePlates.ShowCastResult(plate, entry.texture, bar.icon:IsShown(), entry.locked, result)
 	end
@@ -117,6 +119,9 @@ local function recordUnitCast(unit)
 	entry.endTime = endTime / 1e3
 	entry.isChannel = isChannel
 	entry.castId = castId
+	if not EVENT_UNITS[unit] then
+		notInterruptible = nil
+	end
 	entry.locked = unitLocked(unit, notInterruptible)
 	entry.fromLog = false
 	refreshGUID(guid)
@@ -291,7 +296,7 @@ local function onCastInterrupted(_, unit, _, _, castId)
 	local guid = UnitGUID(unit)
 	local entry = guid and casts[guid]
 	if entry and (entry.isChannel or entry.fromLog or entry.castId == castId) then
-		removeCast(guid, config.castbarInterrupter and INTERRUPTED_TEXT or nil)
+		removeCast(guid, config.castbarInterrupter and (UF.RecentSilence(guid) or CANCELLED) or nil)
 	end
 end
 
@@ -344,6 +349,20 @@ local function onInterrupter(_, guid, text)
 	end
 end
 
+local function onSilenced(_, guid, text)
+	if not config.castbarInterrupter or casts[guid] then
+		return
+	end
+	local plate = guidPlates[guid]
+	if not plate or plate.castbar:IsShown() then
+		return
+	end
+	local result = plate.castbar.result
+	if result:IsShown() and result.cancelled and GetTime() - (lastStop[guid] or 0) < LATE_INTERRUPT then
+		NamePlates.ShowCastResult(plate, lastTexture[guid], result.icon:IsShown(), false, text)
+	end
+end
+
 local function spellCastTime(spellId)
 	local castTime = castTimes[spellId]
 	if castTime == nil then
@@ -383,16 +402,19 @@ local function onLogCastStart(srcGUID, srcFlags, _, _, spellId, spellName)
 	refreshGUID(srcGUID)
 end
 
-local function onLogCastSuccess(srcGUID, _, _, _, _, spellName)
-	local entry = casts[srcGUID]
-	if entry and entry.name == spellName and not entry.isChannel then
-		removeCast(srcGUID, true)
-	end
+local function isInstantCast(spellId)
+	local _, _, _, cost, _, _, castTime = GetSpellInfo(spellId)
+	return castTime == 0 and cost and cost > 0
 end
 
-local function onLogCastFailed(srcGUID, _, _, _, _, spellName)
+local function onLogCastSuccess(srcGUID, _, _, _, spellId, spellName)
 	local entry = casts[srcGUID]
-	if entry and entry.fromLog and entry.name == spellName then
+	if not entry or entry.isChannel then
+		return
+	end
+	if entry.name == spellName then
+		removeCast(srcGUID, true)
+	elseif entry.fromLog and isInstantCast(spellId) then
 		removeCast(srcGUID)
 	end
 end
@@ -471,11 +493,17 @@ local UNIT_EVENTS = {
 	UNIT_SPELLCAST_STOP = onCastStop,
 	UNIT_SPELLCAST_CHANNEL_STOP = onCastStop,
 	UNIT_SPELLCAST_FAILED = onCastFailed,
+	UNIT_SPELLCAST_FAILED_QUIET = onCastFailed,
 	UNIT_SPELLCAST_INTERRUPTED = onCastInterrupted,
-	UNIT_SPELLCAST_INTERRUPTIBLE = onInterruptible,
-	UNIT_SPELLCAST_NOT_INTERRUPTIBLE = onNotInterruptible,
 	UNIT_AURA = onUnitAura,
 }
+
+local LOCK_EVENTS = {
+	UNIT_SPELLCAST_INTERRUPTIBLE = onInterruptible,
+	UNIT_SPELLCAST_NOT_INTERRUPTIBLE = onNotInterruptible,
+}
+
+local LOCK_UNITS = { "target", "focus" }
 
 NamePlates:OnInitialize(function(self)
 	if not config.enabled then
@@ -486,14 +514,19 @@ NamePlates:OnInitialize(function(self)
 			self:RegisterUnitEvent(event, unit, handler)
 		end
 	end
+	for event, handler in pairs(LOCK_EVENTS) do
+		for i = 1, #LOCK_UNITS do
+			self:RegisterUnitEvent(event, LOCK_UNITS[i], handler)
+		end
+	end
 	NamePlates.AddLogHandler("SPELL_CAST_START", onLogCastStart)
 	NamePlates.AddLogHandler("SPELL_CAST_SUCCESS", onLogCastSuccess)
-	NamePlates.AddLogHandler("SPELL_CAST_FAILED", onLogCastFailed)
 	NamePlates.AddLogHandler("SPELL_INTERRUPT", onLogInterrupt)
 	NamePlates.AddLogHandler("UNIT_DIED", onLogDied)
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
 	NamePlates.onPass[#NamePlates.onPass + 1] = onPass
 	self:RegisterEvent(UF.CAST_INTERRUPTED, onInterrupter)
+	self:RegisterEvent(UF.CAST_SILENCED, onSilenced)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 	self:WatchConfig("namePlates", applyConfig)
 	self:WatchConfig("unitFrames", applyConfig)

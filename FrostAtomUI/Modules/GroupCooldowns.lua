@@ -6,6 +6,7 @@ local UnitExists, UnitGUID, UnitClass, UnitRace, UnitName = UnitExists, UnitGUID
 local GameTooltip = GameTooltip
 local GetTime = GetTime
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+local UNKNOWNOBJECT = UNKNOWNOBJECT
 local max, min, floor, ceil, huge, random = math.max, math.min, math.floor, math.ceil, math.huge, math.random
 local wipe, unpack = wipe, unpack
 
@@ -114,6 +115,7 @@ local function createIcon(panel)
 	icon:SetScript("OnLeave", onIconLeave)
 
 	icon.texture = icon:CreateTexture(nil, "BORDER")
+	icon.texture:SetNonBlocking(true)
 	UF.SkinIcon(icon, icon.texture)
 
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
@@ -314,11 +316,18 @@ local function readUnit(owner, unit)
 	if not guid then
 		return false
 	end
+	if owner.guid ~= guid then
+		owner.guid, owner.class, owner.race, owner.name = guid, nil, nil, nil
+	end
 	local _, class = UnitClass(unit)
 	local _, race = UnitRace(unit)
-	owner.guid, owner.class, owner.race = guid, class, race
-	owner.name = UnitName(unit)
-	return class ~= nil
+	local name = UnitName(unit)
+	owner.class = class or owner.class
+	owner.race = race or owner.race
+	if name and name ~= UNKNOWNOBJECT then
+		owner.name = name
+	end
+	return owner.class ~= nil
 end
 
 local function collectOwners(panel)
@@ -338,7 +347,7 @@ local function collectOwners(panel)
 			if not (UnitExists(unit) and readUnit(slot, unit)) then
 				slot.guid = nil
 			end
-		elseif UnitExists(unit) then
+		else
 			readUnit(slot, unit)
 		end
 		if slot.guid and slot.class then
@@ -452,6 +461,20 @@ function GroupCooldowns:PARTY_MEMBERS_CHANGED()
 	end
 end
 
+local UNIT_SIDES = {}
+for side, info in pairs(SIDES) do
+	for i = 1, #info.units do
+		UNIT_SIDES[info.units[i]] = side
+	end
+end
+
+local function onNameUpdate(_, unit)
+	local side = UNIT_SIDES[unit]
+	if side and not previewing then
+		update(panels[side])
+	end
+end
+
 function GroupCooldowns.SetPreview(enabled)
 	enabled = enabled and true or false
 	if enabled == previewing then
@@ -513,7 +536,7 @@ function GroupCooldowns:Initialize()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 	self:RegisterEvent("ARENA_OPPONENT_UPDATE")
 	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
-	self:RegisterEvent("UNIT_NAME_UPDATE", updateAll)
+	self:RegisterEvent("UNIT_NAME_UPDATE", onNameUpdate)
 
 	hooksecurefunc(UF, "SetTestMode", function()
 		GroupCooldowns.SetPreview(UF.testing)

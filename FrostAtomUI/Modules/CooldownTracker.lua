@@ -377,6 +377,8 @@ local OWNER_PETS = {
 	arena1 = "arenapet1",
 	arena2 = "arenapet2",
 	arena3 = "arenapet3",
+	arena4 = "arenapet4",
+	arena5 = "arenapet5",
 }
 
 local petOwners = {}

@@ -24,9 +24,9 @@ end
 local GUID_UNITS = {
 	"player", "target", "focus",
 	"party1", "party2", "party3", "party4",
-	"arena1", "arena2", "arena3",
+	"arena1", "arena2", "arena3", "arena4", "arena5",
 	"pet", "partypet1", "partypet2", "partypet3", "partypet4",
-	"arenapet1", "arenapet2", "arenapet3",
+	"arenapet1", "arenapet2", "arenapet3", "arenapet4", "arenapet5",
 }
 
 function ns.UnitByGUID(guid)
@@ -436,4 +436,30 @@ function ns.GridPoint(point, i, perRow, size)
 	local xSign = point:find("RIGHT") and -1 or 1
 	local ySign = point:find("BOTTOM") and 1 or -1
 	return point, xSign * column * size, ySign * row * size
+end
+
+local PlaySound, PlaySoundFile, GetCVar = PlaySound, PlaySoundFile, GetCVar
+
+local SOUND_FILES = {
+	RaidWarning = "Sound\\interface\\RaidWarning.wav",
+	RaidBossEmoteWarning = "Sound\\Interface\\RaidBossWarning.wav",
+	ReadyCheck = "Sound\\interface\\levelup2.wav",
+	TellMessage = "Sound\\interface\\iTellMessage.wav",
+	MapPing = "Sound\\interface\\MapPing.wav",
+	AlarmClockWarning2 = "Sound\\Interface\\AlarmClockWarning2.wav",
+	AlarmClockWarning3 = "Sound\\Interface\\AlarmClockWarning3.wav",
+	LFG_RoleCheck = "Sound\\Interface\\lfg_rolecheck.wav",
+	PVPENTERQUEUE = "Sound\\Spells\\PVPEnterQueue.wav",
+	igCreatureAggroSelect = "Sound\\Interface\\iSelectTarget.wav",
+	LOOTWINDOWCOINSOUND = "Sound\\Interface\\LootCoinSmall.wav",
+	WriteQuest = "Sound\\interface\\WriteQuestA.wav",
+}
+
+function ns.PlayAlertSound(sound)
+	local file = SOUND_FILES[sound]
+	if file and GetCVar("Sound_EnableSFX") == "0" then
+		PlaySoundFile(file)
+	else
+		PlaySound(sound)
+	end
 end

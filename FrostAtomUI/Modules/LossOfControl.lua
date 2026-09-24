@@ -5,7 +5,6 @@ local L = ns.L
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
 local UnitGUID = UnitGUID
-local PlaySound = PlaySound
 local huge, random = math.huge, math.random
 
 local Auras = ns.Auras
@@ -384,7 +383,7 @@ local function setUp(animate)
 		cooldown:Hide()
 		applyIntro(0)
 		if ns.Config.lossOfControl.sound then
-			PlaySound("RaidWarning")
+			ns.PlayAlertSound("RaidWarning")
 		end
 	elseif not introTime then
 		cooldown.intro = true

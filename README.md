@@ -68,7 +68,8 @@ all in one addon, ready to play right after install.
 
 - the class-colored name of whoever the spell is aimed at, and a **red border when it is aimed at you**;
 - a pulsing gold glow on important casts — crowd control and heals;
-- *Interrupted by &lt;name&gt;* in red for a second when a cast is kicked, a white flash when it finishes;
+- *Interrupted by &lt;name&gt;* in red for a second when a cast is kicked or silenced, a grey *Cancelled* when it's
+  stopped by the caster (a juke), a white flash when it finishes;
 - casts that can't be kicked because of Divine Shield, Ice Block, Cloak of Shadows, Burning Determination or
   Aura Mastery are shown as uninterruptible;
 - tick marks on channels (Drain Life, Mind Flay, Penance, Arcane Missiles, …), your latency at the end of
@@ -282,6 +283,21 @@ in arenas and battlegrounds the window opens by itself.
 | Arena countdown | Big timer on screen; Ring of Valor pillar timer next to the chat |
 | Paladin uses Aura Mastery with Concentration Aura | `<<< AURA MASTERY >>>` announced to the group |
 | Mouse wheel over vendor, spellbook, mail, auction, calendar | Flips pages |
+| You die in a battleground | Spirit is released right away, unless a soulstone or Reincarnation is ready |
+
+### 🎮 Game client
+Hidden client settings (checked against the 3.3.5a client itself), all off or at the game default until you change them:
+- **Camera:** zoom speed, separate horizontal and vertical mouse look speed beyond the 90 - 270 limit of the game
+  options, a hidden smoother following style, following time, keeping the vertical angle while the camera turns behind
+  you, instant height change on shapeshift and mount.
+- **Controls:** casting doesn't cancel a shapeshift form or stance, doesn't dismount and doesn't stand you up — you get
+  an error instead. Mouse speed exactly as in Windows, or your own from 0.1 to 2.
+- **Graphics:** full screen effects off (glow, grey death screen, invisibility haze), brighter characters in dark
+  arenas, no sun glare, no target ring or model highlight, crowd control text over every unit, full view distance on
+  old maps and battlegrounds.
+- **Performance:** FPS limit in foreground and background, time per frame spent on freshly loaded models (fewer
+  freezes when players appear at the start of an arena), high precision timer.
+- **Sound:** armor rustle muted, sounds heard from your character's head for a more exact direction.
 
 ### 🔍 Tooltips & character window
 
@@ -291,8 +307,8 @@ in arenas and battlegrounds the window opens by itself.
 
 - Spell and item tooltips show their **ID**, item level colored by quality and how many you carry in bags/bank;
   quest and achievement links show their ID too.
-- Player tooltips show **average item level** and **talent spec with points** (inspects nearby players
-  automatically; arena enemies from their auras), guild with rank, AFK/DND, realm (full name with Shift) and the
+- Player tooltips show **average item level**, **talent spec with points** (inspects nearby players
+  automatically; arena enemies from their auras) and **arena team ratings** with personal rating, guild with rank, AFK/DND, realm (full name with Shift) and the
   unit's target. Target and "targeted by" lines update live.
 - Level line rebuilt: level colored by difficulty, race, class in class color; elite/rare/boss tags for NPCs.
   PvP and faction lines are dropped.
@@ -318,7 +334,7 @@ in arenas and battlegrounds the window opens by itself.
 | Binding | Default | Where to change |
 |---|---|---|
 | Focus mouseover | Mouse button 5 | `Esc → Key Bindings → FrostAtomUI` |
-| Camera distance: Close / Medium / Far | — | `Esc → Key Bindings → FrostAtomUI`; distances under *Quality of life → Camera* |
+| Camera distance: Close / Medium / Far | — | `Esc → Key Bindings → FrostAtomUI`; distances under *Game client → Camera* |
 | Action buttons | — | `/bind` |
 
 ---
@@ -364,7 +380,7 @@ everything applies immediately, the few options that need a reload say so and of
 Options added in the latest version carry a **NEW** badge.
 
 Pages: General, Action bars, Unit frames, Nameplates, Player resources, HUD, Trackers, Arena, PvP, Chat,
-Minimap & map, Tooltip, Quality of life, Bags, Profiles.
+Minimap & map, Tooltip, Quality of life, Game client, Bags, Profiles.
 
 - **Search** box above the page list, or `/fui <text>` — finds options by name, description, page or section;
   several words narrow it down (`arena castbar`).

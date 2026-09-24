@@ -342,7 +342,12 @@ UF:RegisterElement("unseen", create, update, test)
 local function onEnteringWorld()
 	inArena = select(2, IsInInstance()) == "arena"
 	for i = 1, #ghosts do
-		wipe(ghosts[i].info)
+		local ghost = ghosts[i]
+		wipe(ghost.info)
+		if inArena and UnitGUID(ghost.unit) then
+			ghost.info.known = true
+			fillInfo(ghost)
+		end
 	end
 	refreshAll()
 end

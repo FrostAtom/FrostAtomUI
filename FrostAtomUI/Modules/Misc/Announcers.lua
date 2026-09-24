@@ -3,6 +3,7 @@ local _, ns = ...
 local SendChatMessage = SendChatMessage
 local UnitName = UnitName
 local UnitExists = UnitExists
+local UnitGUID = UnitGUID
 
 local Misc = ns:GetModule("Misc")
 
@@ -50,6 +51,7 @@ local GetBattlefieldScore = GetBattlefieldScore
 local GetBattlefieldTeamInfo = GetBattlefieldTeamInfo
 local GetBattlefieldWinner = GetBattlefieldWinner
 local IsActiveBattlefieldArena = IsActiveBattlefieldArena
+local GetBattlefieldArenaFaction = GetBattlefieldArenaFaction
 local IsInInstance = IsInInstance
 local GetNumPartyMembers = GetNumPartyMembers
 local tconcat = table.concat
@@ -78,7 +80,7 @@ local function collectParty()
 end
 
 local function collectArenaUnit(unit)
-	if UnitExists(unit) then
+	if UnitGUID(unit) then
 		addName(enemyNames, enemySeen, UnitName(unit))
 	end
 end
@@ -95,14 +97,17 @@ local function scoreEntry(i)
 end
 
 local function collectScores()
-	local playerName = UnitName("player")
-	local playerTeam
+	local playerTeam = GetBattlefieldArenaFaction()
 	local numScores = GetNumBattlefieldScores()
-	for i = 1, numScores do
-		local name, teamIndex = scoreEntry(i)
-		if name == playerName then
-			playerTeam = teamIndex
-			break
+	if playerTeam ~= 0 and playerTeam ~= 1 then
+		playerTeam = nil
+		local playerName = UnitName("player")
+		for i = 1, numScores do
+			local name, teamIndex = scoreEntry(i)
+			if name == playerName then
+				playerTeam = teamIndex
+				break
+			end
 		end
 	end
 	for i = 1, numScores do
@@ -150,7 +155,7 @@ Misc:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
 end)
 
 Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", function(_, unit)
-	if inArena then
+	if inArena and unit:find("^arena%d$") then
 		collectArenaUnit(unit)
 	end
 end)

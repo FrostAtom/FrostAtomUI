@@ -270,6 +270,7 @@ ticker.nextTick = 0
 
 local function createIcon(row, index)
 	local texture = row:CreateTexture(nil, "BORDER")
+	texture:SetNonBlocking(true)
 	texture:SetTexCoord(0, 1, CROP_Y, 1 - CROP_Y)
 	NamePlates.SkinIcon(row, texture)
 

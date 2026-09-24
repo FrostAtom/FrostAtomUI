@@ -149,6 +149,7 @@ local function createIcon()
 	icon:Hide()
 
 	icon.texture = icon:CreateTexture(nil, "BORDER")
+	icon.texture:SetNonBlocking(true)
 	UF.SkinIcon(icon, icon.texture)
 
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
