@@ -12,6 +12,7 @@ local band = bit.band
 local pairs, tonumber, sort, wipe, tremove = pairs, tonumber, table.sort, wipe, table.remove
 
 local SpellTexture = ns.SpellTexture
+local Inspect = ns:GetModule("Inspect")
 
 local MIN_COOLDOWN = 10
 local LAST_SLOT = 18
@@ -51,12 +52,27 @@ local function addSource(keys, kind, id, cd, spell)
 	local key = kind .. id
 	local source = sources[key]
 	if not source then
-		source = { key = key, kind = kind, id = id, cd = cd, spell = spell }
+		source = { key = key, kind = kind, id = id, cd = cd, spell = spell, spells = {} }
 		sources[key] = source
 	elseif cd > source.cd then
 		source.cd = cd
 	end
+	source.spells[spell] = true
 	keys[#keys + 1] = key
+end
+
+local function sharesProc(a, b)
+	local other = sources[b].spells
+	for spell in pairs(sources[a].spells) do
+		if other[spell] then
+			return true
+		end
+	end
+	return false
+end
+
+local function isGearKind(key)
+	return sources[key].kind ~= "s"
 end
 
 local function bySourcePriority(a, b)
@@ -165,6 +181,47 @@ local function sameGear(a, b)
 	return true
 end
 
+local function remember(guid, list)
+	if guid ~= playerGUID then
+		memory[guid] = #list > 0 and { seen = time(), keys = list } or nil
+	end
+end
+
+local function moveTimer(guid, from, to)
+	local timers = starts[guid]
+	if not (timers and timers[from]) or timers[to] then
+		return
+	end
+	timers[to], timers[from] = timers[from], nil
+	local list = auras[guid]
+	if list and list[from] then
+		list[to], list[from] = list[from], nil
+	end
+end
+
+local function trustGear(guid, found, migrate)
+	local old = learned[guid]
+	local list = {}
+	for key in pairs(found) do
+		list[#list + 1] = key
+	end
+	for i = 1, old and #old or 0 do
+		local key = old[i]
+		if not isGearKind(key) then
+			list[#list + 1] = key
+		elseif migrate and not found[key] then
+			for owned in pairs(found) do
+				if sharesProc(key, owned) then
+					moveTimer(guid, key, owned)
+					break
+				end
+			end
+		end
+	end
+	learned[guid] = list
+	remember(guid, list)
+end
+
 local function setGear(guid, found, changedSlot)
 	local old = gear[guid]
 	if not changedSlot and sameGear(old, found) then
@@ -179,6 +236,7 @@ local function setGear(guid, found, changedSlot)
 		end
 	end
 	gear[guid] = found
+	trustGear(guid, found, not changedSlot)
 	ns:Fire(ns.PROC_COOLDOWN_UPDATED, guid)
 end
 
@@ -200,6 +258,11 @@ local function learn(guid, key)
 	if isLearned(list, key) then
 		return
 	end
+	for i = #list, 1, -1 do
+		if sharesProc(list[i], key) then
+			tremove(list, i)
+		end
+	end
 	if isTrinket(key) then
 		local count, oldest = 0, nil
 		for i = 1, #list do
@@ -213,9 +276,14 @@ local function learn(guid, key)
 		end
 	end
 	list[#list + 1] = key
-	if guid ~= playerGUID then
-		memory[guid] = { seen = time(), keys = list }
+	remember(guid, list)
+end
+
+local function isTrusted(owned, known, key)
+	if owned and owned[key] then
+		return true
 	end
+	return isLearned(known, key) and not (owned and isGearKind(key))
 end
 
 local function pickSource(guid, keys, now)
@@ -225,7 +293,7 @@ local function pickSource(guid, keys, now)
 	local busy = false
 	for i = 1, #keys do
 		local key = keys[i]
-		if (owned and owned[key]) or isLearned(known, key) then
+		if isTrusted(owned, known, key) then
 			local start = timers and timers[key]
 			if not start or now - start >= sources[key].cd then
 				return key
@@ -233,8 +301,23 @@ local function pickSource(guid, keys, now)
 			busy = true
 		end
 	end
-	if not busy then
-		return keys[1]
+	if busy then
+		return
+	end
+	if owned then
+		for i = 1, #keys do
+			if not isGearKind(keys[i]) then
+				return keys[i]
+			end
+		end
+	end
+	return keys[1]
+end
+
+local function refreshGear(guid)
+	local unit = ns.UnitByGUID(guid)
+	if unit then
+		Inspect:Request(unit, nil, true)
 	end
 end
 
@@ -321,6 +404,10 @@ local function onCombatLogEvent(_, _, event, sourceGUID, _, sourceFlags, destGUI
 	end
 	local owned = gear[sourceGUID]
 	if not (owned and owned[key]) then
+		if owned and isGearKind(key) and sourceGUID ~= playerGUID then
+			gear[sourceGUID] = nil
+			refreshGear(sourceGUID)
+		end
 		learn(sourceGUID, key)
 	end
 	ns:Fire(ns.PROC_COOLDOWN_UPDATED, sourceGUID)
@@ -348,6 +435,19 @@ local function byGearSlot(a, b)
 	return KIND_ORDER[sources[a].kind] < KIND_ORDER[sources[b].kind]
 end
 
+local function isListed(list, key)
+	for i = 1, #list do
+		if sources[list[i]] and sharesProc(list[i], key) then
+			return true
+		end
+	end
+	return false
+end
+
+local function isShownLearned(owned, list, key)
+	return not (owned and isGearKind(key)) and not isListed(list, key)
+end
+
 function InternalCooldowns:Collect(guid, list, unknownTrinkets)
 	wipe(list)
 	if not guid then
@@ -361,12 +461,20 @@ function InternalCooldowns:Collect(guid, list, unknownTrinkets)
 		sortOwned = owned
 		sort(list, byGearSlot)
 		sortOwned = nil
+		for i = #list, 2, -1 do
+			for j = 1, i - 1 do
+				if sharesProc(list[i], list[j]) then
+					tremove(list, i)
+					break
+				end
+			end
+		end
 	end
 	local known = learned[guid]
 	local trinkets = 0
 	for i = 1, known and #known or 0 do
 		local key = known[i]
-		if not (owned and owned[key]) and isTrinket(key) then
+		if isTrinket(key) and isShownLearned(owned, list, key) then
 			list[#list + 1] = key
 			trinkets = trinkets + 1
 		end
@@ -378,7 +486,7 @@ function InternalCooldowns:Collect(guid, list, unknownTrinkets)
 	end
 	for i = 1, known and #known or 0 do
 		local key = known[i]
-		if not (owned and owned[key]) and not isTrinket(key) then
+		if not isTrinket(key) and isShownLearned(owned, list, key) then
 			list[#list + 1] = key
 		end
 	end
@@ -476,6 +584,14 @@ local function loadMemory()
 			for i = #keys, 1, -1 do
 				if not sources[keys[i]] then
 					tremove(keys, i)
+				end
+			end
+			for i = #keys, 1, -1 do
+				for j = i + 1, #keys do
+					if sharesProc(keys[i], keys[j]) then
+						tremove(keys, i)
+						break
+					end
 				end
 			end
 			if #keys == 0 then
