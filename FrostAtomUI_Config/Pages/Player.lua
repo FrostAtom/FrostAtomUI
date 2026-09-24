@@ -92,7 +92,7 @@ Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 		new = "1.4.1",
 		label = L["Show in player buffs"],
 		type = "toggle",
-		desc = L["Show the enchants in the player buff list like buffs, after the buffs or in the chosen buff order, instead of separate icons. Needs the unit frames."],
+		desc = L["Show the enchants in the player buff list like buffs, in front of all other buffs, instead of separate icons. Needs the unit frames."],
 		enabledBy = "unitFrames.enabled",
 	},
 }, nil, nil, "wand-sparkles")

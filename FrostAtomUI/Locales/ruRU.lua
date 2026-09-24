@@ -1214,7 +1214,7 @@ ns.SetLocale("ruRU", {
 	["Current health"] = "Текущее здоровье",
 	["Remaining enchant time on the icons."] = "Оставшееся время чар на иконках.",
 	["Show in player buffs"] = "Показывать в баффах игрока",
-	["Show the enchants in the player buff list like buffs, after the buffs or in the chosen buff order, instead of separate icons. Needs the unit frames."] = "Показывать чары в списке баффов игрока как обычные баффы — после баффов или в выбранном порядке баффов — вместо отдельных иконок. Нужны рамки юнитов.",
+	["Show the enchants in the player buff list like buffs, in front of all other buffs, instead of separate icons. Needs the unit frames."] = "Показывать чары в списке баффов игрока как обычные баффы — перед всеми остальными баффами — вместо отдельных иконок. Нужны рамки юнитов.",
 	["Replace totem nameplates with the totem's spell icon."] = "Заменять индикаторы тотемов иконкой заклинания тотема.",
 	["Not interruptible color"] = "Цвет непрерываемых",
 	["Castbar color while the cast cannot be interrupted."] = "Цвет полосы заклинаний, когда заклинание нельзя прервать.",

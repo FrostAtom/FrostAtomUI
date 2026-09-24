@@ -2,6 +2,7 @@ local _, ns = ...
 
 local GetWeaponEnchantInfo = GetWeaponEnchantInfo
 local GetInventoryItemTexture = GetInventoryItemTexture
+local GetInventoryItemQuality = GetInventoryItemQuality
 local CancelItemTempEnchantment = CancelItemTempEnchantment
 local UnitHasVehicleUI = UnitHasVehicleUI
 local GameTooltip = GameTooltip
@@ -167,6 +168,7 @@ local function readEnchants(...)
 			enchant.weaponIndex = weaponIndex
 			enchant.slot = slot
 			enchant.icon = GetInventoryItemTexture("player", slot)
+			enchant.quality = GetInventoryItemQuality("player", slot)
 			if remainMs then
 				local remain = remainMs / 1000
 				enchant.expires = now + remain
