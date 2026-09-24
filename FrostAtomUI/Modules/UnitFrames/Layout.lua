@@ -1,6 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
-local max = math.max
+local max, ceil = math.max, math.ceil
 
 local MAX_PARTY_FRAMES = MAX_PARTY_MEMBERS or 4
 local MAX_ARENA_OPPONENTS = 3
@@ -9,7 +9,6 @@ local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 local PLAYER_DEBUFF_GAP_SCALE = 0.2
 local BOSS_CASTBAR_SCALE = 0.5
 local BOSS_CASTBAR_ICON_GAP = 2
-local GROUP_CASTBAR_WIDTH_SCALE = 0.8
 local RESIZE_KEYS = {
 	powerRatio = true,
 	groupDebuffSize = true,
@@ -23,25 +22,19 @@ local player, castbar, pet, target, focus
 local party, arena, bosses = {}, {}, {}
 local partyPets, arenaPets = {}, {}
 
-local HORIZONTAL_GROWTH = { RIGHT = 1, LEFT = -1 }
+local function groupFramePath(prefix, index)
+	return "unitFrames." .. (index == 1 and prefix or prefix .. index)
+end
 
-local function setGroupPoints(frames, path, spacing, growth)
-	local horizontal = HORIZONTAL_GROWTH[growth]
-	if horizontal then
-		ns.ApplyPoint(frames[1], path)
-		local point = ns:GetConfig(path)[1]
-		for i = 2, #frames do
-			local frame = frames[i]
-			frame:ClearAllPoints()
-			frame:SetPoint(point, frames[1], point, (i - 1) * spacing * horizontal, 0)
-		end
-		return
-	end
-	if growth == "UP" then
-		spacing = -spacing
-	end
+local function groupCastbarPath(prefix, index)
+	return "unitFrames." .. prefix .. index .. "Castbar"
+end
+
+local function setGroupPoints(frames)
 	for i = 1, #frames do
-		ns.ApplyPoint(frames[i], path, (i - 1) * spacing)
+		local frame = frames[i]
+		ns.ApplyPoint(frame, frame.moverPath)
+		ns.ApplyPoint(frame.castbar, frame.castbar.moverPath)
 	end
 end
 
@@ -55,9 +48,46 @@ local function applyPositions()
 	ns.ApplyPoint(focus.targetOfTarget, "unitFrames.focusTarget")
 	ns.ApplyPoint(player.buffs, "unitFrames.playerAuras")
 	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
-	setGroupPoints(party, "unitFrames.party", config.partySpacing, config.partyGrowth)
-	setGroupPoints(arena, "unitFrames.arena", config.arenaSpacing, config.arenaGrowth)
-	setGroupPoints(bosses, "unitFrames.boss", config.bossSpacing)
+	ns.ApplyPoint(target.castbar, "unitFrames.targetCastbar")
+	ns.ApplyPoint(focus.castbar, "unitFrames.focusCastbar")
+	setGroupPoints(party)
+	setGroupPoints(arena)
+	for i = 1, #bosses do
+		ns.ApplyPoint(bosses[i], "unitFrames.boss", (i - 1) * config.bossSpacing)
+	end
+end
+
+local function gridCapacity(grid)
+	local rows = max(ceil(grid.limit / grid.perRow), grid.minRows)
+	if rows == 0 then
+		return 0
+	end
+	local size = grid.RowSize and grid:RowSize() or grid.size
+	return rows * (size + grid.gap) - grid.gap
+end
+
+local function auraInsets(frame, fixedGap)
+	return function()
+		local gap = fixedGap or ns.Config.unitFrames.gridGap
+		local height = 0
+		for _, grid in ipairs({ frame.debuffs, frame.buffs }) do
+			local capacity = gridCapacity(grid)
+			if capacity > 0 then
+				height = height + gap + capacity
+			end
+		end
+		return 0, 0, 0, height
+	end
+end
+
+local function castbarInsets(bar)
+	return function()
+		local icon = bar:GetHeight() + UF.CASTBAR_ICON_GAP
+		if bar.iconSide == "RIGHT" then
+			return 0, icon, 0, 0
+		end
+		return icon, 0, 0, 0
+	end
 end
 
 local function playerAuraAnchor(config)
@@ -105,14 +135,15 @@ local function applySizes()
 	anchorPlayerDebuffs(config)
 end
 
-local function resizeGroupFrame(frame, groupPet, width, height)
+local function resizeGroupFrame(frame, groupPet, prefix)
 	local config = ns.Config.unitFrames
+	local width, height = config[prefix .. "Width"], config[prefix .. "Height"]
 	frame:SetFrameSize(width, height)
 	frame.debuffs:SetLayout(width, config.groupDebuffSize)
 	if frame.buffs then
 		frame.buffs:SetLayout(width, config.partyBuffSize)
 	end
-	UF.SetCastbarSize(frame.castbar, width * GROUP_CASTBAR_WIDTH_SCALE, config.castbarHeight)
+	UF.SetCastbarSize(frame.castbar, config[prefix .. "CastbarWidth"], config[prefix .. "CastbarHeight"])
 	groupPet:SetFrameSize(height, height)
 end
 
@@ -136,10 +167,10 @@ local function applyFrameSizes(self, path)
 	self:ResizeTarget(target, config.playerWidth, config.playerHeight)
 	self:ResizeTarget(focus, config.playerWidth, config.playerHeight)
 	for i = 1, #party do
-		resizeGroupFrame(party[i], partyPets[i], config.partyWidth, config.partyHeight)
+		resizeGroupFrame(party[i], partyPets[i], "party")
 	end
 	for i = 1, #arena do
-		resizeGroupFrame(arena[i], arenaPets[i], config.arenaWidth, config.arenaHeight)
+		resizeGroupFrame(arena[i], arenaPets[i], "arena")
 	end
 	for i = 1, #bosses do
 		local boss = bosses[i]
@@ -308,7 +339,6 @@ local function createTargets(self, config)
 end
 
 local function createParty(self, config)
-	local point, x, y = unpack(config.party)
 	local width, height = config.partyWidth, config.partyHeight
 	local debuffOptions = { size = config.groupDebuffSize, width = width, max = config.groupDebuffMax, minRows = 1 }
 	local buffOptions = { size = config.partyBuffSize, width = width, max = config.partyBuffMax }
@@ -316,7 +346,7 @@ local function createParty(self, config)
 	for i = 1, MAX_PARTY_FRAMES do
 		local frame = self:CreateRectangle("party" .. i, width, height, config.partyIconSide)
 		party[i] = frame
-		frame:SetPoint(point, x, y - (i - 1) * config.partySpacing)
+		frame.moverPath = groupFramePath("party", i)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
 		frame:RegisterEvent("PARTY_MEMBER_ENABLE", "QueueUpdate")
 		frame:RegisterEvent("PARTY_MEMBER_DISABLE", "QueueUpdate")
@@ -329,7 +359,8 @@ local function createParty(self, config)
 		self:AddElement(frame, "buffs", buffOptions)
 		anchorGroupGrids(frame, "TOPLEFT")
 
-		self:CreateSideCastbar(frame, "RIGHT", width * GROUP_CASTBAR_WIDTH_SCALE, config.castbarHeight)
+		local partyCastbar = self:CreateSideCastbar(frame, "RIGHT", config.partyCastbarWidth, config.partyCastbarHeight)
+		partyCastbar.moverPath = groupCastbarPath("party", i)
 		self:AddElement(frame, "procs")
 
 		self:AddElement(frame, "losecontrol")
@@ -349,7 +380,6 @@ local function createParty(self, config)
 end
 
 local function createArena(self, config)
-	local point, x, y = unpack(config.arena)
 	local trinketSize = ns.Config.arenaTrinket.size
 	local width, height = config.arenaWidth, config.arenaHeight
 	local debuffOptions = {
@@ -363,11 +393,12 @@ local function createArena(self, config)
 	for i = 1, MAX_ARENA_OPPONENTS do
 		local frame = self:CreateRectangle("arena" .. i, width, height, config.arenaIconSide)
 		arena[i] = frame
-		frame:SetPoint(point, x, y - (i - 1) * config.arenaSpacing)
+		frame.moverPath = groupFramePath("arena", i)
 
 		self:AddElement(frame, "debuffs", debuffOptions)
 
-		self:CreateSideCastbar(frame, "LEFT", width * GROUP_CASTBAR_WIDTH_SCALE, config.castbarHeight)
+		local arenaCastbar = self:CreateSideCastbar(frame, "LEFT", config.arenaCastbarWidth, config.arenaCastbarHeight)
+		arenaCastbar.moverPath = groupCastbarPath("arena", i)
 
 		self:AddElement(frame, "losecontrol")
 
@@ -407,6 +438,35 @@ local function createBosses(self, config)
 	end
 end
 
+local function castbarResizer(prefix)
+	return frameResize(prefix .. "CastbarWidth", prefix .. "CastbarHeight", 60, 10)
+end
+
+local function registerGroupMovers(self, frames, prefix, name)
+	local shownPath = "unitFrames.show" .. name
+	local castbarShownPath = "unitFrames.show" .. name .. "Castbar"
+	local resize = frameResize(prefix .. "Width", prefix .. "Height", 80, 20)
+	local castbarResize = castbarResizer(prefix)
+	for i = 1, #frames do
+		local frame = frames[i]
+		self:RegisterMover(frame, frame.moverPath, name .. " " .. i, {
+			secure = true,
+			resize = resize,
+			enabledPath = shownPath,
+			insets = auraInsets(frame),
+		})
+		self:RegisterMover(frame.castbar, frame.castbar.moverPath, name .. " " .. i .. " castbar", {
+			enabledPath = { shownPath, castbarShownPath },
+			insets = castbarInsets(frame.castbar),
+			resize = castbarResize,
+		})
+	end
+end
+
+local function refreshMovers()
+	ns.Movers.Refresh()
+end
+
 function UF:Initialize()
 	local config = ns.Config.unitFrames
 
@@ -420,8 +480,26 @@ function UF:Initialize()
 
 	local playerResize = frameResize("playerWidth", "playerHeight", 80, 20)
 	self:RegisterMover(player, "unitFrames.player", "Player", { secure = true, resize = playerResize })
-	self:RegisterMover(target, "unitFrames.target", "Target", { secure = true, resize = playerResize })
-	self:RegisterMover(focus, "unitFrames.focus", "Focus", { secure = true, resize = playerResize })
+	self:RegisterMover(target, "unitFrames.target", "Target", {
+		secure = true,
+		resize = playerResize,
+		insets = auraInsets(target, UF.CASTBAR_GAP),
+	})
+	self:RegisterMover(focus, "unitFrames.focus", "Focus", {
+		secure = true,
+		resize = playerResize,
+		insets = auraInsets(focus, UF.CASTBAR_GAP),
+	})
+	self:RegisterMover(target.castbar, "unitFrames.targetCastbar", "Target castbar", {
+		enabledPath = "unitFrames.showTargetCastbar",
+		insets = castbarInsets(target.castbar),
+		resize = castbarResizer("target"),
+	})
+	self:RegisterMover(focus.castbar, "unitFrames.focusCastbar", "Focus castbar", {
+		enabledPath = "unitFrames.showFocusCastbar",
+		insets = castbarInsets(focus.castbar),
+		resize = castbarResizer("focus"),
+	})
 	self:RegisterMover(pet, "unitFrames.pet", "Pet", { secure = true })
 	self:RegisterMover(target.targetOfTarget, "unitFrames.targetOfTarget", "Target of target", { secure = true })
 	self:RegisterMover(focus.targetOfTarget, "unitFrames.focusTarget", "Target of focus", { secure = true })
@@ -436,14 +514,8 @@ function UF:Initialize()
 			return max(buffs:GetWidth(), debuffs:GetWidth()), height - debuffs.gap + size * PLAYER_DEBUFF_GAP_SCALE
 		end,
 	})
-	self:RegisterMover(party[1], "unitFrames.party", "Party", {
-		secure = true,
-		resize = frameResize("partyWidth", "partyHeight", 80, 20),
-	})
-	self:RegisterMover(arena[1], "unitFrames.arena", "Arena", {
-		secure = true,
-		resize = frameResize("arenaWidth", "arenaHeight", 80, 20),
-	})
+	registerGroupMovers(self, party, "party", "Party")
+	registerGroupMovers(self, arena, "arena", "Arena")
 	self:RegisterMover(bosses[1], "unitFrames.boss", "Boss", {
 		secure = true,
 		resize = frameResize("bossWidth", "bossHeight", 80, 20),
@@ -458,5 +530,6 @@ function UF:Initialize()
 	self:WatchConfig("unitFrames", applyElements)
 	self:WatchConfig("unitFrames.rightClick", self.ApplyClicks, true)
 	self:WatchConfig("unitFrames", self.ApplyColors)
+	self:WatchConfig("unitFrames", refreshMovers)
 	self:WatchConfig("arenaTrinket", applySizes)
 end

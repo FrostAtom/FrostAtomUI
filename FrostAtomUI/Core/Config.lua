@@ -124,12 +124,22 @@ ns.Defaults = {
 		focusTarget = { "LEFT", 0, 0, "unitFrames.focus", "RIGHT" },
 		playerCastbar = { "TOP", 0, -4, "playerPlate.point", "BOTTOM" },
 		playerAuras = { "TOPRIGHT", -168, -10 },
+		targetCastbar = { "TOPLEFT", 27, -111, "unitFrames.target", "BOTTOMLEFT" },
+		focusCastbar = { "TOPLEFT", 27, -111, "unitFrames.focus", "BOTTOMLEFT" },
 		party = { "LEFT", 150, 230 },
+		party2 = { "LEFT", 0, -160, "unitFrames.party", "LEFT" },
+		party3 = { "LEFT", 0, -160, "unitFrames.party2", "LEFT" },
+		party4 = { "LEFT", 0, -160, "unitFrames.party3", "LEFT" },
+		party1Castbar = { "LEFT", 4, 0, "unitFrames.party", "RIGHT" },
+		party2Castbar = { "LEFT", 4, 0, "unitFrames.party2", "RIGHT" },
+		party3Castbar = { "LEFT", 4, 0, "unitFrames.party3", "RIGHT" },
+		party4Castbar = { "LEFT", 4, 0, "unitFrames.party4", "RIGHT" },
 		arena = { "RIGHT", -150, 230 },
-		partySpacing = 160,
-		arenaSpacing = 160,
-		partyGrowth = "DOWN",
-		arenaGrowth = "DOWN",
+		arena2 = { "RIGHT", 0, -160, "unitFrames.arena", "RIGHT" },
+		arena3 = { "RIGHT", 0, -160, "unitFrames.arena2", "RIGHT" },
+		arena1Castbar = { "RIGHT", -4, 0, "unitFrames.arena", "LEFT" },
+		arena2Castbar = { "RIGHT", -4, 0, "unitFrames.arena2", "LEFT" },
+		arena3Castbar = { "RIGHT", -4, 0, "unitFrames.arena3", "LEFT" },
 		boss = { "RIGHT", -150, 300 },
 		bossSpacing = 60,
 		outOfRangeAlpha = 0.75,
@@ -147,7 +157,14 @@ ns.Defaults = {
 		bossHeight = 40,
 		playerCastbarWidth = 240,
 		playerCastbarHeight = 28,
-		castbarHeight = 25,
+		targetCastbarWidth = 173,
+		targetCastbarHeight = 25,
+		focusCastbarWidth = 173,
+		focusCastbarHeight = 25,
+		partyCastbarWidth = 160,
+		partyCastbarHeight = 25,
+		arenaCastbarWidth = 160,
+		arenaCastbarHeight = 25,
 		playerAuraSize = 34,
 		playerAuraPerRow = 8,
 		playerAuraGrowth = "LEFT",
@@ -1364,13 +1381,114 @@ local function migrateActionBarGap(profile)
 	end
 end
 
+local GROUP_GROWTH_OFFSETS = {
+	DOWN = { 0, -1 },
+	UP = { 0, 1 },
+	RIGHT = { 1, 0 },
+	LEFT = { -1, 0 },
+}
+
+local function migrateGroupPoints(unitFrames, prefix, count)
+	local spacingKey, growthKey = prefix .. "Spacing", prefix .. "Growth"
+	local spacing = unitFrames[spacingKey] or unitFrames.groupSpacing
+	local growth = unitFrames[growthKey]
+	unitFrames[spacingKey], unitFrames[growthKey] = nil, nil
+	if spacing == nil and growth == nil then
+		return
+	end
+	local defaults = ns.Defaults.unitFrames
+	local first = unitFrames[prefix] or defaults[prefix]
+	local point = first[1]
+	local step = GROUP_GROWTH_OFFSETS[growth] or GROUP_GROWTH_OFFSETS.DOWN
+	spacing = spacing or -defaults[prefix .. "2"][3]
+	for i = 2, count do
+		local key = prefix .. i
+		if unitFrames[key] == nil then
+			local anchor = "unitFrames." .. (i == 2 and prefix or prefix .. (i - 1))
+			unitFrames[key] = { point, step[1] * spacing, step[2] * spacing, anchor, point }
+		end
+	end
+end
+
+local TARGET_AURA_ROWS = 2
+local TARGET_CASTBAR_GAP = 4
+local CASTBAR_ICON_GAP = 2
+local LEGACY_CASTBAR_HEIGHT = 25
+local LEGACY_GROUP_CASTBAR_SCALE = 0.8
+
+local function targetCastbarPoint(unitFrames, unit)
+	local defaults = ns.Defaults.unitFrames
+	local width = unitFrames.playerWidth or defaults.playerWidth
+	local perRow = unitFrames.targetAuraPerRow or defaults.targetAuraPerRow
+	local scale = unitFrames.ownAuraScale or defaults.ownAuraScale
+	local castbarHeight = unitFrames.castbarHeight or LEGACY_CASTBAR_HEIGHT
+	local auraSize = width / perRow - 1
+	local fitted = math.max(math.floor((width + 1) / (auraSize + 1)), 1)
+	local size = (width + 1) / fitted - 1
+	if scale > 1 then
+		size = math.floor(size * scale + 0.5)
+	end
+	local gridHeight = TARGET_AURA_ROWS * (size + 1) - 1
+	local offset = TARGET_CASTBAR_GAP * 3 + gridHeight * 2
+	return {
+		"TOPLEFT",
+		castbarHeight + CASTBAR_ICON_GAP,
+		-math.floor(offset + 0.5),
+		"unitFrames." .. unit,
+		"BOTTOMLEFT",
+	}
+end
+
 local function migrateGroupSpacing(profile)
 	local unitFrames = profile.unitFrames
-	if unitFrames and unitFrames.groupSpacing ~= nil then
-		unitFrames.partySpacing = unitFrames.partySpacing or unitFrames.groupSpacing
-		unitFrames.arenaSpacing = unitFrames.arenaSpacing or unitFrames.groupSpacing
+	if unitFrames then
+		migrateGroupPoints(unitFrames, "party", 4)
+		migrateGroupPoints(unitFrames, "arena", 3)
 		unitFrames.groupSpacing = nil
 	end
+end
+
+local function setChanged(unitFrames, key, value)
+	if unitFrames[key] == nil and value ~= ns.Defaults.unitFrames[key] then
+		unitFrames[key] = value
+	end
+end
+
+local function migrateCastbarLayout(profile)
+	local unitFrames = profile.unitFrames
+	if not unitFrames then
+		return
+	end
+	local defaults = ns.Defaults.unitFrames
+	local castbarHeight = unitFrames.castbarHeight or LEGACY_CASTBAR_HEIGHT
+	for _, unit in ipairs({ "target", "focus" }) do
+		local key = unit .. "Castbar"
+		if unitFrames[key] == nil then
+			local point = targetCastbarPoint(unitFrames, unit)
+			local default = defaults[key]
+			if point[2] ~= default[2] or point[3] ~= default[3] then
+				unitFrames[key] = point
+			end
+		end
+		local width = unitFrames.playerWidth or defaults.playerWidth
+		setChanged(unitFrames, key .. "Width", width - castbarHeight - CASTBAR_ICON_GAP)
+	end
+	for _, prefix in ipairs({ "party", "arena" }) do
+		local width = unitFrames[prefix .. "Width"] or defaults[prefix .. "Width"]
+		setChanged(unitFrames, prefix .. "CastbarWidth", math.floor(width * LEGACY_GROUP_CASTBAR_SCALE + 0.5))
+	end
+end
+
+local function migrateCastbarHeight(profile)
+	local unitFrames = profile.unitFrames
+	local height = unitFrames and unitFrames.castbarHeight
+	if height == nil then
+		return
+	end
+	for _, prefix in ipairs({ "target", "focus", "party", "arena" }) do
+		setChanged(unitFrames, prefix .. "CastbarHeight", height)
+	end
+	unitFrames.castbarHeight = nil
 end
 
 local function migrateClassColorHealth(profile)
@@ -1387,6 +1505,7 @@ function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
 	migrateGroupSpacing(profile)
+	migrateCastbarHeight(profile)
 	migrateClassColorHealth(profile)
 end
 
@@ -1398,8 +1517,12 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 		db.config = nil
 	end
 	for _, profile in pairs(db.profiles) do
+		if not db.castbarLayoutMigrated then
+			migrateCastbarLayout(profile)
+		end
 		migrate(profile)
 	end
+	db.castbarLayoutMigrated = true
 	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)

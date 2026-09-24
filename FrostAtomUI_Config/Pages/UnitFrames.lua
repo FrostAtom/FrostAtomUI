@@ -40,11 +40,6 @@ local RIGHT_CLICK_VALUES = {
 	{ "none", L["Nothing"] },
 }
 
-local VERTICAL_GROWTH_VALUES = {
-	{ "DOWN", L["Down"] },
-	{ "UP", L["Up"] },
-}
-
 local HORIZONTAL_GROWTH_VALUES = {
 	{ "LEFT", L["To the left"] },
 	{ "RIGHT", L["To the right"] },
@@ -180,34 +175,13 @@ local function groupDebuffEntries()
 	}
 end
 
-local GROUP_GROWTH_VALUES = {
-	{ "DOWN", L["Down"] },
-	{ "UP", L["Up"] },
-	{ "RIGHT", L["To the right"] },
-	{ "LEFT", L["To the left"] },
-}
-
-local function groupLayout(prefix, spacingPath, growthPath, horizontal)
-	local spacing = horizontal
-			and size(
-				spacingPath,
-				L["Spacing"],
-				40,
-				800,
-				L["Distance between the tops of consecutive frames, or between their left edges when they grow sideways."]
-			)
-		or size(spacingPath, L["Spacing"], 40, 300, L["Vertical distance between the tops of consecutive frames."])
+local function groupLayout(prefix)
 	return {
 		{ header = L["Layout"] },
 		size("unitFrames." .. prefix .. "Width", L["Width"], 120, 320),
 		size("unitFrames." .. prefix .. "Height", L["Height"], 30, 80),
-		spacing,
 		{
-			path = growthPath,
-			new = "1.4.0",
-			label = L["Growth direction"],
-			type = "select",
-			values = horizontal and GROUP_GROWTH_VALUES or VERTICAL_GROWTH_VALUES,
+			description = L["Each frame moves on its own; by default it is attached to the previous one, so dragging the first frame moves the whole group."],
 		},
 	}
 end
@@ -443,15 +417,11 @@ ns.RegisterElement({
 	},
 })
 
-ns.RegisterElement({
-	path = "unitFrames.party",
-	page = "unitframes",
-	name = L["Party"],
-	enabledBy = { "unitFrames.enabled", "unitFrames.showParty" },
-	schema = Requires(
+local function partySchema()
+	return Requires(
 		"unitFrames.showParty",
 		concat(
-			groupLayout("party", "unitFrames.partySpacing", "unitFrames.partyGrowth", true),
+			groupLayout("party"),
 			{
 				iconSide("party"),
 				{ header = L["Auras"] },
@@ -487,18 +457,14 @@ ns.RegisterElement({
 				testFramesButton(),
 			}
 		)
-	),
-})
+	)
+end
 
-ns.RegisterElement({
-	path = "unitFrames.arena",
-	page = "unitframes",
-	name = L["Arena"],
-	enabledBy = { "unitFrames.enabled", "unitFrames.showArena" },
-	schema = Requires(
+local function arenaSchema()
+	return Requires(
 		"unitFrames.showArena",
 		concat(
-			groupLayout("arena", "unitFrames.arenaSpacing", "unitFrames.arenaGrowth"),
+			groupLayout("arena"),
 			{
 				iconSide("arena"),
 				{ header = L["Auras"] },
@@ -519,8 +485,72 @@ ns.RegisterElement({
 				testFramesButton(),
 			}
 		)
-	),
+	)
+end
+
+local function castbarElement(prefix, path, name, enabledBy, hidden, desc)
+	local shownPath = "unitFrames.show" .. prefix:gsub("^%l", string.upper) .. "Castbar"
+	local sizePrefix = "unitFrames." .. prefix .. "Castbar"
+	ns.RegisterElement({
+		path = path,
+		page = "unitframes",
+		new = "1.4.1",
+		name = name,
+		hidden = hidden,
+		enabledBy = enabledBy,
+		schema = {
+			castbarToggle(shownPath),
+			{ header = L["Size"] },
+			size(sizePrefix .. "Width", L["Width"], 60, 400, desc, shownPath),
+			size(sizePrefix .. "Height", L["Height"], 10, 50, L["The spell icon follows the height."], shownPath),
+		},
+	})
+end
+
+local function registerGroup(group)
+	local enabledBy = { "unitFrames.enabled", group.shownPath }
+	for i = 1, #group.frames do
+		ns.RegisterElement({
+			path = "unitFrames." .. (i == 1 and group.prefix or group.prefix .. i),
+			page = "unitframes",
+			name = i == 1 and group.name or group.frames[i],
+			hidden = i > 1,
+			enabledBy = enabledBy,
+			schema = group.schema(),
+		})
+		castbarElement(
+			group.prefix,
+			"unitFrames." .. group.prefix .. i .. "Castbar",
+			group.castbars[i],
+			enabledBy,
+			true,
+			group.castbarSizeDesc
+		)
+	end
+end
+
+registerGroup({
+	prefix = "party",
+	name = L["Party"],
+	shownPath = "unitFrames.showParty",
+	castbarSizeDesc = L["Shared by all party castbars."],
+	frames = { L["Party 1"], L["Party 2"], L["Party 3"], L["Party 4"] },
+	castbars = { L["Party 1 castbar"], L["Party 2 castbar"], L["Party 3 castbar"], L["Party 4 castbar"] },
+	schema = partySchema,
 })
+
+registerGroup({
+	prefix = "arena",
+	name = L["Arena"],
+	shownPath = "unitFrames.showArena",
+	castbarSizeDesc = L["Shared by all arena castbars."],
+	frames = { L["Arena 1"], L["Arena 2"], L["Arena 3"] },
+	castbars = { L["Arena 1 castbar"], L["Arena 2 castbar"], L["Arena 3 castbar"] },
+	schema = arenaSchema,
+})
+
+castbarElement("target", "unitFrames.targetCastbar", L["Target castbar"], "unitFrames.enabled")
+castbarElement("focus", "unitFrames.focusCastbar", L["Focus castbar"], "unitFrames.enabled")
 
 ns.RegisterElement({
 	path = "unitFrames.boss",
@@ -729,7 +759,6 @@ ns.RegisterPage({
 			desc = L["Icon and timer of the longest crowd control effect over the class icon of target, focus, party and arena frames."],
 		},
 		{ header = L["Castbar"] },
-		size("unitFrames.castbarHeight", L["Castbar height"], 10, 50, L["Target, focus, party and arena castbars."]),
 		{
 			path = "unitFrames.castbarTargetName",
 			new = "1.4.0",

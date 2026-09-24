@@ -555,11 +555,7 @@ end
 
 function UF:CreateSideCastbar(frame, side, width, height)
 	local castbar = self:AddElement(frame, "castbar", side)
-	if side == "RIGHT" then
-		castbar:SetPoint("LEFT", frame, "RIGHT", BORDER_INSET, 0)
-	else
-		castbar:SetPoint("RIGHT", frame, "LEFT", -BORDER_INSET, 0)
-	end
+	castbar.iconSide = side
 	UF.SetCastbarSize(castbar, width, height)
 	return castbar
 end
@@ -664,13 +660,6 @@ function UF:ResizeTarget(frame, width, height)
 	buffs:SetLimit(auraLimit)
 
 	UF.StackAuraGrids(frame, "TOPLEFT", CASTBAR_GAP)
-	local rowSize = debuffs.RowSize and debuffs:RowSize() or debuffs.size
-	local gridHeight = TARGET_AURA_ROWS * (rowSize + debuffs.gap) - debuffs.gap
-	local castbarOffset = CASTBAR_GAP * 3 + gridHeight * 2
-	local castbar = frame.castbar
-	local castbarHeight = config.castbarHeight
-	UF.SetCastbarHeight(castbar, castbarHeight)
-	castbar:ClearAllPoints()
-	castbar:SetPoint("TOPLEFT", frame, "BOTTOMLEFT", castbarHeight + CASTBAR_ICON_GAP, -castbarOffset)
-	castbar:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -castbarOffset)
+	local unit = frame.baseUnit
+	UF.SetCastbarSize(frame.castbar, config[unit .. "CastbarWidth"], config[unit .. "CastbarHeight"])
 end

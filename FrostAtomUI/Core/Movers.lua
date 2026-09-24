@@ -129,11 +129,33 @@ local function isEnabledAlong(path)
 	return true
 end
 
+local function enabledPaths(mover)
+	local paths = mover.enabledPath
+	if type(paths) == "string" then
+		return { paths }
+	end
+	return paths or {}
+end
+
+local function watchesPath(mover, path)
+	local paths = enabledPaths(mover)
+	for i = 1, #paths do
+		if paths[i] == path then
+			return true
+		end
+	end
+	return false
+end
+
 local function isActive(mover)
 	if not isEnabledAlong(mover.path) then
 		return false
-	elseif mover.enabledPath and ns:GetConfig(mover.enabledPath) == false then
-		return false
+	end
+	local paths = enabledPaths(mover)
+	for i = 1, #paths do
+		if ns:GetConfig(paths[i]) == false then
+			return false
+		end
 	end
 	return not mover.visible or mover.visible() and true or false
 end
@@ -1361,6 +1383,17 @@ function Movers.IsUnlocked()
 	return unlocked
 end
 
+function Movers.Refresh()
+	if not unlocked or dragging or resizing then
+		return
+	end
+	for _, mover in ipairs(movers) do
+		if mover.overlay and mover.overlay:IsShown() then
+			attach(mover)
+		end
+	end
+end
+
 Movers:RegisterEvent("PLAYER_REGEN_DISABLED", Movers.Lock)
 
 Movers:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
@@ -1375,7 +1408,7 @@ Movers:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
 		if not path or path == mover.path then
 			refresh(mover)
 		end
-		if toggled or path == mover.enabledPath then
+		if toggled or watchesPath(mover, path) then
 			updateVisibility(mover)
 		end
 	end

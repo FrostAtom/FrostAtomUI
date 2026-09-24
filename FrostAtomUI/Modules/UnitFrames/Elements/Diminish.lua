@@ -199,6 +199,12 @@ local function onUpdated(frame, guid)
 	end
 end
 
+local function castbarAttached(frame)
+	local castbar = frame.castbar
+	local point = castbar and castbar.moverPath and ns:GetConfig(castbar.moverPath)
+	return point ~= nil and point[4] == frame.moverPath
+end
+
 local function anchorContainer(container)
 	local config = ns.Config.diminishingReturns
 	local frame = container:GetParent()
@@ -209,7 +215,7 @@ local function anchorContainer(container)
 
 	container:ClearAllPoints()
 	if side == "LEFT" then
-		local relative = arena and frame.castbar and frame.castbar.icon or frame
+		local relative = arena and castbarAttached(frame) and frame.castbar.icon or frame
 		container:SetPoint("RIGHT", relative, "LEFT", x, y)
 	elseif side == "TOP" then
 		container:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", x, y)
@@ -275,4 +281,13 @@ UF:OnInitialize(function(self)
 	self:WatchConfig("diminishingReturns", applyConfig)
 	self:WatchConfig("arenaTrinket", applyConfig)
 	self:WatchConfig("unitFrames.arenaHeight", applyConfig)
+	for i = 1, #containers do
+		local container = containers[i]
+		local castbar = container:GetParent().castbar
+		if castbar and castbar.moverPath then
+			self:WatchConfig(castbar.moverPath, function()
+				anchorContainer(container)
+			end)
+		end
+	end
 end)
