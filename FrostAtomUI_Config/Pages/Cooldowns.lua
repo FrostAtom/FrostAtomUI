@@ -42,7 +42,7 @@ end
 local function sidePanel(side, name)
 	local prefix = "groupCooldowns." .. side
 	local entries = {
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{
 			path = prefix .. "Growth",
 			label = L["Row direction"],
@@ -50,7 +50,7 @@ local function sidePanel(side, name)
 			values = GROWTH_VALUES,
 			desc = L["Side the rows grow toward; category labels sit on the other side."],
 		},
-		{ header = L["Categories"] },
+		{ header = L["Categories"], glyph = "list-check" },
 	}
 	for _, category in ipairs(Data.CATEGORIES) do
 		entries[#entries + 1] = {
@@ -121,7 +121,7 @@ local function buildSchema()
 			description = L["Cooldowns of party members and arena opponents, gathered in two panels under the party and arena frames. Every tracked ability is always shown: bright when ready, dark with a timer on cooldown, glowing while its effect is up. Rows group abilities by type, icons of one player stay together and the border shows the class. PvP trinkets are shown next to the party and arena frames instead."],
 		},
 		{ path = "groupCooldowns.enabled", label = L["Enable"], type = "toggle" },
-		{ header = L["Frames"] },
+		{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
 		{ type = "elements" },
 	}
 
@@ -159,9 +159,9 @@ local function buildSchema()
 			type = "color",
 			desc = L["Glow around a cooldown icon while the spell's effect is still active."],
 		},
-	})
+	}, nil, nil, "sliders")
 
-	schema[#schema + 1] = { header = L["Spells"] }
+	schema[#schema + 1] = { header = L["Spells"], glyph = "book" }
 	schema[#schema + 1] = {
 		label = L["Class"],
 		type = "select",
@@ -179,6 +179,7 @@ local function buildSchema()
 		label = L["Spell list"],
 		type = "execute",
 		text = L["Default"],
+		glyph = "rotate-left",
 		confirm = L["Restore the default spell selection for every class?"],
 		desc = L["Show and hide spells for every class as they were by default."],
 		func = function()
@@ -197,6 +198,7 @@ end
 ns.RegisterPage({
 	key = "cooldowns",
 	name = L["Cooldowns"],
+	glyph = "hourglass-half",
 	order = 33.5,
 	new = "1.4.1",
 	schema = { { path = "groupCooldowns", hidden = true } },

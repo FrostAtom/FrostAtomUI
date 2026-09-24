@@ -35,7 +35,7 @@ end
 local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 	local prefix = "actionBar." .. key
 	local enabledBy
-	local schema = { { header = L["Layout"] } }
+	local schema = { { header = L["Layout"], glyph = "up-down-left-right" } }
 	if hasToggle then
 		enabledBy = prefix .. ".enabled"
 		schema[#schema + 1] = { path = enabledBy, label = L["Show"], type = "toggle" }
@@ -81,7 +81,7 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 		enabledBy = enabledBy,
 		desc = L["Gap between buttons."],
 	}
-	schema[#schema + 1] = { header = L["Visibility"] }
+	schema[#schema + 1] = { header = L["Visibility"], glyph = "eye" }
 	schema[#schema + 1] = {
 		path = prefix .. ".mouseover",
 		new = "1.4.0",
@@ -135,7 +135,7 @@ barElement(L["Bar 6"], "bar6", true, true, "1.4.0")
 barElement(L["Stance bar"], "stance", false, false)
 barElement(L["Pet bar"], "pet", false, false)
 barElement(L["Totem bar"], "totemBar", true, false, "1.4.1", ns.NotClass("SHAMAN"), {
-	{ header = L["Totem menu"] },
+	{ header = L["Totem menu"], glyph = "fire" },
 	{
 		path = "actionBar.totemBar.flyoutButtonSize",
 		label = L["Button size"],
@@ -171,7 +171,7 @@ ns.RegisterElement({
 	new = "1.4.1",
 	enabledBy = ENABLE,
 	schema = {
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{
 			path = "actionBar.vehicleExit.buttonSize",
 			label = L["Button size"],
@@ -190,7 +190,7 @@ ns.RegisterElement({
 	name = L["Micro menu"],
 	enabledBy = ENABLE,
 	schema = {
-		{ header = L["Layout"] },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{
 			path = "actionBar.microMenuScale",
 			label = L["Scale"],
@@ -199,7 +199,7 @@ ns.RegisterElement({
 			max = 2,
 			step = 0.05,
 		},
-		{ header = L["Visibility"] },
+		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "actionBar.microMenuMouseover",
 			label = L["Show on mouseover"],
@@ -233,7 +233,7 @@ ns.RegisterElement({
 	name = L["Bag button"],
 	enabledBy = ENABLE,
 	schema = {
-		{ header = L["Visibility"] },
+		{ header = L["Visibility"], glyph = "eye" },
 		{
 			path = "actionBar.bagButtonMouseover",
 			label = L["Show on mouseover"],
@@ -270,7 +270,7 @@ local schema = {
 		desc = L["Replace Blizzard action bars."],
 	},
 	{ type = "elements" },
-	{ header = L["General"] },
+	{ header = L["General"], glyph = "gear" },
 	{
 		path = "actionBar.clickAnimation",
 		label = L["Click animation"],
@@ -291,7 +291,7 @@ local schema = {
 		values = DRAG_MODIFIER_VALUES,
 		desc = L["Key to hold while dragging a spell off a bar. Without a modifier a spell can be dragged away by accident."],
 	},
-	{ header = L["Text"] },
+	{ header = L["Text"], glyph = "font" },
 	{ path = "actionBar.showHotkeys", label = L["Show hotkeys"], type = "toggle" },
 	{
 		path = "actionBar.showShapeshiftHotkeys",
@@ -329,7 +329,7 @@ local schema = {
 		type = "font",
 		desc = L["Remaining cooldown text on action bar buttons."],
 	},
-	{ header = L["Colors"] },
+	{ header = L["Colors"], glyph = "palette" },
 	{
 		path = "actionBar.rangeColor",
 		label = L["Out of range"],
@@ -348,7 +348,7 @@ local schema = {
 		type = "color",
 		desc = L["Icon tint when the ability cannot be used for any other reason."],
 	},
-	{ header = L["Range and cooldowns"] },
+	{ header = L["Range and cooldowns"], glyph = "hourglass-half" },
 	{
 		path = "actionBar.rangeIconTint",
 		new = "1.4.0",
@@ -397,6 +397,7 @@ local schema = {
 ns.RegisterPage({
 	key = PAGE,
 	name = L["Action bars"],
+	glyph = "table-cells",
 	order = 15,
 	schema = schema,
 	enable = ENABLE,

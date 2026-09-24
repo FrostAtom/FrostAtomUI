@@ -96,6 +96,7 @@ end
 ns.RegisterElement({
 	match = "^trackers%.groups%.%d+%.point$",
 	page = "trackers",
+	glyph = "list-check",
 	name = function(path)
 		local group = groups()[groupIndexFromPath(path)]
 		return group and group.name or L["Group"]
@@ -109,7 +110,7 @@ ns.RegisterElement({
 			return spec
 		end
 		return {
-			{ header = L["Size"] },
+			{ header = L["Size"], glyph = "up-down-left-right" },
 			entry({ path = "size", label = L["Icon size"], type = "number", min = 12, max = 80, step = 1 }),
 			entry({ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 20, step = 1 }),
 			entry({ path = "columns", label = L["Columns"], type = "number", min = 1, max = 16, step = 1 }),
@@ -119,9 +120,9 @@ ns.RegisterElement({
 				type = "toggle",
 				desc = L["Shift visible icons into the gaps of hidden ones."],
 			}),
-			{ header = L["Text"] },
+			{ header = L["Text"], glyph = "font" },
 			entry({ path = "timer", label = L["Timer text"], type = "toggle" }),
-			{ header = L["Visibility"] },
+			{ header = L["Visibility"], glyph = "eye" },
 			entry({
 				path = "inactiveAlpha",
 				label = L["Inactive alpha"],
@@ -426,7 +427,7 @@ local function buildIconEntries(schema, groupIndex, iconIndex, icon)
 	end
 	local hasUnit = kind == "aura" or kind == "dr" or kind == "unitcd"
 
-	schema[#schema + 1] = { header = L["Icon %d"]:format(iconIndex) }
+	schema[#schema + 1] = { header = L["Icon %d"]:format(iconIndex), glyph = "pen-to-square" }
 	local prefix = iconPath(groupIndex, iconIndex)
 	local function entry(spec)
 		spec.path = prefix .. "." .. spec.path
@@ -564,6 +565,7 @@ local function buildSchema()
 			label = L["Layout"],
 			type = "execute",
 			text = L["Edit"],
+			glyph = "up-down-left-right",
 			desc = L["Position, icon size, spacing and timer of the group, edited on screen."],
 			disabled = function()
 				return not groupLoaded(groupIndex)
@@ -595,9 +597,9 @@ local function buildSchema()
 			type = "select",
 			values = { { 0, L["Both"] }, { 1, L["Primary"] }, { 2, L["Secondary"] } },
 		},
-	})
+	}, nil, nil, "sliders")
 
-	schema[#schema + 1] = { header = L["Icons"] }
+	schema[#schema + 1] = { header = L["Icons"], glyph = "icons" }
 	for iconIndex in ipairs(group.icons or {}) do
 		schema[#schema + 1] = iconRow(groupIndex, iconIndex)
 	end
@@ -631,6 +633,7 @@ end
 ns.RegisterPage({
 	key = "trackers",
 	name = L["Trackers"],
+	glyph = "list-check",
 	order = 32,
 	new = "1.4.0",
 	schema = { { path = "trackers", hidden = true } },

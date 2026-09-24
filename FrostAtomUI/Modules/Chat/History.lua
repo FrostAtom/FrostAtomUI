@@ -9,7 +9,9 @@ local config = ns.Config.chat
 
 local COPY_FRAME_NAME = "FrostAtomUICopyChat"
 local COPY_TEXT_MARGIN = 40
-local COPY_ICON = [[Interface\Buttons\UI-GuildButton-PublicNote-Up]]
+local COPY_GLYPH = "copy"
+local COPY_GLYPH_SIZE = 11
+local COPY_BUTTON_SIZE = 16
 local COPY_BUTTON_ALPHA = 0.4
 
 local commandHistory = {}
@@ -161,14 +163,10 @@ SLASH_FROSTATOMUI_COPY1 = "/copy"
 
 local function onCopyButtonEnter(self)
 	self:SetAlpha(1)
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetText("/copy")
-	GameTooltip:Show()
 end
 
 local function onCopyButtonLeave(self)
 	self:SetAlpha(COPY_BUTTON_ALPHA)
-	GameTooltip:Hide()
 end
 
 local function onCopyButtonClick(self)
@@ -183,15 +181,14 @@ Chat:OnInitialize(function(self)
 
 	for i = 1, NUM_CHAT_WINDOWS do
 		local chatFrame = _G["ChatFrame" .. i]
-		local copyButton = CreateFrame("Button", nil, chatFrame)
-		copyButton:SetSize(16, 16)
+		local copyButton = ns.CreateGlyphButton(chatFrame, COPY_GLYPH, COPY_GLYPH_SIZE, "/copy")
+		ns.SetGlyph(copyButton.glyph, COPY_GLYPH, COPY_GLYPH_SIZE, "OUTLINE")
+		copyButton:SetSize(COPY_BUTTON_SIZE, COPY_BUTTON_SIZE)
 		copyButton:SetPoint("TOPRIGHT", chatFrame, "TOPRIGHT", 4, 4)
 		copyButton:SetFrameLevel(chatFrame:GetFrameLevel() + 5)
-		copyButton:SetNormalTexture(COPY_ICON)
-		copyButton:SetHighlightTexture(COPY_ICON)
 		copyButton:SetAlpha(COPY_BUTTON_ALPHA)
-		copyButton:SetScript("OnEnter", onCopyButtonEnter)
-		copyButton:SetScript("OnLeave", onCopyButtonLeave)
+		copyButton:HookScript("OnEnter", onCopyButtonEnter)
+		copyButton:HookScript("OnLeave", onCopyButtonLeave)
 		copyButton:SetScript("OnClick", onCopyButtonClick)
 	end
 end)

@@ -83,6 +83,13 @@ local LEVEL_COLORS = {
 	[Parser.WARNING] = ORANGE_FONT_COLOR,
 	[Parser.INFO] = GRAY_FONT_COLOR,
 }
+local LEVEL_GLYPHS = {
+	[Parser.ERROR] = "circle-xmark",
+	[Parser.WARNING] = "triangle-exclamation",
+	[Parser.INFO] = "circle-info",
+}
+local ISSUE_GLYPH_SIZE = 10
+local ISSUE_TEXT_INSET = 16
 
 local IGNORED_KEYS = {
 	LSHIFT = true,
@@ -353,12 +360,15 @@ local function showIssues()
 				row.text:SetText(item.text)
 			end
 			row.text:SetTextColor(color.r, color.g, color.b)
+			ns.SetGlyph(row.icon, LEVEL_GLYPHS[item.level])
+			row.icon:SetTextColor(color.r, color.g, color.b)
 			row.line = item.line
 			row.color = color
 			row:Show()
 		elseif i == shown + 1 and #issues > shown then
 			row.text:SetFormattedText(L["... and %d more"], #issues - shown)
 			row.text:SetTextColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+			ns.SetGlyph(row.icon, nil)
 			row.line = nil
 			row.color = nil
 			row:Show()
@@ -367,6 +377,7 @@ local function showIssues()
 		end
 	end
 	ns.SetShown(frame.noIssues, #issues == 0 and editorEntry ~= nil)
+	ns.SetShown(frame.noIssuesIcon, #issues == 0 and editorEntry ~= nil)
 end
 
 local function showInfo()
@@ -1496,8 +1507,10 @@ local function createIssues()
 		row:SetSize(240, ISSUE_ROW_HEIGHT)
 		row:SetPoint("TOPLEFT", 8, -8 - (i - 1) * ISSUE_ROW_HEIGHT)
 		ns.AddHighlight(row, "list")
+		row.icon = ns.CreateGlyph(row, nil, ISSUE_GLYPH_SIZE, "ARTWORK")
+		row.icon:SetPoint("CENTER", row, "LEFT", 2 + ISSUE_GLYPH_SIZE / 2, 0)
 		row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmallLeft")
-		row.text:SetPoint("LEFT", 2, 0)
+		row.text:SetPoint("LEFT", ISSUE_TEXT_INSET, 0)
 		row.text:SetPoint("RIGHT", -2, 0)
 		row:SetScript("OnClick", function(self)
 			jumpToLine(self.line)
@@ -1509,8 +1522,13 @@ local function createIssues()
 	end
 	frame.issueRows = rows
 
+	local noneIcon = ns.CreateGlyph(panel, "circle-check", ISSUE_GLYPH_SIZE, "ARTWORK")
+	noneIcon:SetTextColor(GREEN_FONT_COLOR.r, GREEN_FONT_COLOR.g, GREEN_FONT_COLOR.b)
+	noneIcon:SetPoint("CENTER", panel, "TOPLEFT", 10 + ISSUE_GLYPH_SIZE / 2, -8 - ISSUE_ROW_HEIGHT / 2)
+	frame.noIssuesIcon = noneIcon
+
 	local none = panel:CreateFontString(nil, "ARTWORK", "GameFontGreenSmall")
-	none:SetPoint("TOPLEFT", 10, -10)
+	none:SetPoint("LEFT", noneIcon, "CENTER", ISSUE_TEXT_INSET - 2 - ISSUE_GLYPH_SIZE / 2, 0)
 	none:SetText(L["No problems found"])
 	frame.noIssues = none
 

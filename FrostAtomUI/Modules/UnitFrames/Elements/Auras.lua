@@ -2,6 +2,7 @@ local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
 local CancelUnitBuff = CancelUnitBuff
+local CancelItemTempEnchantment = CancelItemTempEnchantment
 local InCombatLockdown = InCombatLockdown
 local GameTooltip = GameTooltip
 local GetSpellInfo = GetSpellInfo
@@ -18,6 +19,9 @@ local MAX_AURAS = 40
 local COUNT_FONT_SCALE = 0.45
 local TIMER_FONT_SCALE = 0.42
 local SPARE_CANCEL_SLOTS = 4
+local CATCHER_LEVEL = 3
+local ENCHANT_BUTTON_LEVEL = CATCHER_LEVEL + 1
+local NO_AURA_INDEX = MAX_AURAS + 1
 local OWN_CASTERS = { player = true, pet = true, vehicle = true }
 
 local debuffColors = UF.debuffColors
@@ -100,7 +104,11 @@ local function rowSize(container)
 end
 
 local function refreshTooltip(icon)
-	GameTooltip:SetUnitAura(icon.unit, icon.index, icon.filter)
+	if icon.enchantSlot then
+		GameTooltip:SetInventoryItem("player", icon.enchantSlot)
+	else
+		GameTooltip:SetUnitAura(icon.unit, icon.index, icon.filter)
+	end
 end
 
 local function onIconEnter(icon)
@@ -125,6 +133,50 @@ local function onIconClick(icon)
 		return
 	end
 	CancelUnitBuff("player", icon.index, icon.filter)
+end
+
+local function refreshEnchantTooltip(button)
+	refreshTooltip(button:GetParent())
+end
+
+local function onEnchantEnter(button)
+	onIconEnter(button:GetParent())
+	button:SetScript("OnUpdate", refreshEnchantTooltip)
+end
+
+local function onEnchantLeave(button)
+	button:SetScript("OnUpdate", nil)
+	onIconLeave(button:GetParent())
+end
+
+local function onEnchantClick(button)
+	if not UF.testing then
+		CancelItemTempEnchantment(button:GetParent().weaponIndex)
+	end
+end
+
+local function setEnchant(icon, enchant)
+	local button = icon.enchantButton
+	if not enchant then
+		icon.enchantSlot = nil
+		if button then
+			button:Hide()
+		end
+		return
+	end
+	if not button then
+		button = CreateFrame("Button", nil, icon)
+		button:SetAllPoints()
+		button:RegisterForClicks("RightButtonUp")
+		button:SetScript("OnClick", onEnchantClick)
+		button:SetScript("OnEnter", onEnchantEnter)
+		button:SetScript("OnLeave", onEnchantLeave)
+		icon.enchantButton = button
+	end
+	button:SetFrameLevel(icon:GetParent():GetFrameLevel() + ENCHANT_BUTTON_LEVEL)
+	icon.enchantSlot = enchant.slot
+	icon.weaponIndex = enchant.weaponIndex
+	button:Show()
 end
 
 local function onIconResize(icon, size)
@@ -371,7 +423,7 @@ local function syncCatchers(container)
 		local originX = anchor:find("RIGHT") and container:GetRight() or container:GetLeft()
 		local originY = anchor:find("BOTTOM") and container:GetBottom() or container:GetTop()
 		local size = container.size * scale
-		local strata, level = container:GetFrameStrata(), container:GetFrameLevel() + 3
+		local strata, level = container:GetFrameStrata(), container:GetFrameLevel() + CATCHER_LEVEL
 		for i = 1, active do
 			local catcher = catchers[i] or createCatcher(container, i)
 			local point, x, y = UF.GridIconPoint(container, i)
@@ -390,7 +442,12 @@ local function syncCatchers(container)
 				catcher:SetFrameLevel(level)
 			end
 			if byName then
-				setCatcherAura(catcher, nil, container[i].spellName)
+				local spell = container[i].spellName
+				if spell then
+					setCatcherAura(catcher, nil, spell)
+				else
+					setCatcherAura(catcher, NO_AURA_INDEX, nil)
+				end
 			else
 				setCatcherAura(catcher, i, nil)
 			end
@@ -428,10 +485,17 @@ local function layoutContainer(container, shown)
 	end
 end
 
-local sortSet
+local sortSet, sortCount, sortExtra
+
+local function sortEntry(key)
+	if key > sortCount then
+		return sortExtra[key - sortCount]
+	end
+	return sortSet[key]
+end
 
 function sorters.own(a, b)
-	local ownA, ownB = OWN_CASTERS[sortSet[a].caster] or false, OWN_CASTERS[sortSet[b].caster] or false
+	local ownA, ownB = OWN_CASTERS[sortEntry(a).caster] or false, OWN_CASTERS[sortEntry(b).caster] or false
 	if ownA ~= ownB then
 		return ownA
 	end
@@ -444,49 +508,81 @@ local function expiresOf(aura)
 end
 
 function sorters.time(a, b)
-	local expiresA, expiresB = expiresOf(sortSet[a]), expiresOf(sortSet[b])
+	local expiresA, expiresB = expiresOf(sortEntry(a)), expiresOf(sortEntry(b))
 	if expiresA ~= expiresB then
 		return expiresA < expiresB
 	end
 	return a < b
 end
 
-local function sortedOrder(container, auras, count)
+local function sortedOrder(container, auras, count, extra, total)
 	local sorter = container.sortable and sorters[config.playerBuffSort]
 	if not sorter then
 		return nil
 	end
 	local order = container.order
-	for i = 1, count do
+	for i = 1, total do
 		order[i] = i
 	end
-	for i = count + 1, container.orderCount do
+	for i = total + 1, container.orderCount do
 		order[i] = nil
 	end
-	container.orderCount = count
-	sortSet = auras
+	container.orderCount = total
+	sortSet, sortCount, sortExtra = auras, count, extra
 	sort(order, sorter)
-	sortSet = nil
+	sortSet, sortExtra = nil, nil
 	return order
 end
 
+local enchantContainer
+local weaponEnchants, weaponEnchantCount = nil, 0
+
 local function updateContainer(container)
 	local auras, count = Auras.Get(container.unit, container.filter)
-	local order = sortedOrder(container, auras, count)
+	local enchants, enchantCount = nil, 0
+	if container == enchantContainer and weaponEnchants then
+		enchants, enchantCount = weaponEnchants, weaponEnchantCount
+	end
+	local total = count + enchantCount
+	local order = sortedOrder(container, auras, count, enchants, total)
 	local enlarge = ownScale(container) ~= nil
 
-	local shown = min(count, container.limit)
+	local shown = min(total, container.limit)
 	for i = 1, shown do
 		local index = order and order[i] or i
-		local aura = auras[index]
 		local icon = acquireIcon(container, i)
-		icon.index = index
-		icon.spellName = aura.name
-		icon.big = enlarge and OWN_CASTERS[aura.caster] or false
-		setIcon(icon, aura.icon, aura.count, aura.debuffType, aura.duration, aura.expires, aura.stealable)
+		if index > count then
+			local enchant = enchants[index - count]
+			icon.index = nil
+			icon.spellName = nil
+			icon.big = false
+			setEnchant(icon, enchant)
+			setIcon(icon, enchant.icon, nil, nil, enchant.duration, enchant.expires)
+		else
+			local aura = auras[index]
+			icon.index = index
+			icon.spellName = aura.name
+			icon.big = enlarge and OWN_CASTERS[aura.caster] or false
+			setEnchant(icon, nil)
+			setIcon(icon, aura.icon, aura.count, aura.debuffType, aura.duration, aura.expires, aura.stealable)
+		end
 	end
 
 	layoutContainer(container, shown)
+end
+
+function UF.HasWeaponEnchantAuras()
+	return enchantContainer ~= nil
+end
+
+function UF.SetWeaponEnchants(enchants, count)
+	if weaponEnchants == enchants and count == 0 and weaponEnchantCount == 0 then
+		return
+	end
+	weaponEnchants, weaponEnchantCount = enchants, count
+	if enchantContainer and not UF.testing and enchantContainer:IsVisible() then
+		updateContainer(enchantContainer)
+	end
 end
 
 local function testContainer(container, spells)
@@ -499,6 +595,7 @@ local function testContainer(container, spells)
 		icon.index = i
 		icon.spellName = nil
 		icon.big = enlarge and random(3) == 1
+		setEnchant(icon, nil)
 		local _, _, texture = GetSpellInfo(spells[random(#spells)])
 		local duration = random(3) == 1 and 0 or random(8, 60)
 		local count = random(3) == 1 and random(2, 5) or 1
@@ -532,6 +629,7 @@ local function createContainer(frame, options, filter, isDebuff)
 		container.cancellable = true
 		container.catchers = {}
 		cancelContainers[#cancelContainers + 1] = container
+		enchantContainer = container
 	end
 	containers[#containers + 1] = container
 	setLimit(container, container.max)

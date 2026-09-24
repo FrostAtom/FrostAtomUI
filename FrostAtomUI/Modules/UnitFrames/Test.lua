@@ -70,10 +70,16 @@ end
 
 local function startTest(frame)
 	UnregisterUnitWatch(frame)
+	if not frame.watched then
+		frame.test = nil
+		frame:Hide()
+		return
+	end
 	frame:Show()
 	frame.test = makeData(frame)
 	UF:RunTest(frame)
 end
+UF.StartTest = startTest
 
 local function stopTest(frame)
 	frame.test = nil

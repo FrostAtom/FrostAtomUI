@@ -6,6 +6,8 @@ local Chat = ns:GetModule("Chat")
 local config = ns.Config.chat
 
 local BUTTON_SIZE = 20
+local GLYPH = "angles-down"
+local GLYPH_SIZE = 14
 local FLASH_DURATION = 0.4
 local SCROLL_METHODS = {
 	"ScrollUp",
@@ -51,22 +53,19 @@ local function stopFlash(self)
 end
 
 local function createButton(chatFrame)
-	local button = CreateFrame("Button", nil, chatFrame)
+	local button = ns.CreateGlyphButton(chatFrame, GLYPH, GLYPH_SIZE)
+	ns.SetGlyph(button.glyph, GLYPH, GLYPH_SIZE, "OUTLINE")
 	button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
 	button:SetPoint("BOTTOMRIGHT", chatFrame, "BOTTOMRIGHT", 0, 0)
 	button:SetFrameLevel(chatFrame:GetFrameLevel() + 5)
-	button:SetNormalTexture([[Interface\ChatFrame\UI-ChatIcon-ScrollEnd-Up]])
-	button:SetPushedTexture([[Interface\ChatFrame\UI-ChatIcon-ScrollEnd-Down]])
-	button:SetHighlightTexture([[Interface\Buttons\UI-Common-MouseHilight]], "ADD")
 	button:SetScript("OnClick", onClick)
 	button:Hide()
 
 	local flash = CreateFrame("Frame", nil, button)
 	flash:SetAllPoints()
-	local texture = flash:CreateTexture(nil, "OVERLAY")
-	texture:SetTexture([[Interface\ChatFrame\UI-ChatIcon-BlinkHilight]])
-	texture:SetBlendMode("ADD")
-	texture:SetAllPoints()
+	local glyph = ns.CreateGlyph(flash, GLYPH, GLYPH_SIZE, "OVERLAY", "OUTLINE")
+	glyph:SetTextColor(1, 0.82, 0)
+	glyph:SetPoint("CENTER", button.glyph)
 
 	local animation = flash:CreateAnimationGroup()
 	local alpha = animation:CreateAnimation("Alpha")

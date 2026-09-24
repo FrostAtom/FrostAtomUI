@@ -224,7 +224,8 @@ local function anchorContainer(container)
 	elseif arena and frame.trinket and ns.Config.arenaTrinket.enabled then
 		container:SetPoint("LEFT", frame.trinket, "RIGHT", x, y)
 	elseif arena then
-		container:SetPoint("LEFT", frame, "RIGHT", frame:GetHeight() + ARENA_PET_GAP + x, y)
+		local relative = UF.GroupChainEnd(frame)
+		container:SetPoint("LEFT", relative, "RIGHT", (relative == frame and 0 or ARENA_PET_GAP) + x, y)
 	else
 		container:SetPoint("LEFT", frame, "RIGHT", x, y)
 	end
@@ -280,14 +281,9 @@ UF:OnInitialize(function(self)
 	applyConfig()
 	self:WatchConfig("diminishingReturns", applyConfig)
 	self:WatchConfig("arenaTrinket", applyConfig)
-	self:WatchConfig("unitFrames.arenaHeight", applyConfig)
-	for i = 1, #containers do
-		local container = containers[i]
-		local castbar = container:GetParent().castbar
-		if castbar and castbar.moverPath then
-			self:WatchConfig(castbar.moverPath, function()
-				anchorContainer(container)
-			end)
+	self:WatchConfig("unitFrames", function()
+		for i = 1, #containers do
+			anchorContainer(containers[i])
 		end
-	end
+	end)
 end)

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "wow-addon-dev": {
+      "command": "py",
+      "args": ["-3.12", "D:\\workspace\\atomengine_wip\\Global\\tools\\mcp\\addon_dev.py"],
+      "env": { "GLOBAL_CLIENT": "rescuealone" }
+    },
+    "walkmpq": {
+      "command": "D:\\workspace\\atomengine_wip\\WalkMPQ\\build\\x86-Release-Live\\WalkMPQMcp.exe",
+      "args": ["D:\\games\\World of Warcraft 3.3.5a"]
+    }
+  }
+}

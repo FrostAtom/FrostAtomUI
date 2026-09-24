@@ -48,9 +48,9 @@ local COLLECTOR_CELL = 32
 local COLLECTOR_COLUMNS = 4
 local COLLECTOR_PADDING = 6
 local COLLECTOR_TOGGLE_SIZE = 14
-local COLLECTOR_ICON_OPEN = "Interface\\Buttons\\UI-MinusButton-Up"
-local COLLECTOR_ICON_CLOSED = "Interface\\Buttons\\UI-PlusButton-Up"
-local COLLECTOR_ICON_HIGHLIGHT = "Interface\\Buttons\\UI-PlusButton-Hilight"
+local COLLECTOR_GLYPH_SIZE = 10
+local COLLECTOR_GLYPH_OPEN = "chevron-right"
+local COLLECTOR_GLYPH_CLOSED = "chevron-left"
 
 local IGNORED_BUTTONS = {
 	MiniMapTrackingButton = true,
@@ -241,7 +241,7 @@ end
 
 local function setCollectorOpen(open)
 	ns.SetShown(collectorPanel, open)
-	collectorToggle:GetNormalTexture():SetTexture(open and COLLECTOR_ICON_OPEN or COLLECTOR_ICON_CLOSED)
+	ns.SetGlyph(collectorToggle.glyph, open and COLLECTOR_GLYPH_OPEN or COLLECTOR_GLYPH_CLOSED)
 end
 
 local function createCollector()
@@ -253,13 +253,18 @@ local function createCollector()
 	collectorPanel:SetBackdrop(ns.CreateBackdrop(14, 3))
 	collectorPanel:SetBackdropColor(0, 0, 0, 0.8)
 
-	collectorToggle = CreateFrame("Button", "FrostAtomUIMinimapButtonsToggle", Minimap)
+	collectorToggle = ns.CreateGlyphButton(
+		Minimap,
+		COLLECTOR_GLYPH_CLOSED,
+		COLLECTOR_GLYPH_SIZE,
+		nil,
+		"FrostAtomUIMinimapButtonsToggle"
+	)
+	ns.SetGlyph(collectorToggle.glyph, COLLECTOR_GLYPH_CLOSED, COLLECTOR_GLYPH_SIZE, "OUTLINE")
 	collectorToggle:Hide()
 	collectorToggle:SetSize(COLLECTOR_TOGGLE_SIZE, COLLECTOR_TOGGLE_SIZE)
 	collectorToggle:SetPoint("LEFT", ICON_INSET, 0)
 	collectorToggle:SetFrameLevel(Minimap:GetFrameLevel() + 2)
-	collectorToggle:SetNormalTexture(COLLECTOR_ICON_CLOSED)
-	collectorToggle:SetHighlightTexture(COLLECTOR_ICON_HIGHLIGHT, "ADD")
 	collectorToggle:SetScript("OnClick", function()
 		setCollectorOpen(not collectorPanel:IsShown())
 	end)

@@ -23,6 +23,7 @@ ns.RegisterElement({
 	path = "tooltip.point",
 	page = "tooltip",
 	name = L["Tooltip"],
+	glyph = "comment-dots",
 	enabledBy = "tooltip.enabled",
 	schema = {
 		{
@@ -89,6 +90,7 @@ ns.RegisterElement({
 ns.RegisterPage({
 	key = "tooltip",
 	name = L["Tooltip"],
+	glyph = "comment-dots",
 	order = 38,
 	enable = "tooltip.enabled",
 	schema = {
@@ -99,7 +101,7 @@ ns.RegisterPage({
 			desc = L["Anchor, icons, IDs, item level and unit info in tooltips."],
 		},
 		{ type = "elements" },
-		{ header = L["General"] },
+		{ header = L["General"], glyph = "gear" },
 		{
 			path = "tooltip.hideInCombat",
 			label = L["Hide unit tooltips in combat"],
@@ -120,7 +122,7 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Class color for players, reaction color for NPCs, quality color for items."],
 		},
-		{ header = L["Appearance"] },
+		{ header = L["Appearance"], glyph = "palette" },
 		{
 			path = "tooltip.skin",
 			new = "1.4.0",
@@ -187,7 +189,7 @@ ns.RegisterPage({
 			enabledBy = "tooltip.skin",
 			desc = L["Large item or spell icon outside the left edge instead of the small one in the title. Skipped when the hovered button already shows the icon."],
 		},
-		{ header = L["Units"] },
+		{ header = L["Units"], glyph = "id-card" },
 		{
 			path = "tooltip.showSpec",
 			new = "1.4.0",
@@ -254,7 +256,7 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["List party or raid members targeting the unit."],
 		},
-		{ header = L["Auras"] },
+		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		{
 			path = "tooltip.auras",
 			new = "1.4.0",
@@ -282,7 +284,7 @@ ns.RegisterPage({
 			step = 1,
 			desc = L["Rows for buffs and for debuffs each."],
 		},
-		{ header = L["Extra info"] },
+		{ header = L["Extra info"], glyph = "circle-info" },
 		{
 			path = "tooltip.showIds",
 			label = L["Spell / item / NPC IDs"],

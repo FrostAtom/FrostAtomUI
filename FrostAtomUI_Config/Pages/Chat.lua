@@ -28,7 +28,7 @@ local schema = {
 		desc = L["Tabs cannot be dragged and frames cannot be resized; the main frame uses the position and size set in its frame settings. Off leaves positions to Blizzard's chat settings."],
 	},
 	{ type = "elements" },
-	{ header = L["Messages"] },
+	{ header = L["Messages"], glyph = "message" },
 	{
 		path = "chat.timestamps",
 		label = L["Timestamps"],
@@ -99,7 +99,7 @@ local schema = {
 		enabledBy = "chat.whisperSoundThrottle",
 		desc = L["0 plays the sound for every whisper."],
 	},
-	{ header = L["Filters"] },
+	{ header = L["Filters"], glyph = "filter" },
 	{
 		path = "chat.filterSystemSpam",
 		label = L["Filter server spam"],
@@ -127,7 +127,7 @@ local schema = {
 		type = "toggle",
 		desc = L["During the first minute of a battleground, print one summary line every 5 seconds instead of a line per player. Leave messages are hidden after the match ends."],
 	},
-	{ header = L["History"] },
+	{ header = L["History"], glyph = "clock-rotate-left" },
 	{
 		path = "chat.maxLines",
 		label = L["Lines kept per frame"],
@@ -174,7 +174,7 @@ local schema = {
 		step = 10,
 		desc = L["Size of the /copy window."],
 	},
-	{ header = L["Chat bubbles"] },
+	{ header = L["Chat bubbles"], glyph = "comment-dots" },
 	{ path = "chat.bubbleFont", label = L["Font"], type = "font" },
 	{ path = "chat.bubbleAlpha", label = L["Background alpha"], type = "number", min = 0, max = 1, step = 0.05 },
 	{
@@ -219,7 +219,7 @@ Section(schema, L["Whisper block"], "chat.whisperBlock", {
 		type = "toggle",
 		desc = L["Whispers from your friends list are never blocked."],
 	},
-})
+}, nil, nil, "comment-slash")
 
 Section(schema, L["Announcements"], "announce", {
 	{ path = "enabled", label = L["Enable"], type = "toggle", desc = L["Messages sent to group chat on your behalf."] },
@@ -268,10 +268,10 @@ Section(schema, L["Announcements"], "announce", {
 		enabledBy = "announce.auraMastery",
 		desc = L["Sent twice to raid warning or party chat."],
 	},
-})
+}, nil, nil, "bullhorn")
 
 local chatFrame = {
-	{ header = L["Size"] },
+	{ header = L["Size"], glyph = "up-down-left-right" },
 	{
 		path = "chat.width",
 		label = L["Width"],
@@ -290,7 +290,7 @@ local chatFrame = {
 		step = 1,
 		enabledBy = "chat.lockFrames",
 	},
-	{ header = L["Appearance"] },
+	{ header = L["Appearance"], glyph = "palette" },
 	{ path = "chat.backgroundAlpha", label = L["Background alpha"], type = "number", min = 0, max = 1, step = 0.05 },
 	{
 		path = "chat.scrollToBottomButton",
@@ -311,7 +311,7 @@ local chatFrame = {
 			{ "above", L["Above the tabs"] },
 		},
 	},
-	{ header = L["Visibility"] },
+	{ header = L["Visibility"], glyph = "eye" },
 	{
 		path = "chat.fadeMessages",
 		label = L["Fade out messages"],
@@ -360,6 +360,7 @@ requireChat(chatFrame)
 ns.RegisterPage({
 	key = "chat",
 	name = L["Chat"],
+	glyph = "comments",
 	order = 35,
 	schema = schema,
 })
@@ -368,6 +369,7 @@ ns.RegisterElement({
 	path = "chat.point",
 	page = "chat",
 	name = L["Chat frame"],
+	glyph = "comments",
 	enabledBy = "chat.enabled",
 	schema = chatFrame,
 })

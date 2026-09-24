@@ -131,7 +131,7 @@ Section(schema, L["Camera"], "tweaks", {
 		desc = L["Distance the Far camera distance key binding snaps to."],
 	},
 	cameraKey("FROSTATOMUI_CAMERA_FAR"),
-})
+}, nil, nil, "camera")
 
 local function customMouseSpeedOff()
 	return FrostAtomUI:GetConfig("tweaks.mouseSpeedMode") ~= "custom"
@@ -180,7 +180,7 @@ Section(schema, L["Controls"], "tweaks", {
 		type = "toggle",
 		desc = L["Casting while sitting shows an error instead of standing up, so a misclick doesn't interrupt eating or drinking."],
 	},
-}, nil, NEW)
+}, nil, NEW, "computer-mouse")
 
 Section(schema, L["Graphics"], "tweaks", {
 	{
@@ -241,7 +241,7 @@ Section(schema, L["Graphics"], "tweaks", {
 		type = "toggle",
 		desc = L["Without it view distance is capped at 791 yards on old continents and battlegrounds such as Alterac Valley, Warsong Gulch and Arathi Basin."],
 	},
-}, nil, NEW)
+}, nil, NEW, "image")
 
 Section(schema, L["Performance"], "tweaks", {
 	{
@@ -285,7 +285,7 @@ Section(schema, L["Performance"], "tweaks", {
 		},
 		desc = L["Clock the game runs on. High precision can fix stutter and uneven movement on some processors, System is the fallback when it makes things worse. Needs a game restart."],
 	},
-}, nil, NEW)
+}, nil, NEW, "gauge-high")
 
 Section(schema, L["Sound"], "tweaks", {
 	{
@@ -301,11 +301,12 @@ Section(schema, L["Sound"], "tweaks", {
 		type = "toggle",
 		desc = L["The game places your ears 2 yards behind and 4 above your character. This puts them in the head, so footsteps and casts around you come from a more exact direction. Only with the Sound at Character audio option on."],
 	},
-}, nil, NEW)
+}, nil, NEW, "volume-high")
 
 ns.RegisterPage({
 	key = "client",
 	name = L["Game client"],
+	glyph = "display",
 	new = NEW,
 	order = 46,
 	schema = schema,

@@ -21,13 +21,14 @@ local AURA_GROWTH_ANCHORS = { LEFT = "TOPRIGHT", RIGHT = "TOPLEFT" }
 local player, castbar, pet, target, focus
 local party, arena, bosses = {}, {}, {}
 local partyPets, arenaPets = {}, {}
+local partyTargets, arenaTargets = {}, {}
 
 local function groupFramePath(prefix, index)
 	return "unitFrames." .. (index == 1 and prefix or prefix .. index)
 end
 
-local function groupCastbarPath(prefix, index)
-	return "unitFrames." .. prefix .. index .. "Castbar"
+local function groupChildPath(prefix, index, suffix)
+	return "unitFrames." .. prefix .. index .. suffix
 end
 
 local function setGroupPoints(frames)
@@ -35,6 +36,8 @@ local function setGroupPoints(frames)
 		local frame = frames[i]
 		ns.ApplyPoint(frame, frame.moverPath)
 		ns.ApplyPoint(frame.castbar, frame.castbar.moverPath)
+		ns.ApplyPoint(frame.pet, frame.pet.moverPath)
+		ns.ApplyPoint(frame.unitTarget, frame.unitTarget.moverPath)
 	end
 end
 
@@ -135,7 +138,12 @@ local function applySizes()
 	anchorPlayerDebuffs(config)
 end
 
-local function resizeGroupFrame(frame, groupPet, prefix)
+local function setConfigSize(frame, key)
+	local config = ns.Config.unitFrames
+	frame:SetFrameSize(config[key .. "Width"], config[key .. "Height"])
+end
+
+local function resizeGroupFrame(frame, prefix)
 	local config = ns.Config.unitFrames
 	local width, height = config[prefix .. "Width"], config[prefix .. "Height"]
 	frame:SetFrameSize(width, height)
@@ -144,7 +152,8 @@ local function resizeGroupFrame(frame, groupPet, prefix)
 		frame.buffs:SetLayout(width, config.partyBuffSize)
 	end
 	UF.SetCastbarSize(frame.castbar, config[prefix .. "CastbarWidth"], config[prefix .. "CastbarHeight"])
-	groupPet:SetFrameSize(height, height)
+	setConfigSize(frame.pet, prefix .. "Pet")
+	setConfigSize(frame.unitTarget, prefix .. "Target")
 end
 
 local function anchorGroupGrids(frame, point)
@@ -163,14 +172,16 @@ local function applyFrameSizes(self, path)
 	end
 	local config = ns.Config.unitFrames
 	player:SetFrameSize(config.playerWidth, config.playerHeight)
-	pet:SetFrameSize(config.playerHeight, config.playerHeight)
+	setConfigSize(pet, "pet")
 	self:ResizeTarget(target, config.playerWidth, config.playerHeight)
 	self:ResizeTarget(focus, config.playerWidth, config.playerHeight)
+	setConfigSize(target.targetOfTarget, "targetOfTarget")
+	setConfigSize(focus.targetOfTarget, "focusTarget")
 	for i = 1, #party do
-		resizeGroupFrame(party[i], partyPets[i], "party")
+		resizeGroupFrame(party[i], "party")
 	end
 	for i = 1, #arena do
-		resizeGroupFrame(arena[i], arenaPets[i], "arena")
+		resizeGroupFrame(arena[i], "arena")
 	end
 	for i = 1, #bosses do
 		local boss = bosses[i]
@@ -185,16 +196,48 @@ local function setGroupWatched(frames, watched)
 	end
 end
 
+function UF.GroupChainEnd(frame)
+	local config = ns.Config.unitFrames
+	local anchor, chainPath = frame, frame.moverPath
+	for _, child in ipairs({ frame.pet, frame.unitTarget }) do
+		if ns:GetConfig(child.moverPath)[4] ~= chainPath then
+			break
+		end
+		chainPath = child.moverPath
+		if config[child.shownKey] then
+			anchor = child
+		end
+	end
+	return anchor
+end
+
+local function anchorGroupTrinkets(frames, side)
+	local point = side == "LEFT" and "RIGHT" or "LEFT"
+	local x = side == "LEFT" and -2 or 2
+	for i = 1, #frames do
+		local frame = frames[i]
+		frame.trinket:ClearAllPoints()
+		frame.trinket:SetPoint(point, UF.GroupChainEnd(frame), side, x, 0)
+	end
+end
+
 local function applyVisibility()
 	local config = ns.Config.unitFrames
 	pet:SetWatched(config.showPet)
 	target.targetOfTarget:SetWatched(config.showTargetOfTarget)
 	focus.targetOfTarget:SetWatched(config.showFocusTarget)
 	setGroupWatched(party, config.showParty)
-	setGroupWatched(partyPets, config.showParty and config.showPet)
+	setGroupWatched(partyPets, config.showParty and config.showPartyPet)
+	setGroupWatched(partyTargets, config.showParty and config.showPartyTarget)
 	setGroupWatched(arena, config.showArena)
-	setGroupWatched(arenaPets, config.showArena and config.showPet)
+	setGroupWatched(arenaPets, config.showArena and config.showArenaPet)
+	setGroupWatched(arenaTargets, config.showArena and config.showArenaTarget)
 	setGroupWatched(bosses, config.showBoss)
+end
+
+local function applyGroupAnchors()
+	anchorGroupTrinkets(party, "LEFT")
+	anchorGroupTrinkets(arena, "RIGHT")
 end
 
 local function applyElements()
@@ -304,7 +347,8 @@ local function createPlayer(self, config)
 	self:AddElement(player, "procs")
 	player:EnableVehicleSwap("player", "vehicle", { buffs = true, debuffs = true, pvp = true, procs = true })
 
-	pet = self:CreatePet("pet", config.playerHeight)
+	pet = self:CreatePet("pet", config.petHeight)
+	setConfigSize(pet, "pet")
 	ns.ApplyPoint(pet, "unitFrames.pet")
 	local happiness = self:AddElement(pet, "happiness")
 	happiness:SetPoint("TOPLEFT", pet.health, 1, -1)
@@ -314,6 +358,7 @@ local function createTargets(self, config)
 	local targetOfTarget
 	target, targetOfTarget = self:CreateTarget("target", config.playerWidth, config.playerHeight)
 	ns.ApplyPoint(target, "unitFrames.target")
+	setConfigSize(targetOfTarget, "targetOfTarget")
 	ns.ApplyPoint(targetOfTarget, "unitFrames.targetOfTarget")
 	target:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
 	targetOfTarget:RegisterEvent("PLAYER_TARGET_CHANGED", "QueueUpdate")
@@ -325,6 +370,7 @@ local function createTargets(self, config)
 	local focusTarget
 	focus, focusTarget = self:CreateTarget("focus", config.playerWidth, config.playerHeight)
 	ns.ApplyPoint(focus, "unitFrames.focus")
+	setConfigSize(focusTarget, "focusTarget")
 	ns.ApplyPoint(focusTarget, "unitFrames.focusTarget")
 	focus:RegisterEvent("PLAYER_FOCUS_CHANGED", "QueueUpdate")
 	focusTarget:RegisterEvent("PLAYER_FOCUS_CHANGED", "QueueUpdate")
@@ -336,6 +382,22 @@ local function createTargets(self, config)
 		self:AddElement(frame, "diminish")
 		self:AddElement(frame, "procs")
 	end
+end
+
+local function createGroupSquares(self, frame, prefix, name, index)
+	local pet = self:CreatePet(prefix .. "pet" .. index, 1)
+	pet.moverPath = groupChildPath(prefix, index, "Pet")
+	pet.shownKey = "show" .. name .. "Pet"
+	setConfigSize(pet, prefix .. "Pet")
+	frame.pet = pet
+
+	local unitTarget = self:CreateTargetOfTarget(prefix .. index .. "target", 1)
+	unitTarget.moverPath = groupChildPath(prefix, index, "Target")
+	unitTarget.shownKey = "show" .. name .. "Target"
+	setConfigSize(unitTarget, prefix .. "Target")
+	frame.unitTarget = unitTarget
+
+	return pet, unitTarget
 end
 
 local function createParty(self, config)
@@ -360,7 +422,7 @@ local function createParty(self, config)
 		anchorGroupGrids(frame, "TOPLEFT")
 
 		local partyCastbar = self:CreateSideCastbar(frame, "RIGHT", config.partyCastbarWidth, config.partyCastbarHeight)
-		partyCastbar.moverPath = groupCastbarPath("party", i)
+		partyCastbar.moverPath = groupChildPath("party", i, "Castbar")
 		self:AddElement(frame, "procs")
 
 		self:AddElement(frame, "losecontrol")
@@ -369,13 +431,12 @@ local function createParty(self, config)
 		self:AddElement(frame, "dispel")
 		self:AddElement(frame, "highlight")
 
-		local pet = self:CreatePet("partypet" .. i, height)
-		pet:SetPoint("RIGHT", frame, "LEFT", -2, 0)
+		local pet, unitTarget = createGroupSquares(self, frame, "party", "Party", i)
 		pet:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
-		partyPets[i] = pet
+		unitTarget:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
+		partyPets[i], partyTargets[i] = pet, unitTarget
 
-		local trinket = self:AddElement(frame, "trinket", { size = ns.Config.arenaTrinket.size, arenaOnly = true })
-		trinket:SetPoint("RIGHT", pet, "LEFT", -2, 0)
+		self:AddElement(frame, "trinket", { size = ns.Config.arenaTrinket.size, arenaOnly = true })
 	end
 end
 
@@ -398,7 +459,7 @@ local function createArena(self, config)
 		self:AddElement(frame, "debuffs", debuffOptions)
 
 		local arenaCastbar = self:CreateSideCastbar(frame, "LEFT", config.arenaCastbarWidth, config.arenaCastbarHeight)
-		arenaCastbar.moverPath = groupCastbarPath("arena", i)
+		arenaCastbar.moverPath = groupChildPath("arena", i, "Castbar")
 
 		self:AddElement(frame, "losecontrol")
 
@@ -407,12 +468,11 @@ local function createArena(self, config)
 		self:AddElement(frame, "range")
 		self:AddElement(frame, "highlight")
 
-		local pet = self:CreatePet("arenapet" .. i, height)
-		pet:SetPoint("LEFT", frame, "RIGHT", 2, 0)
-		arenaPets[i] = pet
+		local pet, unitTarget = createGroupSquares(self, frame, "arena", "Arena", i)
+		unitTarget:RegisterEvent("ARENA_OPPONENT_UPDATE", "QueueUpdate")
+		arenaPets[i], arenaTargets[i] = pet, unitTarget
 
-		local trinket = self:AddElement(frame, "trinket", { size = trinketSize })
-		trinket:SetPoint("LEFT", pet, "RIGHT", 2, 0)
+		self:AddElement(frame, "trinket", { size = trinketSize })
 
 		self:AddElement(frame, "diminish")
 		self:AddElement(frame, "procs")
@@ -442,11 +502,17 @@ local function castbarResizer(prefix)
 	return frameResize(prefix .. "CastbarWidth", prefix .. "CastbarHeight", 60, 10)
 end
 
+local function squareResizer(key)
+	return frameResize(key .. "Width", key .. "Height", 20, 20)
+end
+
 local function registerGroupMovers(self, frames, prefix, name)
 	local shownPath = "unitFrames.show" .. name
 	local castbarShownPath = "unitFrames.show" .. name .. "Castbar"
 	local resize = frameResize(prefix .. "Width", prefix .. "Height", 80, 20)
 	local castbarResize = castbarResizer(prefix)
+	local petResize = squareResizer(prefix .. "Pet")
+	local targetResize = squareResizer(prefix .. "Target")
 	for i = 1, #frames do
 		local frame = frames[i]
 		self:RegisterMover(frame, frame.moverPath, name .. " " .. i, {
@@ -459,6 +525,16 @@ local function registerGroupMovers(self, frames, prefix, name)
 			enabledPath = { shownPath, castbarShownPath },
 			insets = castbarInsets(frame.castbar),
 			resize = castbarResize,
+		})
+		self:RegisterMover(frame.pet, frame.pet.moverPath, name .. " " .. i .. " pet", {
+			secure = true,
+			enabledPath = { shownPath, "unitFrames." .. frame.pet.shownKey },
+			resize = petResize,
+		})
+		self:RegisterMover(frame.unitTarget, frame.unitTarget.moverPath, name .. " " .. i .. " target", {
+			secure = true,
+			enabledPath = { shownPath, "unitFrames." .. frame.unitTarget.shownKey },
+			resize = targetResize,
 		})
 	end
 end
@@ -500,9 +576,21 @@ function UF:Initialize()
 		insets = castbarInsets(focus.castbar),
 		resize = castbarResizer("focus"),
 	})
-	self:RegisterMover(pet, "unitFrames.pet", "Pet", { secure = true })
-	self:RegisterMover(target.targetOfTarget, "unitFrames.targetOfTarget", "Target of target", { secure = true })
-	self:RegisterMover(focus.targetOfTarget, "unitFrames.focusTarget", "Target of focus", { secure = true })
+	self:RegisterMover(pet, "unitFrames.pet", "Pet", {
+		secure = true,
+		enabledPath = "unitFrames.showPet",
+		resize = squareResizer("pet"),
+	})
+	self:RegisterMover(target.targetOfTarget, "unitFrames.targetOfTarget", "Target of target", {
+		secure = true,
+		enabledPath = "unitFrames.showTargetOfTarget",
+		resize = squareResizer("targetOfTarget"),
+	})
+	self:RegisterMover(focus.targetOfTarget, "unitFrames.focusTarget", "Target of focus", {
+		secure = true,
+		enabledPath = "unitFrames.showFocusTarget",
+		resize = squareResizer("focusTarget"),
+	})
 	self:RegisterMover(castbar, "unitFrames.playerCastbar", "Player castbar", {
 		resize = frameResize("playerCastbarWidth", "playerCastbarHeight", 60, 10),
 	})
@@ -521,9 +609,11 @@ function UF:Initialize()
 		resize = frameResize("bossWidth", "bossHeight", 80, 20),
 	})
 	applyPositions()
+	applyGroupAnchors()
 	applyElements()
 
 	self:WatchConfig("unitFrames", applyPositions, true)
+	self:WatchConfig("unitFrames", applyGroupAnchors)
 	self:WatchConfig("unitFrames", applyVisibility, true)
 	self:WatchConfig("unitFrames", applySizes)
 	self:WatchConfig("unitFrames", applyFrameSizes, true)

@@ -3,18 +3,54 @@ local _, ns = ...
 local GetWeaponEnchantInfo = GetWeaponEnchantInfo
 local GetInventoryItemTexture = GetInventoryItemTexture
 local CancelItemTempEnchantment = CancelItemTempEnchantment
+local UnitHasVehicleUI = UnitHasVehicleUI
 local GameTooltip = GameTooltip
 local GetTime = GetTime
+local min, max = math.min, math.max
 
 local TemporaryEnchant = ns:NewModule("TemporaryEnchant")
 TemporaryEnchant.configKey = "temporaryEnchant"
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
+local UF = ns:GetModule("UnitFrames")
 
 local MAIN_HAND_SLOT = 16
 local MAX_ICONS = 2
 local TIMER_INTERVAL = 0.5
+local WARNING_TIME = 31
+local FLASH_PERIOD = 0.75
+local FLASH_MIN_ALPHA = 0.3
+local KNOWN_DURATIONS = { 600, 1800, 3600 }
 
-local holder
+local holder, ticker
+local icons = {}
+local enchants = {}
+local enchantCount = 0
+local knownDurations = {}
+local nextExpiry
+
+local function inAuras()
+	return ns.Config.temporaryEnchant.showInAuras and UF.HasWeaponEnchantAuras()
+end
+
+local function standaloneVisible()
+	return not inAuras()
+end
+
+local function estimateDuration(slot, remain)
+	local known = knownDurations[slot]
+	if known and remain <= known then
+		return known
+	end
+	known = remain
+	for i = 1, #KNOWN_DURATIONS do
+		if remain <= KNOWN_DURATIONS[i] then
+			known = KNOWN_DURATIONS[i]
+			break
+		end
+	end
+	knownDurations[slot] = known
+	return known
+end
 
 local function onClick(icon)
 	CancelItemTempEnchantment(icon.weaponIndex)
@@ -35,26 +71,10 @@ local function onLeave(icon)
 	icon:SetScript("OnUpdate", nil)
 end
 
-local function adoptBlizzardButton(icon, index)
-	local button = _G["TempEnchant" .. index]
-	if not button then
-		return
-	end
-	button:SetParent(icon)
-	button:ClearAllPoints()
-	button:SetAllPoints(icon)
-	button:SetFrameLevel(icon:GetFrameLevel() + 2)
-	button:SetAlpha(0)
-	button:SetScript("OnShow", nil)
-	button:Show()
-	icon:EnableMouse(false)
-	icon.blizzard = button
-end
-
-local function createIcon(index)
+local function createIcon()
 	local icon = CreateFrame("Button", nil, holder)
 	icon:Hide()
-	icon:RegisterForClicks("RightButtonDown")
+	icon:RegisterForClicks("RightButtonUp")
 	icon:SetScript("OnClick", onClick)
 	icon:SetScript("OnEnter", onEnter)
 	icon:SetScript("OnLeave", onLeave)
@@ -65,76 +85,131 @@ local function createIcon(index)
 	icon.timer = icon:CreateFontString(nil, "OVERLAY")
 	icon.timer:SetPoint("CENTER")
 
-	adoptBlizzardButton(icon, index)
-
 	return icon
 end
 
-local icons = {}
-local shownCount = 0
+local function flashAlpha(now)
+	local phase = now % (2 * FLASH_PERIOD)
+	local alpha = phase < FLASH_PERIOD and phase / FLASH_PERIOD or (2 * FLASH_PERIOD - phase) / FLASH_PERIOD
+	return alpha * (1 - FLASH_MIN_ALPHA) + FLASH_MIN_ALPHA
+end
 
-local function updateTimers()
-	local now = GetTime()
-	for i = 1, shownCount do
+local function updateIcons(now, withTimer)
+	local showTimer = withTimer and ns.Config.temporaryEnchant.showTimer
+	for i = 1, enchantCount do
 		local icon = icons[i]
-		local remain = icon.expires - now
-		if remain > 0 then
-			SetTimerText(icon.timer, remain)
-		else
-			icon.timer:SetText("")
+		local expires = enchants[i].expires
+		local remain = expires and expires - now or 0
+		if showTimer then
+			if remain > 0 then
+				SetTimerText(icon.timer, remain)
+			else
+				icon.timer:SetText("")
+			end
 		end
+		icon:SetAlpha(remain > 0 and remain < WARNING_TIME and flashAlpha(now) or 1)
 	end
 end
 
-local function onHolderUpdate(self, elapsed)
-	self.untilTick = self.untilTick - elapsed
-	if self.untilTick > 0 then
+local function onTick(self, elapsed)
+	local now = GetTime()
+	if nextExpiry and now >= nextExpiry then
+		TemporaryEnchant:Update()
 		return
 	end
-	self.untilTick = TIMER_INTERVAL
-	updateTimers()
+	if not holder:IsShown() then
+		return
+	end
+	self.untilTick = self.untilTick - elapsed
+	local tick = self.untilTick <= 0
+	if tick then
+		self.untilTick = TIMER_INTERVAL
+	end
+	updateIcons(now, tick)
 end
 
-local function showEnchants(...)
-	local shown = 0
-	local weaponIndex = 0
-	local now = GetTime()
-	for i = 1, select("#", ...), 3 do
-		weaponIndex = weaponIndex + 1
-		if select(i, ...) then
-			shown = shown + 1
-
-			local icon = icons[shown]
-			local slot = MAIN_HAND_SLOT - 1 + weaponIndex
-			icon.weaponIndex = weaponIndex
-			icon.slot = slot
-			icon.expires = now + (select(i + 1, ...) or 0) / 1000
-			icon.texture:SetTexture(GetInventoryItemTexture("player", slot))
-			if icon.blizzard then
-				icon.blizzard:SetID(slot)
-			end
-			icon:Show()
+local function showStandalone()
+	for i = 1, enchantCount do
+		local enchant = enchants[i]
+		local icon = icons[i]
+		icon.weaponIndex = enchant.weaponIndex
+		icon.slot = enchant.slot
+		icon.texture:SetTexture(enchant.icon)
+		icon:Show()
+		if GameTooltip:IsOwned(icon) then
+			refreshTooltip(icon)
 		end
 	end
-
-	for i = shown + 1, #icons do
+	for i = enchantCount + 1, MAX_ICONS do
 		icons[i]:Hide()
 	end
+	ticker.untilTick = 0
+	updateIcons(GetTime(), true)
+end
 
-	shownCount = shown
-	if shown > 0 and ns.Config.temporaryEnchant.showTimer then
-		holder.untilTick = 0
-		holder:SetScript("OnUpdate", onHolderUpdate)
-	else
-		holder:SetScript("OnUpdate", nil)
+local function readEnchants(...)
+	local now = GetTime()
+	local hidden = UnitHasVehicleUI("player")
+	local count = 0
+	nextExpiry = nil
+	for weaponIndex = 1, MAX_ICONS do
+		local has, remainMs = select(weaponIndex * 3 - 2, ...)
+		local slot = MAIN_HAND_SLOT - 1 + weaponIndex
+		if not has or remainMs and remainMs <= 0 then
+			knownDurations[slot] = nil
+		elseif not hidden then
+			count = count + 1
+			local enchant = enchants[count]
+			if not enchant then
+				enchant = { caster = "player" }
+				enchants[count] = enchant
+			end
+			enchant.weaponIndex = weaponIndex
+			enchant.slot = slot
+			enchant.icon = GetInventoryItemTexture("player", slot)
+			if remainMs then
+				local remain = remainMs / 1000
+				enchant.expires = now + remain
+				enchant.duration = estimateDuration(slot, remain)
+				nextExpiry = min(nextExpiry or enchant.expires, enchant.expires)
+			else
+				enchant.expires = nil
+				enchant.duration = 0
+			end
+		end
+	end
+	enchantCount = count
+	if nextExpiry then
+		nextExpiry = max(nextExpiry, now + TIMER_INTERVAL)
 	end
 end
 
 function TemporaryEnchant:Update()
-	showEnchants(GetWeaponEnchantInfo())
+	readEnchants(GetWeaponEnchantInfo())
+
+	if inAuras() then
+		holder:Hide()
+		UF.SetWeaponEnchants(enchants, enchantCount)
+	else
+		UF.SetWeaponEnchants(nil, 0)
+		holder:Show()
+		showStandalone()
+	end
+
+	if enchantCount > 0 then
+		ticker:Show()
+	else
+		ticker:Hide()
+	end
 end
 
 function TemporaryEnchant:UNIT_INVENTORY_CHANGED(unit)
+	if unit == "player" then
+		self:Update()
+	end
+end
+
+function TemporaryEnchant:OnVehicleChanged(unit)
 	if unit == "player" then
 		self:Update()
 	end
@@ -150,12 +225,9 @@ local function applyConfig()
 		icon:ClearAllPoints()
 		icon:SetPoint("TOPLEFT", (i - 1) * (size + gap), 0)
 		ns.SetFont(icon.timer, font.size, font.outline)
-		if config.showTimer then
-			icon.timer:Show()
-		else
-			icon.timer:Hide()
-		end
+		ns.SetShown(icon.timer, config.showTimer)
 	end
+	ns.Movers.Register(holder, "temporaryEnchant.point", "Weapon enchants", { visible = standaloneVisible })
 	TemporaryEnchant:Update()
 end
 
@@ -163,14 +235,21 @@ function TemporaryEnchant:Initialize()
 	ns.DestroyFrame(TemporaryEnchantFrame, true)
 
 	holder = CreateFrame("Frame", nil, UIParent)
-	self:AnchorToConfig(holder, "temporaryEnchant.point", "Weapon enchants")
+	self:AnchorToConfig(holder, "temporaryEnchant.point", "Weapon enchants", { visible = standaloneVisible })
 	for i = 1, MAX_ICONS do
-		icons[i] = createIcon(i)
+		icons[i] = createIcon()
 	end
+
+	ticker = CreateFrame("Frame")
+	ticker:Hide()
+	ticker.untilTick = 0
+	ticker:SetScript("OnUpdate", onTick)
 
 	applyConfig()
 	self:WatchConfig("temporaryEnchant", applyConfig)
 
 	self:RegisterEvent("UNIT_INVENTORY_CHANGED")
+	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "OnVehicleChanged")
+	self:RegisterEvent("UNIT_EXITED_VEHICLE", "OnVehicleChanged")
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 end

@@ -33,7 +33,7 @@ Section(schema, L["Tweaks"], "tweaks", {
 		type = "toggle",
 		desc = L["Grass and other ground decorations. Turning it off restores the game default."],
 	},
-})
+}, nil, nil, "screwdriver-wrench")
 
 Section(schema, L["Error messages"], "tweaks", {
 	{
@@ -58,7 +58,7 @@ Section(schema, L["Error messages"], "tweaks", {
 		disabled = errorsHidden,
 		desc = L['"Spell is not ready yet", "Another action is in progress", "Not enough mana / rage / energy / runic power" and similar.'],
 	},
-})
+}, nil, nil, "triangle-exclamation")
 
 Section(schema, L["Popups"], "popups", {
 	{ path = "enabled", label = L["Enable"], type = "toggle", desc = L["Automatic handling of popup dialogs."] },
@@ -104,7 +104,7 @@ Section(schema, L["Popups"], "popups", {
 		type = "toggle",
 		desc = L["Toggle with /notrade."],
 	},
-})
+}, nil, nil, "window-restore")
 
 Section(schema, L["Merchant"], "merchant", {
 	{
@@ -146,7 +146,7 @@ Section(schema, L["Merchant"], "merchant", {
 		type = "toggle",
 		desc = L["Item level on merchant and buyback item icons."],
 	},
-})
+}, nil, nil, "coins")
 
 Section(schema, L["Equipment"], "equipment", {
 	{
@@ -221,7 +221,7 @@ Section(schema, L["Equipment"], "equipment", {
 		enabledBy = "equipment.durabilityWarning",
 		desc = L["Warn when any equipped item drops below this durability."],
 	},
-})
+}, nil, nil, "shirt")
 
 Section(schema, L["Character model"], "modelControls", {
 	{
@@ -249,7 +249,7 @@ Section(schema, L["Character model"], "modelControls", {
 		step = 0.05,
 		desc = L["Size change per mouse wheel notch, as a fraction of the current zoom."],
 	},
-})
+}, nil, nil, "street-view")
 
 Section(schema, L["Macros"], "macros", {
 	{
@@ -260,7 +260,7 @@ Section(schema, L["Macros"], "macros", {
 		reload = true,
 		desc = L["Replaces the /macro window: unlimited macros of any length, syntax and error highlighting, key bindings right in the window. /macro opens it."],
 	},
-})
+}, nil, nil, "code")
 
 Section(schema, L["Spellbook"], "spellBook", {
 	{
@@ -271,7 +271,7 @@ Section(schema, L["Spellbook"], "spellBook", {
 		reload = true,
 		desc = L["Replaces the spellbook: every tab and the pet book in one wide window, four columns, search and a switch to hide passive abilities."],
 	},
-})
+}, nil, nil, "book")
 
 Section(schema, L["Talents"], "talentFrame", {
 	{
@@ -282,9 +282,9 @@ Section(schema, L["Talents"], "talentFrame", {
 		reload = true,
 		desc = L["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."],
 	},
-})
+}, nil, nil, "sitemap")
 
-schema[#schema + 1] = { header = L["Interface"] }
+schema[#schema + 1] = { header = L["Interface"], glyph = "computer-mouse" }
 schema[#schema + 1] = {
 	path = "wheelPaging.enabled",
 	label = L["Mouse wheel paging"],
@@ -299,11 +299,12 @@ Section(schema, L["Combat log"], "combatLogFix", {
 		type = "toggle",
 		desc = L["Clear the combat log when it stops delivering events inside instances."],
 	},
-}, not FrostAtomUI.IS_WOWCIRCLE)
+}, not FrostAtomUI.IS_WOWCIRCLE, nil, "scroll")
 
 ns.RegisterPage({
 	key = "qol",
 	name = L["Quality of life"],
+	glyph = "star",
 	order = 45,
 	schema = schema,
 })
@@ -312,6 +313,7 @@ ns.RegisterElement({
 	path = "tweaks.worldStatePoint",
 	page = "qol",
 	name = L["World state"],
+	glyph = "globe",
 	enabledBy = "tweaks.enabled",
 	schema = {},
 })

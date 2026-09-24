@@ -56,15 +56,13 @@ local FOOTER_HEIGHT = BAG_BUTTON_SIZE
 
 local ITEM_BUTTON_NAME = ADDON_NAME .. "BagItem%d"
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
-local CLOSE_ICON = "Interface\\FriendsFrame\\ClearBroadcastIcon"
-local SORT_ICON = "Interface\\ChatFrame\\UI-ChatIcon-ScrollEnd-Up"
-local SORT_ICON_CROP = 0.3
-local BANK_ICON = "Interface\\Minimap\\Tracking\\Banker"
 local LOCK_ICON = "Interface\\LFGFrame\\UI-LFG-ICON-LOCK"
 local UNKNOWN_ICON = "Interface\\Icons\\INV_Misc_QuestionMark"
 local LOCK_ICON_SIZE = 14
 local GLYPH_SIZE = 16
-local GLYPH_ALPHA = 0.6
+local GLYPH_ICON_SIZE = 12
+local SEARCH_ICON_SIZE = 10
+local SEARCH_TEXT_INSET = 18
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 1.6
 local ARENA_POINTS_ICON = "Interface\\PVPFrame\\PVP-ArenaPoints-Icon"
@@ -930,9 +928,11 @@ function ContainerMixin:UpdateBag(bag)
 end
 
 function ContainerMixin:UpdateSortButton()
-	local enabled = not (self.sorting or self.offline)
-	self.sortButton:EnableMouse(enabled)
-	self.sortButton:SetAlpha(enabled and GLYPH_ALPHA or 0.2)
+	if self.sorting or self.offline then
+		self.sortButton:Disable()
+	else
+		self.sortButton:Enable()
+	end
 end
 
 function ContainerMixin:SetSorting(sorting)
@@ -1046,16 +1046,20 @@ local function createSearchBox(frame, title)
 	search:SetAutoFocus(false)
 	search:SetHeight(HEADER_HEIGHT)
 	ns.SetFont(search, 12)
-	search:SetTextInsets(4, 4, 0, 0)
+	search:SetTextInsets(SEARCH_TEXT_INSET, 4, 0, 0)
 	search:SetMaxLetters(80)
 	search:SetBackdrop(ns.CreateBackdrop(8))
 	search:SetBackdropColor(0, 0, 0, 0.5)
 	search:SetBackdropBorderColor(0.6, 0.6, 0.6)
 
+	local icon = ns.CreateGlyph(search, "magnifying-glass", SEARCH_ICON_SIZE)
+	icon:SetTextColor(0.5, 0.5, 0.5)
+	icon:SetPoint("CENTER", search, "LEFT", SEARCH_TEXT_INSET / 2 + 1, 0)
+
 	local placeholder = search:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(placeholder, 12)
 	placeholder:SetTextColor(0.5, 0.5, 0.5)
-	placeholder:SetPoint("LEFT", 4, 0)
+	placeholder:SetPoint("LEFT", SEARCH_TEXT_INSET, 0)
 	placeholder:SetText(title)
 	search.placeholder = placeholder
 
@@ -1089,36 +1093,10 @@ local function onBankButtonClick()
 	bank:Show()
 end
 
-local function onBankButtonEnter(self)
-	GameTooltip:SetOwner(self, "ANCHOR_TOP")
-	GameTooltip:SetText(L["Bank"], 1, 1, 1)
-	GameTooltip:AddLine(L["Contents saved at the last bank visit, viewable anywhere."], 0.8, 0.8, 0.8, true)
-	GameTooltip:Show()
-end
-
-local function onGlyphEnter(self)
-	self:SetAlpha(1)
-end
-
-local function onGlyphLeave(self)
-	self:SetAlpha(GLYPH_ALPHA)
-end
-
-local function createGlyphButton(parent, texture, crop, onClick)
-	local button = CreateFrame("Button", nil, parent)
+local function createGlyphButton(parent, glyph, tooltip, onClick)
+	local button = ns.CreateGlyphButton(parent, glyph, GLYPH_ICON_SIZE, tooltip)
 	button:SetSize(GLYPH_SIZE, GLYPH_SIZE)
-	button:SetNormalTexture(texture)
-	button:SetPushedTexture(texture)
-	button:GetPushedTexture():SetVertexColor(0.5, 0.5, 0.5)
-	if crop then
-		for _, region in ipairs({ button:GetNormalTexture(), button:GetPushedTexture() }) do
-			region:SetTexCoord(crop, 1 - crop, crop, 1 - crop)
-			region:SetDesaturated(true)
-		end
-	end
-	button:SetAlpha(GLYPH_ALPHA)
-	button:SetScript("OnEnter", onGlyphEnter)
-	button:SetScript("OnLeave", onGlyphLeave)
+	button.tooltipAnchor = "ANCHOR_TOP"
 	button:SetScript("OnClick", onClick)
 	return button
 end
@@ -1237,10 +1215,10 @@ local function createContainer(key, title, bags, columnsKey)
 	frame:SetScript("OnHide", onHide)
 	tinsert(UISpecialFrames, frame:GetName())
 
-	local close = createGlyphButton(frame, CLOSE_ICON, nil, onCloseClick)
+	local close = createGlyphButton(frame, "xmark", nil, onCloseClick)
 	frame.close = close
 
-	local sortButton = createGlyphButton(frame, SORT_ICON, SORT_ICON_CROP, onSortClick)
+	local sortButton = createGlyphButton(frame, "arrow-down-wide-short", L["Sort"], onSortClick)
 	sortButton:SetPoint("RIGHT", close, "LEFT", -ROW_GAP, 0)
 	frame.sortButton = sortButton
 
@@ -1551,10 +1529,9 @@ function Bags:Initialize()
 	bank.stackSources = INVENTORY_BAGS
 	inventory.currencies = {}
 
-	local bankButton = createGlyphButton(inventory, BANK_ICON, 0, onBankButtonClick)
+	local bankButton = createGlyphButton(inventory, "building-columns", L["Bank"], onBankButtonClick)
+	bankButton.tooltipText = L["Contents saved at the last bank visit, viewable anywhere."]
 	bankButton:SetPoint("RIGHT", inventory.sortButton, "LEFT", -ROW_GAP, 0)
-	bankButton:HookScript("OnEnter", onBankButtonEnter)
-	bankButton:HookScript("OnLeave", GameTooltip_Hide)
 	inventory.bankButton = bankButton
 
 	for i = 1, #frames do

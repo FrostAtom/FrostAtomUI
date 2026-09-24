@@ -181,7 +181,7 @@ local function deleteLayout(name)
 end
 
 local schema = {
-	{ header = L["Active profile"] },
+	{ header = L["Active profile"], glyph = "user-gear" },
 	{
 		description = L["Each character remembers its profile; several characters can share one."],
 	},
@@ -251,16 +251,18 @@ local schema = {
 		label = L["Reset profile"],
 		type = "execute",
 		text = L["Reset"],
+		glyph = "rotate-left",
 		confirm = L["Reset all settings of the active profile to defaults?"],
 		func = function()
 			ui:ResetConfig()
 		end,
 	},
-	{ header = L["Import / export"] },
+	{ header = L["Import / export"], glyph = "arrow-right-arrow-left" },
 	{
 		label = L["Export"],
 		type = "execute",
 		text = L["Export"],
+		glyph = "file-export",
 		func = showExport,
 		desc = L["Show the active profile as a string to copy."],
 	},
@@ -268,10 +270,11 @@ local schema = {
 		label = L["Import"],
 		type = "execute",
 		text = L["Import"],
+		glyph = "file-import",
 		func = showImport,
 		desc = L["Paste a profile string to replace the active profile."],
 	},
-	{ header = L["Layouts"], new = "1.4.1" },
+	{ header = L["Layouts"], new = "1.4.1", glyph = "layer-group" },
 	{
 		description = L["A layout keeps only frame positions, shared by all characters. Loading one moves the frames of the active profile and leaves every other setting alone."],
 	},
@@ -323,6 +326,7 @@ local schema = {
 		new = "1.4.1",
 		type = "execute",
 		text = L["Import"],
+		glyph = "file-import",
 		func = showLayoutImport,
 		desc = L["Paste a layout string to add it to the list."],
 	},
@@ -331,6 +335,7 @@ local schema = {
 		new = "1.4.1",
 		type = "execute",
 		text = L["Reset"],
+		glyph = "rotate-left",
 		confirm = L["Reset the positions of all frames to defaults?"],
 		func = function()
 			ui.Movers.ResetPositions()
@@ -342,6 +347,7 @@ local schema = {
 ns.RegisterPage({
 	key = "profiles",
 	name = L["Profiles"],
+	glyph = "address-card",
 	order = 60,
 	schema = schema,
 	noReset = true,
