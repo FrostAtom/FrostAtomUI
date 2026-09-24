@@ -29,14 +29,29 @@ local schema = {
 		desc = L["Apply the scale below instead of the game's own setting. Turning it off keeps the last applied value."],
 	},
 	{
+		path = "general.pixelPerfectScale",
+		label = L["Pixel-perfect scale"],
+		type = "toggle",
+		enabledBy = "general.useUiScale",
+		confirmRevert = true,
+		desc = L["One interface unit becomes one screen pixel: 768 / screen height (%.2f here). Borders stay sharp, on large screens this goes below the game's 0.64 limit and leaves more room for frames."]:format(
+			ui.PixelPerfectScale()
+		),
+	},
+	{
 		path = "general.uiScale",
 		label = L["UI scale"],
 		type = "number",
-		min = 0.64,
+		min = 0.4,
 		max = 1,
 		step = 0.01,
 		enabledBy = "general.useUiScale",
+		disabled = function()
+			return ui:GetConfig("general.pixelPerfectScale")
+		end,
+		disabledDesc = L["Pixel-perfect scale picks the scale."],
 		confirmRevert = true,
+		desc = L["Below 0.64 the scale is applied by FrostAtom UI itself, the game's own setting stops at 0.64."],
 	},
 	{ header = L["Cooldown timers"], new = "1.4.0", glyph = "stopwatch" },
 	{
@@ -76,47 +91,6 @@ local schema = {
 		label = L["Minutes color"],
 		type = "color",
 		desc = L["A minute or more left."],
-	},
-	{ header = L["Frame movers"], glyph = "arrows-up-down-left-right" },
-	{
-		label = L["Move frames"],
-		type = "execute",
-		text = L["Unlock"],
-		glyph = "up-down-left-right",
-		desc = L["Drag frames to move them, drag the bottom-right corner of a frame to resize it. Frames snap to each other, to screen edges and to screen center lines, and stay attached to the frame they snapped to. Hold Shift to drop snapping and detach."],
-		func = function()
-			ui.Movers.Unlock()
-			if ui.Movers.IsUnlocked() then
-				ns.Toggle()
-			end
-		end,
-	},
-	{
-		path = "general.showGrid",
-		label = L["Alignment grid"],
-		type = "toggle",
-		desc = L["Grid over the screen while frames are unlocked. Screen center lines are always drawn."],
-	},
-	{
-		path = "general.gridSize",
-		label = L["Grid step"],
-		type = "number",
-		min = 8,
-		max = 128,
-		step = 4,
-		enabledBy = "general.showGrid",
-	},
-	{
-		label = L["Reset positions"],
-		new = "1.4.1",
-		type = "execute",
-		text = L["Reset"],
-		glyph = "rotate-left",
-		confirm = L["Reset the positions of all frames to defaults?"],
-		func = function()
-			ui.Movers.ResetPositions()
-		end,
-		desc = L["Move every frame back to its default position. Other settings stay. Also: /fui reset"],
 	},
 	{ header = L["Other addons"], new = "1.4.1", glyph = "puzzle-piece" },
 	{

@@ -1042,7 +1042,7 @@ function creators.point(parent, entry)
 	yBox.OnCommit = commit
 
 	row.Refresh = function()
-		local point, x, y, anchorPath, anchorPoint = unpack(get(entry))
+		local point, x, y, anchorPath, anchorPoint = ui.UnpackPoint(get(entry))
 		dropdown:Select(point)
 		xBox:SetText(tostring(x))
 		yBox:SetText(tostring(y))
@@ -1054,7 +1054,7 @@ function creators.point(parent, entry)
 			detach.tooltipText = L["Offsets are relative to %s %s."]:format(anchorLabel, anchorPoint)
 			detach:Show()
 		else
-			anchor:SetText("")
+			anchor:SetText(anchorPoint and anchorPoint ~= point and L["of screen %s"]:format(anchorPoint) or "")
 			detach:Hide()
 		end
 	end

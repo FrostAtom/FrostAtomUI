@@ -588,7 +588,7 @@ end
 
 function LossOfControl:Initialize()
 	createFrame()
-	self:AnchorToConfig(frame, "lossOfControl.point", "Loss of control")
+	self:AnchorToConfig(frame, "lossOfControl.point", "Loss of control", { floating = true })
 	applyConfig()
 	self:WatchConfig("lossOfControl", applyConfig)
 	hooksecurefunc(UF, "SetTestMode", function()

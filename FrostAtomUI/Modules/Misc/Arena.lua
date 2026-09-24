@@ -24,6 +24,7 @@ Misc:AnchorToConfig(countdown, "arena.countdownPoint", "Arena countdown", {
 		local size = ns.Config.arena.countdownFont.size
 		return size * 2, size * 1.4
 	end,
+	floating = true,
 })
 countdown:SetSize(2, 2)
 

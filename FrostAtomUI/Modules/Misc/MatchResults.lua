@@ -543,7 +543,7 @@ end
 
 local function createFrame()
 	frame = ns.CreateWindow(FRAME_NAME, { width = WIDTH, height = 300, background = "dark" })
-	Misc:AnchorToConfig(frame, "matchResults.point", "Match results")
+	Misc:AnchorToConfig(frame, "matchResults.point", "Match results", { floating = true })
 	frame.untilTick = 0
 	frame:SetScript("OnUpdate", onUpdate)
 	frame:SetScript("OnShow", function(self)

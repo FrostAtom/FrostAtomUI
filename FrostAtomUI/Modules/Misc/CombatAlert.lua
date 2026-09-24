@@ -4,7 +4,7 @@ local Misc = ns:GetModule("Misc")
 
 local alert = CreateFrame("Frame", nil, UIParent)
 alert:SetSize(200, 30)
-Misc:AnchorToConfig(alert, "combatAlert.point", "Combat alert")
+Misc:AnchorToConfig(alert, "combatAlert.point", "Combat alert", { floating = true })
 alert:SetFrameStrata("HIGH")
 alert:Hide()
 

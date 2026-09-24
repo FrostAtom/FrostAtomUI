@@ -521,6 +521,19 @@ local function createPanel(self, side)
 	panels[side] = panel
 	self:RegisterMover(panel, "groupCooldowns." .. side .. "Point", SIDES[side].label, {
 		enabledPath = "groupCooldowns." .. side,
+		context = side == "enemy" and "arena" or nil,
+		insets = function()
+			local width = 0
+			for _, label in pairs(panel.labels) do
+				if label:IsShown() then
+					width = max(width, label:GetStringWidth() + LABEL_GAP)
+				end
+			end
+			if select(2, anchorFor(panel)) == 1 then
+				return width, 0, 0, 0
+			end
+			return 0, width, 0, 0
+		end,
 	})
 	return panel
 end

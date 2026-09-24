@@ -1189,6 +1189,7 @@ local function createContainer(key, title, bags, columnsKey)
 	frame:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 
 	Bags:AnchorToConfig(frame, "bags." .. key, title, {
+		floating = true,
 		size = function()
 			local columns = config[columnsKey]
 			local slots = 0
