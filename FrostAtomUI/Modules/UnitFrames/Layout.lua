@@ -116,8 +116,14 @@ local function resizeGroupFrame(frame, groupPet, width, height)
 	groupPet:SetFrameSize(height, height)
 end
 
-local function anchorGroupGrids(frame)
-	UF.StackAuraGrids(frame, frame.iconSide == "LEFT" and "TOPLEFT" or "TOPRIGHT", ns.Config.unitFrames.gridGap)
+local function anchorGroupGrids(frame, point)
+	UF.StackAuraGrids(frame, point, ns.Config.unitFrames.gridGap)
+end
+
+local function setGroupIconSide(frames, side)
+	for i = 1, #frames do
+		frames[i]:SetIconSide(side)
+	end
 end
 
 local function applyFrameSizes(self, path)
@@ -168,6 +174,11 @@ local function applyElements()
 	UF.SetCastbarShown(focus.castbar, config.showFocusCastbar)
 	UF.StackAuraGrids(target, "TOPLEFT", UF.CASTBAR_GAP)
 	UF.StackAuraGrids(focus, "TOPLEFT", UF.CASTBAR_GAP)
+	player:SetIconSide(config.playerIconSide)
+	target:SetIconSide(config.targetIconSide)
+	focus:SetIconSide(config.focusIconSide)
+	setGroupIconSide(party, config.partyIconSide)
+	setGroupIconSide(arena, config.arenaIconSide)
 	UF.SetPetPowerShown(pet, config.petPower)
 	for i = 1, #partyPets do
 		UF.SetPetPowerShown(partyPets[i], config.petPower)
@@ -176,13 +187,13 @@ local function applyElements()
 		UF.SetPetPowerShown(arenaPets[i], config.petPower)
 	end
 	for i = 1, #party do
-		anchorGroupGrids(party[i])
+		anchorGroupGrids(party[i], "TOPLEFT")
 		party[i].debuffs:SetLimit(config.groupDebuffMax)
 		party[i].buffs:SetLimit(config.partyBuffMax)
 		UF.SetCastbarShown(party[i].castbar, config.showPartyCastbar)
 	end
 	for i = 1, #arena do
-		anchorGroupGrids(arena[i])
+		anchorGroupGrids(arena[i], "TOPRIGHT")
 		arena[i].debuffs:SetLimit(config.groupDebuffMax)
 		UF.SetCastbarShown(arena[i].castbar, config.showArenaCastbar)
 	end
@@ -221,7 +232,7 @@ local function addPvp(self, frame)
 end
 
 local function createPlayer(self, config)
-	player = self:CreateRectangle("player", config.playerWidth, config.playerHeight, "LEFT")
+	player = self:CreateRectangle("player", config.playerWidth, config.playerHeight, config.playerIconSide)
 	ns.ApplyPoint(player, "unitFrames.player")
 
 	addLeader(self, player)
@@ -303,7 +314,7 @@ local function createParty(self, config)
 	local buffOptions = { size = config.partyBuffSize, width = width, max = config.partyBuffMax }
 
 	for i = 1, MAX_PARTY_FRAMES do
-		local frame = self:CreateRectangle("party" .. i, width, height, "LEFT")
+		local frame = self:CreateRectangle("party" .. i, width, height, config.partyIconSide)
 		party[i] = frame
 		frame:SetPoint(point, x, y - (i - 1) * config.partySpacing)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
@@ -316,7 +327,7 @@ local function createParty(self, config)
 
 		self:AddElement(frame, "debuffs", debuffOptions)
 		self:AddElement(frame, "buffs", buffOptions)
-		anchorGroupGrids(frame)
+		anchorGroupGrids(frame, "TOPLEFT")
 
 		self:CreateSideCastbar(frame, "RIGHT", width * GROUP_CASTBAR_WIDTH_SCALE, config.castbarHeight)
 		self:AddElement(frame, "procs")
@@ -350,7 +361,7 @@ local function createArena(self, config)
 	}
 
 	for i = 1, MAX_ARENA_OPPONENTS do
-		local frame = self:CreateRectangle("arena" .. i, width, height, "RIGHT")
+		local frame = self:CreateRectangle("arena" .. i, width, height, config.arenaIconSide)
 		arena[i] = frame
 		frame:SetPoint(point, x, y - (i - 1) * config.arenaSpacing)
 
@@ -374,7 +385,7 @@ local function createArena(self, config)
 
 		self:AddElement(frame, "diminish")
 		self:AddElement(frame, "procs")
-		anchorGroupGrids(frame)
+		anchorGroupGrids(frame, "TOPRIGHT")
 	end
 end
 

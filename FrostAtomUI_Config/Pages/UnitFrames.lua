@@ -57,6 +57,22 @@ local CLASS_ICON_STYLE_VALUES = {
 	{ "model", L["3D portrait"] },
 }
 
+local ICON_SIDE_VALUES = {
+	{ "LEFT", L["On the left"] },
+	{ "RIGHT", L["On the right"] },
+}
+
+local function iconSide(unit)
+	return {
+		path = "unitFrames." .. unit .. "IconSide",
+		new = "1.4.1",
+		label = L["Class icon side"],
+		type = "select",
+		values = ICON_SIDE_VALUES,
+		enabledBy = "unitFrames.showClassIcon",
+	}
+end
+
 local CAST_TIME_VALUES = {
 	{ "remaining", L["Remaining"] },
 	{ "total", L["Remaining / total"] },
@@ -213,6 +229,7 @@ ns.RegisterElement({
 	enabledBy = "unitFrames.enabled",
 	schema = concat(mainFrameSize(), {
 		{ header = L["Indicators"] },
+		iconSide("player"),
 		{ path = "unitFrames.showRestingIcon", label = L["Resting icon"], type = "toggle" },
 		{
 			path = "unitFrames.pvpTimer",
@@ -256,6 +273,8 @@ ns.RegisterElement({
 		targetAurasPerRow(),
 		ownAuraScale(),
 		auraOrder(),
+		{ header = L["Indicators"] },
+		iconSide("target"),
 		{ header = L["Castbar"] },
 		castbarToggle("unitFrames.showTargetCastbar"),
 		{ header = L["Combo points"] },
@@ -274,6 +293,8 @@ ns.RegisterElement({
 		targetAurasPerRow(),
 		ownAuraScale(),
 		auraOrder(),
+		{ header = L["Indicators"] },
+		iconSide("focus"),
 		{ header = L["Castbar"] },
 		castbarToggle("unitFrames.showFocusCastbar"),
 	}),
@@ -432,6 +453,7 @@ ns.RegisterElement({
 		concat(
 			groupLayout("party", "unitFrames.partySpacing", "unitFrames.partyGrowth", true),
 			{
+				iconSide("party"),
 				{ header = L["Auras"] },
 				auraOrder(),
 			},
@@ -478,6 +500,7 @@ ns.RegisterElement({
 		concat(
 			groupLayout("arena", "unitFrames.arenaSpacing", "unitFrames.arenaGrowth"),
 			{
+				iconSide("arena"),
 				{ header = L["Auras"] },
 			},
 			groupDebuffEntries(),

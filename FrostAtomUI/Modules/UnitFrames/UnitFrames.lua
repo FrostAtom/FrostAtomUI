@@ -496,10 +496,24 @@ function UnitFrameMixin:SetFrameSize(width, height)
 	if icon then
 		local size = height - CLASS_ICON_INSET * 2
 		icon:SetSize(size, size)
-		self:SetContentInset(icon:IsShown() and config.showClassIcon and UF.ClassIconInset(size) or 0)
-	else
-		self:SetContentInset(0)
 	end
+	self:UpdateContentInset()
+end
+
+function UnitFrameMixin:UpdateContentInset()
+	local icon = self.classicon
+	self:SetContentInset(icon and icon:IsShown() and config.showClassIcon and UF.ClassIconInset(icon:GetWidth()) or 0)
+end
+
+function UnitFrameMixin:SetIconSide(side)
+	local icon = self.classicon
+	if not icon or self.iconSide == side then
+		return
+	end
+	self.iconSide = side
+	icon:ClearAllPoints()
+	icon:SetPoint("TOP" .. side, side == "LEFT" and CLASS_ICON_INSET or -CLASS_ICON_INSET, -CLASS_ICON_INSET)
+	self:UpdateContentInset()
 end
 
 function UF.ClassIconInset(size)
@@ -509,7 +523,6 @@ end
 function UF:CreateRectangle(unit, width, height, iconSide)
 	local frame = self:CreateBase(unit)
 	frame:SetSize(width, height)
-	frame.iconSide = iconSide
 	frame.innerHeight = height - BORDER_INSET * 2
 
 	local health = self:AddElement(frame, "health")
@@ -522,12 +535,8 @@ function UF:CreateRectangle(unit, width, height, iconSide)
 	frame:SetContentInset(0)
 
 	if iconSide then
-		local icon = self:AddElement(frame, "classicon", height - CLASS_ICON_INSET * 2)
-		icon:SetPoint(
-			"TOP" .. iconSide,
-			iconSide == "LEFT" and CLASS_ICON_INSET or -CLASS_ICON_INSET,
-			-CLASS_ICON_INSET
-		)
+		self:AddElement(frame, "classicon", height - CLASS_ICON_INSET * 2)
+		frame:SetIconSide(iconSide)
 	end
 
 	local name = self:AddElement(frame, "name")
@@ -622,7 +631,7 @@ local function targetAuraSize(width, perRow)
 end
 
 function UF:CreateTarget(unit, width, height)
-	local frame = self:CreateRectangle(unit, width, height, "RIGHT")
+	local frame = self:CreateRectangle(unit, width, height, config[unit .. "IconSide"])
 
 	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
 

@@ -76,7 +76,8 @@ local function layout(ghost)
 	ghost.innerHeight = height - BORDER_INSET * 2
 
 	local size = height - CLASS_ICON_INSET * 2
-	local side = ghost.iconSide or "RIGHT"
+	local side = ghost.frame.iconSide or "RIGHT"
+	ghost.iconSide = side
 	local icon = ghost.classicon
 	icon:SetSize(size, size)
 	icon:ClearAllPoints()
@@ -303,7 +304,6 @@ local function create(frame)
 	ghost.frame = frame
 	ghost.unit = frame.unit
 	ghost.index = tonumber(frame.unit:match("%d+$"))
-	ghost.iconSide = frame.iconSide
 	ghost.info = {}
 
 	local health = createBar(ghost)
