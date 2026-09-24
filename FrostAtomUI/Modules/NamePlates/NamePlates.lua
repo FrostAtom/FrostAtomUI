@@ -43,6 +43,8 @@ local SPREAD_GAP = 2
 local SPREAD_FRAME_TIME = 1 / 60
 local SPREAD_MAX_STEPS = 3
 local FRIENDLY_PLAYER_COLOR = { 0.31, 0.45, 0.63 }
+local TOTEM_OUTLINE_SIZE = 2
+local TOTEM_OUTLINE_COLORS = { hostile = { 1, 0.15, 0.15 }, neutral = { 1, 0.85, 0.1 }, friendly = { 0.15, 1, 0.15 } }
 
 ns.CHAT_BUBBLE_CREATED = "FrostAtomUI_CHAT_BUBBLE_CREATED"
 
@@ -125,6 +127,8 @@ function PlateMixin:UpdateColors(r, g, b)
 		r, g, b = 0.65, 0.63, 0.35
 	end
 	self.reaction = reaction
+	local outlineColor = TOTEM_OUTLINE_COLORS[reaction]
+	self.totem.outline:SetVertexColor(outlineColor[1], outlineColor[2], outlineColor[3])
 
 	self.barR, self.barG, self.barB = r, g, b
 	self:ApplyBarColor(true)
@@ -342,9 +346,14 @@ function PlateMixin:OnShow()
 		totem:SetTexture(totemIcon)
 		totem:SetSize(config.totemIconSize, config.totemIconSize)
 		setIconShown(totem, true)
+		local outline, size = totem.outline, snap(TOTEM_OUTLINE_SIZE * pixel)
+		outline:SetPoint("TOPLEFT", totem, -size, size)
+		outline:SetPoint("BOTTOMRIGHT", totem, size, -size)
+		outline:Show()
 		self.holder:Hide()
 		self.healthbar:Hide()
 		self.raidicon:SetAlpha(0)
+		self:RefreshColors()
 	else
 		local holder, healthbar = self.holder, self.healthbar
 		holder:SetSize(snap(config.barWidth + BORDER_INSET * 2), snap(config.barHeight + BORDER_INSET * 2))
@@ -360,6 +369,7 @@ function PlateMixin:OnShow()
 		self:RefreshColors()
 
 		setIconShown(totem, false)
+		totem.outline:Hide()
 		self.name:SetText(name)
 		if config.showName then
 			self.name:Show()
@@ -832,6 +842,11 @@ local function setupTotemIcon(plate)
 
 	NamePlates.SkinIcon(overlay, totem)
 	totem.border:Hide()
+
+	local outline = overlay:CreateTexture(nil, "BACKGROUND")
+	outline:SetTexture(ns.Media.blank)
+	outline:Hide()
+	totem.outline = outline
 
 	plate.totem = totem
 end
