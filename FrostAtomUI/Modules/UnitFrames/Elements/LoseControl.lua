@@ -92,7 +92,7 @@ local function create(frame)
 
 	if frame.classicon then
 		loseControl:SetAllPoints(frame.classicon)
-		loseControl:SetFrameLevel(frame.classicon:GetFrameLevel() + 1)
+		loseControl:SetFrameLevel(frame.classicon:GetFrameLevel() + 3)
 	end
 
 	frame:RegisterUnitEvent("UNIT_AURA", update)

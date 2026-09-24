@@ -98,7 +98,7 @@ end
 
 local function setClassIcon(ghost, class, spec)
 	local texture = ghost.classicon.texture
-	if not UF.SetClassTexture(texture, class, spec) then
+	if not UF.SetClassTexture(texture, class, ns.Config.unitFrames.classIconStyle ~= "class" and spec) then
 		setTrimmedTexture(texture, UNKNOWN_ICON)
 	end
 end

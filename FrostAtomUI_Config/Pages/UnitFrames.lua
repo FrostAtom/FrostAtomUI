@@ -50,6 +50,13 @@ local HORIZONTAL_GROWTH_VALUES = {
 	{ "RIGHT", L["To the right"] },
 }
 
+local CLASS_ICON_STYLE_VALUES = {
+	{ "spec", L["Spec icon"] },
+	{ "class", L["Class icon"] },
+	{ "portrait", L["2D portrait"] },
+	{ "model", L["3D portrait"] },
+}
+
 local CAST_TIME_VALUES = {
 	{ "remaining", L["Remaining"] },
 	{ "total", L["Remaining / total"] },
@@ -649,6 +656,15 @@ ns.RegisterPage({
 			label = L["Class / spec icon"],
 			type = "toggle",
 			desc = L["Square icon on the side of the frame. Portrait for non-player units."],
+		},
+		{
+			path = "unitFrames.classIconStyle",
+			new = "1.4.1",
+			label = L["Icon style"],
+			type = "select",
+			values = CLASS_ICON_STYLE_VALUES,
+			enabledBy = "unitFrames.showClassIcon",
+			desc = L["3D model falls back to the class / spec icon while the unit is out of sight."],
 		},
 		{
 			path = "unitFrames.showLeaderIcon",

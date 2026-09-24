@@ -188,6 +188,7 @@ ns.Defaults = {
 		powerText = "",
 		powerTextHover = "[curpp] / [maxpp]",
 		showClassIcon = true,
+		classIconStyle = "spec",
 		showLeaderIcon = true,
 		showCombatIcon = true,
 		showRestingIcon = true,
