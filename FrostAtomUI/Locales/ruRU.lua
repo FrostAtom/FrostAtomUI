@@ -1559,7 +1559,6 @@ ns.SetLocale("ruRU", {
 	["Trinket size (arena, party)"] = "Размер аксессуара (арена, группа)",
 	["Arena trinkets"] = "Аксессуары арены",
 	["Party trinkets"] = "Аксессуары группы",
-	["PvP trinket cooldown icon next to each arena frame. Party trinkets need it too."] = "Иконка восстановления PvP-аксессуара рядом с каждой рамкой арены. Нужна и для аксессуаров группы.",
 	["Combo points (partial)"] = "Серия приёмов (неполная)",
 	["Power bar (all pets)"] = "Полоса ресурса (все питомцы)",
 	["Mana, focus or energy strip at the bottom of the pet frames of the player, party members and arena opponents."] = "Полоска маны, концентрации или энергии внизу рамок питомцев игрока, членов группы и противников на арене.",

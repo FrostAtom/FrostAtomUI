@@ -28,10 +28,8 @@ end
 
 local function isShown(frame)
 	local config = ns.Config.arenaTrinket
-	if not config.enabled then
-		return false
-	elseif not frame.trinket.arenaOnly then
-		return true
+	if not frame.trinket.arenaOnly then
+		return config.enabled
 	end
 	return config.party and (frame.test ~= nil or select(2, IsInInstance()) == "arena")
 end
