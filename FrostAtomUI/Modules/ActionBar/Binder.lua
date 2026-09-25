@@ -207,7 +207,11 @@ local function createBinder()
 	}
 end
 
-SlashCmdList.FROSTATOMUI_BIND = function()
+function ActionBar:IsBindMode()
+	return binder ~= nil and binder:IsShown()
+end
+
+function ActionBar:ToggleBindMode()
 	if not binder then
 		createBinder()
 	end
@@ -221,6 +225,10 @@ SlashCmdList.FROSTATOMUI_BIND = function()
 		binder:Show()
 		StaticPopup_Show(POPUP)
 	end
+end
+
+SlashCmdList.FROSTATOMUI_BIND = function()
+	ActionBar:ToggleBindMode()
 end
 SLASH_FROSTATOMUI_BIND1 = "/b"
 SLASH_FROSTATOMUI_BIND2 = "/bind"

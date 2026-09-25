@@ -430,6 +430,21 @@ local schema = {
 	{ path = EXTRA_BARS, hidden = true },
 	{ header = L["General"], glyph = "gear" },
 	{
+		label = L["Key bindings"],
+		type = "execute",
+		new = "1.4.1",
+		text = L["Bind keys"],
+		glyph = "keyboard",
+		width = 140,
+		desc = L["Hover a button and press a key to bind it, Escape clears its keys. Also: /bind"],
+		func = function()
+			ActionBar:ToggleBindMode()
+			if ActionBar:IsBindMode() then
+				ns.Toggle()
+			end
+		end,
+	},
+	{
 		path = "actionBar.clickAnimation",
 		label = L["Click animation"],
 		type = "toggle",
