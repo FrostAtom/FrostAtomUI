@@ -78,6 +78,15 @@ local function skinFlyout()
 	flyout:SetBackdropColor(0, 0, 0, FLYOUT_BACKGROUND_ALPHA)
 end
 
+local function setBinding(button, blizzardBinding)
+	button.bindingName = "CLICK " .. button:GetName() .. ":LeftButton"
+	button.blizzardBinding = blizzardBinding
+end
+
+local function updateSummonBinding()
+	MultiCastSummonSpellButton.blizzardBinding = "MULTICASTSUMMONBUTTON" .. MultiCastSummonSpellButton:GetID()
+end
+
 local function placeButton(button, index, columns, slot)
 	if button:IsProtected() and InCombatLockdown() then
 		return
@@ -172,6 +181,14 @@ function ActionBar:InitializeTotemBar()
 		mouseFrames[#mouseFrames + 1] = _G["MultiCastActionButton" .. i]
 	end
 	holder.fader:SetMouseFrames(mouseFrames)
+
+	for i = 1, NUM_MULTI_CAST_PAGES * NUM_MULTI_CAST_BUTTONS_PER_PAGE do
+		setBinding(_G["MultiCastActionButton" .. i], "MULTICASTACTIONBUTTON" .. i)
+	end
+	setBinding(MultiCastRecallSpellButton, "MULTICASTRECALLBUTTON1")
+	setBinding(MultiCastSummonSpellButton)
+	updateSummonBinding()
+	hooksecurefunc("ChangeMultiCastActionPage", updateSummonBinding)
 
 	bar:SetScript("OnUpdate", nil)
 	bar:SetScript("OnShow", nil)

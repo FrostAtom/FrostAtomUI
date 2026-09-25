@@ -193,7 +193,7 @@ yours, your teammates' and the enemies'.
   red with a timer, and the ones that break CC (PvP trinket, Every Man for Himself, Ice Block, Blink, …) stay clear.
 - **Out of range** turns the icon and hotkey red; cooldowns can grey out the icon.
 - **Fade on mouseover,** or show a bar only in or out of combat.
-- **Quick keybinding:** type `/bind`, hover a button, press a key.
+- **Quick keybinding:** type `/bind` (or press *Bind keys* on the Action bars settings page), hover a button, press a key.
 - No more accidentally dragging spells off your bars: pick them up with Alt + right click (or the combo you choose).
 - Vehicle exit button, totem bar, pet bar with autocast marks, the rogue Shadow Dance page.
 
