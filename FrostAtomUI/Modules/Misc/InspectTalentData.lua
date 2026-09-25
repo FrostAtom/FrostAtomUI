@@ -106,6 +106,7 @@ ns.InspectTalentData = {
 	[784] = { { "spellHaste", 0, { 1, 2, 3 } } }, -- Celestial Focus
 	[794] = { { "armor", 0, { 4, 7, 10 } } }, -- Thick Hide
 	[798] = { { "crit", 0, { 2, 4, 6 }, stances = 145 } }, -- Sharpened Claws
+	[807] = { { "dodge", 0, { 2, 4 }, stances = 145 } }, -- Feral Swiftness
 	[803] = { { "apLevel", 0, { 50, 100, 150 }, stances = 145 }, { "apWeapon", 0, { 7, 14, 20 }, stances = 145 } }, -- Predatory Strikes
 	[808] = { -- Heart of the Wild
 		{ "stat", 3, { 4, 8, 12, 16, 20 } },
