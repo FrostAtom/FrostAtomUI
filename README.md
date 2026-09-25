@@ -263,14 +263,32 @@ yours, your teammates' and the enemies'.
 - Item and spell tooltips show IDs, item level and how many you carry.
 - Buffs and debuffs with timers above unit tooltips.
 - **Item level on every slot** of the character window, average under the model.
-- **Inspect window** with everything the client can tell about a player: every item with its enchant, gems and
-  socket bonus, missing enchants, empty sockets, no belt buckle and inactive meta gems flagged (gear check icon
-  by the item level), character stats from base stats, gear, set bonuses, talents and racials in attribute /
-  offense / defense blocks (resilience, crit with every spell school, haste, hit, armor pen., dodge, parry with
-  percentages), switchable stance / form / presence / aspect, guild, both talent specs as full
-  trees, arena teams (rating, games, win rate, personal rating), honor, arena statistics and PvP achievements
-  (Gladiator titles, rating milestones) with dates. Opened on the target, it follows target changes.
 - Rotate, move and zoom the character model with the mouse.
+
+---
+
+## 🕵️ Inspect
+
+![Inspect window](docs/screenshots/inspect.png)
+
+| Both talent specs | Arena & PvP record |
+|:---:|:---:|
+| ![Inspect talents](docs/screenshots/inspect-talents.png) | ![Inspect PvP](docs/screenshots/inspect-pvp.png) |
+
+A new inspect window with everything the client can tell about a player.
+
+- **Every item** with item level, enchant, gems and socket bonus. Missing enchants, empty sockets, a missing belt
+  buckle and inactive meta gems are flagged, and a **gear check** icon by the average item level counts them.
+- **Real character stats, not just gear totals:** base stats, gear, set bonuses, talents and racials, stacked
+  the way the server does it. Resilience, crit, haste, hit, expertise, armor pen., dodge, parry and block
+  come with percentages, grouped into attributes, offense and defenses.
+- **Switch stance / form / presence / aspect** to see the stats in it. A cat druid shows its cat numbers, and
+  crit is listed for every spell school.
+- Hover a stat to see **where every point comes from**.
+- **Both talent specs** as full trees, with the spec icons on the side to switch between them.
+- **Arena teams** (rating, games, win rate, personal rating), honor, battleground and duel records,
+  **arena statistics** per bracket and **PvP achievements** (Gladiator titles, rating milestones) with dates.
+- Opened on your target, the window **follows target changes**, including yourself.
 
 ---
 
