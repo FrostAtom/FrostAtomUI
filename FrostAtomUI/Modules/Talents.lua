@@ -17,6 +17,11 @@ local Data = ns.CooldownData
 local MAX_TALENT_POINTS = Data.MAX_TALENT_POINTS
 local SPEC_HINTS = Data.SPEC_HINTS
 
+local max, min, floor, huge = math.max, math.min, math.floor, math.huge
+
+local NUM_TREES = 3
+local POINTS_PER_TIER = 5
+local DEPTH_ODDS = { 1.2, 1.5, 2, 3, 5, 10, 40, 200, 1000 }
 local NUM_GLYPH_SOCKETS = 6
 local MAX_AURAS = 40
 local HOSTILE_SCAN_UNITS =
@@ -153,14 +158,15 @@ function Talents:GetSpec(guid)
 	if spec then
 		return spec
 	end
-	local trees = observed[guid]
-	if not trees then
+	local guess = observed[guid]
+	if not guess then
 		return
 	end
-	local bestTree, bestPoints = nil, 0
-	for tree, points in pairs(trees) do
-		if points > bestPoints then
-			bestTree, bestPoints = tree, points
+	local main = guess.main
+	local bestTree = 1
+	for tree = 2, NUM_TREES do
+		if main[tree] > main[bestTree] then
+			bestTree = tree
 		end
 	end
 	return bestTree
@@ -187,38 +193,79 @@ local function classOf(guid)
 	return class
 end
 
+local function newGuess()
+	return {
+		main = { 1 / NUM_TREES, 1 / NUM_TREES, 1 / NUM_TREES },
+		proven = { 0, 0, 0 },
+		cap = { MAX_TALENT_POINTS, MAX_TALENT_POINTS, MAX_TALENT_POINTS },
+		seen = {},
+	}
+end
+
+local UNSEEN = newGuess()
+
+local function weigh(guess)
+	local proven, cap, main = guess.proven, guess.cap, guess.main
+	local total = proven[1] + proven[2] + proven[3]
+	for tree = 1, NUM_TREES do
+		cap[tree] = max(MAX_TALENT_POINTS - (total - proven[tree]), proven[tree])
+	end
+	local sum = 0
+	for tree = 1, NUM_TREES do
+		local points = proven[tree]
+		if proven[tree % 3 + 1] > cap[tree] or proven[(tree + 1) % 3 + 1] > cap[tree] then
+			main[tree] = 0
+		elseif points > 0 then
+			main[tree] = DEPTH_ODDS[min(floor((points - 1) / POINTS_PER_TIER) + 1, #DEPTH_ODDS)]
+		else
+			main[tree] = 1
+		end
+		sum = sum + main[tree]
+	end
+	for tree = 1, NUM_TREES do
+		main[tree] = sum > 0 and main[tree] / sum or 1 / NUM_TREES
+	end
+end
+
 function Talents:Observe(guid, hint)
 	if classOf(guid) ~= hint.class then
 		return
 	end
-	local trees = observed[guid]
-	if not trees then
-		trees = {}
-		observed[guid] = trees
+	local guess = observed[guid]
+	if not guess then
+		guess = newGuess()
+		observed[guid] = guess
 	end
-	local tree, points = hint.tree, hint.points
-	if (trees[tree] or 0) < points then
-		trees[tree] = points
-		ns:Fire(ns.TALENTS_UPDATED, guid)
+	if guess.seen[hint] then
+		return
 	end
+	guess.seen[hint] = true
+	local tree = hint.tree
+	guess.proven[tree] = max(guess.proven[tree], hint.points + 1)
+	weigh(guess)
+	ns:Fire(ns.TALENTS_UPDATED, guid)
 end
 
-function Talents:GetObserved(guid, tree)
-	local trees = observed[guid]
-	return trees and trees[tree] or 0
+function Talents:GetProven(guid, tree)
+	local guess = observed[guid]
+	return guess and guess.proven[tree] or 0
 end
 
-function Talents:IsExcluded(guid, tree, points)
-	local trees = observed[guid]
-	if not trees then
+function Talents:GetReachableRanks(guid, tree, points)
+	local guess = observed[guid] or UNSEEN
+	local proven = guess.proven[tree]
+	if points < proven then
+		return huge
+	end
+	return guess.cap[tree] - points
+end
+
+function Talents:IsExcluded(guid, hint)
+	local guess = observed[guid]
+	if guess and guess.seen[hint] then
 		return false
 	end
-	for otherTree, otherPoints in pairs(trees) do
-		if otherTree ~= tree and otherPoints + points > MAX_TALENT_POINTS then
-			return true
-		end
-	end
-	return false
+	return self:GetReachableRanks(guid, hint.tree, hint.points) < 1
 end
 
 function Talents:Invalidate(guid)

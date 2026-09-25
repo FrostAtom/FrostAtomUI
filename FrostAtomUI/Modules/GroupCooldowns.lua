@@ -12,6 +12,7 @@ local wipe, unpack = wipe, unpack
 
 local Data = ns.CooldownData
 local CATEGORIES = Data.CATEGORIES
+local SPEC_HINTS = Data.SPEC_HINTS
 local CooldownTracker = ns:GetModule("CooldownTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 local UF = ns:GetModule("UnitFrames")
@@ -368,7 +369,8 @@ local function randomPreviewOwner(slot)
 	for i = 1, #list do
 		local id = list[i]
 		local info = CooldownTracker:GetInfo(id)
-		if not info.talent or info.tree == tree then
+		local hint = SPEC_HINTS[id]
+		if not info.talent or hint and hint.tree == tree then
 			spells[#spells + 1] = id
 			local roll = random(6)
 			if roll <= 2 then

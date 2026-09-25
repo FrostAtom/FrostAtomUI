@@ -7,7 +7,7 @@ local RESETS = Data.RESETS
 local CDMOD, CDMOD_MULT = Data.CDMOD, Data.CDMOD_MULT
 local FORBEARANCE, FORBEARANCE_SPELLS = Data.FORBEARANCE, Data.FORBEARANCE_SPELLS
 local TALENT_SWAP = Data.TALENT_SWAP
-local SPEC_HINTS = Data.SPEC_HINTS
+local SPEC_HINTS, MOD_TALENTS = Data.SPEC_HINTS, Data.MOD_TALENTS
 local RACIALS, PVP_TRINKET = Data.RACIALS, Data.PVP_TRINKET
 
 local DUPLICATE_WINDOW = 2
@@ -44,8 +44,6 @@ for _, spells in pairs(SPELLS) do
 			preactive = preactive,
 			buff = entry.buff and id,
 			dynamic = entry.dynamic,
-			tree = entry.tree,
-			points = entry.points,
 			category = entry.cat,
 			hidden = entry.hide,
 		}
@@ -94,12 +92,14 @@ local function hasTalent(guid, id, info, talents, entries, strict)
 		return true
 	elseif talents then
 		return talents[info.talent] ~= nil
-	elseif not info.tree then
+	end
+	local hint = SPEC_HINTS[id]
+	if not hint then
 		return true
 	elseif strict then
-		return (entries and entries[id]) ~= nil or Talents:GetObserved(guid, info.tree) >= info.points
+		return (entries and entries[id]) ~= nil or Talents:GetProven(guid, hint.tree) > hint.points
 	end
-	return not Talents:IsExcluded(guid, info.tree, info.points)
+	return not Talents:IsExcluded(guid, hint)
 end
 
 local trackedList = {}
@@ -161,16 +161,25 @@ function CooldownTracker:IsHighlighted(guid, id)
 	return entry ~= nil and (entry.active or entry.pending) == true
 end
 
+local function hasModifier(guid, talents, id)
+	if talents then
+		return talents[id]
+	end
+	local talent = MOD_TALENTS[id]
+	if not talent then
+		return false
+	end
+	local reachable = Talents:GetReachableRanks(guid, talent.tree, talent.points)
+	return talent.rank <= reachable and (talent.rank == talent.maxRank or talent.rank + 1 > reachable)
+end
+
 function CooldownTracker:GetDuration(guid, id)
 	local duration = spellInfo[id].cooldown
 	local talents = Talents:Get(guid)
-	if not talents then
-		return duration
-	end
 	local mod = CDMOD[id]
 	if mod then
 		for i = 1, #mod, 2 do
-			if talents[mod[i]] then
+			if hasModifier(guid, talents, mod[i]) then
 				duration = duration - mod[i + 1]
 			end
 		end
@@ -178,7 +187,7 @@ function CooldownTracker:GetDuration(guid, id)
 	local mult = CDMOD_MULT[id]
 	if mult then
 		for i = 1, #mult, 2 do
-			if talents[mult[i]] then
+			if hasModifier(guid, talents, mult[i]) then
 				duration = duration * mult[i + 1]
 			end
 		end
