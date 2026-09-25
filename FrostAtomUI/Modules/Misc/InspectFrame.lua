@@ -30,8 +30,7 @@ local INSET = ns.WINDOW_INSET
 local PANE_GAP = 8
 local CONTENT_WIDTH = 3 * Tree.PANE_WIDTH + 2 * PANE_GAP
 local WIDTH = INSET.left + INSET.right + CONTENT_WIDTH
-local HEADER_TOP = 36
-local CONTENT_TOP = 100
+local CONTENT_TOP = 52
 local TALENT_TIERS = 11
 local PANE_HEIGHT, PANE_BODY = Tree.PaneHeight(TALENT_TIERS)
 local PAGE_HEIGHT = PANE_HEIGHT
@@ -282,6 +281,8 @@ local function setStatus(text)
 	state.status = text
 	if frame then
 		frame.status:SetText(text or "")
+		ns.SetShown(frame.specText2, not text)
+		ns.SetShown(frame.specText3, not text)
 		frame.gearStatus:SetText(state.gear and "" or text or "")
 	end
 end
@@ -394,12 +395,11 @@ local function updateHeader()
 	frame.nameText:SetText(title)
 
 	local level = state.level and state.level > 0 and state.level or "??"
-	frame.infoText:SetFormattedText(PLAYER_LEVEL, level, state.race or "", color .. (state.className or "") .. "|r")
+	local info = PLAYER_LEVEL:format(level, state.race or "", color .. (state.className or "") .. "|r")
 	if state.guild then
-		frame.guildText:SetFormattedText("<%s> %s%s|r", state.guild, GREY, state.guildRank or "")
-	else
-		frame.guildText:SetText("")
+		info = ("%s  %s<%s>|r %s%s|r"):format(info, hex(GUILD_COLOR), state.guild, GREY, state.guildRank or "")
 	end
+	frame.infoText:SetText(info)
 
 	local specs = state.specs
 	if specs and specs[state.activeGroup] then
@@ -1324,69 +1324,67 @@ end
 
 local function createHeader()
 	local portrait = frame:CreateTexture(nil, "ARTWORK")
-	portrait:SetSize(56, 56)
-	portrait:SetPoint("TOPLEFT", INSET.left, -HEADER_TOP + 2)
+	portrait:SetSize(54, 54)
+	portrait:SetPoint("TOPLEFT", -6, 6)
 	frame.portrait = portrait
 
 	local ring = frame:CreateTexture(nil, "OVERLAY")
 	ring:SetTexture("Interface\\CharacterFrame\\TotemBorder")
-	ring:SetSize(80, 80)
+	ring:SetSize(77, 77)
 	ring:SetPoint("CENTER", portrait)
 	frame.ring = ring
 
 	local name = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-	name:SetPoint("TOPLEFT", portrait, "TOPRIGHT", 12, -2)
-	name:SetWidth(260)
+	name:SetPoint("TOPLEFT", 62, -13)
+	name:SetSize(320, 16)
 	name:SetJustifyH("LEFT")
 	frame.nameText = name
 
-	local info = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+	local info = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	info:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -3)
+	info:SetSize(320, 12)
 	info:SetJustifyH("LEFT")
 	frame.infoText = info
 
-	local guild = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	guild:SetPoint("TOPLEFT", info, "BOTTOMLEFT", 0, -3)
-	guild:SetWidth(260)
-	guild:SetJustifyH("LEFT")
-	guild:SetTextColor(GUILD_COLOR[1], GUILD_COLOR[2], GUILD_COLOR[3])
-	frame.guildText = guild
-
 	local specIcon = frame:CreateTexture(nil, "ARTWORK")
-	specIcon:SetSize(34, 34)
-	specIcon:SetPoint("TOPLEFT", INSET.left + 350, -HEADER_TOP - 2)
+	specIcon:SetSize(30, 30)
+	specIcon:SetPoint("TOPLEFT", 396, -13)
 	specIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 	frame.specIcon = specIcon
 
 	local spec = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-	spec:SetPoint("TOPLEFT", specIcon, "TOPRIGHT", 8, 0)
+	spec:SetPoint("TOPLEFT", specIcon, "TOPRIGHT", 7, -1)
 	spec:SetJustifyH("LEFT")
 	frame.specText = spec
 
 	local spec2 = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	spec2:SetPoint("TOPLEFT", spec, "BOTTOMLEFT", 0, -3)
+	spec2:SetPoint("TOPLEFT", spec, "BOTTOMLEFT", 0, -4)
 	spec2:SetJustifyH("LEFT")
 	frame.specText2 = spec2
 
 	local spec3 = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	spec3:SetPoint("TOPLEFT", spec2, "BOTTOMLEFT", 0, -3)
+	spec3:SetPoint("LEFT", spec2, "RIGHT", 6, 0)
 	spec3:SetJustifyH("LEFT")
 	spec3:SetTextColor(RED[1], RED[2], RED[3])
 	frame.specText3 = spec3
 
+	local status = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+	status:SetPoint("TOPLEFT", spec, "BOTTOMLEFT", 0, -4)
+	frame.status = status
+
 	local itemLevel = frame:CreateFontString(nil, "ARTWORK")
 	ns.SetFont(itemLevel, 22, "OUTLINE", true)
-	itemLevel:SetPoint("TOPRIGHT", -INSET.right - 4, -HEADER_TOP - 2)
+	itemLevel:SetPoint("TOPRIGHT", -58, -11)
 	frame.itemLevel = itemLevel
 
 	local itemLevelLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-	itemLevelLabel:SetPoint("RIGHT", itemLevel, "LEFT", -6, -1)
+	itemLevelLabel:SetPoint("TOPRIGHT", itemLevel, "BOTTOMRIGHT", 0, -1)
 	itemLevelLabel:SetText(L["Item level"])
 	frame.itemLevelLabel = itemLevelLabel
 
 	local issues = CreateFrame("Frame", nil, frame)
 	issues:SetHeight(16)
-	issues:SetPoint("TOPRIGHT", itemLevel, "BOTTOMRIGHT", 0, -4)
+	issues:SetPoint("LEFT", itemLevelLabel, "RIGHT", 6, 0)
 	issues:EnableMouse(true)
 	issues.glyph = ns.CreateGlyph(issues, "circle-check", 12, "ARTWORK")
 	issues.glyph:SetPoint("LEFT", 2, 0)
@@ -1396,10 +1394,6 @@ local function createHeader()
 	issues:SetScript("OnLeave", GameTooltip_Hide)
 	issues:Hide()
 	frame.issues = issues
-
-	local status = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
-	status:SetPoint("TOPLEFT", INSET.left + 350, -HEADER_TOP - 44)
-	frame.status = status
 
 	local refresh = ns.CreateGlyphButton(frame, "rotate", 12, L["Refresh"])
 	refresh:SetPoint("TOPRIGHT", -34, -8)
@@ -1729,7 +1723,6 @@ local function createFrame()
 	frame = ns.CreateWindow(FRAME_NAME, {
 		width = WIDTH,
 		height = HEIGHT,
-		title = INSPECT,
 		background = "dark",
 		strata = "MEDIUM",
 		movable = false,
@@ -1737,6 +1730,15 @@ local function createFrame()
 	})
 	frame.close:SetScript("OnClick", HideParentPanel)
 	ns.SetUIPanelLayout(frame, "left", 0)
+	frame:SetAttribute("UIPanelLayout-xoffset", 10)
+
+	function frame:FitScale()
+		local tabsHeight, bottomSpace = 24, 80
+		local top = -(UIParent:GetAttribute("TOP_OFFSET") or -104)
+		local scale = min(1, (UIParent:GetHeight() - bottomSpace) / (top + HEIGHT + tabsHeight))
+		self:SetScale(scale)
+		self:SetAttribute("UIPanelLayout-width", WIDTH * scale)
+	end
 
 	local underlay = frame:CreateTexture(nil, "BACKGROUND")
 	underlay:SetTexture(0, 0, 0, UNDERLAY_ALPHA)
@@ -1788,6 +1790,7 @@ local function open(unit, follow)
 	Inspect:SetHold(not isSelf)
 	if not frame:IsShown() then
 		PlaySound("igCharacterInfoOpen")
+		frame:FitScale()
 	end
 	ShowUIPanel(frame)
 	frame.model:SetUnit(unit)
@@ -1837,6 +1840,18 @@ function InspectFrame:Initialize()
 			state.honorReady = true
 			updatePvP()
 		end
+	end)
+	ns:OnAddonLoaded("Blizzard_AchievementUI", function()
+		local comparison = AchievementFrameComparison
+		if not comparison:IsVisible() then
+			comparison:UnregisterEvent("INSPECT_ACHIEVEMENT_READY")
+		end
+		comparison:HookScript("OnShow", function()
+			comparison:RegisterEvent("INSPECT_ACHIEVEMENT_READY")
+		end)
+		comparison:HookScript("OnHide", function()
+			comparison:UnregisterEvent("INSPECT_ACHIEVEMENT_READY")
+		end)
 	end)
 	self:RegisterEvent("INSPECT_ACHIEVEMENT_READY", function()
 		if frame and frame:IsShown() and state.comparing then
@@ -1893,6 +1908,13 @@ function InspectFrame:Initialize()
 		end
 		onUnitsChanged()
 	end)
+	local function onScaleChanged()
+		if frame and frame:IsShown() then
+			frame:FitScale()
+		end
+	end
+	self:RegisterEvent("UI_SCALE_CHANGED", onScaleChanged)
+	self:RegisterEvent("DISPLAY_SIZE_CHANGED", onScaleChanged)
 	self:RegisterEvent("PARTY_MEMBERS_CHANGED", onUnitsChanged)
 	self:RegisterEvent("PLAYER_FOCUS_CHANGED", onUnitsChanged)
 end
