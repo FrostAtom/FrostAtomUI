@@ -290,6 +290,14 @@ schema[#schema + 1] = {
 	desc = L["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."],
 }
 schema[#schema + 1] = {
+	path = "inspectFrame.enabled",
+	new = "1.4.1",
+	label = L["Inspect"],
+	type = "toggle",
+	reload = true,
+	desc = L["Replaces the inspect window: gear with enchants, gems and missing ones, stats from gear, set bonuses, both talent specs, arena teams, honor, arena statistics and PvP achievements."],
+}
+schema[#schema + 1] = {
 	path = "wheelPaging.enabled",
 	label = L["Mouse wheel paging"],
 	type = "toggle",

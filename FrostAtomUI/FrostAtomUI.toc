@@ -149,6 +149,10 @@ Modules\Misc\WorldMap.lua
 Modules\Misc\BlizzardFrames.lua
 Modules\Misc\SpellBook.lua
 Modules\Misc\TalentFrame.lua
+Modules\Misc\InspectTalentData.lua
+Modules\Misc\InspectStatData.lua
+Modules\Misc\InspectGear.lua
+Modules\Misc\InspectFrame.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua
