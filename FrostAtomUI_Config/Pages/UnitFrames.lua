@@ -255,11 +255,9 @@ local function castbarSection(path)
 end
 
 local function trinketSize()
-	return size("arenaTrinket.size", L["Trinket size (arena, party)"], 16, 60, nil, "arenaTrinket.enabled")
-end
-
-local function arenaTrinketToggle(desc)
-	return { path = "arenaTrinket.enabled", label = L["Arena trinkets"], type = "toggle", desc = desc }
+	local entry = size("arenaTrinket.size", L["Trinket size (arena, party)"], 16, 60)
+	entry.enabledByAny = { "arenaTrinket.enabled", "arenaTrinket.party" }
+	return entry
 end
 
 ns.RegisterElement({
@@ -497,12 +495,10 @@ local function partySchema()
 		groupSquareSections("party", "Party", L["Party pets"], L["Party member targets"]),
 		{
 			{ header = L["Trinket"], glyph = "medal" },
-			arenaTrinketToggle(L["PvP trinket cooldown icon next to each arena frame. Party trinkets need it too."]),
 			{
 				path = "arenaTrinket.party",
 				label = L["Party trinkets"],
 				type = "toggle",
-				enabledBy = "arenaTrinket.enabled",
 				desc = L["PvP trinket cooldown icon left of each party pet, only inside arenas. Size is shared with arena trinkets."],
 			},
 			trinketSize(),
@@ -525,7 +521,12 @@ local function arenaSchema()
 		groupSquareSections("arena", "Arena", L["Arena pets"], L["Arena opponent targets"]),
 		{
 			{ header = L["Trinket"], glyph = "medal" },
-			arenaTrinketToggle(L["PvP trinket cooldown icon next to each arena frame. Party trinkets need it too."]),
+			{
+				path = "arenaTrinket.enabled",
+				label = L["Arena trinkets"],
+				type = "toggle",
+				desc = L["PvP trinket cooldown icon next to each arena frame."],
+			},
 			trinketSize(),
 		},
 		castbarSection("unitFrames.showArenaCastbar"),
