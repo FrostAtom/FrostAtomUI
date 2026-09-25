@@ -267,6 +267,10 @@ local function isGreen(r, g, b)
 	return g > 0.9 and r < 0.15 and b < 0.15
 end
 
+local function isRed(r, g, b)
+	return r > 0.9 and g < 0.15 and b < 0.15
+end
+
 local enchantCache = {}
 local baseLines = {}
 
@@ -282,7 +286,7 @@ local function enchantText(link, enchantId)
 	for i = 2, scan:NumLines() do
 		local line = scanLines[i]
 		local text = line:GetText()
-		if text and isGreen(line:GetTextColor()) then
+		if text then
 			baseLines[text] = true
 		end
 	end
@@ -293,7 +297,8 @@ local function enchantText(link, enchantId)
 	for i = 2, scan:NumLines() do
 		local line = scanLines[i]
 		local text = line:GetText()
-		if text and text ~= "" and not baseLines[text] and isGreen(line:GetTextColor()) then
+		local r, g, b = line:GetTextColor()
+		if text and text ~= "" and not baseLines[text] and (isGreen(r, g, b) or isRed(r, g, b)) then
 			found = text
 			break
 		end
