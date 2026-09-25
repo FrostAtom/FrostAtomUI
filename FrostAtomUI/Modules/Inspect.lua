@@ -74,6 +74,7 @@ local loadedGuid
 local teamsWanted, teamsGuid, teamsAt, teamsReplied
 local lastSend, manualTime = -SEND_INTERVAL, -MANUAL_BACKOFF
 local arenaRefreshes, nextArenaRefresh = 0, 0
+local held = false
 
 local queue = CreateFrame("Frame")
 queue:Hide()
@@ -123,6 +124,14 @@ end
 
 function Inspect:WantTeams()
 	teamsWanted = true
+end
+
+function Inspect:SetHold(hold)
+	if held and not hold then
+		manualTime = GetTime()
+		queue:Show()
+	end
+	held = hold and true or false
 end
 
 function Inspect:IsLoaded(guid)
@@ -209,7 +218,7 @@ local function readTeams()
 end
 
 local function send(now)
-	if InCombatLockdown() or (InspectFrame and InspectFrame:IsShown()) then
+	if held or InCombatLockdown() or (InspectFrame and InspectFrame:IsShown()) then
 		return
 	end
 	if now < lastSend + SEND_INTERVAL or now < manualTime + MANUAL_BACKOFF then

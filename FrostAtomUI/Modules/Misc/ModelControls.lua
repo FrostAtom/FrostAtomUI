@@ -98,6 +98,12 @@ local function setupModel(model, rotateLeft, rotateRight)
 	ns.DestroyFrame(rotateRight)
 end
 
+function ns.SetupModelControls(model)
+	if ns.Config.modelControls.enabled then
+		setupModel(model)
+	end
+end
+
 Misc:OnInitialize(function()
 	if not ns.Config.modelControls.enabled then
 		return

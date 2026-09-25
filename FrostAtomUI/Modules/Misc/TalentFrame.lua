@@ -287,20 +287,29 @@ local function drawPrereqs(pane, tier, column, met, preview, ...)
 end
 
 local function showTalentTooltip(self)
+	local v = self.view
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetTalent(self.tab, self.index, false, view.pet, view.group, GetCVarBool("previewTalents"))
+	GameTooltip:SetTalent(
+		self.tab,
+		self.index,
+		v.inspect,
+		v.pet,
+		v.group,
+		not v.inspect and not v.readOnly and GetCVarBool("previewTalents")
+	)
 end
 
 local function onTalentClick(self, mouseButton)
-	local preview = GetCVarBool("previewTalents")
+	local v = self.view
+	local preview = not v.inspect and not v.readOnly and GetCVarBool("previewTalents")
 	if IsModifiedClick("CHATLINK") then
-		local link = GetTalentLink(self.tab, self.index, false, view.pet, view.group, preview)
+		local link = GetTalentLink(self.tab, self.index, v.inspect, v.pet, v.group, preview)
 		if link then
 			ChatEdit_InsertLink(link)
 		end
 		return
 	end
-	if not isEditable() then
+	if v.inspect or v.readOnly or not isEditable() then
 		return
 	end
 	if preview then
@@ -333,6 +342,7 @@ local function createTalentButton(pane, index)
 	button.rank = rank
 
 	button.index = index
+	button.view = pane.view
 	button:SetScript("OnClick", onTalentClick)
 	button:SetScript("OnEnter", showTalentTooltip)
 	button:SetScript("OnLeave", GameTooltip_Hide)
@@ -342,8 +352,9 @@ local function createTalentButton(pane, index)
 end
 
 local function updateTalent(button, pane, i, context)
+	local v = pane.view
 	local name, iconTexture, tier, column, rank, maxRank, _, meetsPrereq, previewRank, meetsPreviewPrereq =
-		GetTalentInfo(context.tab, i, false, view.pet, view.group)
+		GetTalentInfo(context.tab, i, v.inspect, v.pet, v.group)
 	if not name then
 		button:Hide()
 		return 0
@@ -358,7 +369,7 @@ local function updateTalent(button, pane, i, context)
 		column,
 		tierUnlocked and not forceDesaturated,
 		context.preview,
-		GetTalentPrereqs(context.tab, i, false, view.pet, view.group)
+		GetTalentPrereqs(context.tab, i, v.inspect, v.pet, v.group)
 	)
 
 	button.tab = context.tab
@@ -403,20 +414,21 @@ local function setBackground(pane, background, desaturated)
 end
 
 local function updatePane(pane, tab, context)
-	local name, icon, pointsSpent, background, previewPointsSpent = GetTalentTabInfo(tab, false, view.pet, view.group)
+	local v = pane.view
+	local name, icon, pointsSpent, background, previewPointsSpent = GetTalentTabInfo(tab, v.inspect, v.pet, v.group)
 	context.tab = tab
-	context.spent = pointsSpent + (previewPointsSpent or 0)
+	context.spent = (pointsSpent or 0) + (previewPointsSpent or 0)
 
 	pane.icon:SetTexture(icon)
 	pane.name:SetText(name)
 	pane.points:SetText(context.spent)
-	setBackground(pane, background, not context.editable)
+	setBackground(pane, background, context.desaturated)
 
 	pane.branchCount, pane.arrowCount = 0, 0
 	wipe(pane.occupied)
-	local numTalents = GetNumTalents(tab, false, view.pet)
+	local numTalents = GetNumTalents(tab, v.inspect, v.pet)
 	for i = 1, numTalents do
-		local talentName, _, tier, column = GetTalentInfo(tab, i, false, view.pet, view.group)
+		local talentName, _, tier, column = GetTalentInfo(tab, i, v.inspect, v.pet, v.group)
 		if talentName then
 			pane.occupied[tier * COLUMNS + column] = true
 		end
@@ -448,6 +460,11 @@ local function layoutArt(pane, bodyHeight)
 	pane.art.TopRight:SetSize(right, top)
 	pane.art.BottomLeft:SetSize(left, bottom)
 	pane.art.BottomRight:SetSize(right, bottom)
+end
+
+local function paneHeight(tiers)
+	local bodyHeight = MARGIN * 2 + (tiers - 1) * CELL_Y + BUTTON_SIZE
+	return PANE_BORDER + PANE_HEADER + bodyHeight, bodyHeight
 end
 
 local function showSpecTooltip(self)
@@ -849,6 +866,7 @@ local function refresh()
 	local context = {
 		preview = preview,
 		editable = editable,
+		desaturated = not editable,
 		unspent = unspent,
 		perTier = view.pet and PET_TALENTS_PER_TIER or PLAYER_TALENTS_PER_TIER,
 	}
@@ -877,19 +895,18 @@ local function refresh()
 		end
 	end
 
-	local bodyHeight = MARGIN * 2 + (tiers - 1) * CELL_Y + BUTTON_SIZE
-	local paneHeight = PANE_BORDER + PANE_HEADER + bodyHeight
+	local height, bodyHeight = paneHeight(tiers)
 	for tab = 1, numTabs do
-		panes[tab]:SetHeight(paneHeight)
+		panes[tab]:SetHeight(height)
 		layoutArt(panes[tab], bodyHeight)
 	end
-	frame:SetHeight(paneTop + paneHeight + 6 + BAR_HEIGHT + FOOTER_BOTTOM)
+	frame:SetHeight(paneTop + height + 6 + BAR_HEIGHT + FOOTER_BOTTOM)
 
 	local glyphPanel = frame.glyphPanel
 	if showGlyphs then
 		glyphPanel:ClearAllPoints()
 		glyphPanel:SetPoint("TOPLEFT", panes[numTabs], "TOPRIGHT", PANE_GAP, 0)
-		updateGlyphs(paneHeight, numGroups)
+		updateGlyphs(height, numGroups)
 		glyphPanel:Show()
 	else
 		glyphPanel:Hide()
@@ -911,9 +928,10 @@ local function queueRefresh()
 	end
 end
 
-local function createPane(index)
-	local pane = ns.CreateInset(frame, "panel")
+local function createPane(parent, paneView)
+	local pane = ns.CreateInset(parent, "panel")
 	pane:SetWidth(PANE_WIDTH)
+	pane.view = paneView
 
 	local header = createBar(pane)
 	header:SetHeight(PANE_HEADER)
@@ -961,9 +979,17 @@ local function createPane(index)
 
 	pane.buttons, pane.branches, pane.arrows, pane.occupied = {}, {}, {}, {}
 	pane.branchCount, pane.arrowCount = 0, 0
-	panes[index] = pane
 	return pane
 end
+
+ns.TalentTree = {
+	PANE_WIDTH = PANE_WIDTH,
+	PER_TIER = PLAYER_TALENTS_PER_TIER,
+	CreatePane = createPane,
+	UpdatePane = updatePane,
+	LayoutArt = layoutArt,
+	PaneHeight = paneHeight,
+}
 
 local function selectSpec(self)
 	view.pet, view.group = self.spec.pet, self.spec.group
@@ -1071,7 +1097,7 @@ local function createFrame()
 
 	createStatus()
 	for i = 1, MAX_TABS do
-		createPane(i)
+		panes[i] = createPane(frame, view)
 	end
 	createGlyphPanel()
 	createFooter()

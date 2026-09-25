@@ -600,6 +600,10 @@ ns.Defaults = {
 		enabled = true,
 	},
 
+	inspectFrame = {
+		enabled = true,
+	},
+
 	combatLogFix = {
 		enabled = true,
 	},
