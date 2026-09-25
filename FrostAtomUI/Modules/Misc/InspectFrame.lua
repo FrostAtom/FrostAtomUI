@@ -158,9 +158,6 @@ local STAT_GROUPS = {
 local ARENA_STATISTICS = {
 	{ label = "Highest personal rating", ids = { 370, 595, 596 } },
 	{ label = "Highest team rating", ids = { 374, 590, 589 } },
-	{ label = "Killing blows", ids = { 1492, 1493, 1494 } },
-	{ label = "Honorable kills", ids = { 1111, 1110, 1109 } },
-	{ label = "Deaths", ids = { 1057, 1107, 1108 } },
 }
 local STAT_BG_PLAYED, STAT_BG_WON = 839, 840
 local STAT_KILLING_BLOWS = 1487
