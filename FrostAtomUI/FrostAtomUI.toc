@@ -5,7 +5,7 @@
 ## Notes-ruRU: Замена интерфейса: панели команд, рамки юнитов, индикаторы имён, чат, мини-карта и PvP-помощники.
 ## Author: frostatom
 ## Version: 1.4.0
-## X-Build: 2026-09-26
+## X-Build: 2026-09-27
 ## SavedVariables: FrostAtomUIDB
 
 Libs\LibStub\LibStub.lua
@@ -31,6 +31,9 @@ Core\CVars.lua
 Core\Config.lua
 Core\LayoutPresets.lua
 Core\Movers.lua
+Core\WorldChildren.lua
+Core\PlateLayer.lua
+Core\BubbleLayer.lua
 
 # Shared widgets
 Modules\CooldownTimer.lua
@@ -40,6 +43,7 @@ Modules\Talents.lua
 Modules\CooldownTracker.lua
 Modules\DRData.lua
 Modules\ProcData.lua
+Modules\TotemData.lua
 Modules\InternalCooldowns.lua
 Modules\DiminishingReturns.lua
 Modules\HealPrediction.lua
