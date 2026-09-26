@@ -15,6 +15,7 @@ ns.RegisterElement({
 		{ path = "minimap.size", label = L["Size"], type = "number", min = 100, max = 400, step = 1 },
 		{
 			path = "minimap.iconSize",
+			advanced = true,
 			label = L["Icon size"],
 			type = "number",
 			min = 12,
@@ -50,6 +51,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "minimap.clock24h",
+			advanced = true,
 			label = L["24-hour clock"],
 			type = "toggle",
 			enabledBy = "minimap.showClock",
@@ -57,15 +59,16 @@ ns.RegisterElement({
 		},
 		{
 			path = "minimap.clockPoint",
+			advanced = true,
 			label = L["Clock position"],
 			type = "point",
 			enabledBy = "minimap.showClock",
 			desc = L["Relative to the minimap."],
 		},
-		{ header = L["Text"], glyph = "font" },
+		{ header = L["Text"], glyph = "font", advanced = true },
 		{ path = "minimap.zoneFont", label = L["Zone font"], type = "font", enabledBy = "minimap.showZoneText" },
 		{ path = "minimap.clockFont", label = L["Clock font"], type = "font", enabledBy = "minimap.showClock" },
-		{ header = L["Colors"], glyph = "palette" },
+		{ header = L["Colors"], glyph = "palette", advanced = true },
 		{
 			path = "minimap.borderColor",
 			label = L["Border color"],
@@ -89,6 +92,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "minimap.fadeAlpha",
+			advanced = true,
 			label = L["Faded alpha"],
 			type = "number",
 			min = 0,
@@ -155,6 +159,7 @@ Section(schema, L["World map"], "worldMap", {
 	},
 	{
 		path = "arrowSize",
+		advanced = true,
 		label = L["Player arrow size"],
 		type = "number",
 		min = 16,
@@ -168,7 +173,7 @@ Section(schema, L["World map"], "worldMap", {
 		type = "toggle",
 		desc = L["Cursor and player coordinates."],
 	},
-	{ path = "coordFont", label = L["Coordinates font"], type = "font", enabledBy = "worldMap.showCoords" },
+	{ path = "coordFont", label = L["Coordinates font"], type = "font", enabledBy = "worldMap.showCoords", advanced = true },
 	{
 		path = "fadeWhenMoving",
 		new = "1.4.1",
@@ -178,6 +183,7 @@ Section(schema, L["World map"], "worldMap", {
 	},
 	{
 		path = "movingAlpha",
+		advanced = true,
 		new = "1.4.1",
 		label = L["Alpha while moving"],
 		type = "number",

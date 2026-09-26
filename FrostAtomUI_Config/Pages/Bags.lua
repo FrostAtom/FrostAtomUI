@@ -2,12 +2,15 @@ local _, ns = ...
 
 local L = FrostAtomUI.L
 
+local SHARED_LAYOUT = { "bags.buttonSize", "bags.spacing", "bags.padding" }
+
 ns.RegisterElement({
 	path = "bags.inventory",
 	page = "bags",
 	name = L["Inventory"],
 	glyph = "bag-shopping",
 	enabledBy = "bags.enabled",
+	layout = SHARED_LAYOUT,
 	schema = {
 		{
 			path = "bags.inventoryColumns",
@@ -26,6 +29,7 @@ ns.RegisterElement({
 	name = L["Bank"],
 	glyph = "building-columns",
 	enabledBy = "bags.enabled",
+	layout = SHARED_LAYOUT,
 	schema = {
 		{ path = "bags.bankColumns", label = L["Columns"], type = "number", min = 4, max = 24, step = 1 },
 	},
@@ -57,6 +61,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.playSounds",
+			advanced = true,
 			label = L["Open / close sounds"],
 			type = "toggle",
 			desc = L["Play the backpack sounds when the inventory or bank opens and closes."],
@@ -88,6 +93,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.spacing",
+			advanced = true,
 			label = L["Spacing"],
 			type = "number",
 			min = 0,
@@ -107,6 +113,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.backgroundAlpha",
+			advanced = true,
 			label = L["Background alpha"],
 			type = "number",
 			min = 0,
@@ -137,6 +144,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.showBagFreeSlots",
+			advanced = true,
 			new = "1.4.1",
 			label = L["Free slots on bag buttons"],
 			type = "toggle",
@@ -144,6 +152,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.searchFadeAlpha",
+			advanced = true,
 			label = L["Search fade alpha"],
 			type = "number",
 			min = 0,
@@ -182,6 +191,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.sortReverse",
+			advanced = true,
 			new = "1.4.1",
 			label = L["Fill from the end"],
 			type = "toggle",
@@ -189,15 +199,16 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.sortMessages",
+			advanced = true,
 			new = "1.4.1",
 			label = L["Sort messages"],
 			type = "toggle",
 			desc = L['"Sorting complete" and "already sorted" in chat.'],
 		},
-		{ header = L["Text"], glyph = "font" },
+		{ header = L["Text"], glyph = "font", advanced = true },
 		{ path = "bags.countFont", label = L["Stack count font"], type = "font" },
 		{ path = "bags.levelFont", label = L["Item level font"], type = "font", enabledBy = "bags.showItemLevel" },
-		{ header = L["Colors"], glyph = "palette" },
+		{ header = L["Colors"], glyph = "palette", advanced = true },
 		{
 			path = "bags.questItemColor",
 			label = L["Quest item border"],

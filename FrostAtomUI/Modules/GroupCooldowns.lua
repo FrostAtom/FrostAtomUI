@@ -112,7 +112,7 @@ end
 local function createIcon(panel)
 	local icon = CreateFrame("Frame", nil, panel)
 	icon:SetFrameLevel(panel:GetFrameLevel() + 1)
-	icon:EnableMouse(true)
+	icon:EnableMouse(not ns.Config.groupCooldowns.clickThrough)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
 
@@ -502,6 +502,7 @@ local function applyConfig()
 		for i = 1, #panel.icons do
 			local icon = panel.icons[i]
 			setIconSize(icon, config.size)
+			icon:EnableMouse(not config.clickThrough)
 			icon.owner = nil
 		end
 		update(panel)

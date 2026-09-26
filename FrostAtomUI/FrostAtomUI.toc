@@ -5,7 +5,7 @@
 ## Notes-ruRU: Замена интерфейса: панели команд, рамки юнитов, индикаторы имён, чат, мини-карта и PvP-помощники.
 ## Author: frostatom
 ## Version: 1.4.0
-## X-Build: 2026-09-25
+## X-Build: 2026-09-26
 ## SavedVariables: FrostAtomUIDB
 
 Libs\LibStub\LibStub.lua
@@ -78,9 +78,11 @@ Modules\UnitFrames\Elements\LoseControl.lua
 Modules\UnitFrames\Elements\Diminish.lua
 Modules\UnitFrames\Elements\Procs.lua
 Modules\UnitFrames\Elements\Unseen.lua
+Modules\UnitFrames\Elements\RaidAuras.lua
 Modules\UnitFrames\Layout.lua
 Modules\UnitFrames\Test.lua
 Modules\UnitFrames\Blizzard.lua
+Modules\UnitFrames\Raid.lua
 
 # Nameplates
 Modules\NamePlates\NamePlates.lua

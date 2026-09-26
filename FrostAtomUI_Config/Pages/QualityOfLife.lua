@@ -25,6 +25,7 @@ Section(schema, L["Tweaks"], "tweaks", {
 	},
 	{
 		path = "scriptErrors",
+		advanced = true,
 		label = L["Show Lua errors"],
 		type = "toggle",
 		desc = L["Pop up addon script errors instead of silently ignoring them."],
@@ -40,6 +41,7 @@ Section(schema, L["Error messages"], "tweaks", {
 	},
 	{
 		path = "dedupErrors",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Merge repeated error messages"],
 		type = "toggle",
@@ -125,6 +127,7 @@ Section(schema, L["Merchant"], "merchant", {
 	},
 	{
 		path = "guildRepair",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Use guild bank funds"],
 		type = "toggle",
@@ -133,6 +136,7 @@ Section(schema, L["Merchant"], "merchant", {
 	},
 	{
 		path = "shiftToSkip",
+		advanced = true,
 		label = L["Hold Shift to skip"],
 		type = "toggle",
 		desc = L["Do nothing when the merchant window is opened with Shift held."],
@@ -161,6 +165,7 @@ Section(schema, L["Equipment"], "equipment", {
 	},
 	{
 		path = "slotFont",
+		advanced = true,
 		label = L["Slot item level font"],
 		type = "font",
 		enabledBy = "equipment.showItemLevels",
@@ -168,6 +173,7 @@ Section(schema, L["Equipment"], "equipment", {
 	},
 	{
 		path = "averageFont",
+		advanced = true,
 		label = L["Average item level font"],
 		type = "font",
 		enabledBy = "equipment.showItemLevels",
@@ -175,6 +181,7 @@ Section(schema, L["Equipment"], "equipment", {
 	},
 	{
 		path = "qualityThresholds.uncommon",
+		atMost = "equipment.qualityThresholds.rare",
 		label = L["Average: green from"],
 		type = "number",
 		min = 1,
@@ -186,6 +193,8 @@ Section(schema, L["Equipment"], "equipment", {
 	},
 	{
 		path = "qualityThresholds.rare",
+		atLeast = "equipment.qualityThresholds.uncommon",
+		atMost = "equipment.qualityThresholds.epic",
 		label = L["Average: blue from"],
 		type = "number",
 		min = 1,
@@ -196,6 +205,8 @@ Section(schema, L["Equipment"], "equipment", {
 	},
 	{
 		path = "qualityThresholds.epic",
+		atLeast = "equipment.qualityThresholds.rare",
+		atMost = "equipment.qualityThresholds.legendary",
 		label = L["Average: purple from"],
 		type = "number",
 		min = 1,
@@ -206,6 +217,7 @@ Section(schema, L["Equipment"], "equipment", {
 	},
 	{
 		path = "qualityThresholds.legendary",
+		atLeast = "equipment.qualityThresholds.epic",
 		label = L["Average: orange from"],
 		type = "number",
 		min = 1,
@@ -222,6 +234,7 @@ Section(schema, L["Equipment"], "equipment", {
 	},
 	{
 		path = "durabilityThreshold",
+		advanced = true,
 		label = L["Warn below"],
 		type = "number",
 		min = 0.05,

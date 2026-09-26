@@ -24,7 +24,7 @@ local CLASSES = {
 	"DRUID",
 }
 
-local GROWTH_VALUES = { { "RIGHT", L["Right"] }, { "LEFT", L["Left"] } }
+local GROWTH_VALUES = { { "RIGHT", L["Right"], glyph = "arrow-right" }, { "LEFT", L["Left"], glyph = "arrow-left" } }
 
 local selectedClass = Data.SPELLS[ui.PLAYER_CLASS] and ui.PLAYER_CLASS or CLASSES[1]
 
@@ -48,6 +48,7 @@ local function sidePanel(side, name)
 			label = L["Row direction"],
 			type = "select",
 			values = GROWTH_VALUES,
+			advanced = true,
 			desc = L["Side the rows grow toward; category labels sit on the other side."],
 		},
 		{ header = L["Categories"], glyph = "list-check" },
@@ -92,6 +93,13 @@ local function spellToggle(id)
 				ui:SetConfig(spellPath(id), value)
 			end
 		end,
+		isDefault = function()
+			return GroupCooldowns.IsSpellShown(id) == not info.hidden
+		end,
+		reset = function()
+			ui:ResetConfig(spellPath(id))
+		end,
+		defaultText = info.hidden and L["Off"] or L["On"],
 	}
 end
 
@@ -106,9 +114,15 @@ local function spellEntries(schema)
 	for _, category in ipairs(Data.CATEGORIES) do
 		local ids = byCategory[category]
 		if ids then
-			schema[#schema + 1] = { header = GroupCooldowns.CATEGORY_NAMES[category] }
-			for _, id in ipairs(ids) do
-				schema[#schema + 1] = spellToggle(id)
+			local toggles = {}
+			schema[#schema + 1] = {
+				header = GroupCooldowns.CATEGORY_NAMES[category],
+				toggles = toggles,
+				toggleDesc = L["Show or hide every spell of this category."],
+			}
+			for i, id in ipairs(ids) do
+				toggles[i] = spellToggle(id)
+				schema[#schema + 1] = toggles[i]
 			end
 		end
 	end
@@ -141,31 +155,36 @@ local function buildSchema()
 			path = "labels",
 			label = L["Category labels"],
 			type = "toggle",
+			advanced = true,
 			desc = L["Category name beside each row of icons."],
 		},
 		{
 			path = "desaturate",
 			label = L["Desaturate on cooldown"],
 			type = "toggle",
+			advanced = true,
 			desc = L["Grey out the icon while the ability is on cooldown."],
 		},
 		{
 			path = "readyFlash",
 			label = L["Cooldown ready flash"],
 			type = "toggle",
+			advanced = true,
 			desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
 		},
 		{
 			path = "glowColor",
 			label = L["Active effect glow"],
 			type = "color",
+			advanced = true,
 			desc = L["Glow around a cooldown icon while the spell's effect is still active."],
 		},
+		ns.ClickThrough("clickThrough"),
 	}, nil, nil, "sliders")
 
 	Section(schema, L["Layout"], "groupCooldowns", {
 		{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
-		{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
+		{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
 		{
 			path = "perRow",
 			label = L["Icons per row"],

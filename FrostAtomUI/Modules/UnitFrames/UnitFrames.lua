@@ -16,7 +16,6 @@ local CLASS_ICON_GAP = 2
 local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
 local CASTBAR_SPARK_SCALE = 2
-local TARGET_AURA_ROWS = 2
 local BAR_BACKGROUND_DIM = 0.3
 local RIGHT_CLICK_ACTIONS = { menu = "menu", focus = "focus" }
 local config = ns.Config.unitFrames
@@ -55,8 +54,8 @@ UF.frames = {}
 local elements = {}
 UF.elements = elements
 
-function UF:RegisterElement(name, create, update, test)
-	elements[name] = { create = create, update = update, test = test }
+function UF:RegisterElement(name, create, update, test, poll)
+	elements[name] = { create = create, update = update, test = test, poll = poll }
 end
 
 function UF:AddElement(frame, name, ...)
@@ -187,9 +186,9 @@ function UF:CreateIconGrid(frame, options)
 	return grid
 end
 
-function UF.StackAuraGrids(frame, point, gap)
+function UF.StackAuraGrids(frame, point, gap, order)
 	local first, second = frame.debuffs, frame.buffs
-	if second and config.auraOrder == "buffs" then
+	if second and order == "buffs" then
 		first, second = second, first
 	end
 	local relative = point:gsub("^TOP", "BOTTOM")
@@ -342,6 +341,82 @@ end
 
 local function capitalize(text)
 	return (text:gsub("^%l", string.upper))
+end
+
+local categoryKeys = {}
+
+function UF.CategoryKeys(key)
+	local keys = categoryKeys[key]
+	if keys then
+		return keys
+	end
+	local name = capitalize(key)
+	keys = {
+		width = key .. "Width",
+		height = key .. "Height",
+		iconSide = key .. "IconSide",
+		castbar = "show" .. name .. "Castbar",
+		castbarWidth = key .. "CastbarWidth",
+		castbarHeight = key .. "CastbarHeight",
+		debuffs = "show" .. name .. "Debuffs",
+		buffs = "show" .. name .. "Buffs",
+		auraSize = key .. "AuraSize",
+		auraPerRow = key .. "AuraPerRow",
+		auraRows = key .. "AuraRows",
+		auraGrowth = key .. "AuraGrowth",
+		auraOrder = key .. "AuraOrder",
+		auraSpacing = key .. "AuraSpacing",
+		ownAuraScale = key .. "OwnAuraScale",
+		debuffSize = key .. "DebuffSize",
+		debuffMax = key .. "DebuffMax",
+		buffSize = key .. "BuffSize",
+		buffMax = key .. "BuffMax",
+		power = key .. "Power",
+	}
+	categoryKeys[key] = keys
+	return keys
+end
+
+local POLL_INTERVAL = 0.2
+local polledFrames = {}
+local poller = CreateFrame("Frame")
+poller:Hide()
+poller.elapsed = 0
+
+poller:SetScript("OnUpdate", function(self, elapsed)
+	local total = self.elapsed + elapsed
+	if total < POLL_INTERVAL then
+		self.elapsed = total
+		return
+	end
+	self.elapsed = 0
+	if UF.testing then
+		return
+	end
+	for i = 1, #polledFrames do
+		local frame = polledFrames[i]
+		if frame.watched and frame:IsShown() then
+			local polls = frame.polls
+			for j = 1, #polls do
+				polls[j](frame)
+			end
+		end
+	end
+end)
+
+function UF.EnablePolling(frame)
+	local polls = {}
+	for name, element in pairs(elements) do
+		if frame[name] and element.poll then
+			polls[#polls + 1] = element.poll
+		end
+	end
+	frame.polls = polls
+	polledFrames[#polledFrames + 1] = frame
+end
+
+function UF.SetPollingActive(active)
+	ns.SetShown(poller, active)
 end
 
 local TEXT_ELEMENTS = { "health", "power", "name" }
@@ -633,11 +708,12 @@ function UF:CreateTarget(unit, width, height)
 
 	local targetOfTarget = self:CreateTargetOfTarget(unit .. "target", height)
 
-	local perRow = config.targetAuraPerRow
+	local keys = UF.CategoryKeys(unit)
+	local perRow = config[keys.auraPerRow]
 	local auraOptions = {
 		size = targetAuraSize(width, perRow),
 		width = width,
-		max = perRow * TARGET_AURA_ROWS,
+		max = perRow * config[keys.auraRows],
 	}
 	self:AddElement(frame, "debuffs", auraOptions)
 	self:AddElement(frame, "buffs", auraOptions)
@@ -652,15 +728,15 @@ end
 
 function UF:ResizeTarget(frame, width, height)
 	frame:SetFrameSize(width, height)
-	local perRow = config.targetAuraPerRow
-	local auraSize, auraLimit = targetAuraSize(width, perRow), perRow * TARGET_AURA_ROWS
+	local keys = UF.CategoryKeys(frame.baseUnit)
+	local perRow = config[keys.auraPerRow]
+	local auraSize, auraLimit = targetAuraSize(width, perRow), perRow * config[keys.auraRows]
 	local debuffs, buffs = frame.debuffs, frame.buffs
 	debuffs:SetLayout(width, auraSize)
 	buffs:SetLayout(width, auraSize)
-	debuffs:SetLimit(auraLimit)
-	buffs:SetLimit(auraLimit)
+	debuffs:SetLimit(config[keys.debuffs] and auraLimit or 0)
+	buffs:SetLimit(config[keys.buffs] and auraLimit or 0)
 
-	UF.StackAuraGrids(frame, "TOPLEFT", CASTBAR_GAP)
-	local unit = frame.baseUnit
-	UF.SetCastbarSize(frame.castbar, config[unit .. "CastbarWidth"], config[unit .. "CastbarHeight"])
+	UF.StackAuraGrids(frame, "TOPLEFT", CASTBAR_GAP, config[keys.auraOrder])
+	UF.SetCastbarSize(frame.castbar, config[keys.castbarWidth], config[keys.castbarHeight])
 end

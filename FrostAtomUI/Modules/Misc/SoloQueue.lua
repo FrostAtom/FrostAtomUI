@@ -15,6 +15,11 @@ local AcceptBattlefieldPort = AcceptBattlefieldPort
 local LeaveBattlefield = LeaveBattlefield
 local SendChatMessage = SendChatMessage
 local UnitName = UnitName
+local UnitIsDeadOrGhost = UnitIsDeadOrGhost
+local UnitIsFeignDeath = UnitIsFeignDeath
+local UnitIsConnected = UnitIsConnected
+local GetNumPartyMembers = GetNumPartyMembers
+local GetBattlefieldWinner = GetBattlefieldWinner
 local GameTooltip = GameTooltip
 local GetTime = GetTime
 local cos, pi, floor = math.cos, math.pi, math.floor
@@ -30,19 +35,20 @@ local PULSE_MIN_ALPHA = 0.35
 local TOOLTIP_REFRESH_INTERVAL = 0.1
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 2.2
-local BACKGROUND_TEXTURE = "Interface\\Minimap\\UI-Minimap-Background"
-local BORDER_TEXTURE = "Interface\\Minimap\\MiniMap-TrackingBorder"
-local BORDER_SCALE = 52 / 33
-local BORDER_INSET = 1 / 33
-local ICON_SCALE = 0.62
-local QUEUE_ICON = "Interface\\GossipFrame\\BattleMasterGossipIcon"
-local LEAVE_ICON = "Interface\\Buttons\\UI-GroupLoot-Pass-Up"
+local BACKDROP = ns.CreateBackdrop(8, 2)
+local BACKGROUND_ALPHA = 0.85
+local ICON_INSET = 3
+local ICON_CROP = 0.08
+local SHINE_ALPHA = 0.18
+local HIGHLIGHT_ALPHA = 0.25
+local GLYPH_SCALE = 0.5
+local QUEUE_ICON = "Interface\\Icons\\Achievement_Arena_2v2_7"
 
 local STATES = {
-	join = { icon = QUEUE_ICON, tooltip = "Join solo queue" },
-	queued = { icon = QUEUE_ICON, tooltip = LEAVE_QUEUE, pulse = true },
-	enter = { icon = QUEUE_ICON, tooltip = ENTER_BATTLE, glow = true },
-	arena = { icon = LEAVE_ICON, tooltip = LEAVE_ARENA },
+	join = { icon = QUEUE_ICON, tooltip = "Join solo queue", color = { 1, 0.82, 0 } },
+	queued = { icon = QUEUE_ICON, tooltip = LEAVE_QUEUE, color = { 0.25, 0.7, 1 }, pulse = true },
+	enter = { icon = QUEUE_ICON, tooltip = ENTER_BATTLE, color = { 0.3, 1, 0.3 }, glow = true },
+	arena = { glyph = "arrow-right-from-bracket", tooltip = LEAVE_ARENA, color = { 1, 0.3, 0.25 } },
 }
 
 ns.OnLocaleReady(function()
@@ -53,18 +59,27 @@ local button = CreateFrame("Button", nil, UIParent)
 button:Hide()
 button:RegisterForClicks("LeftButtonUp")
 
-button.background = button:CreateTexture(nil, "BACKGROUND")
-button.background:SetTexture(BACKGROUND_TEXTURE)
-button.background:SetAllPoints()
+button:SetBackdrop(BACKDROP)
+button:SetBackdropColor(0, 0, 0, BACKGROUND_ALPHA)
 
 button.icon = button:CreateTexture(nil, "BORDER")
-button.icon:SetPoint("CENTER")
+button.icon:SetPoint("TOPLEFT", ICON_INSET, -ICON_INSET)
+button.icon:SetPoint("BOTTOMRIGHT", -ICON_INSET, ICON_INSET)
+button.icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
 
-button.border = button:CreateTexture(nil, "ARTWORK")
-button.border:SetTexture(BORDER_TEXTURE)
+button.glyph = button:CreateFontString(nil, "ARTWORK")
+button.glyph:SetPoint("CENTER")
+
+button.shine = button:CreateTexture(nil, "ARTWORK")
+button.shine:SetTexture(ns.Media.blank)
+button.shine:SetPoint("TOPLEFT", button.icon)
+button.shine:SetPoint("RIGHT", button.icon)
+button.shine:SetGradientAlpha("VERTICAL", 1, 1, 1, 0, 1, 1, 1, SHINE_ALPHA)
 
 button.highlight = button:CreateTexture(nil, "HIGHLIGHT")
-button.highlight:SetPoint("CENTER")
+button.highlight:SetTexture(ns.Media.blank)
+button.highlight:SetAllPoints(button.icon)
+button.highlight:SetVertexColor(1, 1, 1, HIGHLIGHT_ALPHA)
 button.highlight:SetBlendMode("ADD")
 
 button.glow = button:CreateTexture(nil, "OVERLAY")
@@ -80,6 +95,33 @@ local searchRange, opponentSearch
 local function isQueueState(state)
 	return state == "queued" or state == "enter"
 end
+
+local arenaPartySize = 0
+
+local function allyLost()
+	local count = GetNumPartyMembers()
+	if count < arenaPartySize then
+		return true
+	end
+	arenaPartySize = count
+	for i = 1, count do
+		local unit = "party" .. i
+		if not UnitIsConnected(unit) or UnitIsDeadOrGhost(unit) and not UnitIsFeignDeath(unit) then
+			return true
+		end
+	end
+	return false
+end
+
+local function isPinned()
+	local state = button.state
+	if isQueueState(state) then
+		return true
+	end
+	return state == "arena" and (GetBattlefieldWinner() ~= nil or allyLost())
+end
+
+local fader = ns.CreateFader({ button }, nil, isPinned)
 
 local function formatWait(milliseconds)
 	local seconds = floor(milliseconds / 1000)
@@ -119,7 +161,8 @@ end
 
 local function onPulse(self, elapsed)
 	local phase = GetTime() % PULSE_PERIOD / PULSE_PERIOD
-	self.icon:SetAlpha(PULSE_MIN_ALPHA + (1 - PULSE_MIN_ALPHA) * (0.5 + 0.5 * cos(phase * 2 * pi)))
+	local color = STATES.queued.color
+	self:SetBackdropBorderColor(color[1], color[2], color[3], PULSE_MIN_ALPHA + (1 - PULSE_MIN_ALPHA) * (0.5 + 0.5 * cos(phase * 2 * pi)))
 
 	self.untilTooltipRefresh = self.untilTooltipRefresh - elapsed
 	if self.untilTooltipRefresh <= 0 then
@@ -149,16 +192,16 @@ local function applySize()
 	local size = isQueueState(button.state) and config.queuedSize or config.buttonSize
 	button:SetSize(size, size)
 	button.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
-	button.icon:SetSize(size * ICON_SCALE, size * ICON_SCALE)
-	button.highlight:SetSize(size * ICON_SCALE, size * ICON_SCALE)
-	button.border:SetSize(size * BORDER_SCALE, size * BORDER_SCALE)
-	button.border:ClearAllPoints()
-	button.border:SetPoint("TOPLEFT", size * BORDER_INSET, -size * BORDER_INSET)
+	button.shine:SetHeight((size - 2 * ICON_INSET) / 2)
+	ns.SetGlyph(button.glyph, STATES[button.state].glyph, floor(size * GLYPH_SCALE))
 end
 
 local function setState(state, queueIndex)
 	if state ~= "queued" then
 		searchRange = nil
+	end
+	if state ~= "arena" or button.state ~= "arena" then
+		arenaPartySize = 0
 	end
 	button.state, button.queueIndex = state, queueIndex
 
@@ -170,9 +213,11 @@ local function setState(state, queueIndex)
 
 	local info = STATES[state]
 	applySize()
+	local r, g, b = unpack(info.color)
 	button.icon:SetTexture(info.icon)
-	button.icon:SetAlpha(1)
-	button.highlight:SetTexture(info.icon)
+	ns.SetShown(button.icon, info.icon)
+	button.glyph:SetTextColor(r, g, b)
+	button:SetBackdropBorderColor(r, g, b, 1)
 	if isQueueState(state) then
 		MiniMapBattlefieldFrame:Hide()
 	end
@@ -249,6 +294,7 @@ local function applyConfig()
 	ns.SetFont(range, font.size, font.outline, true)
 	ns.ApplyPoint(button, "soloQueue.point")
 	button.glow:SetVertexColor(unpack(config.glowColor))
+	fader:Configure(config.mouseover, 0)
 	range:ClearAllPoints()
 	range:SetPoint("TOP", button, "BOTTOM", 0, -RANGE_OFFSET)
 	update()

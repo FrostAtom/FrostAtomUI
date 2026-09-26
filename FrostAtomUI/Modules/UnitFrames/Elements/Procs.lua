@@ -55,7 +55,7 @@ end
 local function createIcon(container, index)
 	local icon = CreateFrame("Frame", nil, container)
 	icon:SetFrameLevel(container:GetFrameLevel() + 1)
-	icon:EnableMouse(true)
+	icon:EnableMouse(not ns.Config.internalCooldowns.clickThrough)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
 
@@ -252,6 +252,7 @@ local function applyConfig()
 			local icon = container[j]
 			setIconSize(icon, config.size)
 			placeIcon(container, icon, j)
+			icon:EnableMouse(not config.clickThrough)
 			icon.active = nil
 		end
 		if frame.test then

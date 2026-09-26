@@ -64,6 +64,7 @@ local ACHIEVEMENT_LABEL_WIDTH = 90
 
 local RETRY_INTERVAL = 2.5
 local MAX_ATTEMPTS = 8
+local PVP_RETRIES = 4
 local GEAR_RETRY_DELAY = 0.4
 local GEAR_RETRIES = 10
 local REFRESH_DELAY = 1
@@ -304,7 +305,7 @@ local function requestInspect()
 	end
 	local unit = state.unit
 	if not isReachable(unit) then
-		setStatus(L["Out of inspect range"])
+		setStatus(RED_FONT_COLOR_CODE .. L["Out of inspect range"] .. FONT_COLOR_CODE_CLOSE)
 		return
 	end
 	state.sent = GetTime()
@@ -1399,7 +1400,7 @@ local function createHeader()
 	refresh:SetPoint("TOPRIGHT", -34, -8)
 	refresh:SetFrameLevel(frame:GetFrameLevel() + 6)
 	refresh:SetScript("OnClick", function()
-		state.attempts = 0
+		state.attempts, state.pvpAttempts = 0, 0
 		requestInspect()
 	end)
 	refresh.SetEnabled = function(self, enabled)
@@ -1687,6 +1688,42 @@ local function createPvPPage()
 	end
 end
 
+local function requestPvP(retry)
+	local now = GetTime()
+	if state.isSelf or not state.specs or (state.honorReady and state.achievementsReady) then
+		return
+	end
+	if retry and (state.pvpAttempts >= PVP_RETRIES or now - (state.pvpSent or 0) <= RETRY_INTERVAL) then
+		return
+	end
+	if not state.honorReady and HasInspectHonorData() then
+		state.honorReady = true
+		updatePvP()
+	end
+	if not retry then
+		state.pvpSent = now
+		if not state.honorReady then
+			RequestInspectHonorData()
+		end
+		return
+	end
+	if not resolveUnit() or not isReachable(state.unit) then
+		return
+	end
+	state.pvpSent = now
+	state.pvpAttempts = state.pvpAttempts + 1
+	if not state.honorReady then
+		ClearInspectPlayer()
+		NotifyInspect(state.unit)
+		RequestInspectHonorData()
+	end
+	if not state.achievementsReady and comparisonAllowed() then
+		ClearAchievementComparisonUnit()
+		SetAchievementComparisonUnit(state.unit)
+		state.comparing = true
+	end
+end
+
 local function onTick(self, elapsed)
 	self.elapsed = (self.elapsed or 0) + elapsed
 	if self.elapsed < TICK then
@@ -1706,6 +1743,7 @@ local function onTick(self, elapsed)
 	elseif waiting and state.attempts >= MAX_ATTEMPTS and not state.gear then
 		setStatus(L["No inspect data"])
 	end
+	requestPvP(true)
 end
 
 local function onHide()
@@ -1765,7 +1803,7 @@ local function open(unit, follow)
 		ToggleCharacter("PaperDollFrame")
 		return
 	end
-	if not isSelf and not CanInspect(unit, not follow) then
+	if not isSelf and not (follow and not UnitCanAttack("player", unit) or CanInspect(unit, not follow)) then
 		return
 	end
 	if not frame then
@@ -1784,7 +1822,7 @@ local function open(unit, follow)
 	state.followTarget = UnitIsUnit(unit, "target")
 	state.isSelf = isSelf
 	unit = isSelf and "player" or unit
-	state.unit, state.guid, state.attempts = unit, guid, 0
+	state.unit, state.guid, state.attempts, state.pvpAttempts = unit, guid, 0, 0
 	captureIdentity(unit)
 
 	Inspect:SetHold(not isSelf)
@@ -1812,7 +1850,7 @@ local function onTalentsReady(_, guid)
 	updateStats()
 	updateIssues()
 	if resolveUnit() then
-		RequestInspectHonorData()
+		requestPvP(false)
 	end
 end
 

@@ -279,6 +279,25 @@ local function renderTags(template, unit, data)
 	return concat(buffer, "", 1, n)
 end
 
+UF.RenderTags = renderTags
+
+function UF.CheckTag(body)
+	local name
+	for token in body:gmatch("[^:]+") do
+		if not name then
+			if not tags[token] then
+				return token
+			end
+			name = token
+		elseif not (tonumber(token) or token == "raw" or colors[token] or token:find("^%x%x%x%x%x%x$")) then
+			return token, true
+		end
+	end
+	if not name then
+		return body
+	end
+end
+
 local TEXT_KEYS = { left = "leftText", right = "rightText", power = "powerText" }
 local HOVER_KEYS = { left = "leftTextHover", right = "rightTextHover", power = "powerTextHover" }
 

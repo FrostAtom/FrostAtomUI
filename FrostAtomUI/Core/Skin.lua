@@ -358,6 +358,31 @@ local function setDropdownEnabled(dropdown, enabled)
 	end
 end
 
+local function showOptionTooltip(button)
+	local desc = button.optionDesc
+	if not desc or not button.tooltipOnButton or button.tooltipText ~= desc then
+		return
+	end
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+	GameTooltip:SetText(button.tooltipTitle, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+	GameTooltip:AddLine(desc, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
+	GameTooltip:Show()
+end
+
+local function addOptionButton(info, desc)
+	UIDropDownMenu_AddButton(info)
+	local list = _G["DropDownList" .. (UIDROPDOWNMENU_MENU_LEVEL or 1)]
+	local button = list and _G[list:GetName() .. "Button" .. list.numButtons]
+	if not button then
+		return
+	end
+	button.optionDesc = desc
+	if desc and not button.optionTooltipHooked then
+		button.optionTooltipHooked = true
+		button:HookScript("OnEnter", showOptionTooltip)
+	end
+end
+
 function ns.CreateDropdown(parent, width, values, onSelect, name)
 	local dropdown = CreateFrame("Frame", widgetName(name), parent, "UIDropDownMenuTemplate")
 	local getValues = type(values) == "function" and values or function()
@@ -368,16 +393,21 @@ function ns.CreateDropdown(parent, width, values, onSelect, name)
 	UIDropDownMenu_Initialize(dropdown, function()
 		local info = UIDropDownMenu_CreateInfo()
 		for _, option in ipairs(getValues()) do
+			local desc = option.desc or option[3]
 			info.text = option[2]
 			info.value = option[1]
 			info.checked = option[1] == dropdown.selected
+			info.fontObject = option.fontObject
+			info.tooltipTitle = desc and option[2]
+			info.tooltipText = desc
+			info.tooltipOnButton = desc and 1
 			info.func = function()
 				selectDropdown(dropdown, option[1])
 				if onSelect then
 					onSelect(option[1])
 				end
 			end
-			UIDropDownMenu_AddButton(info)
+			addOptionButton(info, desc)
 		end
 	end)
 	dropdown.Select = selectDropdown

@@ -128,12 +128,13 @@ local function recordUnitCast(unit)
 end
 
 local function layoutBar(bar)
-	local holder = bar:GetParent().holder
+	local plate = bar:GetParent()
+	local holder = plate.holder
 	local offset = config.castbarGap + BORDER_INSET
 	bar:ClearAllPoints()
 	bar:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", BORDER_INSET, -offset)
 	bar:SetPoint("TOPRIGHT", holder, "BOTTOMRIGHT", -BORDER_INSET, -offset)
-	bar:SetHeight(config.castbarHeight)
+	bar:SetHeight(plate.settings.castbarHeight)
 	bar.icon:SetSize(config.castbarIconSize, config.castbarIconSize)
 end
 
@@ -243,6 +244,7 @@ function updatePlate(plate)
 	if
 		not entry
 		or not config.castbarsAllPlates
+		or not plate.settings.showCastbar
 		or not plate:IsShown()
 		or plate.castbar:IsShown()
 		or plate.totem:IsShown()
@@ -471,6 +473,15 @@ local function onEnteringWorld()
 	wipe(lastTexture)
 end
 
+local function relayout(plate)
+	local bar = plate.vcast
+	if bar then
+		bar.entry = nil
+		bar:Hide()
+	end
+	updatePlate(plate)
+end
+
 local function applyConfig()
 	for i = 1, #plates do
 		local plate = plates[i]
@@ -478,10 +489,8 @@ local function applyConfig()
 		if bar then
 			NamePlates.StyleHolder(bar.holder)
 			ns.SetFont(bar.targetText, config.nameFont.size, config.nameFont.outline)
-			bar.entry = nil
-			bar:Hide()
 		end
-		updatePlate(plate)
+		relayout(plate)
 	end
 end
 
@@ -525,6 +534,7 @@ NamePlates:OnInitialize(function(self)
 	NamePlates.AddLogHandler("UNIT_DIED", onLogDied)
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
 	NamePlates.onPass[#NamePlates.onPass + 1] = onPass
+	NamePlates.onPlateLayout[#NamePlates.onPlateLayout + 1] = relayout
 	self:RegisterEvent(UF.CAST_INTERRUPTED, onInterrupter)
 	self:RegisterEvent(UF.CAST_SILENCED, onSilenced)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)

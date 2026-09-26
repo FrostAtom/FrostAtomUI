@@ -53,6 +53,21 @@ local function actionBarDefaults(enabled, point, buttons, columns, buttonSize)
 	}
 end
 
+local function namePlateDefaults(healthColorMode, healthColor, nameColorMode)
+	return {
+		width = 110,
+		height = 12,
+		healthColorMode = healthColorMode,
+		healthColor = healthColor,
+		showName = true,
+		nameColorMode = nameColorMode,
+		healthText = "target",
+		showCastbar = true,
+		castbarHeight = 12,
+		showAuras = true,
+	}
+end
+
 ns.Defaults = {
 	general = {
 		font = "Fonts\\ARIALN.ttf",
@@ -160,6 +175,23 @@ ns.Defaults = {
 		arena1Target = { "LEFT", 2, 0, "unitFrames.arena1Pet", "RIGHT" },
 		arena2Target = { "LEFT", 2, 0, "unitFrames.arena2Pet", "RIGHT" },
 		arena3Target = { "LEFT", 2, 0, "unitFrames.arena3Pet", "RIGHT" },
+		petCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.pet", "TOPLEFT" },
+		targetOfTargetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.targetOfTarget", "TOPLEFT" },
+		focusTargetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.focusTarget", "TOPLEFT" },
+		party1PetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party1Pet", "TOPLEFT" },
+		party2PetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party2Pet", "TOPLEFT" },
+		party3PetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party3Pet", "TOPLEFT" },
+		party4PetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party4Pet", "TOPLEFT" },
+		party1TargetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party1Target", "TOPLEFT" },
+		party2TargetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party2Target", "TOPLEFT" },
+		party3TargetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party3Target", "TOPLEFT" },
+		party4TargetCastbar = { "BOTTOMLEFT", 18, 2, "unitFrames.party4Target", "TOPLEFT" },
+		arena1PetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena1Pet", "TOPRIGHT" },
+		arena2PetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena2Pet", "TOPRIGHT" },
+		arena3PetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena3Pet", "TOPRIGHT" },
+		arena1TargetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena1Target", "TOPRIGHT" },
+		arena2TargetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena2Target", "TOPRIGHT" },
+		arena3TargetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena3Target", "TOPRIGHT" },
 		boss = { "RIGHT", -150, 300 },
 		bossSpacing = 60,
 		outOfRangeAlpha = 0.75,
@@ -169,6 +201,10 @@ ns.Defaults = {
 		showBoss = true,
 		playerWidth = 200,
 		playerHeight = 45,
+		targetWidth = 200,
+		targetHeight = 45,
+		focusWidth = 200,
+		focusHeight = 45,
 		partyWidth = 200,
 		partyHeight = 45,
 		arenaWidth = 200,
@@ -199,6 +235,69 @@ ns.Defaults = {
 		arenaPetHeight = 45,
 		arenaTargetWidth = 45,
 		arenaTargetHeight = 45,
+		showPetCastbar = false,
+		showTargetOfTargetCastbar = false,
+		showFocusTargetCastbar = false,
+		showPartyPetCastbar = false,
+		showPartyTargetCastbar = false,
+		showArenaPetCastbar = false,
+		showArenaTargetCastbar = false,
+		petCastbarWidth = 120,
+		petCastbarHeight = 16,
+		targetOfTargetCastbarWidth = 120,
+		targetOfTargetCastbarHeight = 16,
+		focusTargetCastbarWidth = 120,
+		focusTargetCastbarHeight = 16,
+		partyPetCastbarWidth = 120,
+		partyPetCastbarHeight = 16,
+		partyTargetCastbarWidth = 120,
+		partyTargetCastbarHeight = 16,
+		arenaPetCastbarWidth = 120,
+		arenaPetCastbarHeight = 16,
+		arenaTargetCastbarWidth = 120,
+		arenaTargetCastbarHeight = 16,
+		showPetDebuffs = false,
+		showPetBuffs = false,
+		showTargetOfTargetDebuffs = false,
+		showTargetOfTargetBuffs = false,
+		showFocusTargetDebuffs = false,
+		showFocusTargetBuffs = false,
+		showPartyPetDebuffs = false,
+		showPartyPetBuffs = false,
+		showPartyTargetDebuffs = false,
+		showPartyTargetBuffs = false,
+		showArenaPetDebuffs = false,
+		showArenaPetBuffs = false,
+		showArenaTargetDebuffs = false,
+		showArenaTargetBuffs = false,
+		petAuraSize = 18,
+		petAuraPerRow = 4,
+		petAuraRows = 1,
+		petAuraGrowth = "LEFT",
+		targetOfTargetAuraSize = 18,
+		targetOfTargetAuraPerRow = 4,
+		targetOfTargetAuraRows = 1,
+		targetOfTargetAuraGrowth = "RIGHT",
+		focusTargetAuraSize = 18,
+		focusTargetAuraPerRow = 4,
+		focusTargetAuraRows = 1,
+		focusTargetAuraGrowth = "RIGHT",
+		partyPetAuraSize = 18,
+		partyPetAuraPerRow = 4,
+		partyPetAuraRows = 1,
+		partyPetAuraGrowth = "LEFT",
+		partyTargetAuraSize = 18,
+		partyTargetAuraPerRow = 4,
+		partyTargetAuraRows = 1,
+		partyTargetAuraGrowth = "LEFT",
+		arenaPetAuraSize = 18,
+		arenaPetAuraPerRow = 4,
+		arenaPetAuraRows = 1,
+		arenaPetAuraGrowth = "RIGHT",
+		arenaTargetAuraSize = 18,
+		arenaTargetAuraPerRow = 4,
+		arenaTargetAuraRows = 1,
+		arenaTargetAuraGrowth = "RIGHT",
 		playerAuraSize = 34,
 		playerAuraPerRow = 8,
 		playerAuraGrowth = "LEFT",
@@ -207,9 +306,30 @@ ns.Defaults = {
 		playerBuffSort = "default",
 		auraTimers = true,
 		auraTimerMaxDuration = 600,
+		playerAuraClickThrough = false,
+		targetAuraClickThrough = false,
+		focusAuraClickThrough = false,
+		partyAuraClickThrough = false,
+		arenaAuraClickThrough = false,
+		petAuraClickThrough = false,
+		targetOfTargetAuraClickThrough = false,
+		focusTargetAuraClickThrough = false,
+		partyPetAuraClickThrough = false,
+		partyTargetAuraClickThrough = false,
+		arenaPetAuraClickThrough = false,
+		arenaTargetAuraClickThrough = false,
+		showTargetDebuffs = true,
+		showTargetBuffs = true,
 		targetAuraPerRow = 8,
-		ownAuraScale = 1,
-		auraOrder = "debuffs",
+		targetAuraRows = 2,
+		targetOwnAuraScale = 1,
+		targetAuraOrder = "debuffs",
+		showFocusDebuffs = true,
+		showFocusBuffs = true,
+		focusAuraPerRow = 8,
+		focusAuraRows = 2,
+		focusOwnAuraScale = 1,
+		focusAuraOrder = "debuffs",
 		showPlayerCastbar = true,
 		showTargetCastbar = true,
 		showFocusCastbar = true,
@@ -269,11 +389,22 @@ ns.Defaults = {
 		absorbs = true,
 		absorbColor = { 0.7, 0.9, 1, 0.45 },
 		powerRatio = 0.2,
-		gridGap = 6,
-		groupDebuffSize = 32,
-		groupDebuffMax = 12,
+		showPartyDebuffs = true,
+		showPartyBuffs = true,
+		partyDebuffSize = 32,
+		partyDebuffMax = 12,
 		partyBuffSize = 19,
 		partyBuffMax = 18,
+		partyAuraSpacing = 6,
+		partyAuraOrder = "debuffs",
+		showArenaDebuffs = true,
+		showArenaBuffs = false,
+		arenaDebuffSize = 32,
+		arenaDebuffMax = 12,
+		arenaBuffSize = 19,
+		arenaBuffMax = 18,
+		arenaAuraSpacing = 6,
+		arenaAuraOrder = "debuffs",
 		raidIconSize = 16,
 		comboPointSize = 8,
 		comboPointColor = { 1, 0.2, 0.2 },
@@ -289,8 +420,50 @@ ns.Defaults = {
 		combatGlow = false,
 		combatGlowColor = { 1, 0.15, 0.1 },
 		petPower = true,
+		partyPetPower = true,
+		arenaPetPower = true,
 		petHappiness = true,
 		hideTargetOfTargetSelf = false,
+	},
+
+	raidFrames = {
+		enabled = true,
+		point = { "TOPRIGHT", -130, -250 },
+		showInBattleground = true,
+		showInRaid = true,
+		showInParty = false,
+		showPlayer = true,
+		width = 72,
+		height = 36,
+		spacing = 2,
+		groupSpacing = 6,
+		unitsPerColumn = 5,
+		columns = 8,
+		orientation = "horizontal",
+		growthX = "RIGHT",
+		growthY = "DOWN",
+		sort = "group",
+		classColor = true,
+		healthText = "none",
+		nameLength = 8,
+		nameClassColor = false,
+		font = { size = 10, outline = "OUTLINE" },
+		power = "healers",
+		powerHeight = 4,
+		outOfRangeAlpha = 0.4,
+		dispel = true,
+		dispelMine = true,
+		dispelStyle = "border",
+		ccIcon = true,
+		ccIconSize = 20,
+		buffFilter = "hots",
+		buffMax = 3,
+		buffSize = 12,
+		auraClickThrough = true,
+		raidIcon = true,
+		raidIconSize = 14,
+		leaderIcon = false,
+		testCount = 15,
 	},
 
 	chat = {
@@ -340,17 +513,15 @@ ns.Defaults = {
 
 	namePlates = {
 		enabled = true,
-		barWidth = 110,
-		barHeight = 12,
-		castbarHeight = 12,
+		enemyPlayer = namePlateDefaults("class", { 0.69, 0.31, 0.31 }, "class"),
+		friendlyPlayer = namePlateDefaults("class", { 0.31, 0.45, 0.63 }, "class"),
+		enemyNpc = namePlateDefaults("reaction", { 0.69, 0.31, 0.31 }, "white"),
+		friendlyNpc = namePlateDefaults("reaction", { 0.33, 0.59, 0.33 }, "white"),
 		castbarIconSize = 18,
 		totemIcons = true,
 		totemIconSize = 24,
 		raidIconSize = 22,
-		showTargetPercent = true,
-		showName = true,
 		showRaidIcon = true,
-		healthColorMode = "class",
 		targetBorder = true,
 		castbarGap = 3,
 		nameFont = { size = 9, outline = "OUTLINE" },
@@ -363,7 +534,6 @@ ns.Defaults = {
 		castbarInterrupter = true,
 		castbarFinishFlash = true,
 		castbarShield = true,
-		showAuras = true,
 		showAuraTimer = true,
 		showAuraCount = true,
 		ownDebuffs = true,
@@ -378,8 +548,6 @@ ns.Defaults = {
 		ccAuraSize = 36,
 		castbarsAllPlates = true,
 		castbarsCombatLog = true,
-		friendlyClassColors = true,
-		healthTextAll = false,
 		healthTextFormat = "percent",
 		arenaNumbers = true,
 		spreadPlates = false,
@@ -434,6 +602,7 @@ ns.Defaults = {
 		size = 30,
 		gap = 2,
 		timerFont = { size = 11, outline = "OUTLINE" },
+		clickThrough = false,
 	},
 
 	trackers = {
@@ -506,6 +675,7 @@ ns.Defaults = {
 		gap = 2,
 		showTimer = true,
 		timerFont = { size = 11, outline = "OUTLINE" },
+		clickThrough = false,
 	},
 
 	lowHealthFlash = {
@@ -688,6 +858,7 @@ ns.Defaults = {
 		desaturate = true,
 		readyFlash = true,
 		glowColor = { 1, 0.85, 0.3 },
+		clickThrough = false,
 		friendlyCategories = {
 			defensive = true,
 			offensive = true,
@@ -723,6 +894,7 @@ ns.Defaults = {
 		halfColor = { 0.2, 1, 0.2 },
 		quarterColor = { 1, 0.65, 0 },
 		immuneColor = { 1, 0.1, 0.1 },
+		clickThrough = false,
 	},
 
 	internalCooldowns = {
@@ -739,6 +911,7 @@ ns.Defaults = {
 		activeColor = { 0.2, 1, 0.2 },
 		offsetX = 0,
 		offsetY = 2,
+		clickThrough = false,
 	},
 
 	arenaUnseen = { enabled = true, alpha = 0.55, prep = true },
@@ -778,9 +951,10 @@ ns.Defaults = {
 
 	soloQueue = {
 		enabled = true,
-		point = { "RIGHT", -4, 0, "minimap.lfgPoint", "LEFT" },
-		buttonSize = 32,
-		queuedSize = 44,
+		point = { "TOPLEFT", -1, -5, "minimap.point", "BOTTOMLEFT" },
+		buttonSize = 26,
+		queuedSize = 34,
+		mouseover = true,
 		glowColor = { 0.3, 1, 0.3 },
 		rangeFont = { size = 12, outline = "OUTLINE" },
 		teamSearchColor = { 1, 1, 1 },
@@ -1256,7 +1430,10 @@ local function serialize(value, out)
 	local kind = type(value)
 	if kind == "table" then
 		out[#out + 1] = "{"
-		local count = #value
+		local count = 0
+		while value[count + 1] ~= nil do
+			count = count + 1
+		end
 		for i = 1, count do
 			serialize(value[i], out)
 			out[#out + 1] = ","
@@ -1519,7 +1696,7 @@ local function targetCastbarPoint(unitFrames, unit)
 	local defaults = ns.Defaults.unitFrames
 	local width = unitFrames.playerWidth or defaults.playerWidth
 	local perRow = unitFrames.targetAuraPerRow or defaults.targetAuraPerRow
-	local scale = unitFrames.ownAuraScale or defaults.ownAuraScale
+	local scale = unitFrames.ownAuraScale or defaults.targetOwnAuraScale
 	local castbarHeight = unitFrames.castbarHeight or LEGACY_CASTBAR_HEIGHT
 	local auraSize = width / perRow - 1
 	local fitted = math.max(math.floor((width + 1) / (auraSize + 1)), 1)
@@ -1628,6 +1805,110 @@ local function migrateClassColorHealth(profile)
 	end
 end
 
+local NAME_PLATE_CATEGORIES = { "enemyPlayer", "friendlyPlayer", "enemyNpc", "friendlyNpc" }
+local NAME_PLATE_KEYS = {
+	barWidth = "width",
+	barHeight = "height",
+	castbarHeight = "castbarHeight",
+	showName = "showName",
+	showAuras = "showAuras",
+}
+local NAME_PLATE_OBSOLETE = {
+	"barWidth",
+	"barHeight",
+	"castbarHeight",
+	"showName",
+	"showAuras",
+	"showTargetPercent",
+	"healthTextAll",
+	"healthColorMode",
+	"friendlyClassColors",
+}
+
+local function setIfChanged(target, defaults, key, value)
+	if value ~= nil and target[key] == nil and value ~= defaults[key] then
+		target[key] = value
+	end
+end
+
+local function migrateNamePlateCategories(profile)
+	local namePlates = profile.namePlates
+	if not namePlates then
+		return
+	end
+	local healthText
+	if namePlates.showTargetPercent == false then
+		healthText = "none"
+	elseif namePlates.healthTextAll then
+		healthText = "all"
+	end
+	local colorMode = namePlates.healthColorMode == "health" and "health" or nil
+	local groupClassColors = namePlates.friendlyClassColors ~= false
+	for _, key in ipairs(NAME_PLATE_CATEGORIES) do
+		local defaults = ns.Defaults.namePlates[key]
+		local category = namePlates[key] or {}
+		for old, new in pairs(NAME_PLATE_KEYS) do
+			setIfChanged(category, defaults, new, namePlates[old])
+		end
+		setIfChanged(category, defaults, "healthText", healthText)
+		setIfChanged(category, defaults, "healthColorMode", colorMode)
+		if key == "friendlyPlayer" and not groupClassColors then
+			setIfChanged(category, defaults, "healthColorMode", "reaction")
+			setIfChanged(category, defaults, "nameColorMode", "white")
+		end
+		if next(category) then
+			namePlates[key] = category
+		end
+	end
+	for _, key in ipairs(NAME_PLATE_OBSOLETE) do
+		namePlates[key] = nil
+	end
+end
+
+local UNIT_FRAME_SPLIT_KEYS = {
+	ownAuraScale = { "targetOwnAuraScale", "focusOwnAuraScale" },
+	auraOrder = { "targetAuraOrder", "focusAuraOrder", "partyAuraOrder" },
+	gridGap = { "partyAuraSpacing", "arenaAuraSpacing" },
+	groupDebuffSize = { "partyDebuffSize", "arenaDebuffSize" },
+	groupDebuffMax = { "partyDebuffMax", "arenaDebuffMax" },
+}
+local UNIT_FRAME_SEED_KEYS = {
+	playerWidth = { "targetWidth", "focusWidth" },
+	playerHeight = { "targetHeight", "focusHeight" },
+	targetAuraPerRow = { "focusAuraPerRow" },
+	petPower = { "partyPetPower", "arenaPetPower" },
+}
+
+local function seedUnitFrameKeys(unitFrames, keys)
+	for old, targets in pairs(keys) do
+		local value = unitFrames[old]
+		if value ~= nil then
+			for _, key in ipairs(targets) do
+				setChanged(unitFrames, key, value)
+			end
+		end
+	end
+end
+
+local function migrateUnitFrameCategories(profile, seed)
+	local unitFrames = profile.unitFrames
+	if not unitFrames then
+		return
+	end
+	for old in pairs(UNIT_FRAME_SPLIT_KEYS) do
+		if unitFrames[old] ~= nil then
+			seed = true
+		end
+	end
+	if seed then
+		seedUnitFrameKeys(unitFrames, UNIT_FRAME_SEED_KEYS)
+	end
+	seedUnitFrameKeys(unitFrames, UNIT_FRAME_SPLIT_KEYS)
+	for old in pairs(UNIT_FRAME_SPLIT_KEYS) do
+		unitFrames[old] = nil
+	end
+end
+
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
@@ -1635,6 +1916,8 @@ function migrate(profile)
 	migrateGroupSpacing(profile)
 	migrateCastbarHeight(profile)
 	migrateClassColorHealth(profile)
+	migrateNamePlateCategories(profile)
+	migrateUnitFrameCategories(profile)
 end
 
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
@@ -1651,10 +1934,14 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 		if not db.squareFramesMigrated then
 			migrateSquareFrames(profile)
 		end
+		if not db.unitFrameCategoriesMigrated then
+			migrateUnitFrameCategories(profile, true)
+		end
 		migrate(profile)
 	end
 	db.castbarLayoutMigrated = true
 	db.squareFramesMigrated = true
+	db.unitFrameCategoriesMigrated = true
 	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)

@@ -15,9 +15,9 @@ ns.RegisterElement({
 	enabledBy = COUNTDOWN,
 	schema = Requires(COUNTDOWN, {
 		{ header = L["Text"], glyph = "font" },
-		{ path = "arena.countdownFont", label = L["Countdown font"], type = "font" },
+		{ path = "arena.countdownFont", label = L["Countdown font"], type = "font", advanced = true },
 		{ header = L["Colors"], glyph = "palette" },
-		{ path = "arena.countdownColor", label = L["Countdown color"], type = "color" },
+		{ path = "arena.countdownColor", label = L["Countdown color"], type = "color", advanced = true },
 		{
 			path = "arena.countdownUrgentColor",
 			label = L["Countdown final seconds color"],
@@ -74,6 +74,7 @@ Section(schema, L["Arena"], "arena", {
 		min = 20,
 		max = 64,
 		step = 1,
+		advanced = true,
 		enabledBy = "arena.pillars",
 	},
 	{
@@ -83,6 +84,8 @@ Section(schema, L["Arena"], "arena", {
 		min = 10,
 		max = 120,
 		step = 1,
+		unit = "s",
+		advanced = true,
 		enabledBy = "arena.pillars",
 		desc = L["Seconds after the gates open until the pillars move for the first time. Depends on the server."],
 	},
@@ -93,32 +96,35 @@ Section(schema, L["Arena"], "arena", {
 		min = 5,
 		max = 120,
 		step = 1,
+		unit = "s",
+		advanced = true,
 		enabledBy = "arena.pillars",
 		desc = L["Seconds between pillar toggles after the first one. Depends on the server."],
 	},
 }, nil, nil, "hand-fist")
 
 local DR_ARENA_SIDES = {
-	{ "RIGHT", L["Right of the trinket"] },
-	{ "LEFT", L["Left of the castbar"] },
-	{ "TOP", L["Above the frame"] },
-	{ "BOTTOM", L["Below the frame"] },
+	{ "RIGHT", L["Right of the trinket"], glyph = "arrow-right" },
+	{ "LEFT", L["Left of the castbar"], glyph = "arrow-left" },
+	{ "TOP", L["Above the frame"], glyph = "arrow-up" },
+	{ "BOTTOM", L["Below the frame"], glyph = "arrow-down" },
 }
 
 local DR_TARGET_SIDES = {
-	{ "RIGHT", L["Right of the frame"] },
-	{ "LEFT", L["Left of the frame"] },
-	{ "TOP", L["Above the frame"] },
-	{ "BOTTOM", L["Below the frame"] },
+	{ "RIGHT", L["Right of the frame"], glyph = "arrow-right" },
+	{ "LEFT", L["Left of the frame"], glyph = "arrow-left" },
+	{ "TOP", L["Above the frame"], glyph = "arrow-up" },
+	{ "BOTTOM", L["Below the frame"], glyph = "arrow-down" },
 }
 
 local DR_TARGET_OR_FOCUS = { "diminishingReturns.target", "diminishingReturns.focus" }
 
 local function offset(path, label, enabledBy, enabledByAny)
 	return {
-		path = path,
+		path = path .. "X",
+		pathY = path .. "Y",
 		label = label,
-		type = "number",
+		type = "offset",
 		min = -200,
 		max = 200,
 		step = 1,
@@ -135,12 +141,13 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 		type = "toggle",
 		desc = L["Crowd control categories recently used on enemy players, with the time until they reset. Border color shows the next duration: green half, orange quarter, red immune."],
 	},
-	{ path = "halfColor", label = L["Next: 50% duration"], type = "color" },
-	{ path = "quarterColor", label = L["Next: 25% duration"], type = "color" },
-	{ path = "immuneColor", label = L["Next: immune"], type = "color" },
+	{ path = "halfColor", label = L["Next: 50% duration"], type = "color", advanced = true },
+	{ path = "quarterColor", label = L["Next: 25% duration"], type = "color", advanced = true },
+	{ path = "immuneColor", label = L["Next: immune"], type = "color", advanced = true },
+	ns.ClickThrough("clickThrough"),
 }, nil, "1.4.0", "arrow-trend-down")
 
-tinsert(schema, #schema - 2, {
+tinsert(schema, #schema - 3, {
 	path = "diminishingReturns",
 	label = L["Show on"],
 	type = "multiselect",
@@ -151,7 +158,7 @@ tinsert(schema, #schema - 2, {
 
 Section(schema, L["Diminishing returns layout"], "diminishingReturns", {
 	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
-	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
+	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
 	{
 		path = "arenaSide",
 		label = L["Arena position"],
@@ -159,8 +166,7 @@ Section(schema, L["Diminishing returns layout"], "diminishingReturns", {
 		values = DR_ARENA_SIDES,
 		enabledBy = "diminishingReturns.arena",
 	},
-	offset("arenaOffsetX", L["Arena X offset"], "diminishingReturns.arena"),
-	offset("arenaOffsetY", L["Arena Y offset"], "diminishingReturns.arena"),
+	offset("arenaOffset", L["Arena offset"], "diminishingReturns.arena"),
 	{
 		path = "targetSide",
 		label = L["Target / focus position"],
@@ -168,8 +174,7 @@ Section(schema, L["Diminishing returns layout"], "diminishingReturns", {
 		values = DR_TARGET_SIDES,
 		enabledByAny = DR_TARGET_OR_FOCUS,
 	},
-	offset("targetOffsetX", L["Target / focus X offset"], nil, DR_TARGET_OR_FOCUS),
-	offset("targetOffsetY", L["Target / focus Y offset"], nil, DR_TARGET_OR_FOCUS),
+	offset("targetOffset", L["Target / focus offset"], nil, DR_TARGET_OR_FOCUS),
 }, nil, nil, "up-down-left-right")
 
 Section(schema, L["Internal cooldowns"], "internalCooldowns", {
@@ -179,44 +184,58 @@ Section(schema, L["Internal cooldowns"], "internalCooldowns", {
 		type = "toggle",
 		desc = L["Internal cooldowns of proc trinkets, enchants and gems. Your own and inspected allies' items show right away, enemy trinkets show as question marks until their first proc and are remembered."],
 	},
-	{ path = "player", label = L["Show on player frame"], type = "toggle" },
-	{ path = "party", label = L["Show on party frames"], type = "toggle" },
-	{ path = "arena", label = L["Show on arena frames"], type = "toggle" },
-	{ path = "target", label = L["Show on target frame"], type = "toggle" },
-	{ path = "focus", label = L["Show on focus frame"], type = "toggle" },
 	{
 		path = "hideReady",
 		label = L["Only while on cooldown"],
 		type = "toggle",
+		advanced = true,
 		desc = L["Hide icons of procs that are ready."],
 	},
 	{
 		path = "unknownTrinkets",
 		label = L["Unknown enemy trinkets"],
 		type = "toggle",
+		advanced = true,
 		desc = L["Question mark icons for enemy trinkets that have not proced yet."],
 	},
 	{
 		path = "activeColor",
 		label = L["Active buff color"],
 		type = "color",
+		advanced = true,
 		desc = L["Border and glow while the proc buff is up. The timer shows the buff time left, then the internal cooldown."],
 	},
+	ns.ClickThrough("clickThrough"),
 }, nil, "1.4.0", "gem")
 
-tinsert(schema, #schema, {
+tinsert(schema, #schema - 3, {
+	path = "internalCooldowns",
+	label = L["Show on"],
+	type = "multiselect",
+	values = {
+		{ "player", L["Player"] },
+		{ "party", L["Party"] },
+		{ "arena", L["Arena"] },
+		{ "target", L["Target"] },
+		{ "focus", L["Focus"] },
+	},
+	enabledBy = "internalCooldowns.enabled",
+	desc = L["Unit frames that show the internal cooldown icons."],
+})
+
+tinsert(schema, #schema - 1, {
 	path = "unitFrames.cooldownReadyFlash",
 	label = L["Cooldown ready flash"],
 	type = "toggle",
+	advanced = true,
 	enabledBy = { "internalCooldowns.enabled", "unitFrames.enabled" },
 	desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
 })
 
 Section(schema, L["Internal cooldowns layout"], "internalCooldowns", {
 	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
-	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1 },
-	offset("offsetX", L["X offset from the top right corner"]),
-	offset("offsetY", L["Y offset from the top right corner"]),
+	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
+	offset("offset", L["Offset from the top right corner"]),
 }, nil, nil, "up-down-left-right")
 
 Section(schema, L["Match results"], "matchResults", {
@@ -237,6 +256,7 @@ Section(schema, L["Match results"], "matchResults", {
 		path = "replaceScoreboard",
 		label = L["Hide Blizzard scoreboard"],
 		type = "toggle",
+		advanced = true,
 		desc = L["Keep the Blizzard scoreboard closed while the result window is open. The Scoreboard button still opens it."],
 	},
 }, nil, "1.4.0", "ranking-star")
@@ -255,18 +275,21 @@ Section(schema, L["Arena history"], "arenaHistory", {
 		min = 50,
 		max = 5000,
 		step = 50,
+		advanced = true,
 		desc = L["Oldest games are dropped past this count."],
 	},
 	{
 		path = "winColor",
 		label = L["Win color"],
 		type = "color",
+		advanced = true,
 		desc = L["Result text of won games in the history window."],
 	},
 	{
 		path = "lossColor",
 		label = L["Loss color"],
 		type = "color",
+		advanced = true,
 		desc = L["Result text of lost games in the history window."],
 	},
 	{

@@ -224,6 +224,7 @@ local function applyConfig()
 	for i = 1, MAX_ICONS do
 		local icon = icons[i]
 		icon:SetSize(size, size)
+		icon:EnableMouse(not config.clickThrough)
 		icon:ClearAllPoints()
 		icon:SetPoint("TOPLEFT", (i - 1) * (size + gap), 0)
 		ns.SetFont(icon.timer, font.size, font.outline)

@@ -28,11 +28,23 @@ Media.fonts = {
 
 Media.statusbars = {
 	{ "Interface\\Buttons\\WHITE8x8", "Flat" },
+	{ MEDIA_PATH .. "minimalist", "Minimalist" },
 	{ "Interface\\TargetingFrame\\UI-StatusBar", "Blizzard" },
-	{ "Interface\\RaidFrame\\Raid-Bar-Hp-Fill", "Raid" },
+	{ "Interface\\TargetingFrame\\UI-TargetingFrame-BarFill", "Glossy" },
+	{ "Interface\\TargetingFrame\\BarFill2", "Soft" },
 	{ "Interface\\PaperDollInfoFrame\\UI-Character-Skills-Bar", "Skills" },
-	{ "Interface\\Tooltips\\UI-Tooltip-Background", "Smooth" },
+	{ "Interface\\CharacterFrame\\BarFill", "Shaded" },
+	{ "Interface\\Tooltips\\UI-Tooltip-Background", "Matte" },
 }
+
+local function knownStatusbar(path)
+	for _, statusbar in ipairs(Media.statusbars) do
+		if statusbar[1] == path then
+			return path
+		end
+	end
+	return Media.statusbars[1][1]
+end
 
 local statusBars = setmetatable({}, { __mode = "k" })
 local fontRegions = setmetatable({}, { __mode = "k" })
@@ -50,10 +62,11 @@ end
 
 function ns.ApplyMedia(general)
 	local fontChanged = Media.font ~= general.font or Media.fontBold ~= general.fontBold
-	local statusbarChanged = Media.statusbar ~= general.statusbar
+	local statusbar = knownStatusbar(general.statusbar)
+	local statusbarChanged = Media.statusbar ~= statusbar
 	Media.font = general.font
 	Media.fontBold = general.fontBold
-	Media.statusbar = general.statusbar
+	Media.statusbar = statusbar
 	if fontChanged then
 		for region, bold in pairs(fontRegions) do
 			local _, size, outline = region:GetFont()

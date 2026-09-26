@@ -363,7 +363,7 @@ function updatePlate(plate)
 	local row = plate.auraRow
 	local set = plate.guid and cache[plate.guid]
 	if
-		not (config.showAuras and set and set[1] and plate:IsShown())
+		not (plate.settings.showAuras and set and set[1] and plate:IsShown())
 		or plate.totem:IsShown()
 		or not (config.aurasAllPlates or plate:IsTarget())
 	then
@@ -579,6 +579,7 @@ NamePlates:OnInitialize(function(self)
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
 	NamePlates.onPass[#NamePlates.onPass + 1] = onPass
 	NamePlates.onPlateHide[#NamePlates.onPlateHide + 1] = onPlateHide
+	NamePlates.onPlateLayout[#NamePlates.onPlateLayout + 1] = updatePlate
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 	self:RegisterUnitEvent("UNIT_PET", "player", onUnitPet)
 	self:WatchConfig("namePlates", applyConfig)

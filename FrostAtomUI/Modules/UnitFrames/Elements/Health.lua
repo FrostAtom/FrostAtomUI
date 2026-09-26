@@ -66,13 +66,20 @@ local function setAlive(health, setValue, current, max, class)
 	setValue(health, current)
 
 	local last = health.lastCurrent
-	if config.healthCutaway and last and current < last and max == health.lastMax and max > 1 then
+	if
+		config.healthCutaway
+		and not health.noCutaway
+		and last
+		and current < last
+		and max == health.lastMax
+		and max > 1
+	then
 		showCutaway(health, last < max and last or max, current, max)
 	end
 	health.lastCurrent = current
 	health.lastMax = max
 
-	local classColor = class and config.healthColorMode == "class" and classColors[class]
+	local classColor = class and (health.colorMode or config.healthColorMode) == "class" and classColors[class]
 	if classColor then
 		if health.colorClass ~= class then
 			health.colorClass = class
@@ -83,7 +90,11 @@ local function setAlive(health, setValue, current, max, class)
 		setColor(health, HealthColor(max > 0 and current / max or 0))
 	end
 	local frame = health:GetParent()
-	UF.UpdateText(frame, health.text, "right")
+	if frame.UpdateHealthText then
+		frame:UpdateHealthText(current, max)
+	else
+		UF.UpdateText(frame, health.text, "right")
+	end
 	if frame.name then
 		UF.UpdateTextIfUses(frame, frame.name, "left", "health")
 	end
