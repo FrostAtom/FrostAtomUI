@@ -129,6 +129,22 @@ local function lockChatFrames()
 	end)
 end
 
+local function applyCombatLog()
+	if config.hideCombatLog then
+		if ChatFrame2.isDocked or ChatFrame2:IsShown() then
+			FCF_Close(ChatFrame2)
+		end
+	elseif not ChatFrame2.isDocked then
+		FCF_DockFrame(ChatFrame2, #GENERAL_CHAT_DOCK.DOCKED_CHAT_FRAMES + 1)
+	end
+end
+
+local function onDockFrame(chatFrame)
+	if chatFrame == ChatFrame2 and config.hideCombatLog then
+		FCF_Close(ChatFrame2)
+	end
+end
+
 function Chat:Initialize()
 	ns:GetModule("CVars"):Pin("chatStyle", "classic")
 	self:HookMessages()
@@ -139,6 +155,11 @@ function Chat:Initialize()
 		lockChatFrames()
 	end
 	applyClassColors()
+	if config.hideCombatLog then
+		applyCombatLog()
+	end
+	hooksecurefunc("FCF_DockFrame", onDockFrame)
+	self:WatchConfig("chat.hideCombatLog", applyCombatLog)
 	local function isTyping()
 		return ChatFrame1EditBox:IsShown()
 	end

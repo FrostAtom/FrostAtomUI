@@ -501,6 +501,7 @@ ns.Defaults = {
 		whisperSoundThrottle = true,
 		whisperSoundInterval = 60,
 		lockFrames = true,
+		hideCombatLog = false,
 		stickyChannels = true,
 		timestampFormat = "%H:%M",
 		timestampColor = { 0.5, 0.5, 0.5 },
