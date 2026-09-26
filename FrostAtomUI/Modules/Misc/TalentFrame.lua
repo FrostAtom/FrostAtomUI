@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local L = ns.L
+
 local GetNumTalentTabs, GetTalentTabInfo, GetNumTalents, GetTalentInfo, GetTalentPrereqs =
 	GetNumTalentTabs, GetTalentTabInfo, GetNumTalents, GetTalentInfo, GetTalentPrereqs
 local GetUnspentTalentPoints, GetGroupPreviewTalentPointsSpent =
@@ -13,7 +15,9 @@ local GetNumGlyphSockets, GetGlyphSocketInfo, GlyphMatchesSocket, PlaceGlyphInSo
 	GetNumGlyphSockets, GetGlyphSocketInfo, GlyphMatchesSocket, PlaceGlyphInSocket, GetGlyphLink
 local GetSpellInfo, IsShiftKeyDown, SetPortraitTexture, UnitName =
 	GetSpellInfo, IsShiftKeyDown, SetPortraitTexture, UnitName
-local select, min, max, abs = select, math.min, math.max, math.abs
+local SetCVar = SetCVar
+local select, min, max, abs, sort, tconcat, tonumber =
+	select, math.min, math.max, math.abs, table.sort, table.concat, tonumber
 
 local TalentFrame = ns:NewModule("TalentFrame")
 TalentFrame.configKey = "talentFrame"
@@ -551,6 +555,7 @@ end
 
 local function updateFooter(unspent, preview, editable)
 	frame.unspent:SetFormattedText(UNSPENT_TALENT_POINTS, HIGHLIGHT_FONT_COLOR_CODE .. unspent .. FONT_COLOR_CODE_CLOSE)
+	setEnabled(frame.paste, editable)
 	local showPreview = preview and editable and GetUnspentTalentPoints(false, view.pet, view.group) > 0
 	local bar = frame.pointsBar
 	bar:ClearAllPoints()
@@ -982,6 +987,182 @@ local function createPane(parent, paneView)
 	return pane
 end
 
+local function orderedTalents(tab, inspect, pet, group)
+	local list = {}
+	for i = 1, GetNumTalents(tab, inspect, pet) or 0 do
+		local name, _, tier, column, _, maxRank = GetTalentInfo(tab, i, inspect, pet, group)
+		if name then
+			list[#list + 1] = { index = i, tier = tier, column = column, maxRank = maxRank }
+		end
+	end
+	sort(list, function(a, b)
+		if a.tier ~= b.tier then
+			return a.tier < b.tier
+		end
+		return a.column < b.column
+	end)
+	return list
+end
+
+local function talentCode(inspect, pet, group, preview)
+	local trees = {}
+	for tab = 1, GetNumTalentTabs(inspect, pet) or 0 do
+		local digits = {}
+		for _, talent in ipairs(orderedTalents(tab, inspect, pet, group)) do
+			local _, _, _, _, rank, _, _, _, previewRank = GetTalentInfo(tab, talent.index, inspect, pet, group)
+			digits[#digits + 1] = (preview and previewRank or rank) or 0
+		end
+		trees[tab] = tconcat(digits)
+	end
+	return tconcat(trees, "-")
+end
+
+local function parseCode(text)
+	local best = ""
+	for token in (text or ""):gmatch("[%d%-]+") do
+		if token:find("%d") and #token > #best then
+			best = token
+		end
+	end
+	if best == "" then
+		return nil
+	end
+	local trees = {}
+	for segment in (best .. "-"):gmatch("([^%-]*)%-") do
+		trees[#trees + 1] = segment
+	end
+	return trees
+end
+
+local function previewRank(tab, index, pet, group)
+	return select(9, GetTalentInfo(tab, index, false, pet, group)) or 0
+end
+
+local function applyCode(text, pet, group)
+	local trees = parseCode(text)
+	local numTabs = GetNumTalentTabs(false, pet) or 0
+	if not trees or #trees > numTabs then
+		return L["Invalid talent code"]
+	end
+	local targets, needed = {}, 0
+	for tab = 1, numTabs do
+		local list = orderedTalents(tab, false, pet, group)
+		local digits = trees[tab] or ""
+		if #digits > #list then
+			return L["Invalid talent code"]
+		end
+		for position, talent in ipairs(list) do
+			local target = tonumber(digits:sub(position, position)) or 0
+			if target > talent.maxRank then
+				return L["Invalid talent code"]
+			end
+			local rank = select(5, GetTalentInfo(tab, talent.index, false, pet, group)) or 0
+			if rank > target then
+				return L["The code needs a talent reset"]
+			end
+			needed = needed + target - rank
+			talent.tab, talent.target = tab, target
+			targets[#targets + 1] = talent
+		end
+	end
+	local unspent = GetUnspentTalentPoints(false, pet, group)
+	if needed > unspent then
+		return L["Not enough talent points: %d needed, %d available"]:format(needed, unspent)
+	end
+
+	SetCVar("previewTalents", "1")
+	ResetGroupPreviewTalentPoints(pet, group)
+	local progress = true
+	while progress do
+		progress = false
+		for _, talent in ipairs(targets) do
+			local current = previewRank(talent.tab, talent.index, pet, group)
+			if current < talent.target then
+				AddPreviewTalentPoints(talent.tab, talent.index, talent.target - current, pet, group)
+				if previewRank(talent.tab, talent.index, pet, group) > current then
+					progress = true
+				end
+			end
+		end
+	end
+	for _, talent in ipairs(targets) do
+		if previewRank(talent.tab, talent.index, pet, group) ~= talent.target then
+			return L["The talent code could not be fully applied"]
+		end
+	end
+end
+
+local function showCode(code)
+	local popup = StaticPopup_Show("FROSTATOMUI_TALENT_CODE")
+	if popup then
+		popup.data = code
+		local box = _G[popup:GetName() .. "WideEditBox"]
+		box:SetText(code)
+		box:SetFocus()
+		box:HighlightText()
+	end
+end
+
+StaticPopupDialogs.FROSTATOMUI_TALENT_CODE = {
+	text = "Ctrl+C to copy",
+	button1 = CLOSE,
+	hasEditBox = 1,
+	hasWideEditBox = 1,
+	maxLetters = 255,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	preferredIndex = 3,
+	EditBoxOnEnterPressed = function(self)
+		self:GetParent():Hide()
+	end,
+	EditBoxOnEscapePressed = function(self)
+		self:GetParent():Hide()
+	end,
+}
+
+local function importFromPopup(popup)
+	if not isEditable() then
+		return
+	end
+	local message = applyCode(_G[popup:GetName() .. "WideEditBox"]:GetText(), view.pet, view.group)
+	if message then
+		UIErrorsFrame:AddMessage(message, 1, 0.1, 0.1)
+		return true
+	end
+end
+
+StaticPopupDialogs.FROSTATOMUI_TALENT_IMPORT = {
+	text = "Paste a talent code (Ctrl+V)",
+	button1 = ACCEPT,
+	button2 = CANCEL,
+	hasEditBox = 1,
+	hasWideEditBox = 1,
+	maxLetters = 255,
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	preferredIndex = 3,
+	OnShow = function(self)
+		_G[self:GetName() .. "WideEditBox"]:SetFocus()
+	end,
+	OnAccept = importFromPopup,
+	EditBoxOnEnterPressed = function(self)
+		local popup = self:GetParent()
+		if not importFromPopup(popup) then
+			popup:Hide()
+		end
+	end,
+	EditBoxOnEscapePressed = function(self)
+		self:GetParent():Hide()
+	end,
+}
+
+ns.OnLocaleReady(function()
+	StaticPopupDialogs.FROSTATOMUI_TALENT_CODE.text = L["Ctrl+C to copy"]
+	StaticPopupDialogs.FROSTATOMUI_TALENT_IMPORT.text = L["Paste a talent code (Ctrl+V)"]
+end)
+
 ns.TalentTree = {
 	PANE_WIDTH = PANE_WIDTH,
 	PER_TIER = PLAYER_TALENTS_PER_TIER,
@@ -989,6 +1170,8 @@ ns.TalentTree = {
 	UpdatePane = updatePane,
 	LayoutArt = layoutArt,
 	PaneHeight = paneHeight,
+	Code = talentCode,
+	ShowCode = showCode,
 }
 
 local function selectSpec(self)
@@ -1045,6 +1228,27 @@ local function createFooter()
 	unspent:SetPoint("RIGHT", -12, 1)
 	frame.unspent = unspent
 	frame.pointsBar = pointsBar
+
+	local copy = ns.CreateButton(pointsBar, L["Copy code"], 80, 22)
+	ns.FitButton(copy, 24, 80)
+	copy:SetPoint("LEFT", 4, 0)
+	copy.tooltip = L["Talent code for the Wowhead talent calculator"]
+	copy:SetScript("OnEnter", showButtonTooltip)
+	copy:SetScript("OnLeave", GameTooltip_Hide)
+	copy:SetScript("OnClick", function()
+		showCode(talentCode(false, view.pet, view.group, GetCVarBool("previewTalents")))
+	end)
+
+	local paste = ns.CreateButton(pointsBar, L["Paste code"], 80, 22)
+	ns.FitButton(paste, 24, 80)
+	paste:SetPoint("LEFT", copy, "RIGHT")
+	paste.tooltip = L["Places the talents of a Wowhead talent code as a preview, Learn learns them"]
+	paste:SetScript("OnEnter", showButtonTooltip)
+	paste:SetScript("OnLeave", GameTooltip_Hide)
+	paste:SetScript("OnClick", function()
+		StaticPopup_Show("FROSTATOMUI_TALENT_IMPORT")
+	end)
+	frame.paste = paste
 
 	local previewBar = CreateFrame("Frame", nil, frame)
 	previewBar:SetSize(164, BAR_HEIGHT)

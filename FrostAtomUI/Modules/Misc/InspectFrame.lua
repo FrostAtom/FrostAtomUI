@@ -258,7 +258,24 @@ local function arenaTeamData(index)
 	end
 	local name, size, rating, _, _, played, wins, _, playerPlayed, _, playerRating, bgR, bgG, bgB, emblem, emR, emG, emB, border, bR, bG, bB =
 		GetArenaTeam(index)
-	return name, size, rating, played, wins, playerPlayed, playerRating, bgR, bgG, bgB, emblem, emR, emG, emB, border, bR, bG, bB
+	return name,
+		size,
+		rating,
+		played,
+		wins,
+		playerPlayed,
+		playerRating,
+		bgR,
+		bgG,
+		bgB,
+		emblem,
+		emR,
+		emG,
+		emB,
+		border,
+		bR,
+		bG,
+		bB
 end
 
 local function honorData()
@@ -347,7 +364,9 @@ local function readSpecs()
 			points = points or 0
 			for i = 1, GetNumTalents(tab, inspect) or 0 do
 				local talentName, _, _, _, rank = GetTalentInfo(tab, i, inspect, false, group)
-				local id = rank and rank > 0 and (GetTalentLink(tab, i, inspect, false, group) or ""):match("talent:(%d+)")
+				local id = rank
+					and rank > 0
+					and (GetTalentLink(tab, i, inspect, false, group) or ""):match("talent:(%d+)")
 				if id then
 					spec.talents[#spec.talents + 1] = { id = tonumber(id), rank = rank, name = talentName }
 				end
@@ -745,7 +764,9 @@ local function showStatTooltip(self)
 	end
 	GameTooltip:AddLine(" ")
 	GameTooltip:AddLine(
-		totals and totals.full and L["Base stats, gear, talents, racial traits and the selected form. Buffs not included."]
+		totals
+				and totals.full
+				and L["Base stats, gear, talents, racial traits and the selected form. Buffs not included."]
 			or L["From gear, gems, enchants, socket and set bonuses and talents of the active spec. Base stats and buffs not included."],
 		0.6,
 		0.6,
@@ -1046,10 +1067,12 @@ local function updateTalents()
 			pane:Hide()
 		end
 		page.status:SetText(state.status or L["Talents not loaded"])
+		page.copy:Hide()
 		updateSideTabs()
 		return
 	end
 	page.status:SetText("")
+	page.copy:Show()
 	talentView.group = state.group or state.activeGroup or 1
 	talentView.inspect = not state.isSelf
 	local context = { preview = false, editable = false, desaturated = false, unspent = 0, perTier = Tree.PER_TIER }
@@ -1546,6 +1569,14 @@ local function createTalentPage()
 	local status = page:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	status:SetPoint("CENTER")
 	page.status = status
+
+	local copy = ns.CreateButton(page, L["Copy talent code"], 80, 22)
+	ns.FitButton(copy, 24, 80)
+	copy:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", -12, 2)
+	copy:SetScript("OnClick", function()
+		Tree.ShowCode(Tree.Code(talentView.inspect, false, talentView.group))
+	end)
+	page.copy = copy
 
 	frame.specTabs = {}
 	for group = 1, 2 do
