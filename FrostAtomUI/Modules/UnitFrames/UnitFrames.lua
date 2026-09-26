@@ -209,6 +209,62 @@ function UF.StackAuraGrids(frame, point, gap, order)
 	first:OnRowsChanged(first.rows)
 end
 
+local function auraGridAnchor(position, growth)
+	return (position == "TOP" and "BOTTOM" or "TOP") .. (growth == "LEFT" and "RIGHT" or "LEFT")
+end
+
+local function auraAttachPoints(position, anchor, gap)
+	if position == "LEFT" then
+		return "TOPRIGHT", "TOPLEFT", -gap, 0
+	elseif position == "RIGHT" then
+		return "TOPLEFT", "TOPRIGHT", gap, 0
+	elseif position == "TOP" then
+		return anchor, (anchor:gsub("^BOTTOM", "TOP")), 0, gap
+	end
+	return anchor, (anchor:gsub("^TOP", "BOTTOM")), 0, -gap
+end
+
+local function auraStackPoints(position, anchor, gap)
+	if position == "LEFT" then
+		return "TOPRIGHT", "BOTTOMRIGHT", 0, -gap
+	elseif position == "RIGHT" then
+		return "TOPLEFT", "BOTTOMLEFT", 0, -gap
+	end
+	return auraAttachPoints(position, anchor, gap)
+end
+
+local function attachAuraGrid(grid, relativeTo, point, relative, x, y)
+	grid:ClearAllPoints()
+	grid:SetPoint(point, relativeTo, relative, x, y)
+end
+
+function UF.PlaceAuraGrids(frame, keys, gap)
+	local debuffs, buffs = frame.debuffs, frame.buffs
+	local debuffPosition, buffPosition = config[keys.debuffPosition], config[keys.buffPosition]
+	debuffs.position, buffs.position = debuffPosition, buffPosition
+	debuffs:SetShape(debuffs.perRow, auraGridAnchor(debuffPosition, config[keys.debuffGrowth]))
+	buffs:SetShape(buffs.perRow, auraGridAnchor(buffPosition, config[keys.buffGrowth]))
+	debuffs.OnRowsChanged, buffs.OnRowsChanged = nil, nil
+	if debuffPosition ~= buffPosition then
+		attachAuraGrid(debuffs, frame, auraAttachPoints(debuffPosition, debuffs.anchor, gap))
+		attachAuraGrid(buffs, frame, auraAttachPoints(buffPosition, buffs.anchor, gap))
+		return
+	end
+	local first, second = debuffs, buffs
+	if config[keys.auraOrder] == "buffs" then
+		first, second = buffs, debuffs
+	end
+	attachAuraGrid(first, frame, auraAttachPoints(debuffPosition, first.anchor, gap))
+	first.OnRowsChanged = function(grid, rows)
+		if rows > 0 then
+			attachAuraGrid(second, grid, auraStackPoints(debuffPosition, second.anchor, gap))
+		else
+			attachAuraGrid(second, frame, auraAttachPoints(debuffPosition, second.anchor, gap))
+		end
+	end
+	first:OnRowsChanged(first.rows)
+end
+
 function UF.GridIconPoint(grid, index)
 	return ns.GridPoint(grid.anchor, index, grid.perRow, grid.size + grid.gap)
 end
@@ -369,8 +425,12 @@ function UF.CategoryKeys(key)
 		ownAuraScale = key .. "OwnAuraScale",
 		debuffSize = key .. "DebuffSize",
 		debuffMax = key .. "DebuffMax",
+		debuffPosition = key .. "DebuffPosition",
+		debuffGrowth = key .. "DebuffGrowth",
 		buffSize = key .. "BuffSize",
 		buffMax = key .. "BuffMax",
+		buffPosition = key .. "BuffPosition",
+		buffGrowth = key .. "BuffGrowth",
 		power = key .. "Power",
 	}
 	categoryKeys[key] = keys
@@ -737,6 +797,6 @@ function UF:ResizeTarget(frame, width, height)
 	debuffs:SetLimit(config[keys.debuffs] and auraLimit or 0)
 	buffs:SetLimit(config[keys.buffs] and auraLimit or 0)
 
-	UF.StackAuraGrids(frame, "TOPLEFT", CASTBAR_GAP, config[keys.auraOrder])
+	UF.PlaceAuraGrids(frame, keys, CASTBAR_GAP)
 	UF.SetCastbarSize(frame.castbar, config[keys.castbarWidth], config[keys.castbarHeight])
 end

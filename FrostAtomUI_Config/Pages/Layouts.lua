@@ -91,6 +91,7 @@ local ELEMENTS = {
 	{ "chat.point", "info", sized("chat.width", "chat.height"), enabled("chat.enabled") },
 	{ "minimap.point", "info", sized("minimap.size"), enabled("minimap.enabled") },
 	{ "unitFrames.playerAuras", "info" },
+	{ "unitFrames.playerDebuffs", "info" },
 	{ "actionBar.microMenu", "info" },
 	{ "groupCooldowns.friendlyPoint", "cooldown", nil, enabled("groupCooldowns.friendly") },
 	{ "groupCooldowns.enemyPoint", "cooldown", nil, enabled("groupCooldowns.enemy") },

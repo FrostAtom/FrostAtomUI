@@ -6,7 +6,6 @@ local MAX_PARTY_FRAMES = MAX_PARTY_MEMBERS or 4
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
-local PLAYER_DEBUFF_GAP_SCALE = 0.2
 local BOSS_CASTBAR_SCALE = 0.5
 local BOSS_CASTBAR_ICON_GAP = 2
 local SQUARE_AURA_GAP = 2
@@ -48,6 +47,7 @@ local function applyPositions()
 	ns.ApplyPoint(target.targetOfTarget, "unitFrames.targetOfTarget")
 	ns.ApplyPoint(focus.targetOfTarget, "unitFrames.focusTarget")
 	ns.ApplyPoint(player.buffs, "unitFrames.playerAuras")
+	ns.ApplyPoint(player.debuffs, "unitFrames.playerDebuffs")
 	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
 	ns.ApplyPoint(target.castbar, "unitFrames.targetCastbar")
 	ns.ApplyPoint(focus.castbar, "unitFrames.focusCastbar")
@@ -73,14 +73,25 @@ end
 local function auraInsets(frame, fixedGap, gapKey)
 	return function()
 		local gap = fixedGap or ns.Config.unitFrames[gapKey]
-		local height = 0
+		local left, right, top, bottom, leftHeight, rightHeight = 0, 0, 0, 0, -gap, -gap
 		for _, grid in ipairs({ frame.debuffs, frame.buffs }) do
 			local capacity = gridCapacity(grid)
 			if capacity > 0 then
-				height = height + gap + capacity
+				local position = grid.position
+				if position == "LEFT" then
+					left = max(left, gap + grid:GetWidth())
+					leftHeight = leftHeight + gap + capacity
+				elseif position == "RIGHT" then
+					right = max(right, gap + grid:GetWidth())
+					rightHeight = rightHeight + gap + capacity
+				elseif position == "TOP" then
+					top = top + gap + capacity
+				else
+					bottom = bottom + gap + capacity
+				end
 			end
 		end
-		return 0, 0, 0, height
+		return left, right, top, max(bottom, max(leftHeight, rightHeight) - frame:GetHeight())
 	end
 end
 
@@ -94,21 +105,8 @@ local function castbarInsets(bar)
 	end
 end
 
-local function playerAuraAnchor(config)
-	return AURA_GROWTH_ANCHORS[config.playerAuraGrowth] or "TOPRIGHT"
-end
-
-local function anchorPlayerDebuffs(config)
-	local anchor = playerAuraAnchor(config)
-	local debuffs = player.debuffs
-	debuffs:ClearAllPoints()
-	debuffs:SetPoint(
-		anchor,
-		player.buffs,
-		anchor:gsub("^TOP", "BOTTOM"),
-		0,
-		-config.playerAuraSize * PLAYER_DEBUFF_GAP_SCALE
-	)
+local function growthAnchor(growth)
+	return AURA_GROWTH_ANCHORS[growth] or "TOPRIGHT"
 end
 
 local function sizePlayerCastbar(config)
@@ -131,12 +129,10 @@ local function applySizes()
 		end
 	end
 	sizePlayerCastbar(config)
-	local auraAnchor = playerAuraAnchor(config)
-	player.buffs:SetShape(config.playerAuraPerRow, auraAnchor)
-	player.debuffs:SetShape(config.playerDebuffPerRow, auraAnchor)
+	player.buffs:SetShape(config.playerAuraPerRow, growthAnchor(config.playerAuraGrowth))
+	player.debuffs:SetShape(config.playerDebuffPerRow, growthAnchor(config.playerDebuffGrowth))
 	player.buffs:SetIconSize(config.playerAuraSize)
 	player.debuffs:SetIconSize(config.playerDebuffSize)
-	anchorPlayerDebuffs(config)
 end
 
 local function resizeGroupFrame(frame, keys)
@@ -240,19 +236,19 @@ local function applyGroupAnchors()
 	anchorGroupTrinkets(arena, "RIGHT")
 end
 
-local function applyGroupElements(frames, keys, point, config)
+local function applyGroupElements(frames, keys, config)
 	local debuffLimit = config[keys.debuffs] and config[keys.debuffMax] or 0
 	local buffLimit = config[keys.buffs] and config[keys.buffMax] or 0
 	local castbarShown = config[keys.castbar]
 	local side = config[keys.iconSide]
-	local gap, order = config[keys.auraSpacing], config[keys.auraOrder]
+	local gap = config[keys.auraSpacing]
 	for i = 1, #frames do
 		local frame = frames[i]
 		frame:SetIconSide(side)
 		frame.debuffs.minRows = debuffLimit > 0 and 1 or 0
 		frame.debuffs:SetLimit(debuffLimit)
 		frame.buffs:SetLimit(buffLimit)
-		UF.StackAuraGrids(frame, point, gap, order)
+		UF.PlaceAuraGrids(frame, keys, gap)
 		UF.SetCastbarShown(frame.castbar, castbarShown)
 	end
 end
@@ -291,13 +287,13 @@ local function applyElements()
 	UF.SetCastbarShown(castbar, config.showPlayerCastbar)
 	UF.SetCastbarShown(target.castbar, config.showTargetCastbar)
 	UF.SetCastbarShown(focus.castbar, config.showFocusCastbar)
-	UF.StackAuraGrids(target, "TOPLEFT", UF.CASTBAR_GAP, config.targetAuraOrder)
-	UF.StackAuraGrids(focus, "TOPLEFT", UF.CASTBAR_GAP, config.focusAuraOrder)
+	UF.PlaceAuraGrids(target, UF.CategoryKeys("target"), UF.CASTBAR_GAP)
+	UF.PlaceAuraGrids(focus, UF.CategoryKeys("focus"), UF.CASTBAR_GAP)
 	player:SetIconSide(config.playerIconSide)
 	target:SetIconSide(config.targetIconSide)
 	focus:SetIconSide(config.focusIconSide)
-	applyGroupElements(party, UF.CategoryKeys("party"), "TOPLEFT", config)
-	applyGroupElements(arena, UF.CategoryKeys("arena"), "TOPRIGHT", config)
+	applyGroupElements(party, UF.CategoryKeys("party"), config)
+	applyGroupElements(arena, UF.CategoryKeys("arena"), config)
 	local polling = false
 	for i = 1, #squares do
 		local square = squares[i]
@@ -369,12 +365,11 @@ local function createPlayer(self, config)
 
 	addLeader(self, player)
 
-	local auraAnchor = playerAuraAnchor(config)
 	local buffs = self:AddElement(player, "buffs", {
 		size = config.playerAuraSize,
 		gap = 2,
 		perRow = config.playerAuraPerRow,
-		anchor = auraAnchor,
+		anchor = growthAnchor(config.playerAuraGrowth),
 	})
 	ns.ApplyPoint(buffs, "unitFrames.playerAuras")
 
@@ -382,9 +377,8 @@ local function createPlayer(self, config)
 		size = config.playerDebuffSize,
 		gap = 2,
 		perRow = config.playerDebuffPerRow,
-		anchor = auraAnchor,
+		anchor = growthAnchor(config.playerDebuffGrowth),
 	})
-	anchorPlayerDebuffs(config)
 
 	castbar = self:AddElement(player, "castbar")
 	sizePlayerCastbar(config)
@@ -465,17 +459,15 @@ local function createGroupSquares(self, frame, prefix, name, index, petSquare, t
 	return pet, unitTarget
 end
 
-local function groupAuraOptions(config, keys, width, anchor)
+local function groupAuraOptions(config, keys, width)
 	return {
 		size = config[keys.debuffSize],
 		width = width,
 		max = 0,
-		anchor = anchor,
 	}, {
 		size = config[keys.buffSize],
 		width = width,
 		max = 0,
-		anchor = anchor,
 	}
 end
 
@@ -522,7 +514,7 @@ end
 local function createArena(self, config)
 	local trinketSize = ns.Config.arenaTrinket.size
 	local width, height = config.arenaWidth, config.arenaHeight
-	local debuffOptions, buffOptions = groupAuraOptions(config, UF.CategoryKeys("arena"), width, "TOPRIGHT")
+	local debuffOptions, buffOptions = groupAuraOptions(config, UF.CategoryKeys("arena"), width)
 	local petSquare = squareCategory("arenaPet", true)
 	local targetSquare = squareCategory("arenaTarget", false, true)
 
@@ -643,6 +635,12 @@ local function registerGroupMovers(self, frames, prefix, name, context)
 	end
 end
 
+local function playerAuraSize(grid)
+	return function()
+		return grid:GetWidth(), max(grid.rows, 1) * (grid.size + grid.gap) - grid.gap
+	end
+end
+
 local function refreshMovers()
 	ns.Movers.Refresh()
 end
@@ -694,13 +692,9 @@ function UF:Initialize()
 	self:RegisterMover(castbar, "unitFrames.playerCastbar", "Player castbar", {
 		resize = frameResize("playerCastbarWidth", "playerCastbarHeight", 60, 10),
 	})
-	self:RegisterMover(player.buffs, "unitFrames.playerAuras", "Player auras", {
-		size = function()
-			local buffs, debuffs = player.buffs, player.debuffs
-			local size, gap = buffs.size, buffs.gap
-			local height = max(buffs.rows, 1) * (size + gap) + max(debuffs.rows, 1) * (debuffs.size + debuffs.gap)
-			return max(buffs:GetWidth(), debuffs:GetWidth()), height - debuffs.gap + size * PLAYER_DEBUFF_GAP_SCALE
-		end,
+	self:RegisterMover(player.buffs, "unitFrames.playerAuras", "Player buffs", { size = playerAuraSize(player.buffs) })
+	self:RegisterMover(player.debuffs, "unitFrames.playerDebuffs", "Player debuffs", {
+		size = playerAuraSize(player.debuffs),
 	})
 	registerGroupMovers(self, party, "party", "Party")
 	registerGroupMovers(self, arena, "arena", "Arena", "arena")
