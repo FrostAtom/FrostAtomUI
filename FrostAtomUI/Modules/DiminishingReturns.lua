@@ -23,6 +23,7 @@ local DR = ns:NewModule("DiminishingReturns")
 
 local states = {}
 local preparing = false
+local playerGUID
 
 local function hasArenaPreparation()
 	return ARENA_PREPARATION and UnitBuff("player", ARENA_PREPARATION) and true or false
@@ -90,10 +91,16 @@ local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, destFlags, sp
 		return
 	end
 	local category = SPELLS[spellId]
+	if not category then
+		return
+	end
+	playerGUID = playerGUID or UnitGUID("player")
 	if
-		not category
-		or bit_band(destFlags, COMBATLOG_OBJECT_CONTROL_PLAYER) == 0
-		or bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == 0
+		destGUID ~= playerGUID
+		and (
+			bit_band(destFlags, COMBATLOG_OBJECT_CONTROL_PLAYER) == 0
+			or bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == 0
+		)
 	then
 		return
 	end
@@ -104,7 +111,7 @@ local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, destFlags, sp
 	end
 end
 
-local RECONCILE_UNITS = { target = true, focus = true }
+local RECONCILE_UNITS = { player = true, target = true, focus = true }
 for i = 1, 5 do
 	RECONCILE_UNITS["arena" .. i] = true
 end
@@ -118,8 +125,8 @@ local function onUnitAura(self, unit)
 		elseif preparing then
 			preparing = false
 			self:Reset()
+			return
 		end
-		return
 	end
 	if not RECONCILE_UNITS[unit] then
 		return
