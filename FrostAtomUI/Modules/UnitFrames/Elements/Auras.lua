@@ -22,6 +22,7 @@ local SPARE_CANCEL_SLOTS = 4
 local CATCHER_LEVEL = 3
 local ENCHANT_BUTTON_LEVEL = CATCHER_LEVEL + 1
 local NO_AURA_INDEX = MAX_AURAS + 1
+local EXPIRE_CHECK_DELAY = 0.1
 local OWN_CASTERS = { player = true, pet = true, vehicle = true }
 local CLICK_THROUGH_UNITS = { targettarget = "targetOfTarget", focustarget = "focusTarget" }
 local CLICK_THROUGH_PATTERNS = {
@@ -582,7 +583,32 @@ local function showEnchant(icon, enchant)
 	end
 end
 
-local function updateContainer(container)
+local updateContainer
+
+local function onExpireCheck(container)
+	container.checkAt = nil
+	local expireAt = container.expireAt
+	if not expireAt or UF.testing or not container:IsVisible() then
+		return
+	end
+	if GetTime() < expireAt then
+		container.checkAt = expireAt
+		ns.After(expireAt - GetTime() + EXPIRE_CHECK_DELAY, onExpireCheck, container)
+		return
+	end
+	Auras.Invalidate(container.unit)
+	updateContainer(container)
+end
+
+local function scheduleExpireCheck(container, expireAt, now)
+	container.expireAt = expireAt
+	if expireAt and not (container.checkAt and container.checkAt <= expireAt) then
+		container.checkAt = expireAt
+		ns.After(expireAt - now + EXPIRE_CHECK_DELAY, onExpireCheck, container)
+	end
+end
+
+function updateContainer(container)
 	if container.limit == 0 then
 		if container.shown > 0 then
 			layoutContainer(container, 0)
@@ -606,17 +632,31 @@ local function updateContainer(container)
 		showEnchant(acquireIcon(container, i), i <= enchantCount and enchants[i] or nil)
 	end
 
-	for i = 1, min(count, limit - shown) do
+	local now = GetTime()
+	local keepExpired = container.cancellable
+	local expireAt
+	for i = 1, count do
+		if shown == limit then
+			break
+		end
 		local index = order and order[i] or i
 		local aura = auras[index]
-		local icon = acquireIcon(container, shown + i)
-		icon.index = index
-		icon.spellName = aura.name
-		icon.big = enlarge and OWN_CASTERS[aura.caster] or false
-		setEnchant(icon, nil)
-		setIcon(icon, aura.icon, aura.count, aura.debuffType, aura.duration, aura.expires, aura.stealable)
+		local duration, expires = aura.duration, aura.expires
+		local timed = duration and duration > 0
+		if not timed or expires > now or keepExpired then
+			if timed and expires > now and not (expireAt and expireAt <= expires) then
+				expireAt = expires
+			end
+			shown = shown + 1
+			local icon = acquireIcon(container, shown)
+			icon.index = index
+			icon.spellName = aura.name
+			icon.big = enlarge and OWN_CASTERS[aura.caster] or false
+			setEnchant(icon, nil)
+			setIcon(icon, aura.icon, aura.count, aura.debuffType, duration, expires, aura.stealable)
+		end
 	end
-	shown = min(shown + count, limit)
+	scheduleExpireCheck(container, expireAt, now)
 
 	for i = lead + 1, enchantCount do
 		if shown == limit then
