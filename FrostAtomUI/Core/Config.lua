@@ -500,10 +500,10 @@ ns.Defaults = {
 		copyWindowWidth = 520,
 		copyWindowHeight = 380,
 		bubbleFont = { size = 12, outline = "" },
-		bubbleAlpha = 0.75,
 		bubbleMaxWidth = 300,
-		bubblePadding = 6,
-		bubbleBorderAlpha = 0.9,
+		bubblePadding = 4,
+		bubbleShowSender = true,
+		bubbleTypeBorder = false,
 		whisperBlock = {
 			enabled = false,
 			reply = "",
@@ -514,12 +514,16 @@ ns.Defaults = {
 	namePlates = {
 		enabled = true,
 		enemyPlayer = namePlateDefaults("class", { 0.69, 0.31, 0.31 }, "class"),
-		friendlyPlayer = namePlateDefaults("class", { 0.31, 0.45, 0.63 }, "class"),
+		friendlyPlayer = namePlateDefaults("reaction", { 0.31, 0.45, 0.63 }, "reaction"),
 		enemyNpc = namePlateDefaults("reaction", { 0.69, 0.31, 0.31 }, "white"),
 		friendlyNpc = namePlateDefaults("reaction", { 0.33, 0.59, 0.33 }, "white"),
 		castbarIconSize = 18,
 		totemIcons = true,
 		totemIconSize = 24,
+		totemTimer = true,
+		totemPulse = true,
+		totemPulseHeight = 4,
+		totemPulseColor = { 0.3, 0.75, 1 },
 		raidIconSize = 22,
 		showRaidIcon = true,
 		targetBorder = true,
@@ -528,6 +532,7 @@ ns.Defaults = {
 		percentFont = { size = 9, outline = "OUTLINE" },
 		castbarColor = { 0.75, 0.4, 0 },
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
+		castbarSpellName = true,
 		castbarTargetName = true,
 		castbarTargetingYou = true,
 		castbarImportant = true,
@@ -603,6 +608,9 @@ ns.Defaults = {
 		gap = 2,
 		timerFont = { size = 11, outline = "OUTLINE" },
 		clickThrough = false,
+		pulse = true,
+		pulseHeight = 4,
+		pulseColor = { 0.3, 0.75, 1 },
 	},
 
 	trackers = {
@@ -1853,7 +1861,6 @@ local function migrateNamePlateCategories(profile)
 		setIfChanged(category, defaults, "healthText", healthText)
 		setIfChanged(category, defaults, "healthColorMode", colorMode)
 		if key == "friendlyPlayer" and not groupClassColors then
-			setIfChanged(category, defaults, "healthColorMode", "reaction")
 			setIfChanged(category, defaults, "nameColorMode", "white")
 		end
 		if next(category) then
@@ -1862,6 +1869,15 @@ local function migrateNamePlateCategories(profile)
 	end
 	for _, key in ipairs(NAME_PLATE_OBSOLETE) do
 		namePlates[key] = nil
+	end
+	local friendly = namePlates.friendlyPlayer
+	if friendly then
+		if friendly.healthColorMode == "class" then
+			friendly.healthColorMode = nil
+		end
+		if friendly.nameColorMode == "class" then
+			friendly.nameColorMode = nil
+		end
 	end
 end
 

@@ -43,10 +43,10 @@ local NEW = "1.4.1"
 
 local COPY_FIELDS = { "width", "height", "showName", "healthText", "showCastbar", "castbarHeight", "showAuras" }
 
-local function categoryTab(key, name, glyph, isPlayer, about, colorDesc)
+local function categoryTab(key, name, glyph, classColors, about, colorDesc)
 	local prefix = "namePlates." .. key .. "."
 	local modePath = prefix .. "healthColorMode"
-	local kind = isPlayer and "player" or "npc"
+	local kind = classColors and "class" or "reaction"
 	local copy = {
 		[kind .. "HealthColorMode"] = modePath,
 		[kind .. "NameColorMode"] = prefix .. "nameColorMode",
@@ -124,7 +124,7 @@ local function categoryTab(key, name, glyph, isPlayer, about, colorDesc)
 				new = NEW,
 				label = L["Health bar color"],
 				type = "select",
-				values = isPlayer and PLAYER_COLOR_VALUES or NPC_COLOR_VALUES,
+				values = classColors and PLAYER_COLOR_VALUES or NPC_COLOR_VALUES,
 				desc = colorDesc,
 			},
 			{
@@ -143,7 +143,7 @@ local function categoryTab(key, name, glyph, isPlayer, about, colorDesc)
 				new = NEW,
 				label = L["Name color"],
 				type = "select",
-				values = isPlayer and PLAYER_NAME_COLOR_VALUES or NPC_NAME_COLOR_VALUES,
+				values = classColors and PLAYER_NAME_COLOR_VALUES or NPC_NAME_COLOR_VALUES,
 				enabledBy = prefix .. "showName",
 			},
 		},
@@ -178,7 +178,42 @@ local generalSchema = {
 		new = "1.4.0",
 		label = L["Totems as icons"],
 		type = "toggle",
-		desc = L["Replace totem nameplates with the totem's spell icon."],
+		desc = L["Replace totem nameplates with the totem's spell icon, framed in the reaction color."],
+	},
+	{
+		path = "namePlates.totemTimer",
+		new = "1.4.1",
+		label = L["Totem timer"],
+		type = "toggle",
+		enabledBy = "namePlates.totemIcons",
+		desc = L["Time left on totems whose summon was seen nearby."],
+	},
+	{
+		path = "namePlates.totemPulse",
+		new = "1.4.1",
+		label = L["Totem pulse bar"],
+		type = "toggle",
+		enabledBy = "namePlates.totemIcons",
+		desc = L["Bar above pulsing totems (Tremor, Earthbind, Cleansing, Magma, Healing Stream, Stoneclaw, Mana Tide) that fills up to the next pulse. Synced from the summon and every pulse seen in the combat log."],
+	},
+	{
+		path = "namePlates.totemPulseHeight",
+		advanced = true,
+		new = "1.4.1",
+		label = L["Totem pulse bar height"],
+		type = "number",
+		min = 2,
+		max = 12,
+		step = 1,
+		enabledBy = "namePlates.totemPulse",
+	},
+	{
+		path = "namePlates.totemPulseColor",
+		advanced = true,
+		new = "1.4.1",
+		label = L["Totem pulse bar color"],
+		type = "color",
+		enabledBy = "namePlates.totemPulse",
 	},
 	{
 		path = "namePlates.totemIconSize",
@@ -266,6 +301,13 @@ local generalSchema = {
 		desc = L["Castbar color while the cast cannot be interrupted."],
 	},
 	{ header = L["Castbar indicators"], glyph = "bolt" },
+	{
+		path = "namePlates.castbarSpellName",
+		new = NEW,
+		label = L["Show spell name"],
+		type = "toggle",
+		desc = L["Name of the spell being cast on the left of the castbar."],
+	},
 	{
 		path = "namePlates.castbarTargetName",
 		advanced = true,
@@ -488,9 +530,9 @@ ns.RegisterPage({
 			"friendlyPlayer",
 			L["Friendly players"],
 			"user-group",
-			true,
-			L["Players friendly to you. Their class is known only for party and raid members."],
-			L["Class color: party and raid members in their class color, other players in friendly blue. Reaction color: friendly blue. Health percent: a color mixed from the current health. Fixed color: the color below."]
+			false,
+			L["Players friendly to you."],
+			L["Reaction color: friendly blue. Health percent: a color mixed from the current health. Fixed color: the color below."]
 		),
 		categoryTab(
 			"enemyNpc",

@@ -1,19 +1,14 @@
 local _, ns = ...
 
-local WorldFrame = WorldFrame
 local UnitExists = UnitExists
 local UnitName, UnitGUID, UnitIsUnit, UnitCanAttack = UnitName, UnitGUID, UnitIsUnit, UnitCanAttack
 local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
 local GetTime = GetTime
-local GetCurrentResolution, GetScreenResolutions = GetCurrentResolution, GetScreenResolutions
 local floor, huge, min, abs, exp = math.floor, math.huge, math.min, math.abs, math.exp
 local sort = table.sort
-local byte = string.byte
 
 local NamePlates = ns:NewModule("NamePlates")
-
-local NAMEPLATE_TEXTURE = "Interface\\TargetingFrame\\UI-TargetingFrame-Flash"
-local CHAT_BUBBLE_TEXTURE = "Interface\\Tooltips\\ChatBubble-Background"
+local PlateLayer = ns.PlateLayer
 
 local config = ns.Config.namePlates
 local frameConfig = ns.Config.unitFrames
@@ -53,10 +48,6 @@ local NAME_REACTION_COLORS = {
 	[FRIENDLY_COLOR] = { 0.4, 1, 0.4 },
 	[FRIENDLY_PLAYER_COLOR] = { 0.5, 0.7, 1 },
 }
-local TOTEM_OUTLINE_SIZE = 2
-local TOTEM_OUTLINE_COLORS = { hostile = { 1, 0.15, 0.15 }, neutral = { 1, 0.85, 0.1 }, friendly = { 0.15, 1, 0.15 } }
-
-ns.CHAT_BUBBLE_CREATED = "FrostAtomUI_CHAT_BUBBLE_CREATED"
 
 local CVars = ns:GetModule("CVars")
 CVars:Pin("showVKeyCastbar", "1", "SHOW_TARGET_CASTBAR_IN_V_KEY")
@@ -66,12 +57,10 @@ local plates = {}
 local onPlateShow = {}
 local onPlateHide = {}
 local onPlateLayout = {}
-local rosterClasses = {}
 NamePlates.plates = plates
 NamePlates.onPlateShow = onPlateShow
 NamePlates.onPlateHide = onPlateHide
 NamePlates.onPlateLayout = onPlateLayout
-NamePlates.rosterClasses = rosterClasses
 NamePlates.BORDER_INSET = BORDER_INSET
 NamePlates.TEXT_INSET = TEXT_INSET
 NamePlates.ICON_GAP = ICON_GAP
@@ -91,13 +80,6 @@ local PlateMixin = {}
 
 local UF = ns:GetModule("UnitFrames")
 local classColors, classBarColors = UF.classColors, UF.classBarColors
-local classKeys = {}
-local function colorKey(r, g, b)
-	return floor(r * 100 + 0.5) * 10000 + floor(g * 100 + 0.5) * 100 + floor(b * 100 + 0.5)
-end
-for class, color in pairs(RAID_CLASS_COLORS) do
-	classKeys[colorKey(color.r, color.g, color.b)] = class
-end
 
 function PlateMixin:ApplyBarColor(force)
 	local healthbar = self.healthbar
@@ -110,41 +92,33 @@ function PlateMixin:ApplyBarColor(force)
 	if not force and r == healthbar.setR and g == healthbar.setG and b == healthbar.setB then
 		return
 	end
-	healthbar:SetStatusBarColor(r, g, b)
+	PlateLayer.SetHealthColor(self.info, r, g, b)
 	healthbar.bg:SetTexture(r * 0.3, g * 0.3, b * 0.3)
 	healthbar.setR, healthbar.setG, healthbar.setB = r, g, b
-	healthbar.r, healthbar.g, healthbar.b = healthbar:GetStatusBarColor()
 end
 
-function PlateMixin:UpdateColors(r, g, b)
-	self.rawR, self.rawG, self.rawB = r, g, b
-
-	local class = classKeys[colorKey(r, g, b)]
-	local reaction, isPlayer, reactionColor = "hostile", class ~= nil, nil
-	if class or g + b == 0 then
-		reactionColor = HOSTILE_COLOR
-	elseif r + b == 0 then
-		reaction = "friendly"
-		reactionColor = FRIENDLY_COLOR
-	elseif r + g == 0 then
-		reaction = "friendly"
-		isPlayer = true
-		class = rosterClasses[self.plateName]
-		reactionColor = FRIENDLY_PLAYER_COLOR
-	elseif r + g > 1.99 and b == 0 then
-		reaction = "neutral"
-		reactionColor = NEUTRAL_COLOR
+function PlateMixin:UpdateColors()
+	local info = self.info
+	local reaction = info.reaction or PlateLayer.HOSTILE
+	local isPlayer = info.isPlayer
+	if isPlayer == nil then
+		isPlayer = PlateLayer.IsPlayerGUID(self.guid)
 	end
-	local guid = self.guid
-	if not isPlayer and guid and byte(guid, 5) == 48 then
-		isPlayer = true
+	local class = info.class
+
+	local reactionColor
+	if reaction == PlateLayer.FRIENDLY then
+		reactionColor = isPlayer and FRIENDLY_PLAYER_COLOR or FRIENDLY_COLOR
+	elseif reaction == PlateLayer.NEUTRAL then
+		reactionColor = NEUTRAL_COLOR
+	else
+		reactionColor = HOSTILE_COLOR
 	end
 	self.reaction = reaction
-	local outlineColor = TOTEM_OUTLINE_COLORS[reaction]
-	self.totem.outline:SetVertexColor(outlineColor[1], outlineColor[2], outlineColor[3])
+	NamePlates.Totems.SetReaction(self, reaction)
 
 	local settings
-	if reaction == "friendly" then
+	if reaction == PlateLayer.FRIENDLY then
 		settings = isPlayer and config.friendlyPlayer or config.friendlyNpc
 	else
 		settings = isPlayer and config.enemyPlayer or config.enemyNpc
@@ -156,23 +130,20 @@ function PlateMixin:UpdateColors(r, g, b)
 
 	local mode = settings.healthColorMode
 	local barColor = reactionColor
-	if mode == "class" and class then
+	if mode == "class" and class and classBarColors[class] then
 		barColor = classBarColors[class]
 	elseif mode == "custom" then
 		barColor = settings.healthColor
 	end
-	if barColor then
-		r, g, b = barColor[1], barColor[2], barColor[3]
-	end
 	self.healthMode = mode
-	self.barR, self.barG, self.barB = r, g, b
+	self.barR, self.barG, self.barB = barColor[1], barColor[2], barColor[3]
 	self:ApplyBarColor(true)
 
 	local nameMode = settings.nameColorMode
 	local nameColor = WHITE
-	if nameMode == "class" and class then
+	if nameMode == "class" and class and classColors[class] then
 		nameColor = classColors[class]
-	elseif nameMode == "reaction" and reactionColor then
+	elseif nameMode == "reaction" then
 		nameColor = NAME_REACTION_COLORS[reactionColor]
 	end
 	self.nameColor = nameColor
@@ -180,12 +151,7 @@ function PlateMixin:UpdateColors(r, g, b)
 end
 
 function PlateMixin:RefreshColors()
-	local healthbar = self.healthbar
-	local r, g, b = healthbar:GetStatusBarColor()
-	if self.rawR and r == healthbar.r and g == healthbar.g and b == healthbar.b then
-		r, g, b = self.rawR, self.rawG, self.rawB
-	end
-	self:UpdateColors(r, g, b)
+	self:UpdateColors()
 end
 
 function PlateMixin:SetNameColor(r, g, b)
@@ -196,7 +162,7 @@ function PlateMixin:SetNameColor(r, g, b)
 end
 
 function PlateMixin:IsTarget()
-	return targetName ~= nil and self.plateName == targetName and self:GetAlpha() == 1
+	return PlateLayer.IsTarget(self.info)
 end
 
 function NamePlates.GetTargetName()
@@ -207,17 +173,8 @@ local function updateTargetName()
 	targetName = UnitExists("target") and UnitName("target") or nil
 end
 
-local pixel = 1
-
-local function updatePixel()
-	local resolution = select(GetCurrentResolution(), GetScreenResolutions())
-	local height = resolution and tonumber(resolution:match("x(%d+)$"))
-	pixel = height and WorldFrame:GetHeight() / height or 1
-end
-
-local function snap(value)
-	return floor(value / pixel + 0.5) * pixel
-end
+local WorldChildren = ns.WorldChildren
+local snap = WorldChildren.Snap
 
 function PlateMixin:SnapHolder()
 	local holder = self.holder
@@ -262,6 +219,7 @@ function PlateMixin:ApplyStackLevel()
 	if auraRow then
 		setLevel(auraRow, level + 2)
 	end
+	setLevel(self.totem, level)
 end
 
 function PlateMixin:SetStackLevel(level)
@@ -301,7 +259,7 @@ local function setHealthText(text, value, max, isTarget, shown)
 end
 
 local function applyHighlight(plate)
-	local hovered = config.hoverHighlight and plate.highlight:IsShown() or false
+	local hovered = config.hoverHighlight and plate.info.isMouseover or false
 	if plate.hovered ~= hovered then
 		plate.hovered = hovered
 		ns.SetShown(plate.hover, hovered)
@@ -309,10 +267,6 @@ local function applyHighlight(plate)
 end
 
 function PlateMixin:OnUpdate()
-	if self.blizzardName:GetText() ~= self.plateName then
-		self:OnShow()
-	end
-
 	if self.stackLevel and self.holder:GetFrameLevel() ~= self.stackLevel then
 		self:ApplyStackLevel()
 	end
@@ -320,15 +274,12 @@ function PlateMixin:OnUpdate()
 	applyHighlight(self)
 
 	local healthbar = self.healthbar
-
-	local r, g, b = healthbar:GetStatusBarColor()
-	if r ~= healthbar.r or g ~= healthbar.g or b ~= healthbar.b then
-		self:UpdateColors(r, g, b)
-	elseif self.healthMode == "health" then
+	if self.healthMode == "health" then
 		self:ApplyBarColor()
 	end
 
 	if self.totem:IsShown() then
+		NamePlates.Totems.Update(self, self:IsTarget())
 		return
 	end
 
@@ -398,28 +349,22 @@ function PlateMixin:ApplyLayout()
 end
 
 function PlateMixin:OnShow()
-	local name = self.blizzardName:GetText()
+	local name = self.info.name
 	self.plateName = name
 	self.spreadPos = 0
 	if spreadActive then
 		self.clampOn = true
 		self.clampLeft = nil
 	end
-	local totemIcon = config.totemIcons and NamePlates.totemIcons[name]
-	local totem = self.totem
+	local Totems = NamePlates.Totems
+	local totemSpell = config.totemIcons and Totems.Identify(self)
 
-	if totemIcon then
-		totem:SetTexture(totemIcon)
-		totem:SetSize(config.totemIconSize, config.totemIconSize)
-		setIconShown(totem, true)
-		local outline, size = totem.outline, snap(TOTEM_OUTLINE_SIZE * pixel)
-		outline:SetPoint("TOPLEFT", totem, -size, size)
-		outline:SetPoint("BOTTOMRIGHT", totem, size, -size)
-		outline:Show()
+	if totemSpell then
+		self:RefreshColors()
+		Totems.Show(self, totemSpell)
 		self.holder:Hide()
 		self.healthbar:Hide()
 		self.raidicon:SetAlpha(0)
-		self:RefreshColors()
 	else
 		local holder, healthbar = self.holder, self.healthbar
 		self:RefreshColors()
@@ -432,8 +377,7 @@ function PlateMixin:OnShow()
 		holder:Show()
 		healthbar:Show()
 
-		setIconShown(totem, false)
-		totem.outline:Hide()
+		Totems.Hide(self)
 		self.name:SetText(name)
 		self.raidicon:SetAlpha(config.showRaidIcon and 1 or 0)
 	end
@@ -443,6 +387,9 @@ function PlateMixin:OnShow()
 end
 
 function PlateMixin:OnHide()
+	if self.totemSpell then
+		NamePlates.Totems.Hide(self)
+	end
 	for i = 1, #onPlateHide do
 		onPlateHide[i](self)
 	end
@@ -554,6 +501,7 @@ function CastbarMixin:StopCast()
 	self.stoppedAt = GetTime()
 	self.glow:Hide()
 	self.targetText:SetText("")
+	self.spellText:SetText("")
 	self:SetTargetingYou(false)
 end
 
@@ -594,6 +542,7 @@ function CastbarMixin:StartCast()
 	else
 		self.glow:Hide()
 	end
+	self.spellText:SetText(config.castbarSpellName and name or "")
 	self:UpdateTarget()
 end
 
@@ -794,9 +743,31 @@ local function createText(parent, font)
 	return text
 end
 
+local function createCastTexts(castbar)
+	local targetText = createText(castbar, config.nameFont)
+	targetText:SetPoint("RIGHT", -TEXT_INSET, 0)
+	targetText:SetJustifyH("RIGHT")
+	targetText:SetWordWrap(false)
+	castbar.targetText = targetText
+
+	local spellText = createText(castbar, config.nameFont)
+	spellText:SetPoint("LEFT", TEXT_INSET, 0)
+	spellText:SetPoint("RIGHT", targetText, "LEFT", -TEXT_INSET, 0)
+	spellText:SetJustifyH("LEFT")
+	spellText:SetWordWrap(false)
+	castbar.spellText = spellText
+end
+
+local function styleCastTexts(castbar)
+	ns.SetFont(castbar.targetText, config.nameFont.size, config.nameFont.outline)
+	styleText(castbar.spellText, config.nameFont)
+end
+
 NamePlates.CreateHolder = createHolder
 NamePlates.StyleHolder = styleHolder
 NamePlates.CreateText = createText
+NamePlates.CreateCastTexts = createCastTexts
+NamePlates.StyleCastTexts = styleCastTexts
 
 local function setupHealthbar(plate, healthbar, blizzardBackground)
 	local holder = createHolder(plate, plate:GetFrameLevel())
@@ -852,12 +823,7 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	shieldIcon:Hide()
 	castbar.shieldIcon = shieldIcon
 
-	local targetText = createText(castbar, config.nameFont)
-	targetText:SetPoint("LEFT", TEXT_INSET, 0)
-	targetText:SetPoint("RIGHT", -TEXT_INSET, 0)
-	targetText:SetJustifyH("RIGHT")
-	targetText:SetWordWrap(false)
-	castbar.targetText = targetText
+	createCastTexts(castbar)
 
 	castbar.glow = UF.CreateCastGlow(castbar, holder, CAST_GLOW_SIZE)
 	castbar.stoppedAt = 0
@@ -893,36 +859,21 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	castbar:SetScript("OnUpdate", castbar.OnUpdate)
 end
 
-local function setupTotemIcon(plate)
-	local overlay = plate.overlay
-	local totem = overlay:CreateTexture(nil, "BORDER")
-	totem:SetSize(config.totemIconSize, config.totemIconSize)
-	totem:SetPoint("TOP", plate)
-	totem:Hide()
-
-	NamePlates.SkinIcon(overlay, totem)
-	totem.border:Hide()
-
-	local outline = overlay:CreateTexture(nil, "BACKGROUND")
-	outline:SetTexture(ns.Media.blank)
-	outline:Hide()
-	totem.outline = outline
-
-	plate.totem = totem
-end
-
 local function styleArenaLabel(plate)
 	local font = config.nameFont
 	ns.SetFont(plate.arenaLabel, font.size + ARENA_LABEL_GROWTH, font.outline, true)
 end
 
-local function setupNamePlate(plate)
-	local healthbar, castbar = plate:GetChildren()
-	-- luacheck: ignore 631 (Blizzard's region order, all eleven are needed)
-	local threat, background, castBorder, castShield, castIcon, highlight, name, level, bossIcon, raidIcon, elite =
-		plate:GetRegions()
+local function setupNamePlate(plate, info)
+	local healthbar, castbar = info.healthbar, info.castbar
+	local threat, background, castBorder, castShield, castIcon =
+		info.threat, info.border, info.castBorder, info.castShield, info.castIcon
+	local highlight, name, level, bossIcon, raidIcon, elite =
+		info.highlight, info.nameText, info.levelText, info.bossIcon, info.raidIcon, info.eliteIcon
 
 	ns.Mixin(plate, PlateMixin)
+	plate.info = info
+	plate.settings = config.enemyNpc
 
 	local overlay = CreateFrame("Frame", nil, plate)
 	overlay:SetAllPoints()
@@ -930,7 +881,7 @@ local function setupNamePlate(plate)
 
 	setupHealthbar(plate, healthbar, background)
 	setupCastbar(plate, castbar, castIcon, castShield)
-	setupTotemIcon(plate)
+	NamePlates.Totems.Setup(plate)
 
 	name:Hide()
 
@@ -969,11 +920,6 @@ local function setupNamePlate(plate)
 	styleArenaLabel(plate)
 	applyHighlight(plate)
 
-	plate:SetScript("OnShow", plate.OnShow)
-	plate:SetScript("OnHide", plate.OnHide)
-	plate:SetScript("OnUpdate", plate.OnUpdate)
-
-	plate:OnShow()
 	if castbar:IsShown() then
 		castbar:OnShow()
 	end
@@ -982,15 +928,7 @@ local function setupNamePlate(plate)
 end
 
 function NamePlates:GetTargetPlate()
-	if not UnitExists("target") then
-		return
-	end
-	for i = 1, #plates do
-		local plate = plates[i]
-		if plate:IsShown() and plate:IsTarget() then
-			return plate
-		end
-	end
+	return (PlateLayer.GetTargetPlate())
 end
 
 local stack = {}
@@ -1126,41 +1064,24 @@ local function updateSpread(elapsed)
 	end
 end
 
-local function identifyFrame(frame)
-	if frame:GetName() or not frame.GetRegions then
-		return
-	end
-
-	local region = frame:GetRegions()
-	if not (region and region.GetTexture) then
-		return
-	end
-
-	local texture = region:GetTexture()
-	if texture == NAMEPLATE_TEXTURE then
-		return "NamePlate"
-	elseif texture == CHAT_BUBBLE_TEXTURE then
-		return "ChatBubble"
-	end
-end
-
-local function setupNewChildren(frame, ...)
-	if not frame then
-		return
-	end
-
-	local kind = identifyFrame(frame)
-	if kind == "NamePlate" then
-		local ok, err = pcall(setupNamePlate, frame)
-		if not ok then
-			geterrorhandler()(err)
-		end
-	elseif kind == "ChatBubble" then
-		ns:Fire(ns.CHAT_BUBBLE_CREATED, frame)
-	end
-
-	return setupNewChildren(...)
-end
+local layerHandlers = {
+	created = setupNamePlate,
+	shown = function(plate)
+		plate:OnShow()
+	end,
+	hidden = function(plate)
+		plate:OnHide()
+	end,
+	renamed = function(plate)
+		plate:OnShow()
+	end,
+	recolored = function(plate)
+		plate:UpdateColors()
+	end,
+	update = function(plate)
+		plate:OnUpdate()
+	end,
+}
 
 local function applyStyle()
 	for i = 1, #plates do
@@ -1169,6 +1090,7 @@ local function applyStyle()
 		styleText(plate.healthbar.percent, config.percentFont)
 		styleHolder(plate.holder)
 		styleHolder(plate.castbar.holder)
+		NamePlates.Totems.ApplyStyle(plate)
 		plate.borderState = nil
 		plate.nameR = nil
 		plate.healthbar.percent.mode = nil
@@ -1179,7 +1101,7 @@ local function applyStyle()
 			plate:OnShow()
 		end
 		local castbar = plate.castbar
-		ns.SetFont(castbar.targetText, config.nameFont.size, config.nameFont.outline)
+		styleCastTexts(castbar)
 		local result = castbar.result
 		styleText(result.text, config.nameFont)
 		styleHolder(result)
@@ -1190,27 +1112,23 @@ local function applyStyle()
 	end
 end
 
-function NamePlates.RefreshAllColors()
-	for i = 1, #plates do
-		local plate = plates[i]
-		if plate:IsShown() and not plate.totem:IsShown() then
-			plate:RefreshColors()
-		end
-	end
-end
-
 local function onIdentity(plate)
-	if plate:IsShown() then
+	if not plate:IsShown() then
+		return
+	end
+	if config.totemIcons and NamePlates.Totems.Identify(plate) ~= plate.totemSpell then
+		plate:OnShow()
+	else
 		plate:RefreshColors()
 	end
 end
 
 function NamePlates:Initialize()
-	updatePixel()
+	WorldChildren.UpdatePixel()
 	updateTargetName()
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
 	self:RegisterEvent("DISPLAY_SIZE_CHANGED", function()
-		updatePixel()
+		WorldChildren.UpdatePixel()
 		applyStyle()
 	end)
 	self:RegisterEvent("PLAYER_TARGET_CHANGED", onTargetChanged)
@@ -1229,18 +1147,11 @@ function NamePlates:Initialize()
 	self:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "target", onTargetCastInterrupted)
 	self:WatchConfig("namePlates", applyStyle)
 	self:WatchConfig("unitFrames", applyStyle)
+	if config.enabled then
+		PlateLayer.Register(layerHandlers)
+		CreateFrame("Frame"):SetScript("OnUpdate", function(_, elapsed)
+			updateStacking()
+			updateSpread(elapsed)
+		end)
+	end
 end
-
-local knownChildren = 0
-CreateFrame("Frame"):SetScript("OnUpdate", function(_, elapsed)
-	if not config.enabled then
-		return
-	end
-	local numChildren = WorldFrame:GetNumChildren()
-	if numChildren ~= knownChildren then
-		setupNewChildren(select(knownChildren + 1, WorldFrame:GetChildren()))
-		knownChildren = numChildren
-	end
-	updateStacking()
-	updateSpread(elapsed)
-end)

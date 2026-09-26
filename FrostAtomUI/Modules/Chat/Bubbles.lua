@@ -2,78 +2,125 @@ local _, ns = ...
 
 local ICON_TAG_LIST = ICON_TAG_LIST
 local ICON_LIST = ICON_LIST
-local find, gsub, sub, lower = string.find, string.gsub, string.sub, string.lower
-local min = math.min
+local GetPlayerInfoByGUID = GetPlayerInfoByGUID
+local find, gsub, sub, lower, match = string.find, string.gsub, string.sub, string.lower, string.match
+local min, max = math.min, math.max
 
 local Chat = ns:GetModule("Chat")
+local BubbleLayer = ns.BubbleLayer
+local PlateLayer = ns.PlateLayer
+local classColors = ns:GetModule("UnitFrames").classColors
 
 local config = ns.Config.chat
-local BORDER_SIZE = 1
+local frameConfig = ns.Config.unitFrames
+local plateConfig = ns.Config.namePlates
+local BACKDROP = ns.CreateBackdrop(8, 2)
+local BORDER_INSET = 3
+local SENDER_GAP = 2
 
 local function iconTagToTexture(tag)
 	local index = ICON_TAG_LIST[lower(sub(tag, 2, -2))]
 	return index and ICON_LIST[index] and (ICON_LIST[index] .. "0|t") or tag
 end
 
-local function onBubbleShow(bubble)
+local function senderColor(info)
+	local guid = info.guid
+	if PlateLayer.IsPlayerGUID(guid) then
+		local _, class = GetPlayerInfoByGUID(guid)
+		local color = class and classColors[class]
+		if color then
+			return color[1], color[2], color[3]
+		end
+	end
+	return info.r, info.g, info.b
+end
+
+local function layout(bubble, info)
+	local text, sender = bubble.text, bubble.sender
+	local r, g, b = info.r, info.g, info.b
+
+	local bubbleFont = config.bubbleFont
+	ns.SetFont(text, bubbleFont.size, bubbleFont.outline)
+	text:SetTextColor(r, g, b)
+
+	local senderWidth, senderHeight = 0, 0
+	if config.bubbleShowSender and info.sender then
+		local nameFont = plateConfig.nameFont
+		ns.SetFont(sender, nameFont.size, nameFont.outline)
+		sender:SetText(match(info.sender, "^[^%-]+"))
+		sender:SetTextColor(senderColor(info))
+		sender:Show()
+		senderWidth, senderHeight = sender:GetStringWidth(), sender:GetStringHeight() + SENDER_GAP
+	else
+		sender:Hide()
+	end
+
+	text:SetWidth(0)
+	text:SetWidth(max(min(text:GetStringWidth(), config.bubbleMaxWidth), senderWidth))
+
+	local inset = config.bubblePadding + BORDER_INSET
+	bubble:ClearAllPoints()
+	bubble:SetPoint("BOTTOMLEFT", text, -inset, -inset)
+	bubble:SetPoint("TOPRIGHT", text, inset, inset + senderHeight)
+
+	local backdrop = frameConfig.backdropColor
+	bubble:SetBackdropColor(backdrop[1], backdrop[2], backdrop[3], backdrop[4])
+	if config.bubbleTypeBorder then
+		bubble:SetBackdropBorderColor(r, g, b)
+	else
+		local color = frameConfig.borderColor
+		bubble:SetBackdropBorderColor(color[1], color[2], color[3])
+	end
+end
+
+local function onShown(bubble, info)
+	if not bubble.sender then
+		return
+	end
 	local text = bubble.text
 	local message = text:GetText() or ""
 	if find(message, "{", 1, true) then
 		text:SetText((gsub(message, "%b{}", iconTagToTexture)))
 	end
-
-	local r, g, b = text:GetTextColor()
-	bubble.border:SetVertexColor(r, g, b, config.bubbleBorderAlpha)
-
-	local font = ChatFrame1:GetFont()
-	text:SetFont(font, config.bubbleFont.size, config.bubbleFont.outline)
-	text:SetTextColor(r, g, b)
-	bubble.background:SetTexture(0, 0, 0, config.bubbleAlpha)
-	local padding = config.bubblePadding
-	bubble.background:SetSize(
-		min(text:GetStringWidth(), config.bubbleMaxWidth) + padding * 2,
-		text:GetStringHeight() + padding * 2
-	)
+	layout(bubble, info)
 end
 
-local function setupBubble(_, bubble)
-	local border, text
-	for i = 1, bubble:GetNumRegions() do
-		local region = select(i, bubble:GetRegions())
-		if region:GetObjectType() == "FontString" then
-			text = region
-		elseif not border then
-			border = region
-		else
-			region:SetTexture(nil)
-			region:Hide()
-		end
+local function setupBubble(bubble, info)
+	local text = info.text
+	if info.tail then
+		info.tail:SetTexture(nil)
+		info.tail:Hide()
 	end
-	if not (border and text) then
-		return
-	end
-
-	local background = bubble:CreateTexture(nil, "BACKGROUND", nil, 1)
-	background:SetPoint("CENTER", text)
-
-	border:SetTexture(ns.Media.blank)
-	border:SetDrawLayer("BACKGROUND", 0)
-	border:ClearAllPoints()
-	border:SetPoint("TOPRIGHT", background, BORDER_SIZE, BORDER_SIZE)
-	border:SetPoint("BOTTOMLEFT", background, -BORDER_SIZE, -BORDER_SIZE)
+	bubble:SetBackdrop(BACKDROP)
 
 	text:SetShadowColor(0, 0, 0, 1)
 	text:SetShadowOffset(1, -1)
-	text:SetDrawLayer("OVERLAY")
+	text:SetJustifyH("LEFT")
 
-	bubble.border = border
-	bubble.background = background
+	local sender = bubble:CreateFontString(nil, "OVERLAY")
+	sender:SetPoint("BOTTOMLEFT", text, "TOPLEFT", 0, SENDER_GAP)
+	sender:SetJustifyH("LEFT")
+	sender:SetWordWrap(false)
+	sender:Hide()
+
 	bubble.text = text
+	bubble.sender = sender
+end
 
-	onBubbleShow(bubble)
-	bubble:SetScript("OnShow", onBubbleShow)
+local function relayout()
+	local bubbles = BubbleLayer.bubbles
+	for i = 1, #bubbles do
+		local bubble = bubbles[i]
+		local info = BubbleLayer.GetInfo(bubble)
+		if bubble.sender and info.shown then
+			layout(bubble, info)
+		end
+	end
 end
 
 Chat:OnInitialize(function(self)
-	self:RegisterEvent(ns.CHAT_BUBBLE_CREATED, setupBubble)
+	BubbleLayer.Register({ created = setupBubble, shown = onShown })
+	self:WatchConfig("chat", relayout)
+	self:WatchConfig("unitFrames", relayout)
+	self:WatchConfig("namePlates.nameFont", relayout)
 end)

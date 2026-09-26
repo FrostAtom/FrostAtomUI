@@ -215,12 +215,7 @@ local function createBar(plate)
 	shieldIcon:Hide()
 	bar.shieldIcon = shieldIcon
 
-	local targetText = NamePlates.CreateText(bar, config.nameFont)
-	targetText:SetPoint("LEFT", TEXT_INSET, 0)
-	targetText:SetPoint("RIGHT", -TEXT_INSET, 0)
-	targetText:SetJustifyH("RIGHT")
-	targetText:SetWordWrap(false)
-	bar.targetText = targetText
+	NamePlates.CreateCastTexts(bar)
 
 	bar.glow = UF.CreateCastGlow(bar, holder, NamePlates.CAST_GLOW_SIZE)
 	bar:SetScript("OnUpdate", onBarUpdate)
@@ -258,6 +253,7 @@ function updatePlate(plate)
 	if bar.entry ~= entry or not bar:IsShown() then
 		layoutBar(bar)
 		bar.icon:SetTexture(entry.texture)
+		bar.spellText:SetText(config.castbarSpellName and entry.name or "")
 		bar.important = config.castbarImportant and importantCasts[entry.name] or false
 		if bar.important then
 			UF.StartCastGlow(bar.glow, frameConfig.castbarImportantColor)
@@ -488,7 +484,7 @@ local function applyConfig()
 		local bar = plate.vcast
 		if bar then
 			NamePlates.StyleHolder(bar.holder)
-			ns.SetFont(bar.targetText, config.nameFont.size, config.nameFont.outline)
+			NamePlates.StyleCastTexts(bar)
 		end
 		relayout(plate)
 	end

@@ -1,7 +1,7 @@
 local _, ns = ...
 local NamePlates = ns:GetModule("NamePlates")
 
-local UnitExists, UnitGUID, UnitName, UnitClass = UnitExists, UnitGUID, UnitName, UnitClass
+local UnitExists, UnitGUID, UnitName = UnitExists, UnitGUID, UnitName
 local UnitIsPlayer, UnitIsUnit = UnitIsPlayer, UnitIsUnit
 local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 local GetNumRaidMembers, GetNumPartyMembers = GetNumRaidMembers, GetNumPartyMembers
@@ -13,7 +13,6 @@ local wipe = wipe
 
 local config = ns.Config.namePlates
 local plates = NamePlates.plates
-local rosterClasses = NamePlates.rosterClasses
 
 local RESOLVE_INTERVAL = 0.2
 local HEALTH_TOLERANCE = 0.02
@@ -250,7 +249,7 @@ local function resolveMouseover(now)
 	local name = UnitName("mouseover")
 	for i = 1, #plates do
 		local plate = plates[i]
-		if plate:IsShown() and plate.highlight:IsShown() and plate.plateName == name then
+		if plate:IsShown() and ns.PlateLayer.IsMouseover(plate.info) and plate.plateName == name then
 			assign(plate, "mouseover", UnitGUID("mouseover"), now)
 			return
 		end
@@ -335,7 +334,6 @@ end
 NamePlates.RequestIdentityPass = requestPass
 
 local function updateRoster()
-	wipe(rosterClasses)
 	groupTargetCount = 0
 	local raidCount = GetNumRaidMembers()
 	local units, targets, count
@@ -346,20 +344,14 @@ local function updateRoster()
 	end
 	for i = 1, count do
 		local unit = units[i]
-		local name = UnitName(unit)
-		if name then
-			local _, class = UnitClass(unit)
-			rosterClasses[name] = class
-			if not UnitIsUnit(unit, "player") then
-				groupTargetCount = groupTargetCount + 1
-				groupTargets[groupTargetCount] = targets[i]
-			end
+		if UnitExists(unit) and not UnitIsUnit(unit, "player") then
+			groupTargetCount = groupTargetCount + 1
+			groupTargets[groupTargetCount] = targets[i]
 		end
 	end
 	for i = groupTargetCount + 1, #groupTargets do
 		groupTargets[i] = nil
 	end
-	NamePlates.RefreshAllColors()
 end
 
 local function rememberEnemy(guid, name, flags)
