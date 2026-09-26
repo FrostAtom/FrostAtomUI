@@ -146,9 +146,18 @@ local BUFF_SORT_VALUES = {
 }
 
 local AURA_ORDER_VALUES = {
-	{ "debuffs", L["Debuffs on top"] },
-	{ "buffs", L["Buffs on top"] },
+	{ "debuffs", L["Debuffs first"] },
+	{ "buffs", L["Buffs first"] },
 }
+
+local AURA_POSITION_VALUES = {
+	{ "BOTTOM", L["Below"], glyph = "arrow-down" },
+	{ "TOP", L["Above"], glyph = "arrow-up" },
+	{ "LEFT", L["On the left"], glyph = "arrow-left" },
+	{ "RIGHT", L["On the right"], glyph = "arrow-right" },
+}
+
+local AURA_ORDER_DESC = L["Which block is closer to the frame when debuffs and buffs are on the same side."]
 
 local FIT_DESC = L["Rounded so a whole number of icons fits the frame width."]
 
@@ -264,13 +273,43 @@ local function auraToggle(path, label, desc)
 	return new({ path = path, label = label, type = "toggle", desc = desc })
 end
 
+local AURA_PLACEMENT_LABELS = {
+	Debuff = { L["Debuff position"], L["Debuff growth"] },
+	Buff = { L["Buff position"], L["Buff growth"] },
+}
+
+local function auraPlacement(key, kind, shownPath)
+	local labels = AURA_PLACEMENT_LABELS[kind]
+	return new({
+		path = uf(key .. kind .. "Position"),
+		label = labels[1],
+		type = "select",
+		values = AURA_POSITION_VALUES,
+		enabledBy = shownPath,
+		desc = L["Side of the frame the icons are attached to. On the left or right the rows go down from the top of the frame."],
+	}), new({
+		path = uf(key .. kind .. "Growth"),
+		label = labels[2],
+		type = "select",
+		values = HORIZONTAL_GROWTH_VALUES,
+		enabledBy = shownPath,
+		desc = L["Direction the icons fill a row in."],
+	})
+end
+
 local function targetAuras(key)
 	local debuffs, buffs = uf("show" .. capitalize(key) .. "Debuffs"), uf("show" .. capitalize(key) .. "Buffs")
 	local either = { debuffs, buffs }
+	local debuffPosition, debuffGrowth = auraPlacement(key, "Debuff", debuffs)
+	local buffPosition, buffGrowth = auraPlacement(key, "Buff", buffs)
 	return {
 		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		auraToggle(debuffs, L["Debuffs"]),
+		debuffPosition,
+		debuffGrowth,
 		auraToggle(buffs, L["Buffs"]),
+		buffPosition,
+		buffGrowth,
 		{
 			path = uf(key .. "AuraPerRow"),
 			new = "1.4.0",
@@ -311,7 +350,8 @@ local function targetAuras(key)
 			type = "select",
 			values = AURA_ORDER_VALUES,
 			advanced = true,
-			enabledByAny = either,
+			enabledBy = either,
+			desc = AURA_ORDER_DESC,
 		}),
 		ns.ClickThrough(uf(key .. "AuraClickThrough"), nil, either),
 	}
@@ -323,9 +363,13 @@ local function groupAuras(key, enabledBy)
 	local debuffToggle = auraToggle(debuffs, L["Debuffs"])
 	local buffToggle = auraToggle(buffs, L["Buffs"])
 	debuffToggle.enabledBy, buffToggle.enabledBy = enabledBy, enabledBy
+	local debuffPosition, debuffGrowth = auraPlacement(key, "Debuff", debuffs)
+	local buffPosition, buffGrowth = auraPlacement(key, "Buff", buffs)
 	return {
 		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		debuffToggle,
+		debuffPosition,
+		debuffGrowth,
 		size(uf(key .. "DebuffSize"), L["Debuff size"], 16, 60, FIT_DESC, debuffs),
 		advanced(
 			size(
@@ -338,6 +382,8 @@ local function groupAuras(key, enabledBy)
 			)
 		),
 		buffToggle,
+		buffPosition,
+		buffGrowth,
 		size(uf(key .. "BuffSize"), L["Buff size"], 10, 40, FIT_DESC, buffs),
 		advanced(
 			size(
@@ -367,6 +413,7 @@ local function groupAuras(key, enabledBy)
 			values = AURA_ORDER_VALUES,
 			advanced = true,
 			enabledBy = { debuffs, buffs },
+			desc = AURA_ORDER_DESC,
 		}),
 		ns.ClickThrough(uf(key .. "AuraClickThrough"), enabledBy, { debuffs, buffs }),
 	}
@@ -636,14 +683,13 @@ local function comboPoints()
 	}
 end
 
-local function playerAuraGrowth()
+local function playerAuraGrowth(path)
 	return {
-		path = "unitFrames.playerAuraGrowth",
+		path = path,
 		new = "1.4.1",
 		label = L["Growth direction"],
 		type = "select",
 		values = HORIZONTAL_GROWTH_VALUES,
-		desc = L["Debuffs go below the buffs."],
 	}
 end
 
@@ -654,9 +700,10 @@ local function playerAuraClickThrough()
 	return entry
 end
 
-local function playerAuraSections()
+local function playerBuffSection()
 	return {
 		{ header = L["Buffs"], glyph = "wand-magic-sparkles" },
+		playerAuraGrowth("unitFrames.playerAuraGrowth"),
 		size("unitFrames.playerAuraSize", L["Icon size"], 16, 60),
 		{
 			path = "unitFrames.playerAuraPerRow",
@@ -677,7 +724,13 @@ local function playerAuraSections()
 			desc = L["Right-click cancels a buff, in combat too. A sorted grid keeps the buff names it had when combat started, so after the order changes in combat a click may cancel a different buff."],
 		},
 		playerAuraClickThrough(),
+	}
+end
+
+local function playerDebuffSection()
+	return {
 		{ header = L["Debuffs"], glyph = "skull-crossbones" },
+		new(playerAuraGrowth("unitFrames.playerDebuffGrowth")),
 		{
 			path = "unitFrames.playerDebuffSize",
 			new = "1.4.1",
@@ -805,9 +858,18 @@ registerElement({
 registerElement({
 	path = "unitFrames.playerAuras",
 	tab = "player",
-	name = L["Player buffs / debuffs"],
+	name = L["Player buffs"],
 	glyph = "wand-magic-sparkles",
-	schema = concat({ layoutHeader(), playerAuraGrowth() }, playerAuraSections()),
+	schema = playerBuffSection(),
+})
+
+registerElement({
+	path = "unitFrames.playerDebuffs",
+	tab = "player",
+	new = "1.4.1",
+	name = L["Player debuffs"],
+	glyph = "skull-crossbones",
+	schema = playerDebuffSection(),
 })
 
 registerElement({
@@ -1312,8 +1374,10 @@ local function generalSchema()
 end
 
 local RECT_COPY = { "Width", "Height", "IconSide", "CastbarWidth", "CastbarHeight" }
-local TARGET_COPY = { "AuraPerRow", "AuraRows", "OwnAuraScale", "AuraOrder" }
-local GROUP_COPY = { "DebuffSize", "DebuffMax", "BuffSize", "BuffMax", "AuraSpacing", "AuraOrder" }
+local AURA_PLACEMENT_COPY = { "DebuffPosition", "DebuffGrowth", "BuffPosition", "BuffGrowth" }
+local TARGET_COPY = concat({ "AuraPerRow", "AuraRows", "OwnAuraScale", "AuraOrder" }, AURA_PLACEMENT_COPY)
+local GROUP_COPY =
+	concat({ "DebuffSize", "DebuffMax", "BuffSize", "BuffMax", "AuraSpacing", "AuraOrder" }, AURA_PLACEMENT_COPY)
 local SQUARE_COPY = {
 	"Width",
 	"Height",
@@ -1602,8 +1666,8 @@ ns.RegisterPage({
 				frameLayout("player"),
 				castbarSection("player", 100, 500),
 				castbarLatency(),
-				{ { header = L["Auras"], glyph = "wand-magic-sparkles" }, playerAuraGrowth() },
-				playerAuraSections(),
+				playerBuffSection(),
+				playerDebuffSection(),
 				playerIndicators()
 			),
 		},

@@ -145,6 +145,7 @@ ns.Defaults = {
 		focusTarget = { "LEFT", 0, 0, "unitFrames.focus", "RIGHT" },
 		playerCastbar = { "TOP", 0, -4, "playerPlate.point", "BOTTOM" },
 		playerAuras = { "TOPRIGHT", -168, -10 },
+		playerDebuffs = { "TOPRIGHT", 0, -7, "unitFrames.playerAuras", "BOTTOMRIGHT" },
 		targetCastbar = { "TOPLEFT", 27, -111, "unitFrames.target", "BOTTOMLEFT" },
 		focusCastbar = { "TOPLEFT", 27, -111, "unitFrames.focus", "BOTTOMLEFT" },
 		party = { "TOPLEFT", 130, -200 },
@@ -303,6 +304,7 @@ ns.Defaults = {
 		playerAuraGrowth = "LEFT",
 		playerDebuffSize = 34,
 		playerDebuffPerRow = 8,
+		playerDebuffGrowth = "LEFT",
 		playerBuffSort = "default",
 		auraTimers = true,
 		auraTimerMaxDuration = 600,
@@ -324,12 +326,20 @@ ns.Defaults = {
 		targetAuraRows = 2,
 		targetOwnAuraScale = 1,
 		targetAuraOrder = "debuffs",
+		targetDebuffPosition = "BOTTOM",
+		targetDebuffGrowth = "RIGHT",
+		targetBuffPosition = "BOTTOM",
+		targetBuffGrowth = "RIGHT",
 		showFocusDebuffs = true,
 		showFocusBuffs = true,
 		focusAuraPerRow = 8,
 		focusAuraRows = 2,
 		focusOwnAuraScale = 1,
 		focusAuraOrder = "debuffs",
+		focusDebuffPosition = "BOTTOM",
+		focusDebuffGrowth = "RIGHT",
+		focusBuffPosition = "BOTTOM",
+		focusBuffGrowth = "RIGHT",
 		showPlayerCastbar = true,
 		showTargetCastbar = true,
 		showFocusCastbar = true,
@@ -397,6 +407,10 @@ ns.Defaults = {
 		partyBuffMax = 18,
 		partyAuraSpacing = 6,
 		partyAuraOrder = "debuffs",
+		partyDebuffPosition = "BOTTOM",
+		partyDebuffGrowth = "RIGHT",
+		partyBuffPosition = "BOTTOM",
+		partyBuffGrowth = "RIGHT",
 		showArenaDebuffs = true,
 		showArenaBuffs = false,
 		arenaDebuffSize = 32,
@@ -405,6 +419,10 @@ ns.Defaults = {
 		arenaBuffMax = 18,
 		arenaAuraSpacing = 6,
 		arenaAuraOrder = "debuffs",
+		arenaDebuffPosition = "BOTTOM",
+		arenaDebuffGrowth = "LEFT",
+		arenaBuffPosition = "BOTTOM",
+		arenaBuffGrowth = "LEFT",
 		raidIconSize = 16,
 		comboPointSize = 8,
 		comboPointColor = { 1, 0.2, 0.2 },
@@ -1791,6 +1809,25 @@ local function migrateSquareFrames(profile)
 	end
 end
 
+local LEGACY_PLAYER_DEBUFF_GAP_SCALE = 0.2
+
+local function migratePlayerDebuffs(profile)
+	local unitFrames = profile.unitFrames
+	if not unitFrames or unitFrames.playerDebuffs ~= nil then
+		return
+	end
+	local defaults = ns.Defaults.unitFrames
+	local growth = unitFrames.playerAuraGrowth or defaults.playerAuraGrowth
+	local size = unitFrames.playerAuraSize or defaults.playerAuraSize
+	setChanged(unitFrames, "playerDebuffGrowth", growth)
+	local gap = math.floor(size * LEGACY_PLAYER_DEBUFF_GAP_SCALE + 0.5)
+	local default = defaults.playerDebuffs
+	if growth ~= defaults.playerAuraGrowth or gap ~= -default[3] then
+		local point = growth == "RIGHT" and "TOPLEFT" or "TOPRIGHT"
+		unitFrames.playerDebuffs = { point, 0, -gap, default[4], (point:gsub("^TOP", "BOTTOM")) }
+	end
+end
+
 local function migrateCastbarHeight(profile)
 	local unitFrames = profile.unitFrames
 	local height = unitFrames and unitFrames.castbarHeight
@@ -1953,11 +1990,15 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 		if not db.unitFrameCategoriesMigrated then
 			migrateUnitFrameCategories(profile, true)
 		end
+		if not db.playerDebuffsMigrated then
+			migratePlayerDebuffs(profile)
+		end
 		migrate(profile)
 	end
 	db.castbarLayoutMigrated = true
 	db.squareFramesMigrated = true
 	db.unitFrameCategoriesMigrated = true
+	db.playerDebuffsMigrated = true
 	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)
