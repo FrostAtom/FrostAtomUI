@@ -378,12 +378,17 @@ SLASH_FROSTATOMUI_CONFIG4 = "/ui"
 
 local MENU_BUTTON_COLOR = { 0.09, 0.49, 0.75 }
 
-local menuButton = CreateFrame("Button", "FrostAtomUIMenuButton", GameMenuFrame, "GameMenuButtonTemplate")
+local menuButton = CreateFrame(
+	"Button",
+	"FrostAtomUIMenuButton",
+	GameMenuFrame,
+	"GameMenuButtonTemplate,SecureActionButtonTemplate"
+)
 menuButton:SetText("FrostAtomUI")
 menuButton:SetPoint("TOP", GameMenuButtonUIOptions, "BOTTOM", 0, -1)
-menuButton:SetScript("OnClick", function()
-	PlaySound("igMainMenuOption")
-	HideUIPanel(GameMenuFrame)
+menuButton:SetAttribute("type", "click")
+menuButton:SetAttribute("clickbutton", GameMenuButtonContinue)
+menuButton:SetScript("PostClick", function()
 	SlashCmdList.FROSTATOMUI_CONFIG("")
 end)
 menuButton:GetFontString():SetTextColor(unpack(MENU_BUTTON_COLOR))

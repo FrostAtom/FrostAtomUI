@@ -20,12 +20,13 @@ local SecureCmdOptionParse, GameTooltip = SecureCmdOptionParse, GameTooltip
 
 local Macros = ns:GetModule("Macros")
 local Parser = ns.MacroParser
+local SecureList = Macros.SecureList
 
 local FRAME_NAME = "FrostAtomUIMacros"
 local WIDTH, HEIGHT = 800, 600
 local COLUMNS = 14
 local LIST_ROWS = 3
-local COLUMN_WIDTH = 49
+local COLUMN_WIDTH = 51
 local ROW_HEIGHT = 46
 local BUTTON_HEIGHT = 22
 local EDITOR_WIDTH, EDITOR_HEIGHT = 500, 225
@@ -777,6 +778,9 @@ local function refreshTabs()
 		end
 	end
 	PanelTemplates_SetTab(frame, selectedTab)
+	if not InCombatLockdown() then
+		SecureList.PlaceTabOverlays(frame.tabs, frame.tabOverlays)
+	end
 	local full
 	if tab == "gameAccount" then
 		full = numAccount >= Macros.MAX_ACCOUNT
@@ -820,18 +824,12 @@ function refreshList()
 			end
 			local key = GetBindingKey(entryCommand(entry))
 			cell.key:SetText(key and keyLabel(key, true) or "")
-			cell:Enable()
 			cell:SetChecked(entry == current)
-			cell:Show()
-		elseif index <= slots then
+		else
 			cell.icon:SetTexture(nil)
 			cell.name:SetText("")
 			cell.key:SetText("")
 			cell:SetChecked(nil)
-			cell:Disable()
-			cell:Show()
-		else
-			cell:Hide()
 		end
 	end
 	FauxScrollFrame_Update(
@@ -847,6 +845,7 @@ function refreshList()
 		nil,
 		true
 	)
+	SecureList.Push(tab, FauxScrollFrame_GetOffset(frame.listScroll))
 end
 
 function refresh(reloadEditor)
@@ -1141,7 +1140,12 @@ local function pickupEntry(entry)
 end
 
 local function onCellDrag(cell)
-	pickupEntry(cell.entry)
+	local entry = cell.entry
+	if entry and InCombatLockdown() then
+		ns.Print(L["%s has no game macro yet; put it on an action bar out of combat first"], entryName(entry))
+		return
+	end
+	pickupEntry(entry)
 end
 
 local function buildIcons()
@@ -1620,12 +1624,12 @@ local function createDetail()
 	barLeft:SetTexture(HORIZONTAL_BAR)
 	barLeft:SetTexCoord(0, 1, 0, 0.25)
 	barLeft:SetSize(256, 16)
-	barLeft:SetPoint("TOPLEFT", 15, -220)
+	barLeft:SetPoint("TOPLEFT", 11, -220)
 	local barRight = frame:CreateTexture(nil, "ARTWORK")
 	barRight:SetTexture(HORIZONTAL_BAR)
 	barRight:SetTexCoord(0, 0.29296875, 0.25, 0.5)
 	barRight:SetSize(75, 16)
-	barRight:SetPoint("TOPRIGHT", -15, -220)
+	barRight:SetPoint("TOPRIGHT", -11, -220)
 	local barMiddle = frame:CreateTexture(nil, "ARTWORK")
 	barMiddle:SetTexture(HORIZONTAL_BAR)
 	barMiddle:SetTexCoord(0.3, 0.7, 0, 0.25)
@@ -1653,6 +1657,10 @@ local function createDetail()
 	end)
 	iconButton:RegisterForDrag("LeftButton")
 	iconButton:SetScript("OnDragStart", function()
+		if InCombatLockdown() then
+			ns.Print(L["in combat, drag macros from the list"])
+			return
+		end
 		pickupEntry(editorEntry)
 	end)
 	tooltip(iconButton, L["Icon"], L["Click to choose an icon, drag to put the macro on an action bar."])
@@ -1857,7 +1865,7 @@ local function importItems()
 			converted
 		)
 	end
-	if scope then
+	if scope and not InCombatLockdown() then
 		selectTab(scope)
 		selectEntry(entry)
 	end
@@ -2037,7 +2045,8 @@ local function onCellClick(cell, button)
 end
 
 local function createCell(index)
-	local cell = CreateFrame("CheckButton", FRAME_NAME .. "Button" .. index, frame, "PopupButtonTemplate")
+	local cell =
+		CreateFrame("CheckButton", FRAME_NAME .. "Button" .. index, frame, "PopupButtonTemplate,SecureFrameTemplate")
 	local column, row = (index - 1) % COLUMNS, floor((index - 1) / COLUMNS)
 	cell:SetPoint("TOPLEFT", 29 + column * COLUMN_WIDTH, -82 - row * ROW_HEIGHT)
 	cell.icon = _G[cell:GetName() .. "Icon"]
@@ -2054,9 +2063,6 @@ local function createCell(index)
 	cell:SetScript("OnEnter", onCellEnter)
 	cell:SetScript("OnLeave", GameTooltip_Hide)
 	cell:EnableMouseWheel(true)
-	cell:SetScript("OnMouseWheel", function(_, delta)
-		ScrollFrameTemplate_OnMouseWheel(frame.listScroll, delta)
-	end)
 	return cell
 end
 
@@ -2069,11 +2075,8 @@ local function createButtonBar()
 	frame.copy:SetPoint("LEFT", delete, "RIGHT", 1, 0)
 	frame.copy:SetScript("OnClick", copySelected)
 
-	local exit = ns.CreateButton(frame, EXIT, 80, BUTTON_HEIGHT, FRAME_NAME .. "ExitButton")
+	local exit = SecureList.CreateExitButton(FRAME_NAME .. "ExitButton", EXIT, 80, BUTTON_HEIGHT)
 	exit:SetPoint("BOTTOMRIGHT", -16, 14)
-	exit:SetScript("OnClick", function()
-		frame:Hide()
-	end)
 
 	frame.new = ns.CreateButton(frame, NEW, 80, BUTTON_HEIGHT, FRAME_NAME .. "NewButton")
 	frame.new:SetPoint("RIGHT", exit, "LEFT", -1, 0)
@@ -2100,8 +2103,31 @@ local function createButtonBar()
 end
 
 local function createFrame()
-	frame = ns.CreateWindow(FRAME_NAME, { width = WIDTH, height = HEIGHT, title = L["Macros"], movable = false })
+	frame = ns.CreateWindow(FRAME_NAME, {
+		width = WIDTH,
+		height = HEIGHT,
+		title = L["Macros"],
+		movable = false,
+		template = "SecureHandlerBaseTemplate",
+		secureClose = true,
+	})
 	frame:SetPoint("CENTER")
+	SecureList.Setup(frame, function(_, key, offset)
+		if frame.syncing then
+			return
+		end
+		frame.syncing = true
+		if key ~= tab then
+			PlaySound("igCharacterInfoTab")
+			selectTab(key)
+		end
+		if offset ~= FauxScrollFrame_GetOffset(frame.listScroll) then
+			FauxScrollFrame_SetOffset(frame.listScroll, offset)
+			frame.listScrollBar:SetValue(offset * ROW_HEIGHT)
+			refreshList()
+		end
+		frame.syncing = false
+	end)
 
 	local labels = {}
 	for i = 1, #TABS do
@@ -2111,14 +2137,15 @@ local function createFrame()
 		style = "tall",
 		padding = -15,
 		point = { "TOPLEFT", frame, "TOPLEFT", 20, -39 },
-		onSelect = function(index)
-			selectTab(TABS[index].key)
-		end,
 	})
+	frame.tabOverlays = {}
+	for i = 1, #TABS do
+		frame.tabOverlays[i] = SecureList.CreateTabOverlay(frame.tabs[i], TABS[i].key)
+	end
 
 	local listScroll = ns.CreateFauxScrollFrame(frame, FRAME_NAME .. "ListScroll", true)
 	listScroll:SetPoint("TOPLEFT", 23, -76)
-	listScroll:SetSize(COLUMNS * COLUMN_WIDTH, 146)
+	listScroll:SetSize(COLUMNS * COLUMN_WIDTH + 8, 146)
 	listScroll:SetScript("OnVerticalScroll", function(self, offset)
 		FauxScrollFrame_OnVerticalScroll(self, offset, ROW_HEIGHT, refreshList)
 	end)
@@ -2129,6 +2156,8 @@ local function createFrame()
 	for i = 1, COLUMNS * LIST_ROWS do
 		frame.cells[i] = createCell(i)
 	end
+	SecureList.AddCells(frame.cells, COLUMNS, LIST_ROWS)
+	SecureList.AttachMenuButton(GameMenuButtonMacros)
 
 	createButtonBar()
 	createEditor()
@@ -2162,21 +2191,19 @@ local function createFrame()
 	hooksecurefunc("ChatEdit_InsertLink", onInsertLink)
 end
 
-local function show()
-	if not frame then
-		createFrame()
+function Macros.Show()
+	if not frame:IsShown() and not SecureList.CombatBlocked() then
+		frame:Show()
 	end
-	frame:Show()
 end
 
-local function toggle()
-	if frame and frame:IsShown() then
+function Macros.Toggle()
+	if not frame:IsShown() then
+		Macros.Show()
+	elseif not SecureList.CombatBlocked() then
 		frame:Hide()
-	else
-		show()
 	end
 end
-Macros.Toggle = toggle
 
 local function onKnowledgeChanged(_, reason)
 	if not frame or not frame:IsShown() then
@@ -2194,9 +2221,14 @@ local function onKnowledgeChanged(_, reason)
 	end)
 end
 
+ns.OnLocaleReady(function()
+	_G["BINDING_NAME_" .. SecureList.TOGGLE_COMMAND] = L["Toggle macros"]
+end)
+
 Macros:OnInitialize(function(self)
-	ShowMacroFrame = show
-	SlashCmdList.MACRO = toggle
+	createFrame()
+	ShowMacroFrame = Macros.Show
+	SlashCmdList.MACRO = Macros.Toggle
 
 	self:RegisterEvent(Macros.CHANGED, onKnowledgeChanged)
 	self:RegisterEvent("UPDATE_MACROS", function()
@@ -2216,18 +2248,23 @@ Macros:OnInitialize(function(self)
 		end
 	end)
 	self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
-		if frame then
-			frame.run:Hide()
-			if frame.detail.bind.capturing then
-				stopCapture(frame.detail.bind)
-			end
-			showInfo()
+		frame.run:Hide()
+		if frame.detail.bind.capturing then
+			stopCapture(frame.detail.bind)
 		end
+		showInfo()
+		SecureList.Push(tab, FauxScrollFrame_GetOffset(frame.listScroll))
+		SecureList.EnterCombat()
 	end)
 	self:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-		if frame and frame:IsShown() then
+		SecureList.LeaveCombat()
+		if frame:IsShown() then
+			refresh()
 			updateRunButton()
 			showInfo()
 		end
 	end)
+	if InCombatLockdown() then
+		SecureList.EnterCombat()
+	end
 end)

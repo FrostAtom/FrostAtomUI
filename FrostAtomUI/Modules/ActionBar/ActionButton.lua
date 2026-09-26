@@ -16,7 +16,6 @@ local IsConsumableAction = IsConsumableAction
 local IsStackableAction = IsStackableAction
 local InCombatLockdown = InCombatLockdown
 local PickupAction = PickupAction
-local PlaceAction = PlaceAction
 local GetActionInfo = GetActionInfo
 local GetMacroSpell = GetMacroSpell
 local GetSpellInfo = GetSpellInfo
@@ -39,6 +38,12 @@ local RANGE_CHECK_INTERVAL = 0.1
 local GCD_DURATION = 1.5
 local MAX_INTERRUPT_LOCKOUT = 8
 local INTERRUPT_TOLERANCE = 0.5
+local RECEIVE_DRAG_SNIPPET = [[
+	if not kind then
+		return false
+	end
+	return "action", self:GetAttribute("action")
+]]
 
 local LOCK, SILENCE = 1, 2
 
@@ -476,12 +481,6 @@ function ActionButtonMixin:OnDragStart()
 	end
 end
 
-function ActionButtonMixin:OnReceiveDrag()
-	if not InCombatLockdown() then
-		PlaceAction(self.action)
-	end
-end
-
 function ActionButtonMixin:ACTIONBAR_SLOT_CHANGED(slot)
 	if slot == 0 or slot == self.action then
 		self:Update()
@@ -532,8 +531,8 @@ function ActionBar:CreateActionButton(action, parent)
 	button:RegisterForClicks("LeftButtonDown")
 	button:RegisterForDrag(config.dragButton)
 	button:SetScript("OnDragStart", button.OnDragStart)
-	button:SetScript("OnReceiveDrag", button.OnReceiveDrag)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)
+	parent:WrapScript(button, "OnReceiveDrag", RECEIVE_DRAG_SNIPPET)
 	button:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 	button:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 	button:RegisterEvent("UPDATE_BINDINGS", "UpdateBindings")

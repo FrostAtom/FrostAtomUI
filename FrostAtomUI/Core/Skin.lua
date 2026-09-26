@@ -174,7 +174,8 @@ end
 
 function ns.CreateWindow(name, options)
 	local gear = options.style == "gear"
-	local frame = CreateFrame("Frame", name, options.parent or UIParent, gear and "UIPanelDialogTemplate" or nil)
+	local frame =
+		CreateFrame("Frame", name, options.parent or UIParent, gear and "UIPanelDialogTemplate" or options.template)
 	frame:Hide()
 	frame:SetWidth(options.width)
 	if options.height then
