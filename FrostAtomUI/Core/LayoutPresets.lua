@@ -20,6 +20,10 @@ ns.LayoutSettings = {
 	"actionBar.totemBar.columns",
 	"unitFrames.playerWidth",
 	"unitFrames.playerHeight",
+	"unitFrames.targetWidth",
+	"unitFrames.targetHeight",
+	"unitFrames.focusWidth",
+	"unitFrames.focusHeight",
 	"unitFrames.partyWidth",
 	"unitFrames.partyHeight",
 	"unitFrames.arenaWidth",
@@ -35,6 +39,12 @@ ns.LayoutSettings = {
 	"unitFrames.focusIconSide",
 	"unitFrames.partyIconSide",
 	"unitFrames.arenaIconSide",
+	"raidFrames.width",
+	"raidFrames.height",
+	"raidFrames.unitsPerColumn",
+	"raidFrames.orientation",
+	"raidFrames.growthX",
+	"raidFrames.growthY",
 	"groupCooldowns.friendlyGrowth",
 	"groupCooldowns.enemyGrowth",
 	"chat.width",
@@ -96,7 +106,7 @@ local function settings(...)
 	return result
 end
 
-local frostatomCompact = edgeBars({
+local fullHD = edgeBars({
 	["groupCooldowns.friendlyPoint"] = { "BOTTOMRIGHT", -235, 2, nil, "BOTTOM" },
 	["groupCooldowns.enemyPoint"] = { "BOTTOMLEFT", 235, 2, nil, "BOTTOM" },
 })
@@ -211,14 +221,17 @@ healerCompact["groupCooldowns.enemyPoint"] = { "TOPRIGHT", -68, 0, "unitFrames.a
 
 ns.LayoutPresets = {
 	{
-		key = "frostatom",
-		name = "FrostAtom",
-		desc = "Unit frames in a row at the top, party on the left edge, arena on the right edge, action bars stacked at the bottom.",
+		key = "default",
+		name = "Defaults",
+		desc = "The positions and sizes the Defaults button sets: the default layout of FrostAtom UI.",
 		points = {},
-		compact = {
-			points = frostatomCompact,
-			settings = settings(SIDE_BAR_SETTINGS, COMPACT_CHAT, { ["chat.height"] = 100 }),
-		},
+	},
+	{
+		key = "fullhd",
+		name = "FullHD",
+		desc = "Defaults fitted to a 1920x1080 screen: vertical bars on the left and right edges, cooldowns on both sides of the main bar, a smaller chat.",
+		points = fullHD,
+		settings = settings(SIDE_BAR_SETTINGS, COMPACT_CHAT, { ["chat.height"] = 100 }),
 	},
 	{
 		key = "classic",

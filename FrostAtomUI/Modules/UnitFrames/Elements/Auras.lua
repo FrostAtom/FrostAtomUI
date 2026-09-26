@@ -23,6 +23,15 @@ local CATCHER_LEVEL = 3
 local ENCHANT_BUTTON_LEVEL = CATCHER_LEVEL + 1
 local NO_AURA_INDEX = MAX_AURAS + 1
 local OWN_CASTERS = { player = true, pet = true, vehicle = true }
+local CLICK_THROUGH_UNITS = { targettarget = "targetOfTarget", focustarget = "focusTarget" }
+local CLICK_THROUGH_PATTERNS = {
+	{ "^party%dtarget$", "partyTarget" },
+	{ "^arena%dtarget$", "arenaTarget" },
+	{ "^partypet%d$", "partyPet" },
+	{ "^arenapet%d$", "arenaPet" },
+	{ "^party%d$", "party" },
+	{ "^arena%d$", "arena" },
+}
 
 local debuffColors = UF.debuffColors
 local NO_TYPE_COLOR = debuffColors[""]
@@ -94,7 +103,8 @@ end
 local timerMaxDuration = timerLimit()
 
 local function ownScale(container)
-	local scale = container.enlargeOwn and config.ownAuraScale
+	local key = container.ownScaleKey
+	local scale = key and config[key]
 	return scale and scale > 1 and scale or nil
 end
 
@@ -171,6 +181,7 @@ local function setEnchant(icon, enchant)
 		button:SetScript("OnClick", onEnchantClick)
 		button:SetScript("OnEnter", onEnchantEnter)
 		button:SetScript("OnLeave", onEnchantLeave)
+		button:EnableMouse(icon:GetParent().mouseEnabled)
 		icon.enchantButton = button
 	end
 	button:SetFrameLevel(icon:GetParent():GetFrameLevel() + ENCHANT_BUTTON_LEVEL)
@@ -209,6 +220,7 @@ local function createIcon(container, index)
 	icon.unit = container.unit
 	icon.filter = container.filter
 	icon.index = index
+	icon:EnableMouse(container.mouseEnabled)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
 
@@ -420,7 +432,7 @@ local function syncCatchers(container)
 	local byName = sorters[config.playerBuffSort] ~= nil
 	local lead = container.enchantLead or 0
 	local active = 0
-	if not UF.testing and container:IsVisible() and container:GetLeft() then
+	if not UF.testing and container.mouseEnabled and container:IsVisible() and container:GetLeft() then
 		active = min(container.limit, container.shown + (byName and 0 or SPARE_CANCEL_SLOTS))
 	end
 
@@ -571,6 +583,12 @@ local function showEnchant(icon, enchant)
 end
 
 local function updateContainer(container)
+	if container.limit == 0 then
+		if container.shown > 0 then
+			layoutContainer(container, 0)
+		end
+		return
+	end
 	local auras, count = Auras.Get(container.unit, container.filter)
 	local enchants, enchantCount, lead = nil, 0, 0
 	if container == enchantContainer then
@@ -646,9 +664,47 @@ local function testContainer(container, spells)
 end
 
 local function setLimit(container, limit)
-	container.limit = min(limit or MAX_AURAS, MAX_AURAS)
+	limit = min(limit or MAX_AURAS, MAX_AURAS)
+	if container.limit == limit then
+		return
+	end
+	container.limit = limit
+	if limit == 0 then
+		layoutContainer(container, 0)
+	elseif not UF.testing and container:IsVisible() then
+		updateContainer(container)
+	end
 	if container.cancellable then
 		queueCatchers(container)
+	end
+end
+
+local function clickThroughKey(unit)
+	local category = CLICK_THROUGH_UNITS[unit]
+	if not category then
+		for i = 1, #CLICK_THROUGH_PATTERNS do
+			local pattern = CLICK_THROUGH_PATTERNS[i]
+			if unit:find(pattern[1]) then
+				category = pattern[2]
+				break
+			end
+		end
+	end
+	return (category or unit) .. "AuraClickThrough"
+end
+
+local function applyMouse(container)
+	local enabled = not config[container.clickThroughKey]
+	if container.mouseEnabled == enabled then
+		return
+	end
+	container.mouseEnabled = enabled
+	for i = 1, #container do
+		local icon = container[i]
+		icon:EnableMouse(enabled)
+		if icon.enchantButton then
+			icon.enchantButton:EnableMouse(enabled)
+		end
 	end
 end
 
@@ -658,8 +714,13 @@ local function createContainer(frame, options, filter, isDebuff)
 	container.unit = unit
 	container.filter = filter
 	container.isDebuff = isDebuff
-	container.enlargeOwn = unit == "target" or unit == "focus"
+	container.clickThroughKey = clickThroughKey(frame.baseUnit or unit)
+	applyMouse(container)
+	if unit == "target" or unit == "focus" then
+		container.ownScaleKey = unit .. "OwnAuraScale"
+	end
 	container.shown = 0
+	container.limit = -1
 	container.SetLimit = setLimit
 	container.RowSize = rowSize
 	if unit == "player" and not isDebuff then
@@ -704,7 +765,22 @@ local function testDebuffs(frame)
 	testContainer(frame.debuffs, TEST_DEBUFFS)
 end
 
-UF:RegisterElement("debuffs", createDebuffs, updateDebuffs, testDebuffs)
+local function pollAuras(frame)
+	local debuffs, buffs = frame.debuffs, frame.buffs
+	local pollBuffs = buffs and buffs.limit > 0
+	if debuffs.limit == 0 and not pollBuffs then
+		return
+	end
+	Auras.Invalidate(frame.unit)
+	if debuffs.limit > 0 then
+		updateContainer(debuffs)
+	end
+	if pollBuffs then
+		updateContainer(buffs)
+	end
+end
+
+UF:RegisterElement("debuffs", createDebuffs, updateDebuffs, testDebuffs, pollAuras)
 
 local function queueAllCatchers()
 	for i = 1, #cancelContainers do
@@ -716,6 +792,7 @@ UF:WatchConfig("unitFrames", function()
 	timerMaxDuration = timerLimit()
 	for i = 1, #containers do
 		local container = containers[i]
+		applyMouse(container)
 		for j = 1, #container do
 			local icon = container[j]
 			icon.cooldown.timerMaxDuration = timerMaxDuration

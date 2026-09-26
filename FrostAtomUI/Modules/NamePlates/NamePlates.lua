@@ -8,6 +8,7 @@ local GetTime = GetTime
 local GetCurrentResolution, GetScreenResolutions = GetCurrentResolution, GetScreenResolutions
 local floor, huge, min, abs, exp = math.floor, math.huge, math.min, math.abs, math.exp
 local sort = table.sort
+local byte = string.byte
 
 local NamePlates = ns:NewModule("NamePlates")
 
@@ -42,7 +43,16 @@ local SPREAD_LOWER = 0.8
 local SPREAD_GAP = 2
 local SPREAD_FRAME_TIME = 1 / 60
 local SPREAD_MAX_STEPS = 3
+local HOSTILE_COLOR = { 0.69, 0.31, 0.31 }
+local NEUTRAL_COLOR = { 0.65, 0.63, 0.35 }
+local FRIENDLY_COLOR = { 0.33, 0.59, 0.33 }
 local FRIENDLY_PLAYER_COLOR = { 0.31, 0.45, 0.63 }
+local NAME_REACTION_COLORS = {
+	[HOSTILE_COLOR] = { 1, 0.35, 0.35 },
+	[NEUTRAL_COLOR] = { 1, 0.9, 0.3 },
+	[FRIENDLY_COLOR] = { 0.4, 1, 0.4 },
+	[FRIENDLY_PLAYER_COLOR] = { 0.5, 0.7, 1 },
+}
 local TOTEM_OUTLINE_SIZE = 2
 local TOTEM_OUTLINE_COLORS = { hostile = { 1, 0.15, 0.15 }, neutral = { 1, 0.85, 0.1 }, friendly = { 0.15, 1, 0.15 } }
 
@@ -55,10 +65,12 @@ CVars:Pin("ShowClassColorInNameplate", "1")
 local plates = {}
 local onPlateShow = {}
 local onPlateHide = {}
+local onPlateLayout = {}
 local rosterClasses = {}
 NamePlates.plates = plates
 NamePlates.onPlateShow = onPlateShow
 NamePlates.onPlateHide = onPlateHide
+NamePlates.onPlateLayout = onPlateLayout
 NamePlates.rosterClasses = rosterClasses
 NamePlates.BORDER_INSET = BORDER_INSET
 NamePlates.TEXT_INSET = TEXT_INSET
@@ -90,7 +102,7 @@ end
 function PlateMixin:ApplyBarColor(force)
 	local healthbar = self.healthbar
 	local r, g, b = self.barR, self.barG, self.barB
-	if config.healthColorMode == "health" then
+	if self.healthMode == "health" then
 		local _, max = healthbar:GetMinMaxValues()
 		r, g, b = ns.HealthColor(max > 0 and healthbar:GetValue() / max or 0)
 	end
@@ -108,32 +120,61 @@ function PlateMixin:UpdateColors(r, g, b)
 	self.rawR, self.rawG, self.rawB = r, g, b
 
 	local class = classKeys[colorKey(r, g, b)]
-	local reaction = "hostile"
-	if class and config.healthColorMode == "class" then
-		local barColor = classBarColors[class]
-		r, g, b = barColor[1], barColor[2], barColor[3]
-	elseif class or g + b == 0 then
-		r, g, b = 0.69, 0.31, 0.31
+	local reaction, isPlayer, reactionColor = "hostile", class ~= nil, nil
+	if class or g + b == 0 then
+		reactionColor = HOSTILE_COLOR
 	elseif r + b == 0 then
 		reaction = "friendly"
-		r, g, b = 0.33, 0.59, 0.33
+		reactionColor = FRIENDLY_COLOR
 	elseif r + g == 0 then
 		reaction = "friendly"
-		class = config.friendlyClassColors and rosterClasses[self.plateName]
-		local barColor = class and config.healthColorMode == "class" and classBarColors[class] or FRIENDLY_PLAYER_COLOR
-		r, g, b = barColor[1], barColor[2], barColor[3]
+		isPlayer = true
+		class = rosterClasses[self.plateName]
+		reactionColor = FRIENDLY_PLAYER_COLOR
 	elseif r + g > 1.99 and b == 0 then
 		reaction = "neutral"
-		r, g, b = 0.65, 0.63, 0.35
+		reactionColor = NEUTRAL_COLOR
+	end
+	local guid = self.guid
+	if not isPlayer and guid and byte(guid, 5) == 48 then
+		isPlayer = true
 	end
 	self.reaction = reaction
 	local outlineColor = TOTEM_OUTLINE_COLORS[reaction]
 	self.totem.outline:SetVertexColor(outlineColor[1], outlineColor[2], outlineColor[3])
 
+	local settings
+	if reaction == "friendly" then
+		settings = isPlayer and config.friendlyPlayer or config.friendlyNpc
+	else
+		settings = isPlayer and config.enemyPlayer or config.enemyNpc
+	end
+	if settings ~= self.settings then
+		self.settings = settings
+		self.layoutDirty = true
+	end
+
+	local mode = settings.healthColorMode
+	local barColor = reactionColor
+	if mode == "class" and class then
+		barColor = classBarColors[class]
+	elseif mode == "custom" then
+		barColor = settings.healthColor
+	end
+	if barColor then
+		r, g, b = barColor[1], barColor[2], barColor[3]
+	end
+	self.healthMode = mode
 	self.barR, self.barG, self.barB = r, g, b
 	self:ApplyBarColor(true)
 
-	local nameColor = class and classColors[class] or WHITE
+	local nameMode = settings.nameColorMode
+	local nameColor = WHITE
+	if nameMode == "class" and class then
+		nameColor = classColors[class]
+	elseif nameMode == "reaction" and reactionColor then
+		nameColor = NAME_REACTION_COLORS[reactionColor]
+	end
 	self.nameColor = nameColor
 	self:SetNameColor(nameColor[1], nameColor[2], nameColor[3])
 end
@@ -230,9 +271,9 @@ function PlateMixin:SetStackLevel(level)
 	end
 end
 
-local function setHealthText(text, value, max, isTarget)
+local function setHealthText(text, value, max, isTarget, shown)
 	local mode = config.healthTextFormat
-	if not (config.showTargetPercent and (isTarget or config.healthTextAll)) or max <= 0 then
+	if not (shown == "all" or isTarget and shown == "target") or max <= 0 then
 		if text.mode then
 			text.mode = nil
 			text:SetText("")
@@ -283,12 +324,19 @@ function PlateMixin:OnUpdate()
 	local r, g, b = healthbar:GetStatusBarColor()
 	if r ~= healthbar.r or g ~= healthbar.g or b ~= healthbar.b then
 		self:UpdateColors(r, g, b)
-	elseif config.healthColorMode == "health" then
+	elseif self.healthMode == "health" then
 		self:ApplyBarColor()
 	end
 
 	if self.totem:IsShown() then
 		return
+	end
+
+	if self.layoutDirty then
+		self:ApplyLayout()
+		for i = 1, #onPlateLayout do
+			onPlateLayout[i](self)
+		end
 	end
 
 	self:SnapHolder()
@@ -318,7 +366,7 @@ function PlateMixin:OnUpdate()
 	end
 
 	local _, max = healthbar:GetMinMaxValues()
-	setHealthText(healthbar.percent, healthbar:GetValue(), max, isTarget)
+	setHealthText(healthbar.percent, healthbar:GetValue(), max, isTarget, self.settings.healthText)
 end
 
 local function setIconShown(icon, shown)
@@ -328,6 +376,24 @@ local function setIconShown(icon, shown)
 	else
 		icon:Hide()
 		icon.border:Hide()
+	end
+end
+
+function PlateMixin:ApplyLayout()
+	self.layoutDirty = nil
+	local settings = self.settings
+	local holder = self.holder
+	holder:SetSize(snap(settings.width + BORDER_INSET * 2), snap(settings.height + BORDER_INSET * 2))
+	self.snapX = nil
+	self:SnapHolder()
+	ns.SetShown(self.name, settings.showName)
+	local castbar = self.castbar
+	if castbar:IsShown() then
+		if settings.showCastbar then
+			castbar:Layout()
+		else
+			castbar:Hide()
+		end
 	end
 end
 
@@ -356,9 +422,8 @@ function PlateMixin:OnShow()
 		self:RefreshColors()
 	else
 		local holder, healthbar = self.holder, self.healthbar
-		holder:SetSize(snap(config.barWidth + BORDER_INSET * 2), snap(config.barHeight + BORDER_INSET * 2))
-		self.snapX = nil
-		self:SnapHolder()
+		self:RefreshColors()
+		self:ApplyLayout()
 		local inset = snap(BORDER_INSET)
 		healthbar:ClearAllPoints()
 		healthbar:SetPoint("TOPLEFT", holder, inset, -inset)
@@ -366,16 +431,10 @@ function PlateMixin:OnShow()
 		self.raidicon:SetSize(config.raidIconSize, config.raidIconSize)
 		holder:Show()
 		healthbar:Show()
-		self:RefreshColors()
 
 		setIconShown(totem, false)
 		totem.outline:Hide()
 		self.name:SetText(name)
-		if config.showName then
-			self.name:Show()
-		else
-			self.name:Hide()
-		end
 		self.raidicon:SetAlpha(config.showRaidIcon and 1 or 0)
 	end
 	for i = 1, #onPlateShow do
@@ -392,12 +451,13 @@ end
 local CastbarMixin = {}
 
 function CastbarMixin:Layout()
-	local holder = self:GetParent().holder
+	local plate = self:GetParent()
+	local holder = plate.holder
 	local offset = config.castbarGap + BORDER_INSET
 	self:ClearAllPoints()
 	self:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", BORDER_INSET, -offset)
 	self:SetPoint("TOPRIGHT", holder, "BOTTOMRIGHT", -BORDER_INSET, -offset)
-	self:SetHeight(config.castbarHeight)
+	self:SetHeight(plate.settings.castbarHeight)
 	self.icon:SetSize(config.castbarIconSize, config.castbarIconSize)
 end
 
@@ -442,7 +502,7 @@ end
 
 function CastbarMixin:OnShow()
 	local plate = self:GetParent()
-	if plate.totem:IsShown() then
+	if plate.totem:IsShown() or not plate.settings.showCastbar then
 		self:Hide()
 		return
 	end
@@ -542,7 +602,7 @@ local function showCastResult(plate, texture, iconShown, locked, interruptText, 
 	local plateHolder = plate.holder
 	result:SetPoint("TOPLEFT", plateHolder, "BOTTOMLEFT", 0, -config.castbarGap)
 	result:SetPoint("TOPRIGHT", plateHolder, "BOTTOMRIGHT", 0, -config.castbarGap)
-	result:SetHeight(config.castbarHeight + BORDER_INSET * 2)
+	result:SetHeight(plate.settings.castbarHeight + BORDER_INSET * 2)
 
 	local icon = result.icon
 	icon:SetSize(config.castbarIconSize, config.castbarIconSize)
@@ -1013,17 +1073,18 @@ local function spreadPlates(elapsed)
 		spread[i] = nil
 	end
 
-	local xSpace = config.barWidth + BORDER_INSET * 2
-	local ySpace = config.barHeight + BORDER_INSET * 2 + SPREAD_GAP
 	local step = SPREAD_SPEED * min(elapsed / SPREAD_FRAME_TIME, SPREAD_MAX_STEPS)
 	for i = 1, count do
 		local plate = spread[i]
 		local x, y, pos = plate.spreadX, plate.spreadY, plate.spreadPos
+		local settings = plate.settings
+		local halfWidth = settings.width / 2 + BORDER_INSET
+		local ySpace = settings.height + BORDER_INSET * 2 + SPREAD_GAP
 		local minDist, reset = huge, true
 		for j = 1, count do
 			if i ~= j then
 				local other = spread[j]
-				if abs(x - other.spreadX) < xSpace then
+				if abs(x - other.spreadX) < halfWidth + other.settings.width / 2 + BORDER_INSET then
 					local otherTop = other.spreadY + other.spreadPos
 					local diff = y + pos - otherTop
 					if diff >= 0 and diff < minDist then
@@ -1138,9 +1199,16 @@ function NamePlates.RefreshAllColors()
 	end
 end
 
+local function onIdentity(plate)
+	if plate:IsShown() then
+		plate:RefreshColors()
+	end
+end
+
 function NamePlates:Initialize()
 	updatePixel()
 	updateTargetName()
+	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
 	self:RegisterEvent("DISPLAY_SIZE_CHANGED", function()
 		updatePixel()
 		applyStyle()

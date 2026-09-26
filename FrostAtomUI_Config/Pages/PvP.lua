@@ -39,6 +39,7 @@ ns.RegisterElement({
 			new = "1.4.0",
 			label = L["Background"],
 			type = "toggle",
+			advanced = true,
 			desc = L["Dark backdrop and red lines around the icon and text."],
 		},
 		{ header = L["Test"], glyph = "flask" },
@@ -77,6 +78,7 @@ ns.RegisterElement({
 			min = 0,
 			max = 20,
 			step = 1,
+			advanced = true,
 		},
 		{
 			path = "externalDefensives.maxIcons",
@@ -86,6 +88,7 @@ ns.RegisterElement({
 			min = 1,
 			max = 6,
 			step = 1,
+			advanced = true,
 			desc = L["Buffs past this count are not shown; the longest remaining come first."],
 		},
 		{ header = L["Test"], glyph = "flask" },
@@ -134,13 +137,23 @@ ns.RegisterElement({
 			min = 12,
 			max = 60,
 			step = 1,
+			advanced = true,
 			desc = L["Button size while waiting in the queue or ready to enter."],
+		},
+		{ header = L["Display"], glyph = "bars-staggered" },
+		{
+			path = "soloQueue.mouseover",
+			new = "1.4.0",
+			label = L["Show on mouseover"],
+			type = "toggle",
+			desc = L["Hide the button until the cursor is over it. It stays visible in the queue, after the arena match ends and once an ally dies or leaves."],
 		},
 		{ header = L["Text"], glyph = "font" },
 		{
 			path = "soloQueue.rangeFont",
 			label = L["Search range font"],
 			type = "font",
+			advanced = true,
 			desc = L["Rating range shown under the button while searching."],
 		},
 		{ header = L["Colors"], glyph = "palette" },
@@ -192,6 +205,7 @@ Section(schema, L["Loss of control"], "lossOfControl", {
 		path = "lockouts",
 		label = L["Spell school lockouts"],
 		type = "toggle",
+		advanced = true,
 		desc = L["Also show the locked spell school and the time left when an enemy interrupts your cast."],
 	},
 	{
@@ -232,8 +246,9 @@ local function sound(path, label, enabledBy)
 		label = label,
 		type = "select",
 		values = SOUND_VALUES,
+		preview = "sound",
+		advanced = true,
 		enabledBy = enabledBy,
-		desc = L["Plays once when selected."],
 	}
 end
 
@@ -248,11 +263,14 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 	},
 	{
 		path = "throttle",
-		label = L["Minimum interval (seconds)"],
+		label = L["Minimum interval"],
 		type = "number",
 		min = 0,
 		max = 5,
 		step = 0.1,
+		unit = "s",
+		zeroText = L["Off"],
+		advanced = true,
 		desc = L["Shared by all alerts: no sound plays sooner than this after the previous one."],
 	},
 	{
@@ -265,6 +283,7 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		path = "targetedArenaOnly",
 		label = L["Only in arena"],
 		type = "toggle",
+		advanced = true,
 		enabledBy = "soundAlerts.targeted",
 		desc = L["Stay silent when targeted outside arenas."],
 	},
@@ -272,6 +291,7 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		path = "targetedText",
 		label = L["Show the enemy's name"],
 		type = "toggle",
+		advanced = true,
 		enabledBy = "soundAlerts.targeted",
 		desc = L['Class colored "Targeted by" message in the error text area at the top of the screen.'],
 	},
@@ -289,6 +309,7 @@ Section(schema, L["Interrupt sounds"], "soundAlerts", {
 		path = "interruptibleFocus",
 		label = L["Also on focus"],
 		type = "toggle",
+		advanced = true,
 		enabledBy = "soundAlerts.interruptible",
 		desc = L["Also alert on interruptible casts of a hostile focus."],
 	},
@@ -316,6 +337,9 @@ Section(schema, L["Dispel sounds"], "soundAlerts", {
 		min = 0,
 		max = 30,
 		step = 1,
+		unit = "s",
+		zeroText = L["Off"],
+		advanced = true,
 		enabledBy = "soundAlerts.dispellable",
 		desc = L["Shorter debuffs are ignored."],
 	},
@@ -335,7 +359,13 @@ Section(schema, L["Queue invite"], "queueInvite", {
 		type = "toggle",
 		desc = L["Seconds left to enter, shown above the invite dialog."],
 	},
-	{ path = "font", label = L["Countdown font"], type = "font", enabledBy = "queueInvite.countdown" },
+	{
+		path = "font",
+		label = L["Countdown font"],
+		type = "font",
+		advanced = true,
+		enabledBy = "queueInvite.countdown",
+	},
 	{
 		path = "sound",
 		label = L["Invite sound"],
@@ -359,6 +389,7 @@ Section(schema, L["Queue pop flash"], "queuePopFlash", {
 		max = 1,
 		step = 0.05,
 		percent = true,
+		advanced = true,
 		desc = L["Peak opacity of the flash; it ramps up to this over the first 15 seconds."],
 	},
 	{
@@ -371,7 +402,7 @@ Section(schema, L["Queue pop flash"], "queuePopFlash", {
 		advanced = true,
 		desc = L["Flashes per second."],
 	},
-	{ path = "color", label = L["Flash color"], type = "color" },
+	{ path = "color", label = L["Flash color"], type = "color", advanced = true },
 }, nil, nil, "bolt")
 
 Section(schema, L["Solo queue"], "soloQueue", {
@@ -414,12 +445,14 @@ Section(schema, L["Death recap"], "deathRecap", {
 		min = 1,
 		max = 10,
 		step = 1,
+		advanced = true,
 		desc = L["Last hits from the final 10 seconds kept in the recap."],
 	},
 	{
 		path = "chatLink",
 		label = L["Chat link on death"],
 		type = "toggle",
+		advanced = true,
 		desc = L["Print a clickable link to the recap when you die."],
 	},
 	{
@@ -433,6 +466,7 @@ Section(schema, L["Death recap"], "deathRecap", {
 		path = "autoOpen",
 		label = L["Open in arenas and battlegrounds"],
 		type = "toggle",
+		advanced = true,
 		desc = L["Show the recap window right away when you die in PvP."],
 	},
 	{

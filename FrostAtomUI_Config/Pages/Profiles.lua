@@ -153,13 +153,20 @@ local schema = {
 	},
 	{
 		label = L["New profile"],
-		type = "string",
+		type = "input",
+		text = L["Create"],
+		glyph = "plus",
 		width = 160,
 		maxLetters = 32,
-		get = function()
-			return ""
+		func = switchProfile,
+		validate = function(name)
+			for _, existing in ipairs(ui:GetProfileNames()) do
+				if existing == name then
+					return false, L["A profile with this name already exists."]
+				end
+			end
+			return true
 		end,
-		set = switchProfile,
 		desc = L["Type a name and press Enter to create an empty profile and switch to it."],
 	},
 	{
@@ -176,32 +183,31 @@ local schema = {
 		desc = L["Profile a character starts with when it has none assigned yet, including characters whose profile was deleted."],
 	},
 	{
-		label = L["Copy from"],
-		type = "select",
+		label = L["Other profiles"],
+		type = "choice",
 		placeholder = L["Select profile..."],
 		values = otherProfileOptions,
-		get = function() end,
-		set = function(name)
-			ns.Confirm(L["Overwrite the active profile with settings from %q?"]:format(name), function()
-				ui:CopyProfile(name)
-			end)
-		end,
 		disabled = noOtherProfiles,
-		desc = L["Replace all settings of the active profile with a copy of another one."],
-	},
-	{
-		label = L["Delete profile"],
-		type = "select",
-		placeholder = L["Select profile..."],
-		values = otherProfileOptions,
-		get = function() end,
-		set = function(name)
-			ns.Confirm(L["Delete profile %q? Characters using it fall back to Default."]:format(name), function()
-				ui:DeleteProfile(name)
-			end)
-		end,
-		disabled = noOtherProfiles,
-		desc = L["The active profile cannot be deleted."],
+		actions = {
+			{
+				text = L["Copy from"],
+				glyph = "copy",
+				desc = L["Replace all settings of the active profile with a copy of another one."],
+				confirm = L["Overwrite the active profile with settings from %q?"],
+				func = function(name)
+					ui:CopyProfile(name)
+				end,
+			},
+			{
+				text = L["Delete profile"],
+				glyph = "trash-can",
+				confirm = L["Delete profile %q? Characters using it fall back to Default."],
+				func = function(name)
+					ui:DeleteProfile(name)
+				end,
+			},
+		},
+		desc = L["Pick another profile, then copy its settings into the active profile or delete it. The active profile cannot be deleted."],
 	},
 	{
 		label = L["Reset profile"],

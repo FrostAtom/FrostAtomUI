@@ -1120,10 +1120,6 @@ function Movers.ResetPositions()
 	for i = 1, #paths do
 		ns:ResetConfig(paths[i])
 	end
-	local compact = Movers.IsCompactScreen() and ns.LayoutPresets[1].compact
-	for path, value in pairs(compact and compact.points or {}) do
-		ns:SetConfig(path, value)
-	end
 end
 
 StaticPopupDialogs.FROSTATOMUI_RESET_POSITIONS = {
@@ -1372,11 +1368,7 @@ local function presetLayout(preset)
 end
 
 local function presetMatches(preset)
-	if matchesLayout(preset.points, preset.settings) then
-		return true
-	end
-	local points, settings = compactLayout(preset)
-	return points ~= nil and matchesLayout(points, settings)
+	return matchesLayout(presetLayout(preset))
 end
 
 function Movers.GetPresets()

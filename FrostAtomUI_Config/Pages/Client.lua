@@ -40,6 +40,7 @@ Section(schema, L["Camera"], "tweaks", {
 	},
 	{
 		path = "cameraZoomSpeed",
+		advanced = true,
 		new = NEW,
 		label = L["Zoom speed"],
 		type = "number",
@@ -50,6 +51,7 @@ Section(schema, L["Camera"], "tweaks", {
 	},
 	{
 		path = "cameraYawSpeed",
+		advanced = true,
 		new = NEW,
 		label = L["Mouse look speed: horizontal"],
 		type = "number",
@@ -60,6 +62,7 @@ Section(schema, L["Camera"], "tweaks", {
 	},
 	{
 		path = "cameraPitchSpeed",
+		advanced = true,
 		new = NEW,
 		label = L["Mouse look speed: vertical"],
 		type = "number",
@@ -85,16 +88,19 @@ Section(schema, L["Camera"], "tweaks", {
 	},
 	{
 		path = "cameraFollowTime",
+		advanced = true,
 		new = NEW,
 		label = L["Camera following time"],
 		type = "number",
 		min = 0.1,
 		max = 2,
 		step = 0.1,
-		desc = L["Longest time in seconds the camera takes to turn behind the character. Game default: 2."],
+		unit = "s",
+		desc = L["Longest time the camera takes to turn behind the character. Game default: 2 s."],
 	},
 	{
 		path = "keepCameraPitch",
+		advanced = true,
 		new = NEW,
 		label = L["Keep camera pitch"],
 		type = "toggle",
@@ -102,6 +108,7 @@ Section(schema, L["Camera"], "tweaks", {
 	},
 	{
 		path = "instantCameraHeight",
+		advanced = true,
 		new = NEW,
 		label = L["Instant camera height"],
 		type = "toggle",
@@ -155,11 +162,15 @@ Section(schema, L["Controls"], "tweaks", {
 		label = L["Mouse speed"],
 		type = "select",
 		values = {
-			{ "", L["Game setting"] },
-			{ "windows", L["Same as Windows"] },
-			{ "custom", L["Custom"] },
+			{ "", L["Game setting"], L["The speed from the game's mouse options."] },
+			{
+				"windows",
+				L["Same as Windows"],
+				L["Keeps the pointer speed you set in Windows exactly; the game's own slider rounds some values down a step."],
+			},
+			{ "custom", L["Custom"], L["The speed set below."] },
 		},
-		desc = L["The game sets the Windows pointer speed while its window is active and puts the Windows one back on Alt+Tab and exit. Same as Windows keeps the pointer speed you set in Windows, exactly: the game's own slider rounds some values down a step."],
+		desc = L["The game sets the Windows pointer speed while its window is active and puts the Windows one back on Alt+Tab and exit."],
 	},
 	{
 		path = "mouseSpeed",
@@ -204,6 +215,7 @@ Section(schema, L["Graphics"], "tweaks", {
 	},
 	{
 		path = "hideInvisibilityEffect",
+		advanced = true,
 		new = NEW,
 		label = L["Hide invisibility haze"],
 		type = "toggle",
@@ -218,7 +230,8 @@ Section(schema, L["Graphics"], "tweaks", {
 		max = 1,
 		step = 0.05,
 		percent = true,
-		desc = L["Lights players and creatures up in dark zones and arenas. 0 keeps the zone lighting."],
+		zeroText = L["Off"],
+		desc = L["Lights players and creatures up in dark zones and arenas. Off keeps the zone lighting."],
 	},
 	{
 		path = "hideSunGlare",
@@ -234,6 +247,7 @@ Section(schema, L["Graphics"], "tweaks", {
 	},
 	{
 		path = "hideSelectionCircle",
+		advanced = true,
 		new = NEW,
 		label = L["Hide target selection circle"],
 		type = "toggle",
@@ -241,6 +255,7 @@ Section(schema, L["Graphics"], "tweaks", {
 	},
 	{
 		path = "hideUnitHighlight",
+		advanced = true,
 		new = NEW,
 		label = L["Hide model highlight"],
 		type = "toggle",
@@ -255,6 +270,7 @@ Section(schema, L["Graphics"], "tweaks", {
 	},
 	{
 		path = "fullViewDistance",
+		advanced = true,
 		new = NEW,
 		label = L["Full view distance on old maps"],
 		type = "toggle",
@@ -271,38 +287,44 @@ Section(schema, L["Performance"], "tweaks", {
 		min = 0,
 		max = 300,
 		step = 5,
-		desc = L["0 removes the limit. The cap is rounded to whole milliseconds per frame, so 144 gives about 152. Game default: 200."],
+		zeroText = L["Off"],
+		desc = L["The cap is rounded to whole milliseconds per frame, so 144 gives about 152. Game default: 200."],
 	},
 	{
 		path = "maxFPSBackground",
+		advanced = true,
 		new = NEW,
 		label = L["Max FPS in background"],
 		type = "number",
 		min = 0,
 		max = 300,
 		step = 5,
-		desc = L["Limit while the game window is not focused. 0 removes the limit. Game default: 30."],
+		zeroText = L["Off"],
+		desc = L["Limit while the game window is not focused. Game default: 30."],
 	},
 	{
 		path = "assetLoadTime",
+		advanced = true,
 		new = NEW,
 		label = L["Model loading time per frame"],
 		type = "number",
 		min = 20,
 		max = 250,
 		step = 5,
+		unit = "ms",
 		desc = L["Milliseconds per frame the game spends on freshly loaded models and textures. 20 - 30 avoids freezes when players appear at the start of an arena or battleground. Needs a game restart. Game default: 100."],
 	},
 	{
 		path = "timingMethod",
+		advanced = true,
 		label = L["Clock source"],
 		type = "select",
 		values = {
 			{ "", L["Game setting"] },
-			{ "2", L["High precision"] },
-			{ "1", L["System"] },
+			{ "2", L["High precision"], L["Can fix stutter and uneven movement on some processors."] },
+			{ "1", L["System"], L["The fallback when high precision makes things worse."] },
 		},
-		desc = L["Clock the game runs on. High precision can fix stutter and uneven movement on some processors, System is the fallback when it makes things worse. Needs a game restart."],
+		desc = L["Clock the game runs on. Needs a game restart."],
 	},
 }, nil, NEW, "gauge-high")
 
@@ -316,6 +338,7 @@ Section(schema, L["Sound"], "tweaks", {
 	},
 	{
 		path = "soundAtHead",
+		advanced = true,
 		label = L["Hear from your character's head"],
 		type = "toggle",
 		desc = L["The game places your ears 2 yards behind and 4 above your character. This puts them in the head, so footsteps and casts around you come from a more exact direction. Only with the Sound at Character audio option on."],

@@ -121,11 +121,20 @@ ns.RegisterElement({
 				step = 1,
 				desc = L["Icons per row; further icons continue on the next row."],
 			}),
-			entry({ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 20, step = 1 }),
+			entry({
+				path = "spacing",
+				label = L["Spacing"],
+				type = "number",
+				min = 0,
+				max = 20,
+				step = 1,
+				advanced = true,
+			}),
 			entry({
 				path = "collapse",
 				label = L["Collapse hidden icons"],
 				type = "toggle",
+				advanced = true,
 				desc = L["Shift visible icons into the gaps of hidden ones."],
 			}),
 			{ header = L["Text"], glyph = "font" },
@@ -135,7 +144,7 @@ ns.RegisterElement({
 				type = "toggle",
 				desc = L["Time left as a number on the icons."],
 			}),
-			{ header = L["Visibility"], glyph = "eye" },
+			{ header = L["Visibility"], glyph = "eye", advanced = true },
 			entry({
 				path = "inactiveAlpha",
 				label = L["Inactive alpha"],
@@ -433,6 +442,20 @@ local function iconRow(groupIndex, index)
 	}
 end
 
+local function validateSpells(text)
+	local unknown = {}
+	for token in text:gmatch("[^;,\n]+") do
+		local id = tonumber(strtrim(token))
+		if id and not GetSpellInfo(id) then
+			unknown[#unknown + 1] = id
+		end
+	end
+	if #unknown > 0 then
+		return true, L["Unknown spell ID: %s"]:format(table.concat(unknown, ", "))
+	end
+	return true
+end
+
 local function buildIconEntries(schema, groupIndex, iconIndex, icon)
 	local kind = icon.type
 	local showValues = {}
@@ -467,8 +490,9 @@ local function buildIconEntries(schema, groupIndex, iconIndex, icon)
 			path = "spells",
 			label = kind == "item" and L["Items"] or L["Spells"],
 			type = "string",
-			width = 260,
+			width = 240,
 			maxLetters = 255,
+			validate = kind ~= "item" and validateSpells or nil,
 			desc = SPELLS_DESC[kind],
 		})
 	else
@@ -498,30 +522,37 @@ local function buildIconEntries(schema, groupIndex, iconIndex, icon)
 			min = 0,
 			max = 20,
 			step = 1,
-			desc = L["Treat the aura as absent below this many stacks; 0 ignores stacks."],
+			zeroText = L["Off"],
+			advanced = true,
+			desc = L["Treat the aura as absent below this many stacks."],
 		})
 	elseif kind == "cooldown" then
 		entry({
 			path = "range",
 			label = L["Range check"],
 			type = "toggle",
+			advanced = true,
 			desc = L["Tint the icon red while your target is out of range."],
 		})
 		entry({
 			path = "usable",
 			label = L["Power check"],
 			type = "toggle",
+			advanced = true,
 			desc = L["Tint the icon blue while you lack the power to cast it."],
 		})
 	elseif kind == "icd" then
 		entry({
 			path = "duration",
-			label = L["Cooldown (seconds)"],
+			label = L["Internal cooldown"],
 			type = "number",
 			min = 0,
 			max = 180,
 			step = 1,
-			desc = L["0 takes the cooldown from the built-in list of trinket, enchant and talent procs (45 if the proc is unknown)."],
+			unit = "s",
+			zeroText = L["Auto"],
+			advanced = true,
+			desc = L["Auto takes the cooldown from the built-in list of trinket, enchant and talent procs (45 s if the proc is unknown)."],
 		})
 	end
 end
@@ -581,24 +612,11 @@ local function buildSchema()
 			desc = L["Load the group only for this class."],
 		},
 		{
-			label = L["Layout"],
-			type = "execute",
-			text = L["Edit"],
-			glyph = "up-down-left-right",
-			desc = L["Position, icon size, spacing and timer of the group, edited on screen."],
-			disabled = function()
-				return not groupLoaded(groupIndex)
-			end,
-			disabledDesc = L["The group is not loaded for your class."],
-			func = function()
-				ns.EditElement(groupPath(groupIndex) .. ".point")
-			end,
-		},
-		{
 			path = "combat",
 			label = L["Visible"],
 			type = "select",
 			values = ns.COMBAT_VISIBILITY_VALUES,
+			advanced = true,
 		},
 		{
 			path = "zone",
@@ -610,6 +628,7 @@ local function buildSchema()
 				{ "pvp", L["Arena or battleground"] },
 				{ "world", L["Outside instances"] },
 			},
+			advanced = true,
 			desc = L["Show the group only in these places."],
 		},
 		{
@@ -617,9 +636,20 @@ local function buildSchema()
 			label = L["Talent spec"],
 			type = "select",
 			values = { { 0, L["Both"] }, { 1, L["Primary"] }, { 2, L["Secondary"] } },
+			advanced = true,
 			desc = L["Show the group only while this talent spec is active."],
 		},
 	}, nil, nil, "sliders")
+
+	local layout = ns.InlineElement(groupPath(groupIndex) .. ".point", L["Layout"])
+	layout[1].glyph = "up-down-left-right"
+	layout[1].disabled = function()
+		return not groupLoaded(groupIndex)
+	end
+	layout[1].disabledDesc = L["The group is not loaded for your class."]
+	for _, entry in ipairs(layout) do
+		schema[#schema + 1] = entry
+	end
 
 	schema[#schema + 1] = { header = L["Icons"], glyph = "icons" }
 	for iconIndex in ipairs(group.icons or {}) do

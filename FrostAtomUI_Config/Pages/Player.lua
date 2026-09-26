@@ -8,9 +8,9 @@ local ElementSchema = ns.ElementSchema
 local NotClass = ns.NotClass
 
 local HEALTH_COLOR_VALUES = {
-	{ "class", L["Class color"] },
-	{ "health", L["Health percent"] },
-	{ "custom", L["Fixed color"] },
+	{ "class", L["Class color"], L["Your class color."] },
+	{ "health", L["Health percent"], L["A color mixed from the current health percent."] },
+	{ "custom", L["Fixed color"], L["The health color below."] },
 }
 
 local HEALTH_TEXT_VALUES = {
@@ -38,12 +38,15 @@ Section(schema, L["Player plate"], "playerPlate", {
 	},
 	{
 		path = "fadeTime",
+		advanced = true,
 		label = L["Fade out time"],
 		type = "number",
 		min = 0,
 		max = 3,
 		step = 0.1,
-		desc = L["Seconds to fade out after leaving combat at full health. 0 hides instantly."],
+		unit = "s",
+		zeroText = L["Instant"],
+		desc = L["Time to fade out after leaving combat at full health."],
 		disabled = function()
 			return ui:GetConfig("playerPlate.alwaysShow")
 		end,
@@ -77,7 +80,14 @@ Section(schema, L["Totems"], "totems", {
 		type = "toggle",
 		desc = L["Totem icons with timers, right-click to destroy."],
 	},
+	ns.ClickThrough("clickThrough"),
 }, NotClass("SHAMAN"), nil, "monument")
+
+local enchantClickThrough = ns.ClickThrough("clickThrough")
+enchantClickThrough.disabled = function()
+	return ui:GetConfig("temporaryEnchant.showInAuras") and ui:GetConfig("unitFrames.enabled")
+end
+enchantClickThrough.disabledDesc = L["In the player buffs the enchants follow the click-through of the player buffs."]
 
 Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 	{
@@ -95,6 +105,7 @@ Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 		desc = L["Show the enchants in the player buff list like buffs, in front of all other buffs, instead of separate icons. Needs the unit frames."],
 		enabledBy = "unitFrames.enabled",
 	},
+	enchantClickThrough,
 }, nil, nil, "wand-sparkles")
 
 ns.RegisterPage({
@@ -126,6 +137,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "powerHeight",
+			advanced = true,
 			label = L["Power bar height"],
 			type = "number",
 			min = 2,
@@ -146,6 +158,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "druidMana",
+			advanced = true,
 			new = "1.4.1",
 			label = L["Mana in shapeshift forms"],
 			type = "toggle",
@@ -175,23 +188,24 @@ ns.RegisterElement({
 		},
 		{
 			path = "healthText",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Health text"],
 			type = "select",
 			values = HEALTH_TEXT_VALUES,
 			enabledBy = "playerPlate.showText",
 		},
-		{ path = "font", label = L["Font"], type = "font", enabledBy = "playerPlate.showText" },
+		{ path = "font", advanced = true, label = L["Font"], type = "font", enabledBy = "playerPlate.showText" },
 		{ header = L["Colors"], glyph = "palette" },
 		{
 			path = "healthColorMode",
 			label = L["Health bar color"],
 			type = "select",
 			values = HEALTH_COLOR_VALUES,
-			desc = L["Your class color, a color mixed from the current health percent, or a fixed color."],
 		},
 		{
 			path = "healthColor",
+			advanced = true,
 			label = L["Health color"],
 			type = "color",
 			desc = L["Used with the fixed color mode."],
@@ -226,8 +240,8 @@ ns.RegisterElement({
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "width", label = L["Rune width"], type = "number", min = 10, max = 100, step = 1 },
 		{ path = "height", label = L["Rune height"], type = "number", min = 4, max = 40, step = 1 },
-		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
-		{ header = L["Colors"], glyph = "palette" },
+		{ path = "gap", advanced = true, label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+		{ header = L["Colors"], glyph = "palette", advanced = true },
 		{ path = "bloodColor", label = L["Blood"], type = "color" },
 		{ path = "unholyColor", label = L["Unholy"], type = "color" },
 		{ path = "frostColor", label = L["Frost"], type = "color" },
@@ -246,8 +260,8 @@ ns.RegisterElement({
 	schema = ElementSchema("totems", {
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
-		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
-		{ header = L["Text"], glyph = "font" },
+		{ path = "gap", advanced = true, label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+		{ header = L["Text"], glyph = "font", advanced = true },
 		{ path = "timerFont", label = L["Timer font"], type = "font", desc = L["Remaining totem time on the icons."] },
 	}),
 })
@@ -264,7 +278,7 @@ ns.RegisterElement({
 	schema = ElementSchema("temporaryEnchant", {
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
-		{ path = "gap", label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
+		{ path = "gap", advanced = true, label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
 		{ header = L["Text"], glyph = "font" },
 		{
 			path = "showTimer",
@@ -275,6 +289,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "timerFont",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Timer font"],
 			type = "font",

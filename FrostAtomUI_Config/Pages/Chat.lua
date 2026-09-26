@@ -5,6 +5,23 @@ local L = FrostAtomUI.L
 local Section = ns.Section
 local NotClass = ns.NotClass
 
+local MAX_MESSAGE_ARGUMENTS = 2
+
+local function validateInterruptMessage(text)
+	local count = 0
+	for spec in text:gmatch("%%(.?)") do
+		if spec == "s" then
+			count = count + 1
+		elseif spec ~= "%" then
+			return false, L["Only %s placeholders are allowed; write %% for a percent sign."]
+		end
+	end
+	if count > MAX_MESSAGE_ARGUMENTS then
+		return false, L["At most two %s placeholders: the target and the spell."]
+	end
+	return true
+end
+
 local function skinEntry()
 	return {
 		path = "chat.skin",
@@ -47,6 +64,7 @@ local schema = {
 	},
 	{
 		path = "chat.timestampFormat",
+		advanced = true,
 		label = L["Timestamp format"],
 		type = "select",
 		width = 200,
@@ -60,6 +78,7 @@ local schema = {
 	},
 	{
 		path = "chat.timestampColor",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Timestamp color"],
 		type = "color",
@@ -80,6 +99,7 @@ local schema = {
 	},
 	{
 		path = "chat.stripRealm",
+		advanced = true,
 		label = L["Hide realm in names"],
 		type = "toggle",
 		desc = L["Show cross-realm players without the -Realm suffix."],
@@ -87,12 +107,14 @@ local schema = {
 	{ path = "chat.urlLinks", label = L["Clickable URLs"], type = "toggle", desc = L["Click a link to copy it."] },
 	{
 		path = "chat.stickyChannels",
+		advanced = true,
 		label = L["Sticky channels"],
 		type = "toggle",
 		desc = L["The edit box keeps the last used channel (whisper, party, guild, ...) for the next message."],
 	},
 	{
 		path = "chat.whisperSoundThrottle",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Limit whisper sound per sender"],
 		type = "toggle",
@@ -100,14 +122,17 @@ local schema = {
 	},
 	{
 		path = "chat.whisperSoundInterval",
+		advanced = true,
 		new = "1.4.0",
-		label = L["Whisper sound interval (seconds)"],
+		label = L["Whisper sound interval"],
 		type = "number",
 		min = 0,
 		max = 600,
 		step = 10,
+		unit = "s",
+		zeroText = L["Off"],
 		enabledBy = "chat.whisperSoundThrottle",
-		desc = L["0 plays the sound for every whisper."],
+		desc = L["Off plays the sound for every whisper."],
 	},
 	{ header = L["Filters"], glyph = "filter" },
 	{
@@ -125,6 +150,7 @@ local schema = {
 	},
 	{
 		path = "chat.filterAutoReplies",
+		advanced = true,
 		new = "1.4.1",
 		label = L["Filter repeated AFK / DND replies"],
 		type = "toggle",
@@ -132,6 +158,7 @@ local schema = {
 	},
 	{
 		path = "chat.batchBattlegroundJoins",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Group battleground join / leave messages"],
 		type = "toggle",
@@ -140,6 +167,7 @@ local schema = {
 	{ header = L["History"], glyph = "clock-rotate-left" },
 	{
 		path = "chat.maxLines",
+		advanced = true,
 		label = L["Lines kept per frame"],
 		type = "number",
 		min = 100,
@@ -155,16 +183,19 @@ local schema = {
 		min = 0,
 		max = 500,
 		step = 10,
-		desc = L["Lines of the main chat frame shown again after login or reload. 0 disables."],
+		zeroText = L["Off"],
+		desc = L["Lines of the main chat frame shown again after login or reload."],
 	},
 	{
 		path = "chat.savedCommands",
+		advanced = true,
 		label = L["Remembered commands"],
 		type = "number",
 		min = 0,
 		max = 100,
 		step = 5,
-		desc = L["Edit box up / down arrow history kept between sessions. 0 disables."],
+		zeroText = L["Off"],
+		desc = L["Edit box up / down arrow history kept between sessions."],
 	},
 	{
 		path = "chat.copyWindowWidth",
@@ -206,9 +237,10 @@ local schema = {
 		advanced = true,
 		desc = L["Space between the text and the bubble edge."],
 	},
-	{ path = "chat.bubbleFont", label = L["Font"], type = "font" },
+	{ path = "chat.bubbleFont", label = L["Font"], type = "font", advanced = true },
 	{
 		path = "chat.bubbleAlpha",
+		advanced = true,
 		label = L["Background alpha"],
 		type = "number",
 		min = 0,
@@ -241,12 +273,13 @@ Section(schema, L["Whisper block"], "chat.whisperBlock", {
 		path = "reply",
 		label = L["Auto reply"],
 		type = "string",
-		width = 260,
+		width = 240,
 		maxLetters = 120,
 		desc = L["Sent once to each blocked sender. Empty for no reply. Set with /nodm <message>."],
 	},
 	{
 		path = "friendsBypass",
+		advanced = true,
 		label = L["Let friends through"],
 		type = "toggle",
 		desc = L["Whispers from your friends list are never blocked."],
@@ -263,11 +296,13 @@ Section(schema, L["Announcements"], "announce", {
 	},
 	{
 		path = "interruptMessage",
+		advanced = true,
 		label = L["Interrupt message"],
 		type = "string",
-		width = 260,
+		width = 240,
 		maxLetters = 80,
 		enabledBy = "announce.interrupts",
+		validate = validateInterruptMessage,
 		desc = L["First %s is the target, second %s is the interrupted spell."],
 	},
 	{
@@ -278,6 +313,7 @@ Section(schema, L["Announcements"], "announce", {
 	},
 	{
 		path = "arenaResultToParty",
+		advanced = true,
 		label = L["Send summary to party"],
 		type = "toggle",
 		enabledBy = "announce.arenaResult",
@@ -292,9 +328,10 @@ Section(schema, L["Announcements"], "announce", {
 	},
 	{
 		path = "auraMasteryMessage",
+		advanced = true,
 		label = L["Aura Mastery message"],
 		type = "string",
-		width = 260,
+		width = 240,
 		maxLetters = 80,
 		hidden = NotClass("PALADIN"),
 		enabledBy = "announce.auraMastery",
@@ -327,6 +364,7 @@ local chatFrame = {
 	skinEntry(),
 	{
 		path = "chat.backgroundAlpha",
+		advanced = true,
 		label = L["Background alpha"],
 		type = "number",
 		min = 0,
@@ -338,6 +376,7 @@ local chatFrame = {
 	},
 	{
 		path = "chat.scrollToBottomButton",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Jump to bottom button"],
 		type = "toggle",
@@ -346,6 +385,7 @@ local chatFrame = {
 	},
 	{
 		path = "chat.editBoxPosition",
+		advanced = true,
 		new = "1.4.1",
 		label = L["Edit box position"],
 		type = "select",
@@ -365,11 +405,13 @@ local chatFrame = {
 	},
 	{
 		path = "chat.fadeTime",
+		advanced = true,
 		label = L["Fade delay"],
 		type = "number",
 		min = 5,
 		max = 600,
 		step = 5,
+		unit = "s",
 		desc = L["Lines fade out after this many seconds of inactivity."],
 		enabledBy = "chat.fadeMessages",
 	},
@@ -381,6 +423,7 @@ local chatFrame = {
 	},
 	{
 		path = "chat.fadeAlpha",
+		advanced = true,
 		label = L["Faded alpha"],
 		type = "number",
 		min = 0,

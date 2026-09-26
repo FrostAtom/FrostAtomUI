@@ -33,7 +33,10 @@ local function onCombatLogEvent(_, _, event, sourceGUID, _, _, _, destName, _, _
 
 	local channel = groupChannel()
 	if channel then
-		SendChatMessage(ns.Config.announce.interruptMessage:format(destName or "?", extraSpellName or "?"), channel)
+		local ok, message = pcall(format, ns.Config.announce.interruptMessage, destName or "?", extraSpellName or "?")
+		if ok then
+			SendChatMessage(message, channel)
+		end
 	end
 end
 

@@ -4,7 +4,11 @@ local L = FrostAtomUI.L
 
 local FRAME_ANCHOR_VALUES = {
 	{ "default", L["Same as other tooltips"] },
-	{ "owner", L["Next to the frame"] },
+	{
+		"owner",
+		L["Next to the frame"],
+		L["The tooltip sits beside the hovered frame, on the side facing the screen center."],
+	},
 }
 
 local HEALTH_BAR_VALUES = {
@@ -48,33 +52,23 @@ ns.RegisterElement({
 		},
 		{
 			path = "tooltip.cursorOffsetX",
+			pathY = "tooltip.cursorOffsetY",
+			advanced = true,
 			new = "1.4.0",
-			label = L["X offset"],
-			type = "number",
+			label = L["Cursor offset"],
+			type = "offset",
 			min = -100,
 			max = 100,
-			step = 1,
-			enabledBy = "tooltip.anchorCursor",
-			desc = L["Distance from the cursor."],
-		},
-		{
-			path = "tooltip.cursorOffsetY",
-			new = "1.4.0",
-			label = L["Y offset"],
-			type = "number",
-			min = -100,
-			max = 100,
-			step = 1,
 			enabledBy = "tooltip.anchorCursor",
 			desc = L["Distance from the cursor."],
 		},
 		{
 			path = "tooltip.frameAnchor",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Anchor on unit frames and buttons"],
 			type = "select",
 			values = FRAME_ANCHOR_VALUES,
-			desc = L["Next to the frame puts the tooltip beside the hovered frame, on the side facing the screen center."],
 		},
 	},
 })
@@ -104,6 +98,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.hideInCombatWorld",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Hide world unit tooltips in combat"],
 			type = "toggle",
@@ -127,6 +122,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.backdropColor",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Background"],
 			type = "color",
@@ -135,6 +131,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.borderColor",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Border"],
 			type = "color",
@@ -143,6 +140,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.reactionBackground",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Tint background by reaction"],
 			type = "toggle",
@@ -151,6 +149,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.gradient",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Top highlight"],
 			type = "toggle",
@@ -170,6 +169,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.sideIcon",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Icon beside the tooltip"],
 			type = "toggle",
@@ -188,6 +188,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showHealthText",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Health values"],
 			type = "toggle",
@@ -199,6 +200,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.classColorHealth",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Class colored health bar"],
 			type = "toggle",
@@ -221,6 +223,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showTitle",
+			advanced = true,
 			new = "1.4.0",
 			label = L["PvP titles"],
 			type = "toggle",
@@ -228,6 +231,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showStatus",
+			advanced = true,
 			new = "1.4.0",
 			label = L["AFK and DND tags"],
 			type = "toggle",
@@ -235,6 +239,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showGuildRank",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Guild rank"],
 			type = "toggle",
@@ -242,6 +247,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showRaidIcon",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Raid target icon"],
 			type = "toggle",
@@ -249,6 +255,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showClassIcon",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Class icon"],
 			type = "toggle",
@@ -256,6 +263,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.hidePvPLines",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Hide PvP and faction lines"],
 			type = "toggle",
@@ -285,6 +293,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.auraSize",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Icon size"],
 			type = "number",
@@ -294,6 +303,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.auraRows",
+			advanced = true,
 			new = "1.4.0",
 			label = L["Rows"],
 			type = "number",
@@ -311,6 +321,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showAuraCaster",
+			advanced = true,
 			new = "1.4.1",
 			label = L["Aura caster"],
 			type = "toggle",
@@ -330,6 +341,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.labelColor",
+			advanced = true,
 			label = L["Label color"],
 			type = "color",
 			desc = L["Color of the ID and bag count labels."],

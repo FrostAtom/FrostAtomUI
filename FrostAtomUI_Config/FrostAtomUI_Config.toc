@@ -9,6 +9,7 @@
 ## LoadOnDemand: 1
 
 Core.lua
+Controls.lua
 Pages\General.lua
 Pages\Layouts.lua
 Pages\ActionBar.lua

@@ -46,7 +46,7 @@ read_globals = {
 	"GetBattlefieldInstanceRunTime", "GetNumArenaOpponents", "GetRealZoneText", "AcceptBattlefieldPort", "LeaveBattlefield",
 	"CombatLogClearEntries", "ToggleCalendar", "collectgarbage", "geterrorhandler", "GetLocale",
 	"GetComboPoints", "UnitHasVehicleUI", "GetRaidTargetIndex", "SetRaidTargetIconTexture",
-	"UnitInRange", "CheckInteractDistance", "UnitLevel", "UnitXP", "UnitXPMax", "GetXPExhaustion",
+	"UnitInRange", "UnitIsPartyLeader", "UnitIsRaidOfficer", "CheckInteractDistance", "UnitLevel", "UnitXP", "UnitXPMax", "GetXPExhaustion",
 	"GetWatchedFactionInfo", "UnitCanAssist", "UnitCanAttack", "GetPlayerInfoByGUID", "UnitIsFeignDeath",
 	"IsResting", "UnitIsPVP", "UnitIsPVPFreeForAll", "UnitFactionGroup", "GetTotemInfo", "DestroyTotem",
 	"RequestBattlefieldScoreData", "UnitReaction", "GetGuildInfo", "GetItemCount",

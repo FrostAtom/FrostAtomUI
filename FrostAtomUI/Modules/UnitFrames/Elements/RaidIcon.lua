@@ -7,9 +7,14 @@ local SetRaidTargetIconTexture = SetRaidTargetIconTexture
 local config = ns.Config.unitFrames
 
 local function setIcon(icon, index)
-	if index and config.showRaidIcon then
+	local shown = icon.shown
+	if shown == nil then
+		shown = config.showRaidIcon
+	end
+	if index and shown then
 		SetRaidTargetIconTexture(icon, index)
-		icon:SetSize(config.raidIconSize, config.raidIconSize)
+		local size = icon.size or config.raidIconSize
+		icon:SetSize(size, size)
 		icon:Show()
 	else
 		icon:Hide()

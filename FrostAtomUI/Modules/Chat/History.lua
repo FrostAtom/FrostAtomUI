@@ -109,10 +109,10 @@ local function createCopyFrame()
 	local scroll = CreateFrame("ScrollFrame", COPY_FRAME_NAME .. "Scroll", frame, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", 10, -10)
 	scroll:SetPoint("BOTTOMRIGHT", -30, 10)
-	scroll:SetScript("OnScrollRangeChanged", function(self, _, range)
+	scroll:HookScript("OnScrollRangeChanged", function(self, _, range)
 		if self.scrollToBottom then
 			self.scrollToBottom = false
-			self:SetVerticalScroll(range)
+			_G[COPY_FRAME_NAME .. "ScrollScrollBar"]:SetValue(range)
 		end
 	end)
 

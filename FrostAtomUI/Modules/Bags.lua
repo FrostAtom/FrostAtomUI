@@ -36,6 +36,7 @@ local SetItemButtonCount = SetItemButtonCount
 local StaticPopup_Show = StaticPopup_Show
 local PlaySound = PlaySound
 local GameTooltip = GameTooltip
+local GetMouseFocus = GetMouseFocus
 local bit_band = bit.band
 local tsort = table.sort
 local ceil, floor, max, min = math.ceil, math.floor, math.max, math.min
@@ -460,6 +461,10 @@ function ItemMixin:Update()
 	self:UpdateIcon()
 	self:UpdateSearch()
 	self:UpdateHighlight()
+
+	if GetMouseFocus() == self then
+		self:UpdateTooltip()
+	end
 end
 
 local function anchorItemTooltip(button)
@@ -717,6 +722,7 @@ function ContainerMixin:CreateItemButton(index)
 	button.glow = glow
 
 	button:SetScript("OnEnter", onItemEnter)
+	button.UpdateTooltip = onItemEnter
 	button:HookScript("PreClick", onItemPreClick)
 	button:HookScript("OnClick", onItemClick)
 	button:HookScript("OnMouseUp", onItemMouseUp)

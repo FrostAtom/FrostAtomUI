@@ -12,10 +12,10 @@ ns.RegisterElement({
 	enabledBy = "combatAlert.enabled",
 	schema = {
 		{ header = L["Text"], glyph = "font" },
-		{ path = "combatAlert.font", label = L["Font"], type = "font" },
+		{ path = "combatAlert.font", label = L["Font"], type = "font", advanced = true },
 		{ path = "combatAlert.enterText", label = L["Enter combat text"], type = "string" },
 		{ path = "combatAlert.leaveText", label = L["Leave combat text"], type = "string" },
-		{ header = L["Colors"], glyph = "palette" },
+		{ header = L["Colors"], glyph = "palette", advanced = true },
 		{ path = "combatAlert.enterColor", label = L["Enter combat color"], type = "color" },
 		{ path = "combatAlert.leaveColor", label = L["Leave combat color"], type = "color" },
 		{ header = L["Visibility"], glyph = "eye" },
@@ -26,6 +26,8 @@ ns.RegisterElement({
 			min = 0.5,
 			max = 5,
 			step = 0.1,
+			unit = "s",
+			advanced = true,
 			desc = L["Seconds the message stays fully visible before it fades."],
 		},
 		{
@@ -35,6 +37,7 @@ ns.RegisterElement({
 			min = 0.1,
 			max = 3,
 			step = 0.1,
+			unit = "s",
 			advanced = true,
 			desc = L["Fade duration after the message has been shown."],
 		},
@@ -58,7 +61,7 @@ ns.RegisterElement({
 	glyph = "gauge-high",
 	enabledBy = "performance.enabled",
 	schema = {
-		{ header = L["Text"], glyph = "font" },
+		{ header = L["Text"], glyph = "font", advanced = true },
 		{ path = "performance.valueFont", label = L["Value font"], type = "font" },
 		{
 			path = "performance.unitFont",
@@ -79,7 +82,7 @@ ns.RegisterElement({
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "experienceBar.width", label = L["Width"], type = "number", min = 100, max = 1200, step = 1 },
 		{ path = "experienceBar.height", label = L["Height"], type = "number", min = 2, max = 30, step = 1 },
-		{ header = L["Colors"], glyph = "palette" },
+		{ header = L["Colors"], glyph = "palette", advanced = true },
 		{ path = "experienceBar.xpColor", label = L["Experience"], type = "color" },
 		{
 			path = "experienceBar.restedColor",
@@ -121,8 +124,6 @@ Section(schema, L["FPS / latency"], "performance", {
 		type = "toggle",
 		desc = L["Framerate and world latency readout colored by tier."],
 	},
-	{ path = "showFps", label = L["FPS"], type = "toggle" },
-	{ path = "showLatency", label = L["Latency"], type = "toggle", desc = L["World latency in milliseconds."] },
 	{
 		path = "fpsRed",
 		label = L["FPS: red below"],
@@ -161,9 +162,10 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 500,
 		step = 5,
+		unit = "ms",
 		advanced = true,
 		enabledBy = "performance.showLatency",
-		desc = L["Green below this value (ms)."],
+		desc = L["Green below this value."],
 	},
 	{
 		path = "latencyOrange",
@@ -172,6 +174,7 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 1000,
 		step = 5,
+		unit = "ms",
 		advanced = true,
 		enabledBy = "performance.showLatency",
 	},
@@ -182,10 +185,22 @@ Section(schema, L["FPS / latency"], "performance", {
 		min = 10,
 		max = 2000,
 		step = 5,
+		unit = "ms",
 		advanced = true,
 		enabledBy = "performance.showLatency",
 	},
 }, nil, nil, "gauge-high")
+
+tinsert(schema, #schema - 5, {
+	path = "performance",
+	label = L["Show"],
+	type = "multiselect",
+	values = {
+		{ "showFps", L["FPS"] },
+		{ "showLatency", L["Latency"], L["World latency in milliseconds."] },
+	},
+	enabledBy = "performance.enabled",
+})
 
 Section(schema, L["Experience bar"], "experienceBar", {
 	{

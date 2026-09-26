@@ -74,6 +74,7 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 	}
 	schema[#schema + 1] = {
 		path = prefix .. ".spacing",
+		advanced = true,
 		label = L["Spacing"],
 		type = "number",
 		min = 0,
@@ -106,6 +107,7 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 	}
 	schema[#schema + 1] = {
 		path = prefix .. ".fadeAlpha",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Faded alpha"],
 		type = "number",
@@ -126,6 +128,7 @@ local function barElement(name, key, hasToggle, hasCount, new, hidden, extra)
 	ns.RegisterElement({
 		path = prefix .. ".point",
 		page = PAGE,
+		tab = key:match("^bar%d$") and "bars" or "other",
 		name = name,
 		new = new,
 		enabledBy = ENABLE,
@@ -143,7 +146,7 @@ barElement(L["Bar 6"], "bar6", true, true, "1.4.0")
 barElement(L["Stance bar"], "stance", false, false)
 barElement(L["Pet bar"], "pet", false, false)
 barElement(L["Totem bar"], "totemBar", true, false, "1.4.1", ns.NotClass("SHAMAN"), {
-	{ header = L["Totem menu"], glyph = "fire" },
+	{ header = L["Totem menu"], glyph = "fire", advanced = true },
 	{
 		path = "actionBar.totemBar.flyoutButtonSize",
 		label = L["Menu button size"],
@@ -175,6 +178,7 @@ barElement(L["Totem bar"], "totemBar", true, false, "1.4.1", ns.NotClass("SHAMAN
 ns.RegisterElement({
 	path = "actionBar.vehicleExit.point",
 	page = PAGE,
+	tab = "other",
 	name = L["Vehicle exit"],
 	new = "1.4.1",
 	enabledBy = ENABLE,
@@ -195,6 +199,7 @@ ns.RegisterElement({
 ns.RegisterElement({
 	path = "actionBar.microMenu",
 	page = PAGE,
+	tab = "other",
 	name = L["Micro menu"],
 	enabledBy = ENABLE,
 	schema = {
@@ -225,6 +230,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "actionBar.menuFadeAlpha",
+			advanced = true,
 			label = L["Faded alpha (micro menu, bag button)"],
 			type = "number",
 			min = 0,
@@ -240,6 +246,7 @@ ns.RegisterElement({
 ns.RegisterElement({
 	path = "actionBar.bagButton",
 	page = PAGE,
+	tab = "other",
 	name = L["Bag button"],
 	enabledBy = ENABLE,
 	schema = {
@@ -260,6 +267,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "actionBar.menuFadeAlpha",
+			advanced = true,
 			label = L["Faded alpha (micro menu, bag button)"],
 			type = "number",
 			min = 0,
@@ -274,7 +282,6 @@ ns.RegisterElement({
 
 local ActionBar = ui.ActionBar
 local EXTRA_BARS = "actionBar.extraBars"
-local ROW_BUTTON_GAP = 4
 
 local CLASS_PAGE_SPELLS = {
 	WARRIOR = {
@@ -318,6 +325,7 @@ end
 ns.RegisterElement({
 	match = "^actionBar%.extraBars%.bar%d+%.point$",
 	page = PAGE,
+	tab = "bars",
 	name = function(path)
 		return extraBarName(pageFromPath(path))
 	end,
@@ -368,34 +376,21 @@ local function removeExtraBar(page)
 	end)
 end
 
-local function extraBarRow(page)
+local function addExtraBar(result, page)
+	for _, entry in ipairs(ns.InlineElement(ActionBar.ExtraBarPath(page) .. ".point")) do
+		result[#result + 1] = entry
+	end
 	local owner = pageOwner(page)
-	return {
-		type = "custom",
-		label = extraBarName(page),
+	result[#result + 1] = {
+		type = "execute",
+		label = L["Remove bar"],
+		text = L["Remove"],
+		width = 80,
+		glyph = "trash",
 		desc = owner and L["Action page %d, the actions of %s."]:format(page, owner)
 			or L["Action page %d."]:format(page),
-		build = function(row)
-			local edit = ns.CreateButton(row, L["Edit"], 100, false, nil, "up-down-left-right")
-			edit:SetPoint("LEFT", ns.CONTROL_X, 0)
-			edit:SetScript("OnClick", function()
-				ns.EditElement(ActionBar.ExtraBarPath(page) .. ".point")
-			end)
-			local remove = ns.CreateButton(row, L["Remove"], 80, true, nil, "trash")
-			remove:SetPoint("LEFT", edit, "RIGHT", ROW_BUTTON_GAP, 0)
-			remove:SetScript("OnClick", function()
-				removeExtraBar(page)
-			end)
-			row.edit, row.remove = edit, remove
-		end,
-		setEnabled = function(row, enabled)
-			for _, button in ipairs({ row.edit, row.remove }) do
-				if enabled then
-					button:Enable()
-				else
-					button:Disable()
-				end
-			end
+		func = function()
+			removeExtraBar(page)
 		end,
 	}
 end
@@ -417,17 +412,12 @@ local addBarEntry = {
 	end,
 }
 
-local schema = {
-	{
-		path = ENABLE,
-		label = L["Enable"],
-		type = "toggle",
-		reload = true,
-		desc = L["Replace Blizzard action bars."],
-	},
-	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
+local barsSchema = {
 	{ type = "elements" },
 	{ path = EXTRA_BARS, hidden = true },
+}
+
+local schema = {
 	{ header = L["General"], glyph = "gear" },
 	{
 		label = L["Key bindings"],
@@ -446,12 +436,14 @@ local schema = {
 	},
 	{
 		path = "actionBar.clickAnimation",
+		advanced = true,
 		label = L["Click animation"],
 		type = "toggle",
 		desc = L["Star burst on a pressed button. Toggle with /vr."],
 	},
 	{
 		path = "actionBar.dragButton",
+		advanced = true,
 		label = L["Drag spells with"],
 		type = "select",
 		values = DRAG_BUTTON_VALUES,
@@ -459,6 +451,7 @@ local schema = {
 	},
 	{
 		path = "actionBar.dragModifier",
+		advanced = true,
 		label = L["Drag modifier"],
 		type = "select",
 		values = DRAG_MODIFIER_VALUES,
@@ -474,6 +467,7 @@ local schema = {
 	},
 	{
 		path = "actionBar.rangeHotkey",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Color hotkey out of range"],
 		type = "toggle",
@@ -502,6 +496,7 @@ local schema = {
 	},
 	{
 		path = "actionBar.lossOfControlColor",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Loss of control color"],
 		type = "color",
@@ -512,19 +507,32 @@ local schema = {
 	{ path = "actionBar.showHotkeys", label = L["Hotkeys"], type = "toggle" },
 	{
 		path = "actionBar.showShapeshiftHotkeys",
+		advanced = true,
 		label = L["Stance bar hotkeys"],
 		type = "toggle",
 		enabledBy = "actionBar.showHotkeys",
 		desc = L["Also show key bindings on stance / form buttons."],
 	},
-	{ path = "actionBar.hotkeyFont", label = L["Hotkey font"], type = "font", enabledBy = "actionBar.showHotkeys" },
+	{
+		path = "actionBar.hotkeyFont",
+		advanced = true,
+		label = L["Hotkey font"],
+		type = "font",
+		enabledBy = "actionBar.showHotkeys",
+	},
 	{
 		path = "actionBar.showNames",
 		label = L["Macro names"],
 		type = "toggle",
 		desc = L["Macro name at the bottom of the button."],
 	},
-	{ path = "actionBar.nameFont", label = L["Name font"], type = "font", enabledBy = "actionBar.showNames" },
+	{
+		path = "actionBar.nameFont",
+		advanced = true,
+		label = L["Name font"],
+		type = "font",
+		enabledBy = "actionBar.showNames",
+	},
 	{
 		path = "actionBar.showCounts",
 		new = "1.4.1",
@@ -534,6 +542,7 @@ local schema = {
 	},
 	{
 		path = "actionBar.countFont",
+		advanced = true,
 		new = "1.4.1",
 		label = L["Count font"],
 		type = "font",
@@ -541,12 +550,13 @@ local schema = {
 	},
 	{
 		path = "actionBar.cooldownFont",
+		advanced = true,
 		new = "1.4.1",
 		label = L["Cooldown font"],
 		type = "font",
 		desc = L["Remaining cooldown text on action bar buttons."],
 	},
-	{ header = L["Colors"], glyph = "palette" },
+	{ header = L["Colors"], glyph = "palette", advanced = true },
 	{
 		path = "actionBar.rangeColor",
 		label = L["Out of range"],
@@ -569,15 +579,16 @@ local schema = {
 
 local function buildSchema()
 	local result = {}
-	for _, entry in ipairs(schema) do
+	for _, entry in ipairs(barsSchema) do
 		result[#result + 1] = entry
 		if entry.path == EXTRA_BARS then
+			result[#result + 1] = { header = L["Extra bars"], glyph = "plus" }
+			result[#result + 1] = addBarEntry
 			for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
 				if extraBars()["bar" .. page] then
-					result[#result + 1] = extraBarRow(page)
+					addExtraBar(result, page)
 				end
 			end
-			result[#result + 1] = addBarEntry
 		end
 	end
 	return result
@@ -599,8 +610,26 @@ ns.RegisterPage({
 	glyph = "table-cells",
 	order = 24,
 	group = "frames",
-	schema = schema,
-	buildSchema = buildSchema,
-	signature = signature,
 	enable = ENABLE,
+	schema = {
+		{
+			path = ENABLE,
+			label = L["Enable"],
+			type = "toggle",
+			reload = true,
+			desc = L["Replace Blizzard action bars."],
+		},
+	},
+	tabs = {
+		{
+			key = "bars",
+			name = L["Bars"],
+			glyph = "table-cells",
+			schema = barsSchema,
+			buildSchema = buildSchema,
+			signature = signature,
+		},
+		{ key = "other", name = L["Other bars"], glyph = "shapes", schema = { { type = "elements" } } },
+		{ key = "general", name = L["General"], glyph = "gear", schema = schema },
+	},
 })

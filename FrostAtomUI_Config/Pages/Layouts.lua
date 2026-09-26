@@ -124,8 +124,8 @@ local tail = {
 	{ "unitFrames.targetCastbar", "cast", castbarSize("target"), enabled("unitFrames.showTargetCastbar") },
 	{ "unitFrames.focusCastbar", "cast", castbarSize("focus"), enabled("unitFrames.showFocusCastbar") },
 	{ "unitFrames.player", "friend", unitSize("player") },
-	{ "unitFrames.target", "enemy", unitSize("player") },
-	{ "unitFrames.focus", "focus", unitSize("player") },
+	{ "unitFrames.target", "enemy", unitSize("target") },
+	{ "unitFrames.focus", "focus", unitSize("focus") },
 }
 for _, element in ipairs(tail) do
 	ELEMENTS[#ELEMENTS + 1] = element
@@ -360,19 +360,6 @@ local function saveLayout(name)
 	end
 end
 
-local function loadLayout(name)
-	ns.Confirm(L["Move all frames to the positions saved in layout %q?"]:format(name), function()
-		ui.Movers.LoadLayout(name)
-	end)
-end
-
-local function deleteLayout(name)
-	ns.Confirm(L["Delete layout %q?"]:format(name), function()
-		ui.Movers.DeleteLayout(name)
-		ns.RefreshPage()
-	end)
-end
-
 local function showLayoutExport(name)
 	local text = ui.Movers.ExportLayout(name)
 	if text then
@@ -399,7 +386,7 @@ local schema = {
 		description = L["Ready-made arrangements of the action bars, unit frames, castbars and cooldowns. A preset moves the frames and sets bar columns, frame and castbar sizes; colors, texts and everything else stay."],
 	},
 	{
-		description = L["Presets are built for a screen at least 1000 interface units high. Below that (UI scale above about 0.77 on a 16:9 screen) they use a compact variant, and so does Reset positions."],
+		description = L["Presets are built for a screen at least 1000 interface units high. Below that (UI scale above about 0.77 on a 16:9 screen) they use a compact variant; Defaults stays the same on any screen."],
 	},
 	{
 		type = "custom",
@@ -457,45 +444,42 @@ local schema = {
 	{
 		label = L["Save layout"],
 		new = "1.4.1",
-		type = "string",
+		type = "input",
+		text = L["Save"],
+		glyph = "floppy-disk",
 		width = 160,
 		maxLetters = 32,
-		get = function()
-			return ""
-		end,
-		set = saveLayout,
+		func = saveLayout,
 		desc = L["Type a name and press Enter to save the current layout. An existing layout with that name is overwritten."],
 	},
 	{
-		label = L["Load layout"],
+		label = L["Saved layout"],
 		new = "1.4.1",
-		type = "select",
+		type = "choice",
 		placeholder = L["Select layout..."],
 		values = layoutOptions,
-		get = function() end,
-		set = loadLayout,
 		disabled = noLayouts,
-	},
-	{
-		label = L["Delete layout"],
-		new = "1.4.1",
-		type = "select",
-		placeholder = L["Select layout..."],
-		values = layoutOptions,
-		get = function() end,
-		set = deleteLayout,
-		disabled = noLayouts,
-	},
-	{
-		label = L["Export layout"],
-		new = "1.4.1",
-		type = "select",
-		placeholder = L["Select layout..."],
-		values = layoutOptions,
-		get = function() end,
-		set = showLayoutExport,
-		disabled = noLayouts,
-		desc = L["Show a layout as a string to copy."],
+		actions = {
+			{
+				text = L["Load layout"],
+				glyph = "folder-open",
+				confirm = L["Move all frames to the positions saved in layout %q?"],
+				func = ui.Movers.LoadLayout,
+			},
+			{
+				text = L["Export layout"],
+				glyph = "file-export",
+				desc = L["Show a layout as a string to copy."],
+				func = showLayoutExport,
+			},
+			{
+				text = L["Delete layout"],
+				glyph = "trash-can",
+				confirm = L["Delete layout %q?"],
+				func = ui.Movers.DeleteLayout,
+			},
+		},
+		desc = L["Pick a saved layout, then load, export or delete it with the buttons."],
 	},
 	{
 		label = L["Import layout"],

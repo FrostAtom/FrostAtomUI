@@ -532,6 +532,7 @@ local function startCast(castbar, name, texture, startTime, endTime, isChannel, 
 		return
 	end
 	layoutText(castbar)
+	castbar.spellName = name
 	castbar.name:SetText(name ~= "" and name or UNKNOWN)
 	castbar.icon:SetTexture(texture ~= "" and texture or ns.Media.questionMark)
 	castbar.isChannel = isChannel
@@ -684,6 +685,34 @@ local function onCastStop(frame)
 		else
 			stopCast(castbar)
 		end
+	end
+end
+
+local function poll(frame)
+	local castbar = frame.castbar
+	if castbar.disabled then
+		return
+	end
+	local unit = frame.unit
+	local name, _, _, _, startTime, endTime, _, castId = UnitCastingInfo(unit)
+	if not name then
+		name, _, _, _, startTime, endTime = UnitChannelInfo(unit)
+		castId = nil
+	end
+	if not name then
+		if castbar.casting then
+			onCastStop(frame)
+		end
+	elseif
+		not castbar.casting
+		or name ~= castbar.spellName
+		or castId ~= castbar.castId
+		or UnitGUID(unit) ~= castbar.guid
+	then
+		update(frame)
+	elseif endTime / 1e3 ~= castbar.endTime then
+		setTimes(castbar, startTime / 1e3, endTime / 1e3)
+		setProgress(castbar, castbar.remain)
 	end
 end
 
@@ -878,4 +907,4 @@ local function create(frame, iconSide)
 	return castbar
 end
 
-UF:RegisterElement("castbar", create, update, test)
+UF:RegisterElement("castbar", create, update, test, poll)

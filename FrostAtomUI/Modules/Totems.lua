@@ -14,7 +14,8 @@ local holder
 
 local function updateButton(button)
 	local haveTotem, _, startTime, duration, icon = GetTotemInfo(button:GetID())
-	if haveTotem and duration > 0 then
+	local active = haveTotem and duration > 0
+	if active then
 		button.icon:SetTexture(icon)
 		button.cooldown:SetCooldown(startTime, duration)
 		button:SetAlpha(1)
@@ -22,6 +23,7 @@ local function updateButton(button)
 		button.cooldown:SetCooldown(0, 0)
 		button:SetAlpha(0)
 	end
+	button:EnableMouse(active and not ns.Config.totems.clickThrough)
 end
 
 function Totems:PLAYER_TOTEM_UPDATE(slot)
@@ -79,6 +81,7 @@ local function applyConfig()
 		button:ClearAllPoints()
 		button:SetPoint("LEFT", (index - 1) * (size + gap), 0)
 		ns.SetFont(button.cooldown.timer, font.size, font.outline)
+		updateButton(button)
 	end
 	if config.enabled then
 		holder:Show()
