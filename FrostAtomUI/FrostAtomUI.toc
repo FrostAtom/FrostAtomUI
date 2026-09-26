@@ -115,6 +115,7 @@ Modules\CombatLogFix.lua
 # Macros
 Modules\Macros\Parser.lua
 Modules\Macros\Macros.lua
+Modules\Macros\SecureList.lua
 Modules\Macros\Window.lua
 
 # Chat
