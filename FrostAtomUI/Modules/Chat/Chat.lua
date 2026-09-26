@@ -827,7 +827,12 @@ local function onMouseWheel(chatFrame, delta)
 end
 
 local BACKDROP = ns.CreateBackdrop(14, 3)
-local FRIENDS_ICON = [[Interface\FriendsFrame\UI-Toast-FriendOnlineIcon]]
+local FRIENDS_GLYPH = "user-group"
+local FRIENDS_GLYPH_SIZE = 11
+local FRIENDS_BUTTON_SIZE = 16
+local FRIENDS_BUTTON_ALPHA = 0.4
+local FRIENDS_COLOR = { 0.75, 0.75, 0.75 }
+local FRIENDS_HOVER_COLOR = { 1, 0.82, 0 }
 local TAB_HEIGHT = 22
 local DOCK_OFFSET = 6
 local TAB_INACTIVE_ALPHA = 0.45
@@ -1041,6 +1046,53 @@ local function skinChatFrame(name)
 	addBackdrop(chatFrame, PANEL_INSET)
 end
 
+local function setFriendsButtonHovered(button, hovered)
+	local color = hovered and FRIENDS_HOVER_COLOR or FRIENDS_COLOR
+	button.glyph:SetTextColor(color[1], color[2], color[3])
+	button:SetAlpha(hovered and 1 or FRIENDS_BUTTON_ALPHA)
+end
+
+local function onFriendsButtonEnter(button)
+	setFriendsButtonHovered(button, true)
+end
+
+local function onFriendsButtonLeave(button)
+	setFriendsButtonHovered(button, false)
+end
+
+local function onFriendsButtonDown(button)
+	button.glyph:SetPoint("CENTER", 1, -1)
+end
+
+local function onFriendsButtonUp(button)
+	button.glyph:SetPoint("CENTER", 0, 0)
+end
+
+local function skinFriendsButton()
+	local button = FriendsMicroButton
+	button:GetNormalTexture():SetTexture(nil)
+	button:GetPushedTexture():SetTexture(nil)
+	button:GetHighlightTexture():SetTexture(nil)
+	button:SetSize(FRIENDS_BUTTON_SIZE, FRIENDS_BUTTON_SIZE)
+	button.glyph = ns.CreateGlyph(button, FRIENDS_GLYPH, FRIENDS_GLYPH_SIZE, "ARTWORK", "OUTLINE")
+	button.glyph:SetPoint("CENTER")
+	button:HookScript("OnEnter", onFriendsButtonEnter)
+	button:HookScript("OnLeave", onFriendsButtonLeave)
+	button:HookScript("OnMouseDown", onFriendsButtonDown)
+	button:HookScript("OnMouseUp", onFriendsButtonUp)
+	setFriendsButtonHovered(button, false)
+	FriendsMicroButtonCount:Hide()
+end
+
+local function attachFriendsButton()
+	local chatFrame = FCFDock_GetSelectedWindow(GENERAL_CHAT_DOCK) or ChatFrame1
+	local button = FriendsMicroButton
+	button:SetParent(chatFrame)
+	button:ClearAllPoints()
+	button:SetPoint("TOPLEFT", chatFrame, "TOPLEFT", -2, 4)
+	button:SetFrameLevel(chatFrame:GetFrameLevel() + 5)
+end
+
 function Chat:HookMessages()
 	CombatLog_LoadUI = ns.noop
 	Blizzard_CombatLog_Update_QuickButtons = ns.noop
@@ -1095,25 +1147,9 @@ function Chat:Skin()
 	ChatFrameMenuButton:Hide()
 	ChatFrameMenuButton:SetScript("OnShow", ChatFrameMenuButton.Hide)
 
-	FriendsMicroButton:SetParent(ChatFrame1)
-	FriendsMicroButton:ClearAllPoints()
-	FriendsMicroButton:SetPoint("TOPLEFT", ChatFrame1, "TOPLEFT", -4, 4)
-	FriendsMicroButton:SetSize(24, 24)
-	FriendsMicroButton:SetFrameLevel(ChatFrame1:GetFrameLevel() + 5)
-	FriendsMicroButton:SetNormalTexture(FRIENDS_ICON)
-	FriendsMicroButton:SetPushedTexture(FRIENDS_ICON)
-	FriendsMicroButton:SetHighlightTexture(FRIENDS_ICON)
-	FriendsMicroButton:GetNormalTexture():SetTexCoord(0.15, 0.85, 0.15, 0.85)
-	FriendsMicroButton:GetPushedTexture():SetTexCoord(0.15, 0.85, 0.15, 0.85)
-	FriendsMicroButton:GetHighlightTexture():SetTexCoord(0.15, 0.85, 0.15, 0.85)
-	FriendsMicroButton:SetAlpha(0.7)
-	FriendsMicroButton:HookScript("OnEnter", function(self)
-		self:SetAlpha(1)
-	end)
-	FriendsMicroButton:HookScript("OnLeave", function(self)
-		self:SetAlpha(0.7)
-	end)
-	FriendsMicroButtonCount:Hide()
+	skinFriendsButton()
+	attachFriendsButton()
+	hooksecurefunc("FCFDock_SelectWindow", attachFriendsButton)
 
 	GeneralDockManager:ClearAllPoints()
 	GeneralDockManager:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, DOCK_OFFSET)
