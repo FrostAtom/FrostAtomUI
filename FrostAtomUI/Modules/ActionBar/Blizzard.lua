@@ -117,6 +117,7 @@ function ActionBar:HideBlizzard()
 	CharacterMicroButton:ClearAllPoints()
 	CharacterMicroButton:SetPoint("BOTTOMLEFT", microMenu, "BOTTOMLEFT", 0, 0)
 	self:AnchorToConfig(microMenu, "actionBar.microMenu", "Micro menu", {
+		secure = true,
 		resize = {
 			minWidth = MICRO_MENU_WIDTH / 2,
 			maxWidth = MICRO_MENU_WIDTH * 2,
@@ -137,9 +138,14 @@ function ActionBar:HideBlizzard()
 	local microMenuFader = ns.CreateFader({ microMenu })
 	local bagFader = ns.CreateFader({ MainMenuBarBackpackButton })
 
-	local function applyMenus(_, path)
+	local function applyMicroMenuScale(_, path)
+		ns.Movers.SetScale(microMenu, ns.Config.actionBar.microMenuScale, path == "actionBar.microMenuScale")
+	end
+	applyMicroMenuScale()
+	self:WatchConfig("actionBar.microMenuScale", applyMicroMenuScale, true)
+
+	local function applyMenus()
 		local config = ns.Config.actionBar
-		ns.Movers.SetScale(microMenu, config.microMenuScale, path == "actionBar.microMenuScale")
 		microMenuFader:Configure(config.microMenuMouseover, config.menuFadeAlpha, config.microMenuCombat)
 		bagFader:Configure(config.bagButtonMouseover, config.menuFadeAlpha, config.bagButtonCombat)
 	end

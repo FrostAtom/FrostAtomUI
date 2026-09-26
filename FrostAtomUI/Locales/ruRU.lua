@@ -1435,7 +1435,7 @@ ns.SetLocale("ruRU", {
 	["Spellbook"] = "Книга заклинаний",
 	["Replaces the spellbook: every tab and the pet book in one wide window, four columns, search and a switch to hide passive abilities."] = "Заменяет книгу заклинаний: все вкладки и книга питомца в одном широком окне, четыре столбца, поиск и переключатель скрытия пассивных способностей.",
 	["Hide passive abilities"] = "Скрыть пассивные способности",
-	["Filters apply after combat"] = "Фильтры применятся после боя",
+	["Search applies after combat"] = "Поиск применится после боя",
 	["Nothing found"] = "Ничего не найдено",
 	["Talents"] = "Таланты",
 	["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."] = "Заменяет окно талантов: все три дерева рядом и символы справа от них, двойная специализация, таланты питомца и предпросмотр.",
