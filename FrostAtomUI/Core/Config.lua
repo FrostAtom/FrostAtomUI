@@ -909,8 +909,12 @@ ns.Defaults = {
 		arena = true,
 		target = false,
 		focus = false,
+		player = true,
 		size = 24,
+		arenaSize = 31,
+		playerSize = 36,
 		spacing = 2,
+		playerPoint = { "CENTER", 0, 160 },
 		arenaSide = "LEFT",
 		arenaOffsetX = -4,
 		arenaOffsetY = 0,
@@ -1828,6 +1832,13 @@ local function migratePlayerDebuffs(profile)
 	end
 end
 
+local function migrateDiminishArenaSize(profile)
+	local config = profile.diminishingReturns
+	if config and config.size ~= nil and config.arenaSize == nil then
+		config.arenaSize = config.size
+	end
+end
+
 local function migrateCastbarHeight(profile)
 	local unitFrames = profile.unitFrames
 	local height = unitFrames and unitFrames.castbarHeight
@@ -1993,12 +2004,16 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 		if not db.playerDebuffsMigrated then
 			migratePlayerDebuffs(profile)
 		end
+		if not db.diminishArenaSizeMigrated then
+			migrateDiminishArenaSize(profile)
+		end
 		migrate(profile)
 	end
 	db.castbarLayoutMigrated = true
 	db.squareFramesMigrated = true
 	db.unitFrameCategoriesMigrated = true
 	db.playerDebuffsMigrated = true
+	db.diminishArenaSizeMigrated = true
 	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)

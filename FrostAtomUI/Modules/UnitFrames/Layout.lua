@@ -635,10 +635,25 @@ local function registerGroupMovers(self, frames, prefix, name, context)
 	end
 end
 
+local function playerAuraHeight(grid)
+	local rows = max(ceil(grid.limit / grid.perRow), 1)
+	return rows * (grid.size + grid.gap) - grid.gap
+end
+
 local function playerAuraSize(grid)
 	return function()
-		return grid:GetWidth(), max(grid.rows, 1) * (grid.size + grid.gap) - grid.gap
+		return grid:GetWidth(), playerAuraHeight(grid)
 	end
+end
+
+local function playerDebuffInsets()
+	local _, _, _, anchorPath, anchorPoint = unpack(ns:GetConfig("unitFrames.playerDebuffs"))
+	if anchorPath ~= "unitFrames.playerAuras" or not (anchorPoint and anchorPoint:find("^BOTTOM")) then
+		return 0, 0, 0, 0
+	end
+	local buffs = player.buffs
+	local shift = playerAuraHeight(buffs) - buffs:GetHeight()
+	return 0, 0, -shift, shift
 end
 
 local function refreshMovers()
@@ -695,6 +710,7 @@ function UF:Initialize()
 	self:RegisterMover(player.buffs, "unitFrames.playerAuras", "Player buffs", { size = playerAuraSize(player.buffs) })
 	self:RegisterMover(player.debuffs, "unitFrames.playerDebuffs", "Player debuffs", {
 		size = playerAuraSize(player.debuffs),
+		insets = playerDebuffInsets,
 	})
 	registerGroupMovers(self, party, "party", "Party")
 	registerGroupMovers(self, arena, "arena", "Arena", "arena")

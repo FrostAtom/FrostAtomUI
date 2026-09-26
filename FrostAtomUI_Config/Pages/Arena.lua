@@ -29,6 +29,15 @@ ns.RegisterElement({
 })
 
 ns.RegisterElement({
+	path = "diminishingReturns.playerPoint",
+	page = "arena",
+	name = L["Player diminishing returns"],
+	glyph = "arrow-trend-down",
+	enabledBy = { "unitFrames.enabled", "diminishingReturns.enabled", "diminishingReturns.player" },
+	schema = {},
+})
+
+ns.RegisterElement({
 	path = "matchResults.point",
 	page = "arena",
 	name = L["Match results"],
@@ -139,7 +148,7 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 		path = "enabled",
 		label = L["Enable"],
 		type = "toggle",
-		desc = L["Crowd control categories recently used on enemy players, with the time until they reset. Border color shows the next duration: green half, orange quarter, red immune."],
+		desc = L["Crowd control categories recently used on enemy players and on you, with the time until they reset. Border color shows the next duration: green half, orange quarter, red immune."],
 	},
 	{ path = "halfColor", label = L["Next: 50% duration"], type = "color", advanced = true },
 	{ path = "quarterColor", label = L["Next: 25% duration"], type = "color", advanced = true },
@@ -151,13 +160,44 @@ tinsert(schema, #schema - 3, {
 	path = "diminishingReturns",
 	label = L["Show on"],
 	type = "multiselect",
-	values = { { "arena", L["Arena"] }, { "target", L["Target"] }, { "focus", L["Focus"] } },
+	values = {
+		{ "player", L["Player"] },
+		{ "arena", L["Arena"] },
+		{ "target", L["Target"] },
+		{ "focus", L["Focus"] },
+	},
 	enabledBy = "diminishingReturns.enabled",
-	desc = L["Unit frames that show the diminishing returns icons."],
+	desc = L["Where the diminishing returns icons are shown. Your own are a separate block in the middle of the screen, moved with the other frames."],
 })
 
 Section(schema, L["Diminishing returns layout"], "diminishingReturns", {
-	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
+	{
+		path = "playerSize",
+		label = L["Player icon size"],
+		type = "number",
+		min = 12,
+		max = 64,
+		step = 1,
+		enabledBy = "diminishingReturns.player",
+	},
+	{
+		path = "arenaSize",
+		label = L["Arena icon size"],
+		type = "number",
+		min = 12,
+		max = 64,
+		step = 1,
+		enabledBy = "diminishingReturns.arena",
+	},
+	{
+		path = "size",
+		label = L["Target / focus icon size"],
+		type = "number",
+		min = 12,
+		max = 48,
+		step = 1,
+		enabledByAny = DR_TARGET_OR_FOCUS,
+	},
 	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
 	{
 		path = "arenaSide",

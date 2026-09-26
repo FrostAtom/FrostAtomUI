@@ -28,6 +28,7 @@ local SEVERITY_KEYS = { "halfColor", "quarterColor", "immuneColor" }
 local SEVERITY_TEXT = { "Next: 50% duration", "Next: 25% duration", "Next: immune" }
 local GROW_LEFT_SIDES = { LEFT = true, TOP = true, BOTTOM = true }
 local ARENA_PET_GAP = 2
+local PLAYER_SLOTS = 3
 
 local containers = {}
 
@@ -50,9 +51,15 @@ local function setIconSize(icon, size)
 end
 
 local function placeIcon(container, icon, index)
-	local point = container.growLeft and "RIGHT" or "LEFT"
-	local step = (index - 1) * (container.size + container.spacing)
+	local step = container.size + container.spacing
 	icon:ClearAllPoints()
+	if container.centered then
+		local shown = container.shown or 1
+		icon:SetPoint("CENTER", container, "CENTER", (index - 1 - (shown - 1) / 2) * step, 0)
+		return
+	end
+	local point = container.growLeft and "RIGHT" or "LEFT"
+	step = (index - 1) * step
 	icon:SetPoint(point, container, point, container.growLeft and -step or step, 0)
 end
 
@@ -114,6 +121,12 @@ local function hideFrom(container, shown)
 	for i = shown + 1, #container do
 		container[i]:Hide()
 	end
+	if container.centered and container.shown ~= shown then
+		container.shown = shown
+		for i = 1, shown do
+			placeIcon(container, container[i], i)
+		end
+	end
 end
 
 local refresh
@@ -166,15 +179,14 @@ end
 
 local testCategories = {}
 
-local function test(frame)
-	local container = frame.diminish
+local function fillTest(container)
 	container:SetScript("OnUpdate", nil)
 	container.guid = nil
 	local shown = 0
 	if container.enabled then
 		wipe(testCategories)
 		local now = GetTime()
-		for _ = 1, random(0, 4) do
+		for _ = 1, random(container.kind == "player" and 1 or 0, 4) do
 			local spellId = TEST_SPELLS[random(#TEST_SPELLS)]
 			local category = Data.SPELLS[spellId]
 			if not testCategories[category] then
@@ -190,6 +202,10 @@ local function test(frame)
 		end
 	end
 	hideFrom(container, shown)
+end
+
+local function test(frame)
+	fillTest(frame.diminish)
 end
 
 local function onUpdated(frame, guid)
@@ -232,10 +248,37 @@ local function anchorContainer(container)
 	container.growLeft = GROW_LEFT_SIDES[side] or false
 end
 
+local SIZE_KEYS = { arena = "arenaSize", player = "playerSize" }
+
 local function applyContainerSettings(container, config)
+	local size = config[SIZE_KEYS[container.kind] or "size"]
 	container.enabled = config.enabled and config[container.kind]
-	container.size, container.spacing = config.size, config.spacing
-	container:SetSize(config.size, config.size)
+	container.size, container.spacing = size, config.spacing
+	if container.centered then
+		container:SetSize(size * PLAYER_SLOTS + config.spacing * (PLAYER_SLOTS - 1), size)
+	else
+		container:SetSize(size, size)
+	end
+end
+
+local function applyIcons(container, config)
+	container.shown = nil
+	for j = 1, #container do
+		local icon = container[j]
+		setIconSize(icon, container.size)
+		placeIcon(container, icon, j)
+		icon:EnableMouse(not config.clickThrough)
+	end
+end
+
+local playerBlock
+
+local function updatePlayerBlock()
+	if UF.testing or ns.Movers.IsUnlocked() then
+		fillTest(playerBlock)
+	else
+		refresh(playerBlock)
+	end
 end
 
 local function applyConfig()
@@ -245,18 +288,40 @@ local function applyConfig()
 		local frame = container:GetParent()
 		applyContainerSettings(container, config)
 		anchorContainer(container)
-		for j = 1, #container do
-			local icon = container[j]
-			setIconSize(icon, config.size)
-			placeIcon(container, icon, j)
-			icon:EnableMouse(not config.clickThrough)
-		end
+		applyIcons(container, config)
 		if frame.test then
 			test(frame)
 		elseif frame:IsShown() then
 			refresh(container)
 		end
 	end
+	applyContainerSettings(playerBlock, config)
+	applyIcons(playerBlock, config)
+	updatePlayerBlock()
+end
+
+local function createPlayerBlock()
+	local container = CreateFrame("Frame", nil, UIParent)
+	container.unit = "player"
+	container.kind = "player"
+	container.centered = true
+	container.untilCheck = 0
+	container.nextCheck = huge
+	applyContainerSettings(container, ns.Config.diminishingReturns)
+	UF:AnchorToConfig(container, "diminishingReturns.playerPoint", "Player diminishing returns", {
+		enabledPath = "diminishingReturns.player",
+	})
+
+	local events = ns.Mixin({}, ns.EventMixin)
+	events:RegisterEvent(ns.DR_UPDATED, function(_, guid)
+		if guid == nil or guid == UnitGUID("player") then
+			updatePlayerBlock()
+		end
+	end)
+	hooksecurefunc(UF, "SetTestMode", updatePlayerBlock)
+	hooksecurefunc(ns.Movers, "Unlock", updatePlayerBlock)
+	hooksecurefunc(ns.Movers, "Lock", updatePlayerBlock)
+	return container
 end
 
 local function create(frame)
@@ -279,6 +344,7 @@ end
 UF:RegisterElement("diminish", create, update, test)
 
 UF:OnInitialize(function(self)
+	playerBlock = createPlayerBlock()
 	applyConfig()
 	self:WatchConfig("diminishingReturns", applyConfig)
 	self:WatchConfig("arenaTrinket", applyConfig)
