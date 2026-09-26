@@ -55,6 +55,13 @@ local schema = {
 	{ header = L["General"], glyph = "gear" },
 	skinEntry(),
 	lockEntry(),
+	{
+		path = "chat.hideCombatLog",
+		new = "1.4.1",
+		label = L["Remove combat log window"],
+		type = "toggle",
+		desc = L["Close the Combat Log chat window and its tab; Blizzard's combat log is not loaded either way."],
+	},
 	{ header = L["Messages"], glyph = "message" },
 	{
 		path = "chat.timestamps",

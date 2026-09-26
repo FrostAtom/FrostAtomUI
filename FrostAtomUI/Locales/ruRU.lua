@@ -537,6 +537,8 @@ ns.SetLocale("ruRU", {
 	["Remembered commands"] = "Запоминать команд",
 	["Frame"] = "Окно",
 	["Lock frames"] = "Закрепить рамки",
+	["Remove combat log window"] = "Убрать окно журнала боя",
+	["Close the Combat Log chat window and its tab; Blizzard's combat log is not loaded either way."] = "Закрыть окно чата «Журнал боя» вместе с вкладкой; журнал боя Blizzard не загружается в любом случае.",
 	["Width"] = "Ширина",
 	["Height"] = "Высота",
 	["Fade out messages"] = "Затухание сообщений",
