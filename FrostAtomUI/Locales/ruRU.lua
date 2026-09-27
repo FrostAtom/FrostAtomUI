@@ -1227,6 +1227,8 @@ ns.SetLocale("ruRU", {
 	["Bar above your pulsing totems (Tremor, Earthbind, Cleansing, Magma, Healing Stream, Stoneclaw, Mana Tide) that fills up to the next pulse. Synced from the summon and every pulse seen in the combat log."] = "Полоса над вашими пульсирующими тотемами (трепета, оков земли, очищения, магмы, исцеляющего потока, каменного когтя, прилива маны), заполняется до следующего пульса. Синхронизируется по призыву и каждому пульсу из журнала боя.",
 	["Totem pulse bar height"] = "Высота полосы пульса",
 	["Totem pulse bar color"] = "Цвет полосы пульса",
+	["Opaque totems"] = "Непрозрачные тотемы",
+	["Totem icons stay fully opaque when another unit is targeted instead of fading with the other nameplates."] = "Иконки тотемов остаются полностью непрозрачными, когда в цели другое существо, а не тускнеют вместе с остальными индикаторами имён.",
 	["Not interruptible color"] = "Цвет непрерываемых",
 	["Castbar color while the cast cannot be interrupted."] = "Цвет полосы заклинаний, когда заклинание нельзя прервать.",
 	["Target auras"] = "Ауры цели",

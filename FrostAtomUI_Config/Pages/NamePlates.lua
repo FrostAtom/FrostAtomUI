@@ -255,6 +255,15 @@ local generalSchema = {
 		step = 1,
 		enabledBy = "namePlates.totemIcons",
 	},
+	{
+		path = "namePlates.totemFullAlpha",
+		advanced = true,
+		new = NEW,
+		label = L["Opaque totems"],
+		type = "toggle",
+		enabledBy = "namePlates.totemIcons",
+		desc = L["Totem icons stay fully opaque when another unit is targeted instead of fading with the other nameplates."],
+	},
 	{ header = L["Text"], glyph = "font" },
 	{
 		path = "namePlates.healthTextFormat",
