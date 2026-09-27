@@ -148,6 +148,20 @@ Section(schema, L["Merchant"], "merchant", {
 		type = "toggle",
 		desc = L["Item level on merchant and buyback item icons."],
 	},
+	{
+		path = "searchBox",
+		new = "1.4.1",
+		label = L["Search box"],
+		type = "toggle",
+		desc = L["Filter merchant items by name, type, quality, item level and tooltip text, same syntax as the bag search."],
+	},
+	{
+		path = "wideFrame",
+		new = "1.4.1",
+		label = L["Four columns"],
+		type = "toggle",
+		desc = L["Wider merchant window with four columns of items, 20 items per page."],
+	},
 }, nil, nil, "coins")
 
 Section(schema, L["Equipment"], "equipment", {

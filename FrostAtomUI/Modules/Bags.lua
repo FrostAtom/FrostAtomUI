@@ -1046,6 +1046,7 @@ local function onSearchEnter(self)
 	GameTooltip:AddDoubleLine("!a   a | b   a b", L["not / or / and"], 1, 0.82, 0, 0.8, 0.8, 0.8)
 	GameTooltip:Show()
 end
+ns.ShowItemSearchHelp = onSearchEnter
 
 local function createSearchBox(frame, title)
 	local search = CreateFrame("EditBox", nil, frame)
