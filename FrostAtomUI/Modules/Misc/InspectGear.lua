@@ -763,6 +763,15 @@ local NO_PARRY = { PRIEST = true, MAGE = true, WARLOCK = true, DRUID = true, SHA
 local NO_MANA = { WARRIOR = true, ROGUE = true, DEATHKNIGHT = true }
 local MP5_KEY = "ITEM_MOD_POWER_REGEN0_SHORT"
 local STAT_NAMES = { [0] = "SPELL_STAT1_NAME", "SPELL_STAT2_NAME", "SPELL_STAT3_NAME", "SPELL_STAT4_NAME", "SPELL_STAT5_NAME" }
+local STAT_ICONS = {
+	[0] = "Interface\\Icons\\Spell_Nature_Strength",
+	"Interface\\Icons\\Spell_Holy_BlessingOfAgility",
+	"Interface\\Icons\\Spell_Holy_WordFortitude",
+	"Interface\\Icons\\Spell_Holy_MagicalSentry",
+	"Interface\\Icons\\Spell_Holy_DivineSpirit",
+}
+local GEAR_ICON = "Interface\\Icons\\INV_Chest_Chain_15"
+local CLASS_ICONS = "Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes"
 local CRIT_TAKEN = { meleeCritTaken = "melee", rangedCritTaken = "ranged", spellCritTaken = "spell" }
 local WEAPON_SUBCLASSES = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 13, 14, 15, 16, 18, 19, 20 }
 local ARMOR_SUBCLASSES = { 0, 1, 2, 3, 4, 6, 7, 8, 9, 10 }
@@ -844,13 +853,30 @@ local function splitArmor(gear, total)
 	return base, total - base + extra
 end
 
-local function addSource(totals, key, name, text)
+local function addSource(totals, key, name, text, icon, coords)
 	local list = totals.sources[key]
 	if not list then
 		list = {}
 		totals.sources[key] = list
 	end
-	list[#list + 1] = { name = name, text = text }
+	list[#list + 1] = { name = name, text = text, icon = icon, coords = coords }
+end
+
+function InspectGear.SourceIcon(source)
+	local icon, coords = source.icon, source.coords
+	if not icon then
+		return ""
+	end
+	if coords then
+		return ("|T%s:14:14:0:0:256:256:%d:%d:%d:%d|t "):format(
+			icon,
+			coords[1] * 256,
+			coords[2] * 256,
+			coords[3] * 256,
+			coords[4] * 256
+		)
+	end
+	return ("|T%s:14:14:0:0:64:64:5:59:5:59|t "):format(icon)
 end
 
 local function feralAttackPower(item)
@@ -866,27 +892,31 @@ end
 
 local function collectEffects(talents, info, gear)
 	local effects = {}
-	local function add(effect, value, name)
+	local function add(effect, value, name, icon)
 		if value and conditionMet(effect, gear.slots, info.form) then
-			effects[#effects + 1] = { kind = effect[1], misc = effect[2], value = value, name = name }
+			effects[#effects + 1] = { kind = effect[1], misc = effect[2], value = value, name = name, icon = icon }
 		end
 	end
 	local data = ns.InspectTalentData
 	for _, talent in ipairs(talents or {}) do
 		for _, effect in ipairs(data[talent.id] or {}) do
 			local ranks = effect[3]
-			add(effect, ranks[min(talent.rank, #ranks)], talent.name)
+			add(effect, ranks[min(talent.rank, #ranks)], talent.name, talent.icon)
 		end
 	end
 	local stats = ns.InspectStatData
 	for _, effect in ipairs(stats.RACIALS[info.race] or {}) do
-		add(effect, effect[3], (GetSpellInfo(effect.spell)))
+		local name, _, icon = GetSpellInfo(effect.spell)
+		add(effect, effect[3], name, icon)
 	end
 	local form = info.formData
 	if form then
-		local name = form.spell and GetSpellInfo(form.spell)
+		local name, icon
+		if form.spell then
+			name, _, icon = GetSpellInfo(form.spell)
+		end
 		for _, effect in ipairs(form.effects) do
-			add(effect, effect[3], name)
+			add(effect, effect[3], name, icon)
 		end
 	end
 	return effects
@@ -903,13 +933,17 @@ function InspectGear.Compute(gear, talents, info)
 	local gearStats = gear.stats
 	local totals = { values = {}, percent = {}, visible = {}, sources = {}, critTaken = {}, full = full }
 	local values, percent, visible = totals.values, totals.percent, totals.visible
-	local function source(key, name, text)
-		addSource(totals, key, name, text)
+	local function source(key, name, text, icon, coords)
+		addSource(totals, key, name, text, icon, coords)
 	end
-	local function prepend(key, name, text)
-		addSource(totals, key, name, text)
+	local function prepend(key, name, text, icon, coords)
+		addSource(totals, key, name, text, icon, coords)
 		local list = totals.sources[key]
 		table.insert(list, 1, table.remove(list))
+	end
+	local classCoords = CLASS_ICON_TCOORDS[class]
+	local function baseSource(key, name, text)
+		prepend(key, name, text, classCoords and CLASS_ICONS, classCoords)
 	end
 	local function gearValue(key)
 		return gearStats[key] or 0
@@ -922,31 +956,31 @@ function InspectGear.Compute(gear, talents, info)
 	local hunter = class == "HUNTER"
 
 	for _, effect in ipairs(collectEffects(talents, info, gear)) do
-		local kind, misc, value, name = effect.kind, effect.misc, effect.value, effect.name
+		local kind, misc, value, name, icon = effect.kind, effect.misc, effect.value, effect.name, effect.icon
 		if kind == "stat" then
 			for stat = misc == -1 and 0 or misc, misc == -1 and 4 or misc do
 				statMult[stat] = (statMult[stat] or 1) * (1 + value / 100)
-				source(STAT_KEYS[stat], name, ("+%d%%"):format(value))
+				source(STAT_KEYS[stat], name, ("+%d%%"):format(value), icon)
 			end
 		elseif kind == "armor" then
 			armorMult = armorMult * (1 + value / 100)
-			source(ARMOR_KEY, name, ("+%d%%"):format(value))
+			source(ARMOR_KEY, name, ("+%d%%"):format(value), icon)
 		elseif kind == "blockValue" then
 			blockMult = blockMult * (1 + value / 100)
-			source(BLOCK_VALUE_KEY, name, ("+%d%%"):format(value))
+			source(BLOCK_VALUE_KEY, name, ("+%d%%"):format(value), icon)
 		elseif kind == "ap" then
 			apMult = apMult * (1 + value / 100)
-			source(AP_KEY, name, ("+%d%%"):format(value))
+			source(AP_KEY, name, ("+%d%%"):format(value), icon)
 		elseif kind == "apFlat" then
 			apFlat = apFlat + value
-			source(AP_KEY, name, ("+%d"):format(value))
+			source(AP_KEY, name, ("+%d"):format(value), icon)
 		elseif kind == "apLevel" then
 			apLevel = apLevel + value
 		elseif kind == "apWeapon" then
 			apWeapon = apWeapon + value
 		elseif kind == "spFromAp" then
 			spFromAp = spFromAp + value
-			apSources[#apSources + 1] = { name = name, value = value }
+			apSources[#apSources + 1] = { name = name, value = value, icon = icon }
 		elseif kind == "healFromAp" then
 			healFromAp = healFromAp + value
 		elseif CRIT_TAKEN[kind] then
@@ -959,7 +993,7 @@ function InspectGear.Compute(gear, talents, info)
 				else
 					spellHasteMult = spellHasteMult * (1 + value / 100)
 				end
-				source(HASTE_KEY, name, ("+%d%%"):format(value))
+				source(HASTE_KEY, name, ("+%d%%"):format(value), icon)
 				visible[HASTE_KEY] = true
 			end
 		elseif PERCENT_KEYS[kind] then
@@ -967,16 +1001,16 @@ function InspectGear.Compute(gear, talents, info)
 			local spell = kind == "spellCrit" or kind == "spellHit"
 			if kind == "spellCrit" and misc > 0 then
 				if caster then
-					schoolCrit[#schoolCrit + 1] = { mask = misc, value = value, name = name }
+					schoolCrit[#schoolCrit + 1] = { mask = misc, value = value, name = name, icon = icon }
 				end
 			elseif not (caster and physical or not caster and spell) then
 				local key = PERCENT_KEYS[kind]
 				bonus[key] = (bonus[key] or 0) + value
-				source(key, name, kind == "expertise" and ("+%d"):format(value) or ("+%d%%"):format(value))
+				source(key, name, kind == "expertise" and ("+%d"):format(value) or ("+%d%%"):format(value), icon)
 				visible[key] = true
 			end
 		elseif not (hunter and kind == "apFromStat" or not hunter and kind == "rapFromStat") then
-			conversions[#conversions + 1] = { kind = kind, stat = misc, value = value, name = name }
+			conversions[#conversions + 1] = { kind = kind, stat = misc, value = value, name = name, icon = icon }
 		end
 	end
 
@@ -993,8 +1027,8 @@ function InspectGear.Compute(gear, talents, info)
 			visible[key] = true
 		end
 		if full then
-			prepend(key, L["Gear"], ("+%d"):format(fromGear))
-			prepend(key, L["Base"], ("%d"):format(base))
+			prepend(key, L["Gear"], ("+%d"):format(fromGear), GEAR_ICON)
+			baseSource(key, L["Base"], ("%d"):format(base))
 		end
 	end
 	local str, agi, int = stat[0], stat[1], stat[3]
@@ -1005,7 +1039,7 @@ function InspectGear.Compute(gear, talents, info)
 		values[ARMOR_KEY] = armor
 		visible[ARMOR_KEY] = true
 		if full then
-			source(ARMOR_KEY, _G[STAT_NAMES[1]], ("+%d"):format(agi * 2))
+			source(ARMOR_KEY, _G[STAT_NAMES[1]], ("+%d"):format(agi * 2), STAT_ICONS[1])
 		end
 	end
 
@@ -1027,21 +1061,22 @@ function InspectGear.Compute(gear, talents, info)
 			baseAp = str * 2 - 20
 		end
 		baseAp = max(floor(baseAp), 0)
-		source(AP_KEY, L["Base"], ("+%d"):format(baseAp))
+		baseSource(AP_KEY, L["Base"], ("+%d"):format(baseAp))
 	end
 	if form.feral or info.form == 31 then
 		local weapon = gear.slots[16]
 		local feral = feralAttackPower(weapon)
 		if feral > 0 then
 			baseAp = baseAp + feral
-			source(AP_KEY, L["Weapon"], ("+%d"):format(feral))
+			source(AP_KEY, L["Weapon"], ("+%d"):format(feral), weapon.icon)
 		end
 		if form.feral then
 			local fromLevel = level * apLevel / 100
 			local fromWeapon = ((weapon and weapon.attackPower or 0) + feral) * apWeapon / 100
 			if fromLevel + fromWeapon > 0 then
 				baseAp = baseAp + fromLevel + fromWeapon
-				source(AP_KEY, GetSpellInfo(16972), ("+%d"):format(fromLevel + fromWeapon))
+				local name, _, icon = GetSpellInfo(16972)
+				source(AP_KEY, name, ("+%d"):format(fromLevel + fromWeapon), icon)
 			end
 		end
 	end
@@ -1063,7 +1098,7 @@ function InspectGear.Compute(gear, talents, info)
 			else
 				apAdd = apAdd + amount
 			end
-			source(spell and SP_KEY or AP_KEY, conversion.name, ("+%d"):format(floor(amount + 0.5)))
+			source(spell and SP_KEY or AP_KEY, conversion.name, ("+%d"):format(floor(amount + 0.5)), conversion.icon)
 		end
 	end
 
@@ -1073,7 +1108,7 @@ function InspectGear.Compute(gear, talents, info)
 		visible[AP_KEY] = not caster or gearValue(AP_KEY) > 0
 	end
 	for _, entry in ipairs(apSources) do
-		source(SP_KEY, entry.name, ("+%d"):format(floor(ap * entry.value / 100 + 0.5)))
+		source(SP_KEY, entry.name, ("+%d"):format(floor(ap * entry.value / 100 + 0.5)), entry.icon)
 	end
 	local sp = gearValue(SP_KEY) + max(spAdd + ap * spFromAp / 100, healAdd + ap * healFromAp / 100)
 	if sp > 0 then
@@ -1106,8 +1141,13 @@ function InspectGear.Compute(gear, talents, info)
 		if critData then
 			local fromStat = 100 * (critData[1] + (caster and int or agi) * critData[2])
 			crit = crit + fromStat
-			prepend(CRIT_KEY, L["Rating"], percentText(fromRating))
-			prepend(CRIT_KEY, L["Base"] .. " + " .. _G[STAT_NAMES[caster and 3 or 1]], percentText(fromStat))
+			prepend(CRIT_KEY, L["Rating"], percentText(fromRating), GEAR_ICON)
+			prepend(
+				CRIT_KEY,
+				L["Base"] .. " + " .. _G[STAT_NAMES[caster and 3 or 1]],
+				percentText(fromStat),
+				STAT_ICONS[caster and 3 or 1]
+			)
 		end
 		visible[CRIT_KEY] = true
 	end
@@ -1130,7 +1170,12 @@ function InspectGear.Compute(gear, talents, info)
 					schools[#schools + 1] = _G["DAMAGE_SCHOOL" .. school]
 				end
 			end
-			source(CRIT_KEY, ("%s (%s)"):format(entry.name, table.concat(schools, ", ")), ("+%d%%"):format(entry.value))
+			source(
+				CRIT_KEY,
+				("%s (%s)"):format(entry.name, table.concat(schools, ", ")),
+				("+%d%%"):format(entry.value),
+				entry.icon
+			)
 		end
 	end
 
