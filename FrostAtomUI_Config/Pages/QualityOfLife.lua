@@ -156,6 +156,13 @@ Section(schema, L["Merchant"], "merchant", {
 		desc = L["Filter merchant items by name, type, quality, item level and tooltip text, same syntax as the bag search."],
 	},
 	{
+		path = "filterMenu",
+		new = "1.4.1",
+		label = L["Filters and sorting"],
+		type = "toggle",
+		desc = L["Button next to the search box: hide unusable, sold out, unaffordable or already known items, show one quality, type or slot, sort by name, price, item level or quality."],
+	},
+	{
 		path = "wideFrame",
 		new = "1.4.1",
 		label = L["Four columns"],
