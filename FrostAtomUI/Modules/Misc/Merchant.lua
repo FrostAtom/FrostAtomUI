@@ -340,7 +340,13 @@ local function applyLayout()
 		return
 	end
 	MerchantFrame.frostAtomWide = wide or nil
-	MerchantFrame:SetWidth(wide and BASE_WIDTH + EXTRA_WIDTH or BASE_WIDTH)
+	local width = wide and BASE_WIDTH + EXTRA_WIDTH or BASE_WIDTH
+	if floor(MerchantFrame:GetWidth() + 0.5) ~= width then
+		MerchantFrame:SetWidth(width)
+		if MerchantFrame:IsShown() then
+			UpdateUIPanelPositions(MerchantFrame)
+		end
+	end
 	local buyback = MerchantFrame.selectedTab == 2
 	applyStretches(wide, buyback)
 	if not wide then
