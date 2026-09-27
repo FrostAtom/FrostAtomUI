@@ -20,6 +20,7 @@ local WHITE = { 1, 1, 1 }
 local SHIELD_TEXTURE = "Interface\\CastingBar\\UI-CastingBar-Small-Shield"
 local SHIELD_TEXCOORD = { 0, 0.16, 0.15, 0.85 }
 local CAST_GLOW_SIZE = 4
+local COMPACT_CAST_HEIGHT = 5
 local CAST_FINISH_WINDOW = 0.5
 local CAST_LATE_INTERRUPT = 0.3
 local CAST_FLASH_TIME = 0.5
@@ -357,17 +358,32 @@ function PlateMixin:OnShow()
 		self.clampLeft = nil
 	end
 	local Totems = NamePlates.Totems
+	self:RefreshColors()
 	local totemSpell = config.totemIcons and Totems.Identify(self)
+	local unitIcon, unitIconCoords
+	if not totemSpell then
+		unitIcon, unitIconCoords = NamePlates.ArenaIcons.Identify(self)
+	end
 
-	if totemSpell then
-		self:RefreshColors()
-		Totems.Show(self, totemSpell)
+	if totemSpell or unitIcon then
+		if totemSpell then
+			Totems.Show(self, totemSpell)
+		else
+			Totems.ShowIcon(self, unitIcon, unitIconCoords, self.settings.arenaIconSize)
+			local castbar = self.castbar
+			if castbar:IsShown() then
+				if self.settings.showCastbar then
+					castbar:Layout()
+				else
+					castbar:Hide()
+				end
+			end
+		end
 		self.holder:Hide()
 		self.healthbar:Hide()
 		self.raidicon:SetAlpha(0)
 	else
 		local holder, healthbar = self.holder, self.healthbar
-		self:RefreshColors()
 		self:ApplyLayout()
 		local inset = snap(BORDER_INSET)
 		healthbar:ClearAllPoints()
@@ -384,10 +400,14 @@ function PlateMixin:OnShow()
 	for i = 1, #onPlateShow do
 		onPlateShow[i](self, name)
 	end
+	local updateVirtualCast = NamePlates.UpdateVirtualCast
+	if updateVirtualCast then
+		updateVirtualCast(self)
+	end
 end
 
 function PlateMixin:OnHide()
-	if self.totemSpell then
+	if self.totemSpell or self.unitIcon then
 		NamePlates.Totems.Hide(self)
 	end
 	for i = 1, #onPlateHide do
@@ -395,17 +415,32 @@ function PlateMixin:OnHide()
 	end
 end
 
+local function castAnchor(plate)
+	if plate.unitIcon then
+		return plate.totem, COMPACT_CAST_HEIGHT, true
+	end
+	return plate.holder, plate.settings.castbarHeight, false
+end
+NamePlates.CastAnchor = castAnchor
+
+function NamePlates.LayoutCastbar(bar)
+	local anchor, height, compact = castAnchor(bar:GetParent())
+	local offset = config.castbarGap + BORDER_INSET
+	bar:ClearAllPoints()
+	bar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", BORDER_INSET, -offset)
+	bar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", -BORDER_INSET, -offset)
+	bar:SetHeight(height)
+	bar.icon:SetSize(config.castbarIconSize, config.castbarIconSize)
+	ns.SetShown(bar.spellText, not compact)
+	ns.SetShown(bar.targetText, not compact)
+	bar.compact = compact
+end
+
 local CastbarMixin = {}
 
 function CastbarMixin:Layout()
-	local plate = self:GetParent()
-	local holder = plate.holder
-	local offset = config.castbarGap + BORDER_INSET
-	self:ClearAllPoints()
-	self:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", BORDER_INSET, -offset)
-	self:SetPoint("TOPRIGHT", holder, "BOTTOMRIGHT", -BORDER_INSET, -offset)
-	self:SetHeight(plate.settings.castbarHeight)
-	self.icon:SetSize(config.castbarIconSize, config.castbarIconSize)
+	NamePlates.LayoutCastbar(self)
+	self.locked = nil
 end
 
 function CastbarMixin:UpdateLock()
@@ -416,8 +451,8 @@ function CastbarMixin:UpdateLock()
 		local shielded = locked and config.castbarShield
 		local icon = self.icon
 		icon:SetDesaturated(locked and not shielded and 1 or nil)
-		setIconShown(icon, not shielded)
-		if shielded then
+		setIconShown(icon, not shielded and not self.compact)
+		if shielded and not self.compact then
 			self.shieldIcon:Show()
 		else
 			self.shieldIcon:Hide()
@@ -449,7 +484,7 @@ end
 
 function CastbarMixin:OnShow()
 	local plate = self:GetParent()
-	if plate.totem:IsShown() or not plate.settings.showCastbar then
+	if plate.totemSpell or not plate.settings.showCastbar then
 		self:Hide()
 		return
 	end
@@ -548,15 +583,17 @@ end
 
 local function showCastResult(plate, texture, iconShown, locked, interruptText, cancelled)
 	local result = plate.castbar.result
-	local plateHolder = plate.holder
-	result:SetPoint("TOPLEFT", plateHolder, "BOTTOMLEFT", 0, -config.castbarGap)
-	result:SetPoint("TOPRIGHT", plateHolder, "BOTTOMRIGHT", 0, -config.castbarGap)
-	result:SetHeight(plate.settings.castbarHeight + BORDER_INSET * 2)
+	local anchor, height, compact = castAnchor(plate)
+	result:ClearAllPoints()
+	result:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -config.castbarGap)
+	result:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -config.castbarGap)
+	result:SetHeight(height + BORDER_INSET * 2)
+	ns.SetShown(result.text, not compact)
 
 	local icon = result.icon
 	icon:SetSize(config.castbarIconSize, config.castbarIconSize)
 	icon:SetTexture(texture)
-	setIconShown(icon, iconShown)
+	setIconShown(icon, iconShown and not compact)
 
 	local bar = result.bar
 	bar:SetTexture(ns.Media.statusbar)

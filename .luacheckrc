@@ -25,7 +25,7 @@ read_globals = {
 	"RegisterStateDriver", "RegisterUnitWatch", "UnregisterUnitWatch",
 	"UnitClass", "UnitName", "UnitGUID", "UnitExists", "UnitIsUnit", "UnitIsPlayer",
 	"UnitIsConnected", "UnitIsDeadOrGhost", "UnitAffectingCombat", "UnitInRaid",
-	"UnitHealth", "UnitHealthMax", "UnitPower", "UnitPowerMax", "UnitPowerType",
+	"UnitHealth", "UnitHealthMax", "UnitPower", "UnitPowerMax", "UnitPowerType", "UnitCreatureFamily",
 	"UnitAura", "UnitBuff", "UnitDebuff", "LibStub", "UnitCastingInfo", "UnitChannelInfo", "CancelUnitBuff",
 	"GetSpellInfo", "GetSpellTexture", "GetItemInfo", "GetItemIcon",
 	"COMBATLOG_OBJECT_TYPE_PLAYER", "COMBATLOG_OBJECT_TYPE_PET", "COMBATLOG_OBJECT_REACTION_HOSTILE",

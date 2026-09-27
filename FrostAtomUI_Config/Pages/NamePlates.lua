@@ -43,9 +43,21 @@ local NEW = "1.4.1"
 
 local COPY_FIELDS = { "width", "height", "showName", "healthText", "showCastbar", "castbarHeight", "showAuras" }
 
-local function categoryTab(key, name, glyph, classColors, about, colorDesc)
+local ARENA_ICON_LABELS = {
+	player = {
+		L["Class icon in arena"],
+		L["In arena, replace the nameplate with the class icon, framed in the reaction color. A compact castbar is shown under it, auras are not."],
+	},
+	npc = {
+		L["Pet icon in arena"],
+		L["In arena, replace the nameplates of hunter pets, warlock demons, the death knight's ghoul and the mage's water elemental with the pet's icon, framed in the reaction color. A compact castbar is shown under it, auras are not."],
+	},
+}
+
+local function categoryTab(key, name, glyph, classColors, about, colorDesc, arenaIconKind)
 	local prefix = "namePlates." .. key .. "."
 	local modePath = prefix .. "healthColorMode"
+	local arenaIconLabel = ARENA_ICON_LABELS[arenaIconKind]
 	local kind = classColors and "class" or "reaction"
 	local copy = {
 		[kind .. "HealthColorMode"] = modePath,
@@ -145,6 +157,24 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc)
 				type = "select",
 				values = classColors and PLAYER_NAME_COLOR_VALUES or NPC_NAME_COLOR_VALUES,
 				enabledBy = prefix .. "showName",
+			},
+			{ header = L["Arena"], glyph = "trophy" },
+			{
+				path = prefix .. "arenaIcon",
+				new = NEW,
+				label = arenaIconLabel[1],
+				type = "toggle",
+				desc = arenaIconLabel[2],
+			},
+			{
+				path = prefix .. "arenaIconSize",
+				new = NEW,
+				label = L["Arena icon size"],
+				type = "number",
+				min = 12,
+				max = 64,
+				step = 1,
+				enabledBy = prefix .. "arenaIcon",
 			},
 		},
 	}
@@ -524,7 +554,8 @@ ns.RegisterPage({
 			"user-ninja",
 			true,
 			L["Hostile players, recognized by the class color of their nameplate."],
-			L["Class color: the player's class. Reaction color: hostile red. Health percent: a color mixed from the current health. Fixed color: the color below."]
+			L["Class color: the player's class. Reaction color: hostile red. Health percent: a color mixed from the current health. Fixed color: the color below."],
+			"player"
 		),
 		categoryTab(
 			"friendlyPlayer",
@@ -532,7 +563,8 @@ ns.RegisterPage({
 			"user-group",
 			false,
 			L["Players friendly to you."],
-			L["Reaction color: friendly blue. Health percent: a color mixed from the current health. Fixed color: the color below."]
+			L["Reaction color: friendly blue. Health percent: a color mixed from the current health. Fixed color: the color below."],
+			"player"
 		),
 		categoryTab(
 			"enemyNpc",
@@ -540,7 +572,8 @@ ns.RegisterPage({
 			"skull",
 			false,
 			L["Hostile and neutral creatures, including the pets and guardians of enemy players."],
-			L["Reaction color: red for hostile, yellow for neutral. Health percent: a color mixed from the current health. Fixed color: the color below."]
+			L["Reaction color: red for hostile, yellow for neutral. Health percent: a color mixed from the current health. Fixed color: the color below."],
+			"npc"
 		),
 		categoryTab(
 			"friendlyNpc",
@@ -548,7 +581,8 @@ ns.RegisterPage({
 			"handshake",
 			false,
 			L["Friendly creatures, including the pets and guardians of friendly players."],
-			L["Reaction color: friendly green. Health percent: a color mixed from the current health. Fixed color: the color below."]
+			L["Reaction color: friendly green. Health percent: a color mixed from the current health. Fixed color: the color below."],
+			"npc"
 		),
 	},
 })
