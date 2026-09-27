@@ -1,6 +1,7 @@
 local _, ns = ...
 
-local UnitExists, UnitName = UnitExists, UnitName
+local UnitExists, UnitName, UnitGUID = UnitExists, UnitName, UnitGUID
+local GetTime = GetTime
 local GetCVarBool = GetCVarBool
 local floor, tonumber = math.floor, tonumber
 local byte = string.byte
@@ -93,11 +94,47 @@ local function readTarget(plate, info)
 	info.targetSerial = targetSerial
 end
 
+local hoverStamp, hoverPlate
+
+local function resolveHover()
+	local now = GetTime()
+	if hoverStamp == now then
+		return hoverPlate
+	end
+	hoverStamp = now
+	hoverPlate = nil
+	if UnitExists("mouseover") ~= 1 then
+		return
+	end
+	local name = UnitName("mouseover")
+	local count, first, under, byGUID, guid = 0
+	for i = 1, #plates do
+		local plate = plates[i]
+		local info = infos[plate]
+		if info.shown and info.name == name and info.highlight:IsShown() == 1 then
+			count = count + 1
+			first = first or plate
+			if plate:IsMouseOver() and (not under or plate:GetFrameLevel() > under:GetFrameLevel()) then
+				under = plate
+			end
+			if plate.guid then
+				guid = guid or UnitGUID("mouseover")
+				if plate.guid == guid then
+					byGUID = plate
+				end
+			end
+		end
+	end
+	if count == 1 then
+		hoverPlate = first
+	else
+		hoverPlate = under or byGUID
+	end
+	return hoverPlate
+end
+
 local function isMouseover(info)
-	return info.shown
-		and info.highlight:IsShown() == 1
-		and UnitExists("mouseover") == 1
-		and UnitName("mouseover") == info.name
+	return info.shown and info.highlight:IsShown() == 1 and resolveHover() == info.plate
 end
 PlateLayer.IsMouseover = isMouseover
 
