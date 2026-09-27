@@ -393,9 +393,24 @@ local function setIcon(totem, texture, coords, iconSize)
 	totem.borderColor = nil
 end
 
+local function setDetached(plate, detached)
+	local totem = plate.totem
+	if totem.detached == detached then
+		return
+	end
+	totem.detached = detached
+	totem:SetParent(detached and WorldFrame or plate.overlay)
+	if plate.stackLevel then
+		plate:ApplyStackLevel()
+	else
+		totem:SetFrameLevel(plate:GetFrameLevel())
+	end
+end
+
 function Totems.ShowIcon(plate, texture, coords, iconSize)
 	local totem = plate.totem
 	release(plate)
+	setDetached(plate, false)
 	plate.totemSpell = nil
 	plate.unitIcon, plate.unitIconCoords = texture, coords
 	setIcon(totem, texture, coords, iconSize)
@@ -416,6 +431,7 @@ function Totems.Show(plate, spellId)
 		release(plate)
 		plate.totemSpell = spellId
 	end
+	setDetached(plate, config.totemFullAlpha)
 	totem:Show()
 	bind(plate)
 end

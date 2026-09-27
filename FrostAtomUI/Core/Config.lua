@@ -541,6 +541,7 @@ ns.Defaults = {
 		castbarIconSize = 18,
 		totemIcons = true,
 		totemIconSize = 24,
+		totemFullAlpha = true,
 		totemTimer = true,
 		totemPulse = true,
 		totemPulseHeight = 4,
