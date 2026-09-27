@@ -6,7 +6,6 @@ local band = bit.band
 local sub = string.sub
 local max, tonumber = math.max, tonumber
 
-local PlateLayer = ns.PlateLayer
 local snap = ns.WorldChildren.Snap
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 
@@ -17,6 +16,7 @@ local Totems = {}
 NamePlates.Totems = Totems
 
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
+local GUID_CREATURE = "F13"
 local ICON_CROP = 0.08
 local HOVER_ALPHA = 0.15
 local DURATION_BAR_HEIGHT = 2
@@ -41,7 +41,7 @@ local claimed = {}
 local timed = {}
 
 local function entryOf(guid)
-	if guid and not PlateLayer.IsPlayerGUID(guid) then
+	if guid and sub(guid, 3, 5) == GUID_CREATURE then
 		return tonumber(sub(guid, 7, 12), 16)
 	end
 end
@@ -378,20 +378,40 @@ function Totems.SetReaction(plate, reaction)
 	totem.borderColor = nil
 end
 
-function Totems.Show(plate, spellId)
-	local totem = plate.totem
-	totem.icon:SetTexture(spells[spellId].icon)
+local function setIcon(totem, texture, coords, iconSize)
+	totem.icon:SetTexture(texture)
+	if coords then
+		totem.icon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+	else
+		totem.icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
+	end
 	local inset = NamePlates.BORDER_INSET
-	local size = snap(config.totemIconSize + inset * 2)
+	local size = snap(iconSize + inset * 2)
 	totem:SetSize(size, size)
 	totem.iconSize = size - inset * 2
+	totem.snapX = nil
+	totem.borderColor = nil
+end
+
+function Totems.ShowIcon(plate, texture, coords, iconSize)
+	local totem = plate.totem
+	release(plate)
+	plate.totemSpell = nil
+	plate.unitIcon, plate.unitIconCoords = texture, coords
+	setIcon(totem, texture, coords, iconSize)
+	totem:Show()
+end
+
+function Totems.Show(plate, spellId)
+	local totem = plate.totem
+	plate.unitIcon, plate.unitIconCoords = nil, nil
+	setIcon(totem, spells[spellId].icon, nil, config.totemIconSize)
+	local inset = NamePlates.BORDER_INSET
 	local pulse = totem.pulse
 	local gap = snap(config.castbarGap)
 	pulse:SetHeight(snap(config.totemPulseHeight + inset * 2))
 	pulse:SetPoint("BOTTOMLEFT", totem, "TOPLEFT", 0, gap)
 	pulse:SetPoint("BOTTOMRIGHT", totem, "TOPRIGHT", 0, gap)
-	totem.snapX = nil
-	totem.borderColor = nil
 	if plate.totemSpell ~= spellId then
 		release(plate)
 		plate.totemSpell = spellId
@@ -403,6 +423,7 @@ end
 function Totems.Hide(plate)
 	release(plate)
 	plate.totemSpell = nil
+	plate.unitIcon, plate.unitIconCoords = nil, nil
 	plate.totem:Hide()
 end
 

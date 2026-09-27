@@ -53,8 +53,10 @@ local function actionBarDefaults(enabled, point, buttons, columns, buttonSize)
 	}
 end
 
-local function namePlateDefaults(healthColorMode, healthColor, nameColorMode)
+local function namePlateDefaults(healthColorMode, healthColor, nameColorMode, arenaIconSize)
 	return {
+		arenaIcon = false,
+		arenaIconSize = arenaIconSize,
 		width = 110,
 		height = 12,
 		healthColorMode = healthColorMode,
@@ -532,10 +534,10 @@ ns.Defaults = {
 
 	namePlates = {
 		enabled = true,
-		enemyPlayer = namePlateDefaults("class", { 0.69, 0.31, 0.31 }, "class"),
-		friendlyPlayer = namePlateDefaults("reaction", { 0.31, 0.45, 0.63 }, "reaction"),
-		enemyNpc = namePlateDefaults("reaction", { 0.69, 0.31, 0.31 }, "white"),
-		friendlyNpc = namePlateDefaults("reaction", { 0.33, 0.59, 0.33 }, "white"),
+		enemyPlayer = namePlateDefaults("class", { 0.69, 0.31, 0.31 }, "class", 28),
+		friendlyPlayer = namePlateDefaults("reaction", { 0.31, 0.45, 0.63 }, "reaction", 28),
+		enemyNpc = namePlateDefaults("reaction", { 0.69, 0.31, 0.31 }, "white", 22),
+		friendlyNpc = namePlateDefaults("reaction", { 0.33, 0.59, 0.33 }, "white", 22),
 		castbarIconSize = 18,
 		totemIcons = true,
 		totemIconSize = 24,

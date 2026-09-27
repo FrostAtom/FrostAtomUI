@@ -269,7 +269,7 @@ local function pass()
 	for i = 1, #plates do
 		local plate = plates[i]
 		local name = plate.plateName
-		if plate:IsShown() and name and not plate.totem:IsShown() then
+		if plate:IsShown() and name and not plate.totemSpell then
 			shown = shown + 1
 			nameIndex[name] = nameIndex[name] == nil and plate
 		end

@@ -92,6 +92,7 @@ Modules\UnitFrames\Raid.lua
 Modules\NamePlates\NamePlates.lua
 Modules\NamePlates\Totems.lua
 Modules\NamePlates\Identity.lua
+Modules\NamePlates\ArenaIcons.lua
 Modules\NamePlates\Casts.lua
 Modules\NamePlates\AuraData.lua
 Modules\NamePlates\Auras.lua

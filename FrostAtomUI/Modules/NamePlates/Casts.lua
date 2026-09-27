@@ -127,16 +127,7 @@ local function recordUnitCast(unit)
 	refreshGUID(guid)
 end
 
-local function layoutBar(bar)
-	local plate = bar:GetParent()
-	local holder = plate.holder
-	local offset = config.castbarGap + BORDER_INSET
-	bar:ClearAllPoints()
-	bar:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", BORDER_INSET, -offset)
-	bar:SetPoint("TOPRIGHT", holder, "BOTTOMRIGHT", -BORDER_INSET, -offset)
-	bar:SetHeight(plate.settings.castbarHeight)
-	bar.icon:SetSize(config.castbarIconSize, config.castbarIconSize)
-end
+local layoutBar = NamePlates.LayoutCastbar
 
 local function updateBarTarget(bar, unit)
 	local targetUnit = unit and targetOf[unit]
@@ -181,8 +172,8 @@ local function applyLock(bar, locked)
 	local shielded = locked and config.castbarShield
 	local icon = bar.icon
 	icon:SetDesaturated(locked and not shielded and 1 or nil)
-	NamePlates.SetIconShown(icon, not shielded)
-	if shielded then
+	NamePlates.SetIconShown(icon, not shielded and not bar.compact)
+	if shielded and not bar.compact then
 		bar.shieldIcon:Show()
 	else
 		bar.shieldIcon:Hide()
@@ -242,7 +233,7 @@ function updatePlate(plate)
 		or not plate.settings.showCastbar
 		or not plate:IsShown()
 		or plate.castbar:IsShown()
-		or plate.totem:IsShown()
+		or plate.totemSpell
 		or GetTime() > entry.endTime
 	then
 		hideBar(plate)
@@ -250,7 +241,7 @@ function updatePlate(plate)
 	end
 
 	local bar = plate.vcast or createBar(plate)
-	if bar.entry ~= entry or not bar:IsShown() then
+	if bar.entry ~= entry or not bar:IsShown() or bar.compact ~= (plate.unitIcon ~= nil) then
 		layoutBar(bar)
 		bar.icon:SetTexture(entry.texture)
 		bar.spellText:SetText(config.castbarSpellName and entry.name or "")
