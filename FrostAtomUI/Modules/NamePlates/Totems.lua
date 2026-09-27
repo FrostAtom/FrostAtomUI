@@ -21,6 +21,9 @@ local ICON_CROP = 0.08
 local HOVER_ALPHA = 0.15
 local DURATION_BAR_HEIGHT = 2
 local TIMER_INTERVAL = 0.1
+local EDGE_SIZE = 8 * 1.15
+local BACKDROP = ns.CreateBackdrop(EDGE_SIZE, 2)
+local EDGE_BACKDROP = { edgeFile = ns.Media.border, edgeSize = EDGE_SIZE }
 local REACTION_COLORS = {
 	hostile = { 1, 0.15, 0.15 },
 	neutral = { 1, 0.85, 0.1 },
@@ -310,7 +313,14 @@ end
 function Totems.Setup(plate)
 	local totem = NamePlates.CreateHolder(plate.overlay, plate:GetFrameLevel())
 	totem:SetPoint("TOPLEFT")
+	totem:SetBackdrop(BACKDROP)
 	totem:Hide()
+
+	local edge = CreateFrame("Frame", nil, totem)
+	edge:SetAllPoints()
+	edge:SetFrameLevel(totem:GetFrameLevel() + 1)
+	edge:SetBackdrop(EDGE_BACKDROP)
+	totem.edge = edge
 
 	local inset = NamePlates.BORDER_INSET
 	local icon = totem:CreateTexture(nil, "ARTWORK")
@@ -328,14 +338,14 @@ function Totems.Setup(plate)
 	hover:Hide()
 	totem.hover = hover
 
-	local bar = totem:CreateTexture(nil, "OVERLAY")
+	local bar = edge:CreateTexture(nil, "OVERLAY")
 	bar:SetTexture(ns.Media.blank)
 	bar:SetHeight(DURATION_BAR_HEIGHT)
 	bar:SetPoint("BOTTOMLEFT", icon)
 	bar:Hide()
 	totem.bar = bar
 
-	local timer = totem:CreateFontString(nil, "OVERLAY")
+	local timer = edge:CreateFontString(nil, "OVERLAY")
 	timer:SetPoint("CENTER", icon)
 	timer:Hide()
 	totem.timer = timer
@@ -463,6 +473,7 @@ function Totems.Update(plate, isTarget)
 	if color ~= totem.borderColor then
 		totem.borderColor = color
 		totem:SetBackdropBorderColor(color[1], color[2], color[3])
+		totem.edge:SetBackdropBorderColor(color[1], color[2], color[3])
 	end
 	local hovered = config.hoverHighlight and plate.info.isMouseover or false
 	if hovered ~= totem.hovered then
