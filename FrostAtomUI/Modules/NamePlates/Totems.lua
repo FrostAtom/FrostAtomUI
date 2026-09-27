@@ -21,6 +21,7 @@ local ICON_CROP = 0.08
 local HOVER_ALPHA = 0.15
 local DURATION_BAR_HEIGHT = 2
 local TIMER_INTERVAL = 0.1
+local TARGET_SCALE = 1.2
 local EDGE_SIZE = 8 * 1.15
 local BACKDROP = ns.CreateBackdrop(EDGE_SIZE, 2)
 local EDGE_BACKDROP = { edgeFile = ns.Media.border, edgeSize = EDGE_SIZE }
@@ -388,6 +389,14 @@ function Totems.SetReaction(plate, reaction)
 	totem.borderColor = nil
 end
 
+local function setSize(totem, iconSize)
+	local inset = NamePlates.BORDER_INSET
+	local size = snap(iconSize + inset * 2)
+	totem:SetSize(size, size)
+	totem.iconSize = size - inset * 2
+	totem.snapX = nil
+end
+
 local function setIcon(totem, texture, coords, iconSize)
 	totem.icon:SetTexture(texture)
 	if coords then
@@ -395,11 +404,10 @@ local function setIcon(totem, texture, coords, iconSize)
 	else
 		totem.icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
 	end
-	local inset = NamePlates.BORDER_INSET
-	local size = snap(iconSize + inset * 2)
-	totem:SetSize(size, size)
-	totem.iconSize = size - inset * 2
-	totem.snapX = nil
+	totem.baseIconSize = iconSize
+	totem.enlarged = false
+	setSize(totem, iconSize)
+	totem.baseSize = totem:GetHeight()
 	totem.borderColor = nil
 end
 
@@ -459,7 +467,7 @@ local function snapTotem(plate, totem)
 		return
 	end
 	local x = snap(left + (plate:GetWidth() - totem:GetWidth()) / 2) - left
-	local y = snap(top) - top
+	local y = snap(top + (totem:GetHeight() - totem.baseSize) / 2) - top
 	if x ~= totem.snapX or y ~= totem.snapY then
 		totem.snapX, totem.snapY = x, y
 		totem:SetPoint("TOPLEFT", plate, "TOPLEFT", x, y)
@@ -468,8 +476,15 @@ end
 
 function Totems.Update(plate, isTarget)
 	local totem = plate.totem
+	local isTotem = plate.totemSpell ~= nil
+	local enlarged = isTarget and isTotem
+	if enlarged ~= totem.enlarged then
+		totem.enlarged = enlarged
+		setSize(totem, enlarged and totem.baseIconSize * TARGET_SCALE or totem.baseIconSize)
+	end
 	snapTotem(plate, totem)
-	local color = isTarget and config.targetBorder and frameConfig.targetBorderColor or totem.reactionColor
+	local color = isTarget and not isTotem and config.targetBorder and frameConfig.targetBorderColor
+		or totem.reactionColor
 	if color ~= totem.borderColor then
 		totem.borderColor = color
 		totem:SetBackdropBorderColor(color[1], color[2], color[3])
