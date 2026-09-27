@@ -774,6 +774,8 @@ ns.Defaults = {
 		guildRepair = false,
 		shiftToSkip = true,
 		showItemLevel = true,
+		searchBox = true,
+		wideFrame = true,
 	},
 
 	wheelPaging = {
