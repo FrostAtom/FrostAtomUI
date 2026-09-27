@@ -776,6 +776,13 @@ ns.Defaults = {
 		shiftToSkip = true,
 		showItemLevel = true,
 		searchBox = true,
+		filterMenu = true,
+		hideUnusable = false,
+		hideSoldOut = false,
+		hideUnaffordable = false,
+		hideKnown = false,
+		sort = "default",
+		sortReverse = false,
 		wideFrame = true,
 	},
 
