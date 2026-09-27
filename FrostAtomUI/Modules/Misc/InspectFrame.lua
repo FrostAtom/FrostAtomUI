@@ -363,12 +363,13 @@ local function readSpecs()
 			local name, icon, points = GetTalentTabInfo(tab, inspect, false, group)
 			points = points or 0
 			for i = 1, GetNumTalents(tab, inspect) or 0 do
-				local talentName, _, _, _, rank = GetTalentInfo(tab, i, inspect, false, group)
+				local talentName, talentIcon, _, _, rank = GetTalentInfo(tab, i, inspect, false, group)
 				local id = rank
 					and rank > 0
 					and (GetTalentLink(tab, i, inspect, false, group) or ""):match("talent:(%d+)")
 				if id then
-					spec.talents[#spec.talents + 1] = { id = tonumber(id), rank = rank, name = talentName }
+					spec.talents[#spec.talents + 1] =
+						{ id = tonumber(id), rank = rank, name = talentName, icon = talentIcon }
 				end
 			end
 			spec.points[tab], spec.names[tab], spec.icons[tab] = points, name, icon
@@ -759,20 +760,28 @@ local function showStatTooltip(self)
 	if sources then
 		GameTooltip:AddLine(" ")
 		for _, source in ipairs(sources) do
-			GameTooltip:AddDoubleLine(source.name or "", source.text, 1, 1, 1, GREEN[1], GREEN[2], GREEN[3])
+			GameTooltip:AddDoubleLine(
+				Gear.SourceIcon(source) .. (source.name or ""),
+				source.text,
+				1,
+				1,
+				1,
+				GREEN[1],
+				GREEN[2],
+				GREEN[3]
+			)
 		end
 	end
-	GameTooltip:AddLine(" ")
-	GameTooltip:AddLine(
-		totals
-				and totals.full
-				and L["Base stats, gear, talents, racial traits and the selected form. Buffs not included."]
-			or L["From gear, gems, enchants, socket and set bonuses and talents of the active spec. Base stats and buffs not included."],
-		0.6,
-		0.6,
-		0.6,
-		true
-	)
+	if not (totals and totals.full) then
+		GameTooltip:AddLine(" ")
+		GameTooltip:AddLine(
+			L["From gear, gems, enchants, socket and set bonuses and talents of the active spec. Base stats and buffs not included."],
+			0.6,
+			0.6,
+			0.6,
+			true
+		)
+	end
 	GameTooltip:Show()
 end
 

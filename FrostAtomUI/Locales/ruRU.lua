@@ -1740,7 +1740,6 @@ ns.SetLocale("ruRU", {
 	["Defenses"] = "Защита",
 	["From gear, gems, enchants, socket and set bonuses and talents of the active spec. Base stats and buffs not included."] = "От снаряжения, камней, чар, бонусов гнёзд и комплектов и талантов активной специализации. Базовые характеристики и эффекты не учитываются.",
 	["Chance to be critically hit"] = "Шанс получить критический удар",
-	["Base stats, gear, talents, racial traits and the selected form. Buffs not included."] = "Базовые характеристики, снаряжение, таланты, расовые способности и выбранная форма. Эффекты не учитываются.",
 	["Base"] = "База",
 	["Gear"] = "Снаряжение",
 	["Weapon"] = "Оружие",
