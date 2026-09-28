@@ -64,13 +64,14 @@ local SETUP_SNIPPET = [[
 
 local FILTER_SNIPPET = [[
 	local hidePassive = self:GetAttribute("hidepassive")
+	local hideAuras = self:GetAttribute("hideauras")
 	wipe(LINE_HEIGHT)
 	wipe(LINE_SECTION)
 	wipe(LINE_ENTRIES)
 	local lines, section, column = 0, nil, %d
 	for i = 1, self:GetAttribute("entries") or 0 do
-		local entrySection, passive = strsplit("\t", self:GetAttribute("entry" .. i))
-		if not hidePassive or passive ~= "1" then
+		local entrySection, passive, aura = strsplit("\t", self:GetAttribute("entry" .. i))
+		if (not hidePassive or passive ~= "1") and (not hideAuras or aura ~= "1") then
 			if entrySection ~= section then
 				if lines > 0 then
 					LINE_HEIGHT[lines] = LINE_HEIGHT[lines] + %d
@@ -117,7 +118,7 @@ local RENDER_SNIPPET = [[
 				end
 				used = used + 1
 				local button = BUTTONS[used]
-				local _, _, type1, spell, type2, macro = strsplit("\t", self:GetAttribute("entry" .. index))
+				local _, _, _, type1, spell, type2, macro = strsplit("\t", self:GetAttribute("entry" .. index))
 				button:SetAttribute("type1", type1 ~= "" and type1 or nil)
 				button:SetAttribute("spell", spell)
 				button:SetAttribute("type2", type2 ~= "" and type2 or nil)
@@ -170,10 +171,25 @@ local TOGGLE_SNIPPET = [[
 	end
 ]]
 
-local HIDE_PASSIVE_SNIPPET = [[
-	BOOK:SetAttribute("hidepassive", not BOOK:GetAttribute("hidepassive"))
+local FILTER_TOGGLE_SNIPPET = [[
+	BOOK:SetAttribute(%q, not BOOK:GetAttribute(%q))
 	control:RunAttribute("filter")
 ]]
+
+local PALADIN_AURAS = {
+	465, -- Devotion Aura
+	7294, -- Retribution Aura
+	19746, -- Concentration Aura
+	19876, -- Shadow Resistance Aura
+	19888, -- Frost Resistance Aura
+	19891, -- Fire Resistance Aura
+	32223, -- Crusader Aura
+}
+
+local FILTERS = {
+	{ attribute = "hidepassive", key = "hidePassive", label = "Hide passive abilities" },
+	{ attribute = "hideauras", key = "hideAuras", label = "Hide auras", class = "PALADIN" },
+}
 
 local frame, list, toggleButton, panel
 local buttons = {}
@@ -188,6 +204,24 @@ local rendering = false
 local boundKeys = ""
 local displaced = false
 local muted = false
+local filterChecks = {}
+local auraNames
+
+local function isAura(name, book)
+	if book ~= BOOKTYPE_SPELL then
+		return false
+	end
+	if not auraNames then
+		auraNames = {}
+		for _, id in ipairs(PALADIN_AURAS) do
+			local auraName = GetSpellInfo(id)
+			if auraName then
+				auraNames[auraName] = true
+			end
+		end
+	end
+	return auraNames[name] == true
+end
 
 local function collectSection(name, texture, book, first, last, highestRank)
 	local section = { name = name, texture = texture }
@@ -204,6 +238,7 @@ local function collectSection(name, texture, book, first, last, highestRank)
 				name = spellName,
 				rank = rank or "",
 				passive = IsPassiveSpell(slot, book) and true or false,
+				aura = isAura(spellName, book),
 				search = strlower(spellName),
 			}
 		end
@@ -508,9 +543,12 @@ local function onRender(self)
 	frame.scrollBar:SetValue(self:GetAttribute("offset") or 0)
 	rendering = false
 
-	frame.hidePassive:SetChecked(self:GetAttribute("hidepassive"))
-	if (self:GetAttribute("hidepassive") and true or false) ~= ns.Config.spellBook.hidePassive then
-		ns:SetConfig("spellBook.hidePassive", self:GetAttribute("hidepassive") and true or false)
+	for filter, check in pairs(filterChecks) do
+		local value = self:GetAttribute(filter.attribute) and true or false
+		check:SetChecked(value)
+		if value ~= (ns.Config.spellBook[filter.key] and true or false) then
+			ns:SetConfig("spellBook." .. filter.key, value)
+		end
 	end
 	ns.SetShown(frame.empty, shown == 0)
 	updateDimming()
@@ -543,13 +581,24 @@ local function layout()
 			end
 			frame:SetAttribute(
 				"entry" .. #entries,
-				strjoin("\t", entry.section.index, entry.passive and 1 or 0, type1, spell, type2, macro)
+				strjoin(
+					"\t",
+					entry.section.index,
+					entry.passive and 1 or 0,
+					entry.aura and 1 or 0,
+					type1,
+					spell,
+					type2,
+					macro
+				)
 			)
 		end
 	end
 
 	frame:SetAttribute("entries", #entries)
-	frame:SetAttribute("hidepassive", ns.Config.spellBook.hidePassive)
+	for filter in pairs(filterChecks) do
+		frame:SetAttribute(filter.attribute, ns.Config.spellBook[filter.key])
+	end
 	frame:Execute(resetScroll and [[OFFSET = 0 control:RunAttribute("filter")]] or [[control:RunAttribute("filter")]])
 end
 
@@ -678,32 +727,49 @@ local function createScrollBar()
 	frame.scrollBar = scrollBar
 end
 
-local function createToolbar()
-	local passive = CreateFrame("CheckButton", FRAME_NAME .. "HidePassive", frame, "OptionsSmallCheckButtonTemplate")
-	passive:SetSize(26, 26)
-	passive:SetPoint("TOPLEFT", 74, -38)
-	passive:SetHitRectInsets(0, 0, 0, 0)
-	passive:EnableMouse(false)
-	local label = _G[passive:GetName() .. "Text"]
+local function createFilterCheck(filter, previous)
+	local name = FRAME_NAME .. filter.key:gsub("^%l", string.upper)
+	local check = CreateFrame("CheckButton", name, frame, "OptionsSmallCheckButtonTemplate")
+	check:SetSize(26, 26)
+	check:SetHitRectInsets(0, 0, 0, 0)
+	check:EnableMouse(false)
+	local label = _G[name .. "Text"]
 	label:SetFontObject(GameFontNormalSmall)
-	label:SetText(L["Hide passive abilities"])
-	passive:SetChecked(ns.Config.spellBook.hidePassive)
-	frame.hidePassive = passive
+	label:SetText(L[filter.label])
+	check.fullWidth = check:GetWidth() + label:GetStringWidth()
+	if previous then
+		check:SetPoint("LEFT", previous, "LEFT", previous.fullWidth + 12, 0)
+	else
+		check:SetPoint("TOPLEFT", 74, -38)
+	end
+	check:SetChecked(ns.Config.spellBook[filter.key])
+	filterChecks[filter] = check
 
-	local passiveClick = CreateFrame("Button", FRAME_NAME .. "HidePassiveClick", passive, "SecureFrameTemplate")
-	passiveClick:SetPoint("TOPLEFT")
-	passiveClick:SetPoint("BOTTOMLEFT")
-	passiveClick:SetPoint("RIGHT", label, "RIGHT")
-	passiveClick:SetScript("OnEnter", function()
-		passive:LockHighlight()
+	local click = CreateFrame("Button", name .. "Click", check, "SecureFrameTemplate")
+	click:SetPoint("TOPLEFT")
+	click:SetPoint("BOTTOMLEFT")
+	click:SetWidth(check.fullWidth)
+	click:SetScript("OnEnter", function()
+		check:LockHighlight()
 	end)
-	passiveClick:SetScript("OnLeave", function()
-		passive:UnlockHighlight()
+	click:SetScript("OnLeave", function()
+		check:UnlockHighlight()
 	end)
-	passiveClick:SetScript("PostClick", function()
-		PlaySound(frame:GetAttribute("hidepassive") and "igMainMenuOptionCheckBoxOn" or "igMainMenuOptionCheckBoxOff")
+	click:SetScript("PostClick", function()
+		PlaySound(frame:GetAttribute(filter.attribute) and "igMainMenuOptionCheckBoxOn" or "igMainMenuOptionCheckBoxOff")
 	end)
-	frame:WrapScript(passiveClick, "OnClick", HIDE_PASSIVE_SNIPPET)
+	frame:WrapScript(click, "OnClick", FILTER_TOGGLE_SNIPPET:format(filter.attribute, filter.attribute))
+	return check
+end
+
+local function createToolbar()
+	local _, class = UnitClass("player")
+	local previous
+	for _, filter in ipairs(FILTERS) do
+		if not filter.class or filter.class == class then
+			previous = createFilterCheck(filter, previous)
+		end
+	end
 
 	local search = ns.CreateEditBox(frame, 140, 20, FRAME_NAME .. "Search", L["Search"])
 	search:SetPoint("TOPRIGHT", -76, -40)
@@ -963,13 +1029,16 @@ function SpellBook:Initialize()
 			layout()
 		end
 	end)
-	self:WatchConfig("spellBook.hidePassive", function()
-		frame.hidePassive:SetChecked(ns.Config.spellBook.hidePassive)
-		if (frame:GetAttribute("hidepassive") and true or false) ~= ns.Config.spellBook.hidePassive then
-			frame:SetAttribute("hidepassive", ns.Config.spellBook.hidePassive)
-			frame:Execute([[control:RunAttribute("filter")]])
-		end
-	end, true)
+	for filter, check in pairs(filterChecks) do
+		self:WatchConfig("spellBook." .. filter.key, function()
+			local value = ns.Config.spellBook[filter.key] and true or false
+			check:SetChecked(value)
+			if (frame:GetAttribute(filter.attribute) and true or false) ~= value then
+				frame:SetAttribute(filter.attribute, value)
+				frame:Execute([[control:RunAttribute("filter")]])
+			end
+		end, true)
+	end
 
 	updateBindings()
 	layout()
