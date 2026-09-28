@@ -1240,6 +1240,8 @@ ns.SetLocale("ruRU", {
 	["Bar above your pulsing totems (Tremor, Earthbind, Cleansing, Magma, Healing Stream, Stoneclaw, Mana Tide) that fills up to the next pulse. Synced from the summon and every pulse seen in the combat log."] = "Полоса над вашими пульсирующими тотемами (трепета, оков земли, очищения, магмы, исцеляющего потока, каменного когтя, прилива маны), заполняется до следующего пульса. Синхронизируется по призыву и каждому пульсу из журнала боя.",
 	["Totem pulse bar height"] = "Высота полосы пульса",
 	["Totem pulse bar color"] = "Цвет полосы пульса",
+	["Click area fits the nameplate"] = "Область клика по размеру индикатора",
+	["Nameplates react to clicks and mouseover only over the visible health bar or icon, not over the larger area of the Blizzard nameplate. Works in combat too."] = "Индикаторы реагируют на клик и наведение только над видимой полосой здоровья или иконкой, а не над большей областью индикатора Blizzard. Работает и в бою.",
 	["Opaque totems"] = "Непрозрачные тотемы",
 	["Totem icons stay fully opaque when another unit is targeted instead of fading with the other nameplates."] = "Иконки тотемов остаются полностью непрозрачными, когда в цели другое существо, а не тускнеют вместе с остальными индикаторами имён.",
 	["Not interruptible color"] = "Цвет непрерываемых",

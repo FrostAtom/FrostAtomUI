@@ -39,6 +39,7 @@ local SPREAD_LOWER = 0.8
 local SPREAD_GAP = 2
 local SPREAD_FRAME_TIME = 1 / 60
 local SPREAD_MAX_STEPS = 3
+local HIT_PADDING = 4
 local HOSTILE_COLOR = { 0.69, 0.31, 0.31 }
 local NEUTRAL_COLOR = { 0.65, 0.63, 0.35 }
 local FRIENDLY_COLOR = { 0.33, 0.59, 0.33 }
@@ -177,6 +178,10 @@ end
 local WorldChildren = ns.WorldChildren
 local snap = WorldChildren.Snap
 
+function PlateMixin:HitPadding()
+	return config.fitClickArea and WorldChildren.Pixel() * HIT_PADDING or 0
+end
+
 function PlateMixin:SnapHolder()
 	local holder = self.holder
 	local left, top = self:GetLeft(), self:GetTop()
@@ -184,7 +189,7 @@ function PlateMixin:SnapHolder()
 		return
 	end
 	local x = snap(left + (self:GetWidth() - holder:GetWidth()) / 2) - left
-	local y = snap(top) - top
+	local y = snap(top - self:HitPadding()) - top
 	if x ~= self.snapX or y ~= self.snapY then
 		self.snapX, self.snapY = x, y
 		holder:SetPoint("TOPLEFT", self, "TOPLEFT", x, y)
@@ -221,6 +226,12 @@ function PlateMixin:ApplyStackLevel()
 		setLevel(auraRow, level + 2)
 	end
 	setLevel(self.totem, level)
+end
+
+function PlateMixin:UpdateHitRect()
+	local visible = self.totem:IsShown() and self.totem or self.holder
+	local padding = 2 * self:HitPadding()
+	NamePlates.HitRect.Update(self, visible:GetWidth() + padding, visible:GetHeight() + padding)
 end
 
 function PlateMixin:SetStackLevel(level)
@@ -286,6 +297,7 @@ function PlateMixin:OnUpdate()
 
 	if self.layoutDirty then
 		self:ApplyLayout()
+		self:UpdateHitRect()
 		for i = 1, #onPlateLayout do
 			onPlateLayout[i](self)
 		end
@@ -404,6 +416,7 @@ function PlateMixin:OnShow()
 	if updateVirtualCast then
 		updateVirtualCast(self)
 	end
+	self:UpdateHitRect()
 end
 
 function PlateMixin:OnHide()
@@ -988,7 +1001,7 @@ local function updateStacking()
 			if plate:IsTarget() then
 				plate.stackKey = -huge
 			else
-				plate.stackKey = plate:GetBottom() or 0
+				plate.stackKey = plate:GetTop() or 0
 			end
 		end
 	end

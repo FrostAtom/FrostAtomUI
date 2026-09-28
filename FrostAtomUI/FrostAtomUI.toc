@@ -91,6 +91,7 @@ Modules\UnitFrames\Raid.lua
 # Nameplates
 Modules\NamePlates\NamePlates.lua
 Modules\NamePlates\Totems.lua
+Modules\NamePlates\HitRect.lua
 Modules\NamePlates\Identity.lua
 Modules\NamePlates\ArenaIcons.lua
 Modules\NamePlates\Casts.lua

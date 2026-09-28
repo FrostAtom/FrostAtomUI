@@ -549,6 +549,7 @@ ns.Defaults = {
 		raidIconSize = 22,
 		showRaidIcon = true,
 		targetBorder = true,
+		fitClickArea = true,
 		castbarGap = 3,
 		nameFont = { size = 9, outline = "OUTLINE" },
 		percentFont = { size = 9, outline = "OUTLINE" },

@@ -467,7 +467,7 @@ local function snapTotem(plate, totem)
 		return
 	end
 	local x = snap(left + (plate:GetWidth() - totem:GetWidth()) / 2) - left
-	local y = snap(top + (totem:GetHeight() - totem.baseSize) / 2) - top
+	local y = snap(top - plate:HitPadding() + (totem:GetHeight() - totem.baseSize) / 2) - top
 	if x ~= totem.snapX or y ~= totem.snapY then
 		totem.snapX, totem.snapY = x, y
 		totem:SetPoint("TOPLEFT", plate, "TOPLEFT", x, y)
