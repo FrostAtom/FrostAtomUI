@@ -198,6 +198,14 @@ local generalSchema = {
 		desc = L["Light wash over the health bar of the nameplate under the cursor."],
 	},
 	{
+		path = "namePlates.fitClickArea",
+		advanced = true,
+		new = NEW,
+		label = L["Click area fits the nameplate"],
+		type = "toggle",
+		desc = L["Nameplates react to clicks and mouseover only over the visible health bar or icon, not over the larger area of the Blizzard nameplate. Works in combat too."],
+	},
+	{
 		path = "namePlates.targetBorder",
 		label = L["Highlight target border"],
 		type = "toggle",
