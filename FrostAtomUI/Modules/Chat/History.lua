@@ -20,13 +20,36 @@ local function isOwnPrint(text)
 	return find(text, ns.PRINT_PREFIX, 1, true) ~= nil
 end
 
+local function historyFrames()
+	local frames = {}
+	for i = 1, NUM_CHAT_WINDOWS do
+		local chatFrame = _G["ChatFrame" .. i]
+		if chatFrame ~= ChatFrame2 and Chat.lines[chatFrame] then
+			frames[#frames + 1] = chatFrame
+		end
+	end
+	return frames
+end
+
+local function restoreFrame(chatFrame, saved)
+	for i = 1, #saved do
+		local line = saved[i]
+		if not isOwnPrint(line[1]) then
+			Chat.AddStoredLine(chatFrame, line[1], line[2], line[3], line[4])
+		end
+	end
+end
+
 local function restoreHistory(db)
 	local saved = db.chat_history
 	if saved then
-		for i = 1, #saved do
-			local line = saved[i]
-			if not isOwnPrint(line[1]) then
-				Chat.AddStoredLine(ChatFrame1, line[1], line[2], line[3], line[4])
+		if saved[1] then
+			saved = { [ChatFrame1:GetName()] = saved }
+		end
+		for _, chatFrame in ipairs(historyFrames()) do
+			local lines = saved[chatFrame:GetName()]
+			if lines then
+				restoreFrame(chatFrame, lines)
 			end
 		end
 	end
@@ -39,13 +62,24 @@ local function restoreHistory(db)
 	end
 end
 
-local function saveHistory()
-	local count = Chat.NumLines(ChatFrame1)
+local function saveFrame(chatFrame)
+	local count = Chat.NumLines(chatFrame)
 	local saved = {}
 	for i = max(1, count - config.savedHistoryLines + 1), count do
-		local line = Chat.GetLine(ChatFrame1, i)
+		local line = Chat.GetLine(chatFrame, i)
 		if not isOwnPrint(line[1]) then
 			saved[#saved + 1] = { line[1], line[2], line[3], line[4] }
+		end
+	end
+	return saved
+end
+
+local function saveHistory()
+	local saved = {}
+	for _, chatFrame in ipairs(historyFrames()) do
+		local lines = saveFrame(chatFrame)
+		if #lines > 0 then
+			saved[chatFrame:GetName()] = lines
 		end
 	end
 	ns:SaveVariable("chat_history", saved)
