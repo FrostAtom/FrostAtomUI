@@ -16,6 +16,8 @@ local UnitIsConnected = UnitIsConnected
 local UnitIsEnemy = UnitIsEnemy
 local UnitCanAttack = UnitCanAttack
 local GetTime = GetTime
+local UNKNOWNOBJECT = UNKNOWNOBJECT
+local UNKNOWN = UNKNOWN
 
 local Misc = ns:GetModule("Misc")
 
@@ -119,7 +121,7 @@ function Version.Probe(unit)
 		return
 	end
 	local name = UnitName(unit)
-	if not name or users[name] or not isTalkable(name) then
+	if not name or name == "" or name == UNKNOWNOBJECT or name == UNKNOWN or users[name] or not isTalkable(name) then
 		return
 	end
 	local now = GetTime()
