@@ -955,7 +955,7 @@ local function commitName(box)
 	if not entry then
 		return
 	end
-	local name = strtrim(box:GetText())
+	local name = box:GetText()
 	if name == "" or name == entryName(entry) then
 		box:SetText(entryName(entry))
 		return
