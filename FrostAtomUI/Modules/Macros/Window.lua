@@ -113,6 +113,7 @@ local frame
 local tab = "account"
 local selection = {}
 local entries = {}
+local hiddenStubs = 0
 local editorEntry, editorRaw, analysis
 local gameDirty = false
 local rendering = false
@@ -228,21 +229,12 @@ local function errorCount(body)
 	return count
 end
 
-local function gameRange(key)
-	local numAccount, numCharacter = GetNumMacros()
-	if key == "gameAccount" then
-		return 1, numAccount
-	end
-	return Macros.MAX_ACCOUNT + 1, Macros.MAX_ACCOUNT + numCharacter
-end
-
 local function collectEntries()
 	wipe(entries)
+	hiddenStubs = 0
 	if isGame() then
-		local first, last = gameRange(tab)
-		for index = first, last do
-			entries[#entries + 1] = index
-		end
+		local _, hidden = Macros.GameIndices(tab, entries)
+		hiddenStubs = hidden
 	else
 		local list = Macros.GetList(tab)
 		for i = 1, #list do
@@ -797,9 +789,9 @@ end
 
 local function slotCount()
 	if tab == "gameAccount" then
-		return max(#entries, Macros.MAX_ACCOUNT)
+		return max(#entries, Macros.MAX_ACCOUNT - hiddenStubs)
 	elseif tab == "gameChar" then
-		return max(#entries, Macros.MAX_CHARACTER)
+		return max(#entries, Macros.MAX_CHARACTER - hiddenStubs)
 	end
 	return max(LIST_ROWS, ceil(#entries / COLUMNS)) * COLUMNS
 end
@@ -1727,11 +1719,9 @@ end
 
 local function scopeItems(scope, items)
 	if isGame(scope) then
-		local first, last = gameRange(scope)
-		for index = first, last do
-			if not stubTarget(index) then
-				items[#items + 1] = exportItem(scope, index)
-			end
+		local indices = Macros.GameIndices(scope, {})
+		for i = 1, #indices do
+			items[#items + 1] = exportItem(scope, indices[i])
 		end
 	else
 		local list = Macros.GetList(scope)
