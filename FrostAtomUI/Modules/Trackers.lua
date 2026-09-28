@@ -741,7 +741,7 @@ local function updateIcon(icon)
 
 	icon.wakeAt = setCooldown(icon, start, duration, kind == "aura" or kind == "totem")
 	icon.cooldown.timer:SetAlpha(field(groupData, "timer", GROUP_DEFAULTS) and 1 or 0)
-	if count and count ~= 1 then
+	if count and count > 1 then
 		icon.count:SetText(count)
 	else
 		icon.count:SetText("")
