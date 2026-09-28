@@ -163,6 +163,20 @@ local SCROLL_SNIPPET = [[
 	end
 ]]
 
+local DRAG_SNIPPET = [[
+	if not PlayerInCombat() then
+		return
+	end
+	local index = self:GetAttribute("entry")
+	if not index then
+		return false
+	end
+	local _, _, _, _, _, _, _, slot, book = strsplit("\t", BOOK:GetAttribute("entry" .. index))
+	if book == "spell" then
+		return "spell", tonumber(slot), book
+	end
+]]
+
 local TOGGLE_SNIPPET = [[
 	if BOOK:IsShown() then
 		BOOK:Hide()
@@ -589,7 +603,9 @@ local function layout()
 					type1,
 					spell,
 					type2,
-					macro
+					macro,
+					entry.slot,
+					entry.book
 				)
 			)
 		end
@@ -917,7 +933,9 @@ local function createFrame()
 	list:SetSize(COLUMNS * CELL_WIDTH, VIEW_HEIGHT)
 	frame:SetFrameRef("list", list)
 	for i = 1, POOL_SIZE do
-		frame:SetFrameRef("button" .. i, createButton(i))
+		local button = createButton(i)
+		frame:SetFrameRef("button" .. i, button)
+		frame:WrapScript(button, "OnDragStart", DRAG_SNIPPET)
 	end
 
 	createToolbar()
