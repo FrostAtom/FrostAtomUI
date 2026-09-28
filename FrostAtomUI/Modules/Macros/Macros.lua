@@ -157,6 +157,28 @@ function Macros.FindById(id)
 	end
 end
 
+function Macros.IsLinkedStub(index)
+	local id = Macros.StubOf(select(3, GetMacroInfo(index)))
+	return id ~= nil and Macros.FindById(id) ~= nil
+end
+
+function Macros.GameIndices(scope, out)
+	local numAccount, numCharacter = GetNumMacros()
+	local first, last = 1, numAccount
+	if scope == "gameChar" then
+		first, last = MAX_ACCOUNT + 1, MAX_ACCOUNT + numCharacter
+	end
+	local hidden = 0
+	for index = first, last do
+		if Macros.IsLinkedStub(index) then
+			hidden = hidden + 1
+		else
+			out[#out + 1] = index
+		end
+	end
+	return out, hidden
+end
+
 local function stubHeader(macro)
 	local body = macro.body
 	for line in gmatch(body, "[^\r\n]+") do

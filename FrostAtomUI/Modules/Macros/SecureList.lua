@@ -1,7 +1,7 @@
 local _, ns = ...
 local L = ns.L
 
-local InCombatLockdown, GetMacroInfo, GetNumMacros = InCombatLockdown, GetMacroInfo, GetNumMacros
+local InCombatLockdown, GetMacroInfo = InCombatLockdown, GetMacroInfo
 local GetBindingKey, GetBindingText = GetBindingKey, GetBindingText
 
 local Macros = ns:GetModule("Macros")
@@ -80,8 +80,7 @@ local DRAG_SNIPPET = [[
 	if index > (WINDOW:GetAttribute("count-" .. TAB) or 0) then
 		return false
 	end
-	local first = WINDOW:GetAttribute("first-" .. TAB)
-	local macro = first and first + index - 1 or WINDOW:GetAttribute("stub-" .. TAB .. "-" .. index)
+	local macro = WINDOW:GetAttribute("stub-" .. TAB .. "-" .. index)
 	if macro then
 		return "macro", macro
 	end
@@ -97,6 +96,8 @@ local TOGGLE_SNIPPET = [[
 ]]
 
 local window, exitButton
+local gameIndices = {}
+local GAME_LIMITS = { gameAccount = Macros.MAX_ACCOUNT, gameChar = Macros.MAX_CHARACTER }
 
 local function setData(name, value)
 	if window:GetAttribute(name) ~= value then
@@ -106,10 +107,6 @@ end
 
 function SecureList.Setup(frame, onView)
 	window = frame
-	frame:SetAttribute("first-gameAccount", 1)
-	frame:SetAttribute("min-gameAccount", Macros.MAX_ACCOUNT)
-	frame:SetAttribute("first-gameChar", Macros.MAX_ACCOUNT + 1)
-	frame:SetAttribute("min-gameChar", Macros.MAX_CHARACTER)
 	frame.OnSecureView = onView
 
 	local toggle = CreateFrame("Button", TOGGLE_NAME, UIParent, "SecureHandlerClickTemplate")
@@ -201,9 +198,15 @@ function SecureList.Push(tab, offset)
 	if window.syncing or InCombatLockdown() then
 		return
 	end
-	local numAccount, numCharacter = GetNumMacros()
-	setData("count-gameAccount", numAccount)
-	setData("count-gameChar", numCharacter)
+	for key, limit in pairs(GAME_LIMITS) do
+		wipe(gameIndices)
+		local indices, hidden = Macros.GameIndices(key, gameIndices)
+		setData("count-" .. key, #indices)
+		setData("min-" .. key, limit - hidden)
+		for i = 1, #indices do
+			setData(("stub-%s-%d"):format(key, i), indices[i])
+		end
+	end
 	setData("count-account", #Macros.GetList("account"))
 	setData("count-char", #Macros.GetList("char"))
 	window:Execute(VIEW_SNIPPET:format(tab, offset))
