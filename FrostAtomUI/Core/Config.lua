@@ -804,6 +804,7 @@ ns.Defaults = {
 	spellBook = {
 		enabled = true,
 		hidePassive = false,
+		hideAuras = false,
 	},
 
 	talentFrame = {
