@@ -215,17 +215,25 @@ local EQUIVALENCIES = {
 
 local parsedCache = {}
 
-local function addSpellName(list, id)
-	local name = GetSpellInfo(id)
+local function addSpellName(list, id, strict)
+	local name, _, texture = GetSpellInfo(id)
 	if name then
-		list.names[name:lower()] = true
+		local key = name:lower()
+		list.names[key] = true
+		if strict and texture then
+			local icons = list.icons[key] or {}
+			icons[texture:lower()] = true
+			list.icons[key] = icons
+		else
+			list.loose[key] = true
+		end
 	end
 	list.first = list.first or { id = id, name = name }
 end
 
 local function addSpellId(list, id)
 	list.ids[id] = true
-	addSpellName(list, id)
+	addSpellName(list, id, true)
 end
 
 local function parseList(text)
@@ -234,7 +242,7 @@ local function parseList(text)
 	if cached then
 		return cached
 	end
-	local list = { ids = {}, names = {}, entries = {} }
+	local list = { ids = {}, names = {}, loose = {}, icons = {}, entries = {} }
 	for token in text:gmatch("[^;,\n]+") do
 		token = strtrim(token)
 		if token ~= "" then
@@ -262,6 +270,7 @@ local function parseList(text)
 				list.entries[#list.entries + 1] = { id = id, name = GetSpellInfo(id) }
 			else
 				list.names[token:lower()] = true
+				list.loose[token:lower()] = true
 				list.entries[#list.entries + 1] = { name = token }
 				list.first = list.first or { name = token }
 			end
@@ -313,6 +322,18 @@ local function itemEntries(text)
 	return list.items
 end
 
+local function auraMatches(list, aura)
+	if list.ids[aura.spellId] then
+		return true
+	end
+	local name = aura.name:lower()
+	if list.loose[name] then
+		return true
+	end
+	local icons = list.icons[name]
+	return icons ~= nil and aura.icon ~= nil and icons[aura.icon:lower()] == true
+end
+
 local evaluators = {}
 
 function evaluators.aura(icon, data)
@@ -329,7 +350,7 @@ function evaluators.aura(icon, data)
 	for i = 1, n do
 		local aura = set[i]
 		if
-			(list.ids[aura.spellId] or list.names[aura.name:lower()])
+			auraMatches(list, aura)
 			and (not mine or aura.caster == "player" or aura.caster == "pet" or aura.caster == "vehicle")
 			and aura.count >= minStacks
 		then
