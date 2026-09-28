@@ -6,7 +6,7 @@ local GameTooltip = GameTooltip
 local GetNumShapeshiftForms = GetNumShapeshiftForms
 local GetCursorInfo = GetCursorInfo
 local InCombatLockdown = InCombatLockdown
-local max, min, ceil = math.max, math.min, math.ceil
+local max, min, ceil, floor = math.max, math.min, math.ceil, math.floor
 
 local Media = ns.Media
 local ActionBar = ns:NewModule("ActionBar")
@@ -171,7 +171,26 @@ local function setupPagedButton(button, index)
 	button:SetAttribute("_childupdate-page", PAGE_CHANGED_SNIPPET)
 end
 
-local function layoutBar(bar, barConfig, count, path)
+local LEFT_POINTS = {
+	TOP = "TOPLEFT",
+	TOPRIGHT = "TOPLEFT",
+	CENTER = "LEFT",
+	RIGHT = "LEFT",
+	BOTTOM = "BOTTOMLEFT",
+	BOTTOMRIGHT = "BOTTOMLEFT",
+}
+
+local function anchorLeft(path, width)
+	local point, x, y, anchorPath, anchorPoint = ns.UnpackPoint(ns:GetConfig(path))
+	local leftPoint = LEFT_POINTS[point]
+	if not leftPoint then
+		return
+	end
+	local shift = point:find("RIGHT") and width or width / 2
+	ns:SetConfig(path, { leftPoint, floor(x - shift + 0.5), y, anchorPath, anchorPoint or point })
+end
+
+local function layoutBar(bar, barConfig, count, path, growRight)
 	local size, gap = barConfig.buttonSize, barConfig.spacing
 	local slot = size + gap
 	local columns = max(min(barConfig.columns, count), 1)
@@ -197,6 +216,9 @@ local function layoutBar(bar, barConfig, count, path)
 	end
 
 	bar:SetSize(columns * slot - gap, rows * slot - gap)
+	if growRight and count > 0 then
+		anchorLeft(path, columns * slot - gap)
+	end
 	ns.ApplyPoint(bar, path)
 	bar.fader:Configure(barConfig.mouseover, barConfig.fadeAlpha, barConfig.combat)
 	if barConfig.enabled ~= nil then
@@ -218,7 +240,7 @@ function ActionBar:LayoutBar(key)
 	elseif key == "pet" then
 		layoutBar(self.petBar, barConfig, #self.petButtons, path)
 	elseif key == "stance" then
-		layoutBar(self.stanceBar, barConfig, GetNumShapeshiftForms(), path)
+		layoutBar(self.stanceBar, barConfig, GetNumShapeshiftForms(), path, true)
 	else
 		local bar = self.bars[tonumber(key:match("%d+"))]
 		layoutBar(bar, barConfig, barConfig.buttons, path)
