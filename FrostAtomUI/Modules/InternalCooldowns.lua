@@ -7,6 +7,7 @@ local GetInventoryItemLink = GetInventoryItemLink
 local GetItemInfo = GetItemInfo
 local GetItemIcon = GetItemIcon
 local GetTime = GetTime
+local IsInInstance = IsInInstance
 local time = time
 local band = bit.band
 local pairs, tonumber, sort, wipe, tremove = pairs, tonumber, table.sort, wipe, table.remove
@@ -565,6 +566,12 @@ local function onInventoryChanged(_, unit)
 end
 
 local function onEnteringWorld()
+	local _, instanceType = IsInInstance()
+	if instanceType == "arena" then
+		wipe(starts)
+		wipe(auras)
+		ns:Fire(ns.PROC_COOLDOWN_UPDATED)
+	end
 	readPlayer()
 end
 

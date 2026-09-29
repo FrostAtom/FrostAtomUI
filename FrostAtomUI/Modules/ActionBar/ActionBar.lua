@@ -380,6 +380,17 @@ function ActionBar:Initialize()
 	self:InitializeVehicleExit()
 	self:InitializeTotemBar()
 
+	for page = 1, NUM_BARS do
+		self:RegisterMover(
+			self.bars[page],
+			"actionBar.bar" .. page .. ".point",
+			L["Action bar %d"]:format(page),
+			{ secure = true }
+		)
+	end
+	self:RegisterMover(self.stanceBar, "actionBar.stance.point", "Stance bar", { secure = true })
+	self:RegisterMover(self.petBar, "actionBar.pet.point", "Pet bar", { secure = true })
+
 	self:Layout()
 	self:WatchConfig("actionBar", self.Layout, true)
 
@@ -396,15 +407,4 @@ function ActionBar:Initialize()
 	self:RegisterEvent("CHARACTER_POINTS_CHANGED", layoutStance)
 
 	self:InitializeOverrideBindings()
-
-	for page = 1, NUM_BARS do
-		self:RegisterMover(
-			self.bars[page],
-			"actionBar.bar" .. page .. ".point",
-			L["Action bar %d"]:format(page),
-			{ secure = true }
-		)
-	end
-	self:RegisterMover(self.stanceBar, "actionBar.stance.point", "Stance bar", { secure = true })
-	self:RegisterMover(self.petBar, "actionBar.pet.point", "Pet bar", { secure = true })
 end

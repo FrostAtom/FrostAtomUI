@@ -1087,6 +1087,10 @@ function Trackers:Initialize()
 	self:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED", updateVisibility)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 		inCombat = UnitAffectingCombat("player") and true or false
+		local _, instanceType = IsInInstance()
+		if instanceType == "arena" then
+			wipe(icdStarts)
+		end
 		updateVisibility()
 		updateAll()
 	end)
