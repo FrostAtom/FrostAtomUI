@@ -170,6 +170,11 @@ Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
 	if ratingReported or not (IsActiveBattlefieldArena() and GetBattlefieldWinner()) then
 		return
 	end
+	local name0, _, _, rating0 = GetBattlefieldTeamInfo(0)
+	local name1, _, _, rating1 = GetBattlefieldTeamInfo(1)
+	if (name0 or "") == "" and (name1 or "") == "" and (rating0 or 0) == 0 and (rating1 or 0) == 0 then
+		return
+	end
 	ratingReported = true
 
 	local config = ns.Config.announce
