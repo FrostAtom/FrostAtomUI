@@ -140,7 +140,7 @@ globals = {
 	"ChatTypeInfo", "UIPanelWindows", "CHAT_FONT_HEIGHTS", "Minimap", "WorldMapPing", "MAP_VEHICLES",
 	"UIDropDownMenu_AddButton", "FCF_ToggleLock", "ShowMacroFrame",
 	-- overridden Blizzard functions
-	"MainMenuBarVehicleLeaveButton_Update", "TalentFrame_LoadUI", "Arena_LoadUI",
+	"MainMenuBarVehicleLeaveButton_Update", "TalentFrame_LoadUI", "GlyphFrame_LoadUI", "Arena_LoadUI",
 	"TimeManager_LoadUI", "CombatLog_LoadUI", "Blizzard_CombatLog_Update_QuickButtons",
 	"Minimap_UpdateRotationSetting", "UnitPopup_OnClick", "ChatEdit_OnSpacePressed", "SetItemRef",
 	"InspectPaperDollItemSlotButton_Update", "GetMinimapShape",

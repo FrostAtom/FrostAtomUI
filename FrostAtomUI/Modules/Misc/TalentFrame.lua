@@ -325,6 +325,7 @@ end
 
 local function createTalentButton(pane, index)
 	local button = CreateFrame("Button", nil, pane.body)
+	button:SetFrameLevel(pane.body:GetFrameLevel() + 1)
 	button:SetSize(BUTTON_SIZE, BUTTON_SIZE)
 	button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	ns.SkinIconButton(button, false)
@@ -683,6 +684,7 @@ end
 local function createGlyphSocket(panel, socket)
 	local center = GLYPH_SOCKETS[socket]
 	local button = CreateFrame("Button", nil, panel.art)
+	button:SetFrameLevel(panel.art:GetFrameLevel() + 1)
 	button:SetSize(90 * GLYPH_SCALE, 90 * GLYPH_SCALE)
 	button:SetPoint(
 		"CENTER",
@@ -1387,12 +1389,22 @@ local function setMicroButtonState()
 	end
 end
 
+local function hide()
+	if frame and frame:IsShown() then
+		HideUIPanel(frame)
+	end
+end
+
 function TalentFrame:Initialize()
+	TalentFrame_LoadUI = ns.noop
+	GlyphFrame_LoadUI = ns.noop
 	ToggleTalentFrame = toggle
 	ToggleGlyphFrame = toggle
 	OpenGlyphFrame = open
 	TalentMicroButton:SetScript("OnClick", toggle)
 	hooksecurefunc("UpdateMicroButtons", setMicroButtonState)
+	hooksecurefunc(StaticPopupDialogs.CONFIRM_TALENT_WIPE, "OnCancel", hide)
+	self:RegisterEvent("CONFIRM_TALENT_WIPE", open)
 
 	for _, event in ipairs({
 		"PLAYER_TALENT_UPDATE",

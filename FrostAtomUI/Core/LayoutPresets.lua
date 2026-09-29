@@ -112,7 +112,7 @@ local fullHD = edgeBars({
 })
 
 local modern = sideBars({
-	["actionBar.stance.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar3.point", "TOPLEFT" },
+	["actionBar.stance.point"] = { "BOTTOMLEFT", 22, 4, "actionBar.bar3.point", "TOPLEFT" },
 	["actionBar.totemBar.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar3.point", "TOPLEFT" },
 	["actionBar.pet.point"] = { "BOTTOMRIGHT", 0, 4, "actionBar.bar3.point", "TOPRIGHT" },
 	["actionBar.vehicleExit.point"] = { "BOTTOMLEFT", 4, 0, "actionBar.bar3.point", "BOTTOMRIGHT" },
@@ -140,13 +140,15 @@ local modernCompact = {
 	["tweaks.worldStatePoint"] = { "TOP", 0, -5 },
 }
 
-local classic = sideBars({
+local classic = {
 	["actionBar.bar1.point"] = { "BOTTOM", -230, 2 },
 	["actionBar.bar2.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar1.point", "TOPLEFT" },
 	["actionBar.bar3.point"] = { "BOTTOMLEFT", 6, 0, "actionBar.bar2.point", "BOTTOMRIGHT" },
-	["actionBar.microMenu"] = { "BOTTOMLEFT", 6, 0, "actionBar.bar1.point", "BOTTOMRIGHT" },
-	["actionBar.bagButton"] = { "LEFT", 6, 0, "actionBar.microMenu", "RIGHT" },
-	["actionBar.stance.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar2.point", "TOPLEFT" },
+	["actionBar.bar4.point"] = { "BOTTOMLEFT", 6, 0, "actionBar.bar1.point", "BOTTOMRIGHT" },
+	["actionBar.bar5.point"] = { "RIGHT", -2, -70 },
+	["bags.inventory"] = { "BOTTOMRIGHT", -44, 42 },
+	["tooltip.point"] = { "BOTTOMRIGHT", -51, 64 },
+	["actionBar.stance.point"] = { "BOTTOMLEFT", 22, 4, "actionBar.bar2.point", "TOPLEFT" },
 	["actionBar.totemBar.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar2.point", "TOPLEFT" },
 	["actionBar.pet.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar3.point", "TOPLEFT" },
 	["actionBar.vehicleExit.point"] = { "BOTTOMRIGHT", 0, 4, "actionBar.bar3.point", "TOPRIGHT" },
@@ -157,12 +159,11 @@ local classic = sideBars({
 	["groupCooldowns.friendlyPoint"] = { "TOPLEFT", 260, 0, "unitFrames.party", "TOPRIGHT" },
 	["groupCooldowns.enemyPoint"] = { "TOPRIGHT", -260, 0, "unitFrames.arena", "TOPLEFT" },
 	["tweaks.worldStatePoint"] = { "TOP", 0, -5 },
-})
+}
 group(classic, "party", 4, { "TOPLEFT", 100, -260 }, { "LEFT", 0, -160, "LEFT" })
 group(classic, "arena", 3, { "TOPRIGHT", -200, -250 }, { "RIGHT", 0, -160, "RIGHT" })
 
 local classicCompact = {
-	["actionBar.bar1.point"] = { "BOTTOM", -150, 2 },
 	["unitFrames.player"] = { "TOPLEFT", 270, -40 },
 	["unitFrames.party"] = { "TOPLEFT", 100, -135 },
 	["groupCooldowns.friendlyPoint"] = { "TOPLEFT", 260, -310, "unitFrames.party", "TOPRIGHT" },
@@ -238,7 +239,9 @@ ns.LayoutPresets = {
 		name = "Classic",
 		desc = "Like the default 3.3.5 interface: portraits in the top-left corner with party under them, the main bar next to the micro menu, vertical bars on the right edge.",
 		points = classic,
-		settings = settings(SIDE_BAR_SETTINGS, {
+		settings = settings({
+			["actionBar.bar4.columns"] = 12,
+			["actionBar.bar5.columns"] = 1,
 			["chat.width"] = 360,
 			["chat.height"] = 120,
 		}),

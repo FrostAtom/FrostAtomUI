@@ -99,7 +99,7 @@ ns.Defaults = {
 		bar5 = actionBarDefaults(true, { "BOTTOM", 316, 2 }, 12, 4, 36),
 		bar6 = actionBarDefaults(false, { "RIGHT", -2, 0 }, 12, 1, 36),
 		extraBars = {},
-		stance = actionBarDefaults(nil, { "BOTTOM", -150, 116 }, nil, 10, 30),
+		stance = actionBarDefaults(nil, { "BOTTOMLEFT", 22, 2, "actionBar.bar3.point", "TOPLEFT" }, nil, 10, 30),
 		pet = actionBarDefaults(nil, { "BOTTOM", 68, 116 }, nil, 10, 30),
 		vehicleExit = { point = { "BOTTOM", 250, 116 }, buttonSize = 36 },
 		totemBar = ns.Mixin(actionBarDefaults(true, { "BOTTOM", -150, 154 }, nil, 6, 30), {
