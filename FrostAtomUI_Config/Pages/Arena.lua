@@ -23,7 +23,7 @@ ns.RegisterElement({
 			label = L["Countdown final seconds color"],
 			type = "color",
 			advanced = true,
-			desc = L["Used for the last 3 seconds, when tenths are shown."],
+			desc = L["Used for the last 3 seconds."],
 		},
 	}),
 })
@@ -69,6 +69,16 @@ Section(schema, L["Arena"], "arena", {
 		label = L["Start countdown"],
 		type = "toggle",
 		desc = L["Large timer for the last 15 seconds before the gates open."],
+	},
+	{
+		label = L["Preview countdown"],
+		type = "execute",
+		text = L["Test"],
+		glyph = "flask",
+		enabledBy = "arena.countdown",
+		func = function()
+			SlashCmdList.FROSTATOMUI_ARENA_COUNTDOWN_TEST()
+		end,
 	},
 	{
 		path = "pillars",

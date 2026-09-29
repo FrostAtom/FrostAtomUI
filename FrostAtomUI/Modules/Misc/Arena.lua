@@ -8,71 +8,9 @@ local ceil = math.ceil
 
 local Misc = ns:GetModule("Misc")
 
-local COUNTDOWN_MESSAGES = {
-	"Fifteen seconds until the Arena battle begins!",
-	"Пятнадцать секунд",
-	"пятнадцать секунд",
-	"15 секунд",
-}
-local COUNTDOWN_SECONDS = 15
-local COUNTDOWN_URGENT_SECONDS = 3
-
-local countdown = CreateFrame("Frame")
-countdown:Hide()
-Misc:AnchorToConfig(countdown, "arena.countdownPoint", "Arena countdown", {
-	size = function()
-		local size = ns.Config.arena.countdownFont.size
-		return size * 2, size * 1.4
-	end,
-	floating = true,
-})
-countdown:SetSize(2, 2)
-
-countdown.text = countdown:CreateFontString(nil, "BORDER")
-countdown.text:SetPoint("CENTER")
-
-countdown:SetScript("OnUpdate", function(self, elapsed)
-	self.remain = self.remain - elapsed
-	if self.remain <= 0 then
-		self:Hide()
-	elseif self.remain <= COUNTDOWN_URGENT_SECONDS then
-		self.text:SetFormattedText("%.1f", self.remain)
-		self.text:SetTextColor(unpack(ns.Config.arena.countdownUrgentColor))
-	else
-		self.text:SetText(ceil(self.remain))
-		self.text:SetTextColor(unpack(ns.Config.arena.countdownColor))
-	end
-end)
-
 local function inArena()
 	return select(2, IsInInstance()) == "arena"
 end
-
-local function isCountdownMessage(message)
-	for i = 1, #COUNTDOWN_MESSAGES do
-		if message:find(COUNTDOWN_MESSAGES[i], 1, true) then
-			return true
-		end
-	end
-	return false
-end
-
-countdown:SetScript("OnEvent", function(self, event, message)
-	if event == "PLAYER_ENTERING_WORLD" then
-		self:Hide()
-	elseif
-		ns.Config.arena.enabled
-		and ns.Config.arena.countdown
-		and message
-		and inArena()
-		and isCountdownMessage(message)
-	then
-		self.remain = COUNTDOWN_SECONDS
-		self:Show()
-	end
-end)
-countdown:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")
-countdown:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
 local TICK_INTERVAL = 0.05
@@ -155,12 +93,7 @@ pillars:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 local function applyConfig()
 	local config = ns.Config.arena
-	local font = config.countdownFont
-	ns.SetFont(countdown.text, font.size, font.outline, true)
 	pillars:SetSize(config.pillarsSize, config.pillarsSize)
-	if not (config.enabled and config.countdown) then
-		countdown:Hide()
-	end
 	if not (config.enabled and config.pillars) then
 		pillars:Hide()
 	end

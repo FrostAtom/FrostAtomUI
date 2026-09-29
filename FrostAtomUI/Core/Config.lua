@@ -966,7 +966,7 @@ ns.Defaults = {
 		countdown = true,
 		countdownPoint = { "CENTER", 0, 180 },
 		countdownFont = { size = 24, outline = "OUTLINE" },
-		countdownColor = { 1, 1, 1 },
+		countdownColor = { 1, 0.82, 0 },
 		countdownUrgentColor = { 1, 0, 0 },
 		pillars = true,
 		pillarsSize = 36,
