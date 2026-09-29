@@ -14,6 +14,10 @@ local config = ns.Config.namePlates
 local frameConfig = ns.Config.unitFrames
 local BACKDROP = ns.CreateBackdrop(8, 2)
 local BORDER_INSET = 3
+local TARGET_EDGE_BACKDROP = { edgeFile = ns.Media.border, edgeSize = 16 }
+local TARGET_EDGE_OUTSET = 1
+local TARGET_BACKGROUND = { 1, 1, 1, 1 }
+local TARGET_RELIEF_ALPHA = 0.6
 local TEXT_INSET = 3
 local ICON_GAP = 2
 local WHITE = { 1, 1, 1 }
@@ -225,6 +229,7 @@ function PlateMixin:ApplyStackLevel()
 	local level = self.stackLevel
 	local castbar = self.castbar
 	setLevel(self.holder, level)
+	setLevel(self.holder.targetEdge, level)
 	setLevel(self.healthbar, level + 1)
 	setLevel(castbar, level + 1)
 	setLevel(castbar.holder, level)
@@ -298,6 +303,9 @@ function PlateMixin:OnUpdate()
 	if self.hiddenByName then
 		return
 	end
+	if not self:IsTarget() and self:GetAlpha() < 1 then
+		self:SetAlpha(config.nonTargetAlpha)
+	end
 	if self.stackLevel and self.holder:GetFrameLevel() ~= self.stackLevel then
 		self:ApplyStackLevel()
 	end
@@ -342,10 +350,14 @@ function PlateMixin:OnUpdate()
 	local borderState = isTarget and "target" or hasThreat and "threat" or "normal"
 	if borderState ~= self.borderState then
 		self.borderState = borderState
+		local targeted = isTarget and config.targetBorder
 		if borderState ~= "threat" then
-			local color = isTarget and config.targetBorder and frameConfig.targetBorderColor or frameConfig.borderColor
-			holder:SetBackdropBorderColor(color[1], color[2], color[3])
+			local color = frameConfig.borderColor
+			holder:SetBackdropBorderColor(color[1], color[2], color[3], targeted and 0 or 1)
 		end
+		local background = targeted and TARGET_BACKGROUND or frameConfig.backdropColor
+		holder:SetBackdropColor(background[1], background[2], background[3], background[4] or 1)
+		ns.SetShown(holder.targetEdge, targeted)
 	end
 
 	local _, max = healthbar:GetMinMaxValues()
@@ -863,10 +875,32 @@ NamePlates.CreateText = createText
 NamePlates.CreateCastTexts = createCastTexts
 NamePlates.StyleCastTexts = styleCastTexts
 
+function NamePlates.CreateTargetEdge(parent, outset)
+	local edge = CreateFrame("Frame", nil, parent)
+	edge:SetPoint("TOPLEFT", -outset, outset)
+	edge:SetPoint("BOTTOMRIGHT", outset, -outset)
+	edge:SetBackdrop(TARGET_EDGE_BACKDROP)
+	edge:SetBackdropBorderColor(1, 1, 1)
+	for _, region in ipairs({ edge:GetRegions() }) do
+		region:SetBlendMode("ADD")
+	end
+	local relief = CreateFrame("Frame", nil, edge)
+	relief:SetAllPoints()
+	relief:SetFrameLevel(edge:GetFrameLevel())
+	relief:SetBackdrop(TARGET_EDGE_BACKDROP)
+	relief:SetBackdropBorderColor(1, 1, 1, TARGET_RELIEF_ALPHA)
+	edge:Hide()
+	return edge
+end
+
 local function setupHealthbar(plate, healthbar, blizzardBackground)
 	local holder = createHolder(plate, plate:GetFrameLevel())
 	holder:SetPoint("TOPLEFT")
 	plate.holder = holder
+
+	local targetEdge = NamePlates.CreateTargetEdge(holder, TARGET_EDGE_OUTSET)
+	targetEdge:SetFrameLevel(holder:GetFrameLevel())
+	holder.targetEdge = targetEdge
 
 	healthbar:SetFrameLevel(plate:GetFrameLevel() + 1)
 	ns.SkinStatusBar(healthbar)
