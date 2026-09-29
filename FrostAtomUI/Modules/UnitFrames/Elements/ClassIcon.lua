@@ -74,6 +74,10 @@ local function applyModel(model)
 	model:SetCamera(0)
 end
 
+local function onModelUpdate(model)
+	model:SetCamera(0)
+end
+
 local function onModelShow(model)
 	model.guid = nil
 	if model.unit then
@@ -89,6 +93,7 @@ local function createModel(icon)
 	local model = CreateFrame("PlayerModel", nil, icon)
 	model:SetAllPoints()
 	model:SetScript("OnShow", onModelShow)
+	model:SetScript("OnUpdate", onModelUpdate)
 	model.background = background
 
 	local overlay = CreateFrame("Frame", nil, icon)
