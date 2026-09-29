@@ -416,7 +416,7 @@ function ItemMixin:Update()
 	self.unusable = itemId and config.tintUnusable and BagItems.IsUnusable(itemId) or false
 	self.pending = nil
 
-	SetItemButtonTexture(self, texture)
+	SetItemButtonTexture(self, texture or ns.Media.emptySlot)
 	SetItemButtonCount(self, count)
 
 	local r, g, b
