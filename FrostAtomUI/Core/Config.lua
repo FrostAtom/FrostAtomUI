@@ -550,6 +550,8 @@ ns.Defaults = {
 		showRaidIcon = true,
 		targetBorder = true,
 		fitClickArea = true,
+		hideByName = true,
+		hiddenNames = {},
 		castbarGap = 3,
 		nameFont = { size = 9, outline = "OUTLINE" },
 		percentFont = { size = 9, outline = "OUTLINE" },

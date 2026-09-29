@@ -547,6 +547,113 @@ local generalSchema = {
 	},
 }
 
+local HIDDEN_PATH = "namePlates.hiddenNames"
+local HIDE_ENABLE = "namePlates.hideByName"
+local NAME_BUTTON_WIDTH = 64
+local NAME_BUTTON_HEIGHT = 20
+
+local function hiddenNames()
+	return ui.Config.namePlates.hiddenNames
+end
+
+local function addHiddenName(name)
+	name = name and strtrim(name)
+	if not name or name == "" then
+		return
+	end
+	local lower = strlower(name)
+	for _, existing in ipairs(hiddenNames()) do
+		if strlower(existing) == lower then
+			return
+		end
+	end
+	local list = CopyTable(hiddenNames())
+	list[#list + 1] = name
+	ui:SetConfig(HIDDEN_PATH, list)
+end
+
+local function removeHiddenName(index)
+	return function()
+		local list = CopyTable(hiddenNames())
+		table.remove(list, index)
+		ui:SetConfig(HIDDEN_PATH, list)
+	end
+end
+
+local function hiddenNameRow(index)
+	return {
+		type = "custom",
+		label = "",
+		indent = false,
+		enabledBy = HIDE_ENABLE,
+		build = function(row)
+			local text = row:CreateFontString(nil, "ARTWORK")
+			text:SetFontObject(ns.Font("GameFontHighlight"))
+			text:SetPoint("LEFT", 8, 0)
+			text:SetPoint("RIGHT", row, "RIGHT", -NAME_BUTTON_WIDTH - 12, 0)
+			text:SetJustifyH("LEFT")
+			text:SetWordWrap(false)
+			local remove = ns.CreateButton(row, L["Remove"], NAME_BUTTON_WIDTH, true, NAME_BUTTON_HEIGHT)
+			remove:SetPoint("RIGHT", -4, 0)
+			remove:SetScript("OnClick", removeHiddenName(index))
+			row.text, row.remove = text, remove
+		end,
+		refresh = function(row)
+			row.text:SetText(hiddenNames()[index] or "")
+		end,
+		setEnabled = function(row, enabled)
+			ns.SetTextEnabled(row.text, enabled)
+			ns.SetControlEnabled(row.remove, enabled)
+		end,
+	}
+end
+
+local function buildHiddenSchema()
+	local schema = {
+		{
+			path = HIDE_ENABLE,
+			label = L["Enable"],
+			type = "toggle",
+			desc = L["Nameplates of the units in the list are not shown and do not react to clicks or mouseover."],
+		},
+		{ header = L["Names"], glyph = "eye-slash" },
+	}
+	for index in ipairs(hiddenNames()) do
+		schema[#schema + 1] = hiddenNameRow(index)
+	end
+	schema[#schema + 1] = {
+		label = L["Add name"],
+		type = "input",
+		text = L["Add"],
+		glyph = "plus",
+		width = 160,
+		maxLetters = 48,
+		enabledBy = HIDE_ENABLE,
+		func = addHiddenName,
+	}
+	schema[#schema + 1] = {
+		type = "custom",
+		label = "",
+		enabledBy = HIDE_ENABLE,
+		build = function(row)
+			local button = ns.CreateButton(row, L["Add from target"], 140)
+			button:SetPoint("LEFT", row, "LEFT", ns.CONTROL_X + 6, 0)
+			button:SetScript("OnClick", function()
+				addHiddenName(UnitExists("target") and UnitName("target"))
+			end)
+			row.button = button
+		end,
+		setEnabled = function(row, enabled)
+			ns.SetControlEnabled(row.button, enabled)
+		end,
+	}
+	return schema
+end
+
+local function hiddenSignature()
+	return table.concat(hiddenNames(), "\n")
+end
+
 ns.RegisterPage({
 	key = "nameplates",
 	name = L["Nameplates"],
@@ -601,5 +708,13 @@ ns.RegisterPage({
 			L["Reaction color: friendly green. Health percent: a color mixed from the current health. Fixed color: the color below."],
 			"npc"
 		),
+		{
+			key = "hidden",
+			name = L["Hidden"],
+			glyph = "eye-slash",
+			schema = { { path = HIDE_ENABLE, hidden = true }, { path = HIDDEN_PATH, hidden = true } },
+			buildSchema = buildHiddenSchema,
+			signature = hiddenSignature,
+		},
 	},
 })
