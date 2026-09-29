@@ -117,16 +117,22 @@ local function plateIndex(plate)
 	end
 end
 
+local function targetSize(plate)
+	if plate.hitHidden then
+		return defaultWidth, 0
+	elseif config.fitClickArea then
+		return plate.hitWidth, plate.hitHeight
+	end
+	return defaultWidth, defaultHeight
+end
+
 local function write(plate)
 	local marker = markers[plate.hitIndex]
 	if not marker then
 		return
 	end
-	if config.fitClickArea then
-		marker:SetClampRectInsets(-plate.hitWidth, 0, 0, -plate.hitHeight)
-	else
-		marker:SetClampRectInsets(0, 0, 0, 0)
-	end
+	local width, height = targetSize(plate)
+	marker:SetClampRectInsets(-width, 0, 0, -height)
 	marker:SetClampedToScreen(true)
 end
 
@@ -139,11 +145,7 @@ local function wrap(plate)
 end
 
 local function apply(plate)
-	if config.fitClickArea then
-		plate:SetSize(plate.hitWidth, plate.hitHeight)
-	else
-		plate:SetSize(defaultWidth, defaultHeight)
-	end
+	plate:SetSize(targetSize(plate))
 	wrap(plate)
 end
 
@@ -162,14 +164,14 @@ local function prepare()
 	end
 end
 
-function HitRect.Update(plate, width, height)
+function HitRect.Update(plate, width, height, hidden)
 	if not defaultWidth then
 		defaultWidth, defaultHeight = plate:GetSize()
 	end
 	if not plate.hitIndex then
 		plate.hitIndex = plateIndex(plate)
 	end
-	plate.hitWidth, plate.hitHeight = width, height
+	plate.hitWidth, plate.hitHeight, plate.hitHidden = width, height, hidden
 	if InCombatLockdown() then
 		write(plate)
 		pending[plate] = true

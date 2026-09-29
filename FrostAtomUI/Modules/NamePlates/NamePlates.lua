@@ -175,6 +175,22 @@ local function updateTargetName()
 	targetName = UnitExists("target") and UnitName("target") or nil
 end
 
+local hiddenNames = {}
+
+local function updateHiddenNames()
+	wipe(hiddenNames)
+	if not config.hideByName then
+		return
+	end
+	for _, name in ipairs(config.hiddenNames) do
+		hiddenNames[strlower(name)] = true
+	end
+end
+
+local function isHiddenName(name)
+	return name ~= nil and hiddenNames[strlower(name)] == true
+end
+
 local WorldChildren = ns.WorldChildren
 local snap = WorldChildren.Snap
 
@@ -231,7 +247,7 @@ end
 function PlateMixin:UpdateHitRect()
 	local visible = self.totem:IsShown() and self.totem or self.holder
 	local padding = 2 * self:HitPadding()
-	NamePlates.HitRect.Update(self, visible:GetWidth() + padding, visible:GetHeight() + padding)
+	NamePlates.HitRect.Update(self, visible:GetWidth() + padding, visible:GetHeight() + padding, self.hiddenByName)
 end
 
 function PlateMixin:SetStackLevel(level)
@@ -279,6 +295,9 @@ local function applyHighlight(plate)
 end
 
 function PlateMixin:OnUpdate()
+	if self.hiddenByName then
+		return
+	end
 	if self.stackLevel and self.holder:GetFrameLevel() ~= self.stackLevel then
 		self:ApplyStackLevel()
 	end
@@ -361,6 +380,22 @@ function PlateMixin:ApplyLayout()
 	end
 end
 
+function PlateMixin:ApplyHidden()
+	NamePlates.Totems.Hide(self)
+	self.holder:Hide()
+	self.healthbar:Hide()
+	self.overlay:Hide()
+	self.castbar:Hide()
+	self.castbar.result:Hide()
+	if self.vcast then
+		self.vcast:Hide()
+	end
+	for i = 1, #onPlateShow do
+		onPlateShow[i](self, self.plateName)
+	end
+	self:UpdateHitRect()
+end
+
 function PlateMixin:OnShow()
 	local name = self.info.name
 	self.plateName = name
@@ -371,6 +406,12 @@ function PlateMixin:OnShow()
 	end
 	local Totems = NamePlates.Totems
 	self:RefreshColors()
+	self.hiddenByName = isHiddenName(name)
+	if self.hiddenByName then
+		self:ApplyHidden()
+		return
+	end
+	self.overlay:Show()
 	local totemSpell = config.totemIcons and Totems.Identify(self)
 	local unitIcon, unitIconCoords
 	if not totemSpell then
@@ -497,7 +538,7 @@ end
 
 function CastbarMixin:OnShow()
 	local plate = self:GetParent()
-	if plate.totemSpell or not plate.settings.showCastbar then
+	if plate.hiddenByName or plate.totemSpell or not plate.settings.showCastbar then
 		self:Hide()
 		return
 	end
@@ -595,6 +636,9 @@ function CastbarMixin:StartCast()
 end
 
 local function showCastResult(plate, texture, iconShown, locked, interruptText, cancelled)
+	if plate.hiddenByName then
+		return
+	end
 	local result = plate.castbar.result
 	local anchor, height, compact = castAnchor(plate)
 	result:ClearAllPoints()
@@ -994,7 +1038,7 @@ local function updateStacking()
 	local count = 0
 	for i = 1, #plates do
 		local plate = plates[i]
-		if plate:IsShown() then
+		if plate:IsShown() and not plate.hiddenByName then
 			count = count + 1
 			stack[count] = plate
 			plate.stackIndex = i
@@ -1044,7 +1088,12 @@ local function spreadPlates(elapsed)
 	for i = 1, #plates do
 		local plate = plates[i]
 		local x, y
-		if plate:IsShown() and plate.reaction ~= "friendly" and not plate.totem:IsShown() then
+		if
+			plate:IsShown()
+			and not plate.hiddenByName
+			and plate.reaction ~= "friendly"
+			and not plate.totem:IsShown()
+		then
 			local _
 			_, _, _, x, y = plate:GetPoint(1)
 		end
@@ -1134,6 +1183,7 @@ local layerHandlers = {
 }
 
 local function applyStyle()
+	updateHiddenNames()
 	for i = 1, #plates do
 		local plate = plates[i]
 		styleText(plate.name, config.nameFont)
@@ -1176,6 +1226,7 @@ end
 function NamePlates:Initialize()
 	WorldChildren.UpdatePixel()
 	updateTargetName()
+	updateHiddenNames()
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
 	self:RegisterEvent("DISPLAY_SIZE_CHANGED", function()
 		WorldChildren.UpdatePixel()

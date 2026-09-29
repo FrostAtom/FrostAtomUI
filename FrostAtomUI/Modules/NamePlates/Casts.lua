@@ -234,6 +234,7 @@ function updatePlate(plate)
 		or not plate:IsShown()
 		or plate.castbar:IsShown()
 		or plate.totemSpell
+		or plate.hiddenByName
 		or GetTime() > entry.endTime
 	then
 		hideBar(plate)
