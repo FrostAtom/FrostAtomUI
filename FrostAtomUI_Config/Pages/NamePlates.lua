@@ -53,8 +53,8 @@ local function arenaIconSchema(prefix, owner)
 			min = 12,
 			max = 64,
 			step = 1,
-			desc = L["Pet icons are turned on with the class icon option on the players tab."],
-			enabledBy = "namePlates." .. owner .. ".arenaIcon",
+			desc = L["Pet icons are turned on with the pet icon option on the players tab."],
+			enabledBy = "namePlates." .. owner .. ".arenaPetIcon",
 		}
 	end
 	return {
@@ -62,16 +62,22 @@ local function arenaIconSchema(prefix, owner)
 		new = NEW,
 		label = L["Class icon in arena"],
 		type = "toggle",
-		desc = L["In arena, replace the nameplates of players with their class icon and the nameplates of hunter pets, warlock demons, the death knight's ghoul and the mage's water elemental with the pet's icon, framed in the reaction color. A compact castbar is shown under it, auras are not."],
+		desc = L["In arena, replace the nameplates of players with their class icon, framed in the reaction color. A compact castbar is shown under it, auras are not."],
 	}, {
 		path = prefix .. "arenaIconSize",
 		new = NEW,
-		label = L["Arena icon size"],
+		label = L["Class icon size in arena"],
 		type = "number",
 		min = 12,
 		max = 64,
 		step = 1,
 		enabledBy = prefix .. "arenaIcon",
+	}, {
+		path = prefix .. "arenaPetIcon",
+		new = NEW,
+		label = L["Pet icon in arena"],
+		type = "toggle",
+		desc = L["In arena, replace the nameplates of hunter pets, warlock demons, the death knight's ghoul and gargoyle and the mage's water elemental with the pet's icon, framed in the reaction color. A compact castbar is shown under it, auras are not. The icon size is set on the NPCs tab."],
 	}
 end
 
