@@ -435,6 +435,13 @@ local schema = {
 		end,
 	},
 	{
+		path = "actionBar.hideEmptyButtons",
+		new = "1.4.1",
+		label = L["Hide empty buttons"],
+		type = "toggle",
+		desc = L["Buttons without an action are hidden and appear while a spell or item is dragged."],
+	},
+	{
 		path = "actionBar.clickAnimation",
 		advanced = true,
 		label = L["Click animation"],

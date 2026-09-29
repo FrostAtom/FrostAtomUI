@@ -115,6 +115,7 @@ ns.Defaults = {
 		bagButtonMouseover = false,
 		bagButtonCombat = "any",
 		menuFadeAlpha = 0.1,
+		hideEmptyButtons = false,
 		showHotkeys = true,
 		showShapeshiftHotkeys = false,
 		showNames = true,

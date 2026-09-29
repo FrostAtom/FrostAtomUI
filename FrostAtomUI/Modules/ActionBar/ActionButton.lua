@@ -23,6 +23,7 @@ local UnitGUID = UnitGUID
 local UnitExists = UnitExists
 local GetTime = GetTime
 local GameTooltip = GameTooltip
+local max = math.max
 
 local Media = ns.Media
 local Auras = ns.Auras
@@ -33,6 +34,7 @@ local config = ns.Config.actionBar
 local WHITE = { 1, 1, 1 }
 local BUTTON_NAME = ADDON_NAME .. "ActionButton%d"
 local BINDING_NAME = "CLICK " .. BUTTON_NAME .. ":LeftButton"
+local SLOT_NAME = ADDON_NAME .. "ActionSlot%d"
 ActionBar.BINDING_NAME = BINDING_NAME
 local RANGE_CHECK_INTERVAL = 0.1
 local GCD_DURATION = 1.5
@@ -43,6 +45,14 @@ local RECEIVE_DRAG_SNIPPET = [[
 		return false
 	end
 	return "action", self:GetAttribute("action")
+]]
+local SLOT_VISIBILITY_SNIPPET = [[
+	local button = self:GetFrameRef("button")
+	if self:IsShown() and button:GetAttribute("slotactive") then
+		button:Show()
+	else
+		button:Hide()
+	end
 ]]
 
 local LOCK, SILENCE = 1, 2
@@ -283,6 +293,23 @@ function ActionButtonMixin:UpdateName()
 	end
 end
 
+function ActionButtonMixin:UpdateGrid()
+	if InCombatLockdown() then
+		return
+	end
+	local slot = self.slot
+	local extra = (config.hideEmptyButtons and 0 or 1) + (ActionBar:IsBindMode() and 1 or 0)
+	local grid = max(slot:GetAttribute("showgrid") - self.gridExtra + extra, 0)
+	self.gridExtra = extra
+	slot:SetAttribute("showgrid", grid)
+	if grid > 0 then
+		ActionButton_ShowGrid(slot)
+	else
+		ActionButton_HideGrid(slot)
+	end
+	ns.SetShown(self, self:GetAttribute("slotactive") and slot:IsShown())
+end
+
 function ActionButtonMixin:UpdateIcon()
 	local texture = GetActionTexture(self.action)
 	if not texture then
@@ -414,6 +441,7 @@ function ActionButtonMixin:Update()
 		self.hasAction = false
 	end
 
+	self:UpdateGrid()
 	self:UpdateColors()
 	self:UpdateEquipped()
 	self:UpdateState()
@@ -456,6 +484,12 @@ rangeTicker:SetScript("OnUpdate", function()
 		end
 	end
 end)
+
+function ActionBar:UpdateGrid()
+	for i = 1, #actionButtons do
+		actionButtons[i]:UpdateGrid()
+	end
+end
 
 local function onTargetChanged()
 	hasTarget = UnitExists("target") and true or false
@@ -502,6 +536,7 @@ function ActionBar:CreateActionButton(action, parent)
 	button:SetAttribute("checkselfcast", true)
 	button:SetAttribute("type", "action")
 	button:SetAttribute("action", action)
+	button:SetAttribute("slotactive", true)
 	button.action = action
 	button.bindingName = BINDING_NAME:format(action)
 
@@ -537,6 +572,18 @@ function ActionBar:CreateActionButton(action, parent)
 	button:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 	button:RegisterEvent("UPDATE_BINDINGS", "UpdateBindings")
 	self:AttachTooltip(button, button.SetTooltip)
+
+	local slot = CreateFrame("CheckButton", SLOT_NAME:format(action), nil, "ActionBarButtonTemplate")
+	slot:SetAlpha(0)
+	slot:EnableMouse(false)
+	slot:SetScript("OnUpdate", nil)
+	slot:SetAttribute("action", action)
+	SecureHandlerSetFrameRef(slot, "button", button)
+	SecureHandlerSetFrameRef(button, "slot", slot)
+	parent:WrapScript(slot, "OnShow", SLOT_VISIBILITY_SNIPPET)
+	parent:WrapScript(slot, "OnHide", SLOT_VISIBILITY_SNIPPET)
+	button.slot = slot
+	button.gridExtra = 0
 
 	button.usable = true
 	button.cooldownEnd = 0
