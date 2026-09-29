@@ -1040,6 +1040,10 @@ function Movers.Register(frame, path, label, options)
 		mover.overlay = createOverlay(mover)
 		updateVisibility(mover)
 	end
+	local value = ns:GetConfig(path)
+	if type(value) == "table" and value[4] and registeredFrame(value[4]) then
+		ns:Fire(ns.CONFIG_CHANGED, path)
+	end
 	notifyDependents(path)
 	return mover
 end
