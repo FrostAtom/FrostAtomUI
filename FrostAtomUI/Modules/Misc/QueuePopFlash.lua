@@ -1,33 +1,66 @@
 local _, ns = ...
 
-local L = ns.L
-
 local GetBattlefieldStatus = GetBattlefieldStatus
 local GetBattlefieldPortExpiration = GetBattlefieldPortExpiration
 local StaticPopup_FindVisible = StaticPopup_FindVisible
-local PlaySoundFile = PlaySoundFile
-local GetCVar = GetCVar
-local GetTime = GetTime
-local cos, pi, min = math.cos, math.pi, math.min
+local cos, pi, min, max = math.cos, math.pi, math.min, math.max
 local MAX_BATTLEFIELD_QUEUES = MAX_BATTLEFIELD_QUEUES or 2
 
 local Misc = ns:GetModule("Misc")
 
 local SOLID_TEXTURE = "Interface\\Buttons\\WHITE8X8"
 local VIGNETTE_TEXTURE = "Interface\\FullScreenTextures\\LowHealth"
+local RING_TEXTURE = "Interface\\Cooldown\\ping4"
+local BURST_TEXTURE = "Interface\\Cooldown\\starburst"
 local RAMP_TIME = 15
 local RAMP_START = 0.6
-local INVITE_SOUND = "Sound\\Spells\\PVPThroughQueue.wav"
-local COUNTDOWN_TICK = 0.2
-local COUNTDOWN_URGENT = 10
-local COUNTDOWN_URGENT_COLOR = { 1, 0.3, 0.3 }
-local COUNTDOWN_OFFSET = 8
-local COUNTDOWN_FALLBACK_Y = 160
+local SOLID_SHARE = 0.45
+local FIRST_BEAT_ATTACK = 0.09
+local FIRST_BEAT_RELEASE = 0.22
+local SECOND_BEAT_DELAY = 0.27
+local SECOND_BEAT_ATTACK = 0.11
+local SECOND_BEAT_RELEASE = 0.42
+local SECOND_BEAT_STRENGTH = 0.75
+local URGENT_SECONDS = 10
+local URGENT_SPEED = 1.7
+local URGENT_BLEND_TIME = 1
+local URGENT_COLOR = { 1, 0.15, 0.1 }
+local EXPIRATION_TICK = 0.2
+local INTRO_FLASH_TIME = 0.45
+local INTRO_RING_DELAYS = { 0, 0.14, 0.3 }
+local BURST_TIME = 0.8
+local BURST_FROM, BURST_TO = 120, 1100
+local RING_TIME = 1.1
+local RING_FROM, RING_TO = 80, 950
+local RING_ALPHA = 0.9
+local RING_POOL = 6
+
+local pulse = { value = 0, urgency = 0 }
+ns.QueuePulse = pulse
+
+local function swell(x, attack, release)
+	if x <= 0 or x >= attack + release then
+		return 0
+	elseif x < attack then
+		return 0.5 - 0.5 * cos(pi * x / attack)
+	end
+	return 0.5 + 0.5 * cos(pi * (x - attack) / release)
+end
+
+local function heartbeat(phase)
+	local first = swell(phase, FIRST_BEAT_ATTACK, FIRST_BEAT_RELEASE)
+	local second = swell(phase - SECOND_BEAT_DELAY, SECOND_BEAT_ATTACK, SECOND_BEAT_RELEASE)
+	return min(first + SECOND_BEAT_STRENGTH * second, 1)
+end
+
+local function easeOut(progress)
+	local rest = 1 - progress
+	return 1 - rest * rest * rest
+end
 
 local flash = CreateFrame("Frame", nil, UIParent)
 flash:SetFrameStrata("HIGH")
 flash:SetAllPoints(UIParent)
-flash:SetAlpha(0)
 flash:Hide()
 
 local solid = flash:CreateTexture(nil, "BACKGROUND")
@@ -40,14 +73,159 @@ vignette:SetAllPoints()
 vignette:SetTexture(VIGNETTE_TEXTURE)
 vignette:SetBlendMode("ADD")
 
+local burst = flash:CreateTexture(nil, "ARTWORK")
+burst:SetTexture(BURST_TEXTURE)
+burst:SetBlendMode("ADD")
+
+local rings = {}
+for i = 1, RING_POOL do
+	local ring = flash:CreateTexture(nil, "ARTWORK")
+	ring:SetTexture(RING_TEXTURE)
+	ring:SetBlendMode("ADD")
+	ring:Hide()
+	rings[i] = ring
+end
+
+local function anchorFrame()
+	local dialog = StaticPopup_FindVisible("CONFIRM_BATTLEFIELD_ENTRY")
+	if dialog then
+		return dialog
+	end
+	if LFDDungeonReadyPopup and LFDDungeonReadyPopup:IsShown() then
+		return LFDDungeonReadyPopup
+	end
+end
+
+local function anchorPoint()
+	local frame = anchorFrame()
+	local x, y = frame and frame:GetCenter()
+	if not x then
+		return UIParent:GetWidth() / 2, UIParent:GetHeight() / 2
+	end
+	local ratio = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	return x * ratio, y * ratio
+end
+
+local function placeCentered(texture, x, y, size)
+	texture:ClearAllPoints()
+	texture:SetPoint("CENTER", UIParent, "BOTTOMLEFT", x, y)
+	texture:SetSize(size, size)
+end
+
+local function spawnRing(delay)
+	for _, ring in ipairs(rings) do
+		if not ring.start then
+			ring.start = flash.elapsed + (delay or 0)
+			ring:SetAlpha(0)
+			ring:Show()
+			return
+		end
+	end
+end
+
+local function currentColor()
+	local color = ns.Config.queuePopFlash.color
+	local u = pulse.urgency
+	return color[1] + (URGENT_COLOR[1] - color[1]) * u,
+		color[2] + (URGENT_COLOR[2] - color[2]) * u,
+		color[3] + (URGENT_COLOR[3] - color[3]) * u
+end
+
+local function updateRings(intensity, x, y, r, g, b)
+	for _, ring in ipairs(rings) do
+		local start = ring.start
+		if start then
+			local age = flash.elapsed - start
+			if age >= RING_TIME then
+				ring.start = nil
+				ring:Hide()
+			elseif age >= 0 then
+				local progress = age / RING_TIME
+				placeCentered(ring, x, y, RING_FROM + (RING_TO - RING_FROM) * easeOut(progress))
+				ring:SetVertexColor(r, g, b)
+				ring:SetAlpha(intensity * RING_ALPHA * (1 - progress) * (1 - progress))
+			end
+		end
+	end
+end
+
+local function updateBurst(intensity, x, y, r, g, b)
+	local elapsed = flash.elapsed
+	if elapsed >= BURST_TIME then
+		burst:Hide()
+		return
+	end
+	local progress = elapsed / BURST_TIME
+	placeCentered(burst, x, y, BURST_FROM + (BURST_TO - BURST_FROM) * easeOut(progress))
+	burst:SetVertexColor(r, g, b)
+	burst:SetAlpha(intensity * (1 - progress))
+	burst:Show()
+end
+
 flash:SetScript("OnUpdate", function(self, elapsed)
-	local config = ns.Config.queuePopFlash
+	local intensity = ns.Config.queuePopFlash.intensity
 	self.elapsed = self.elapsed + elapsed
+	if pulse.beatStarted then
+		spawnRing()
+	end
+
+	local r, g, b = currentColor()
 	local ramp = RAMP_START + (1 - RAMP_START) * min(self.elapsed / RAMP_TIME, 1)
-	self:SetAlpha(config.intensity * ramp * (0.5 - 0.5 * cos(GetTime() * config.pulseSpeed * 2 * pi)))
+	local beat = intensity * ramp * pulse.value
+	local intro = max(1 - self.elapsed / INTRO_FLASH_TIME, 0)
+	intro = intensity * intro * intro
+
+	solid:SetVertexColor(r, g, b)
+	vignette:SetVertexColor(r, g, b)
+	solid:SetAlpha(min(beat * SOLID_SHARE + intro, 1))
+	vignette:SetAlpha(min(beat + intro, 1))
+
+	local x, y = anchorPoint()
+	updateBurst(intensity, x, y, r, g, b)
+	updateRings(intensity, x, y, r, g, b)
+end)
+
+local driver = CreateFrame("Frame")
+driver:Hide()
+
+local function soonestExpiration()
+	local soonest
+	for i = 1, MAX_BATTLEFIELD_QUEUES do
+		if GetBattlefieldStatus(i) == "confirm" then
+			local expiration = GetBattlefieldPortExpiration(i)
+			if expiration > 0 and (not soonest or expiration < soonest) then
+				soonest = expiration
+			end
+		end
+	end
+	return soonest
+end
+
+driver:SetScript("OnUpdate", function(self, elapsed)
+	self.untilTick = self.untilTick - elapsed
+	if self.untilTick <= 0 then
+		self.untilTick = EXPIRATION_TICK
+		local expiration = soonestExpiration()
+		self.urgent = expiration and expiration <= URGENT_SECONDS
+	end
+
+	local speed = ns.Config.queuePopFlash.pulseSpeed
+	local step = elapsed / URGENT_BLEND_TIME
+	if self.urgent then
+		speed = speed * URGENT_SPEED
+		pulse.urgency = min(pulse.urgency + step, 1)
+	else
+		pulse.urgency = max(pulse.urgency - step, 0)
+	end
+
+	local phase = self.phase + elapsed * speed
+	pulse.beatStarted = phase >= 1
+	self.phase = phase % 1
+	pulse.value = heartbeat(self.phase)
 end)
 
 local pending, proposalPending = false, false
+local flashing = false
 
 local function hasBattlefieldConfirm()
 	for i = 1, MAX_BATTLEFIELD_QUEUES do
@@ -58,29 +236,45 @@ local function hasBattlefieldConfirm()
 	return false
 end
 
-local function updateFlash()
-	local config = ns.Config.queuePopFlash
-	local active = config.enabled and (proposalPending or hasBattlefieldConfirm())
-	if active == pending then
-		return
+local function startFlash()
+	flash.elapsed = 0
+	for _, ring in ipairs(rings) do
+		ring.start = nil
+		ring:Hide()
 	end
-
-	pending = active
-	if active then
-		flash.elapsed = 0
-		flash:SetAlpha(0)
-		flash:Show()
-	else
-		flash:Hide()
-		flash:SetAlpha(0)
+	for _, delay in ipairs(INTRO_RING_DELAYS) do
+		spawnRing(delay)
 	end
+	solid:SetAlpha(0)
+	vignette:SetAlpha(0)
+	burst:Hide()
+	flash:Show()
 end
 
-local function applyFlashConfig()
-	local color = ns.Config.queuePopFlash.color
-	solid:SetVertexColor(unpack(color))
-	vignette:SetVertexColor(unpack(color))
-	updateFlash()
+local function updateFlash()
+	local active = proposalPending or hasBattlefieldConfirm()
+	if active ~= pending then
+		pending = active
+		if active then
+			driver.phase, driver.untilTick, driver.urgent = 0, 0, nil
+			pulse.value, pulse.urgency, pulse.beatStarted = 0, 0, nil
+			driver:Show()
+		else
+			driver:Hide()
+			pulse.value = 0
+		end
+	end
+
+	local show = active and ns.Config.queuePopFlash.enabled
+	if show == flashing then
+		return
+	end
+	flashing = show
+	if show then
+		startFlash()
+	else
+		flash:Hide()
+	end
 end
 
 local function setProposal(shown)
@@ -90,88 +284,9 @@ local function setProposal(shown)
 	end
 end
 
-local countdown = CreateFrame("Frame", nil, UIParent)
-countdown:SetFrameStrata("DIALOG")
-countdown:SetSize(1, 1)
-countdown:Hide()
-
-local countdownText = countdown:CreateFontString(nil, "OVERLAY")
-countdownText:SetPoint("BOTTOM")
-
-local confirmed = {}
-
-local function refreshCountdown()
-	local seconds, index
-	for i = 1, MAX_BATTLEFIELD_QUEUES do
-		if GetBattlefieldStatus(i) == "confirm" then
-			local expiration = GetBattlefieldPortExpiration(i)
-			if expiration > 0 and (not seconds or expiration < seconds) then
-				seconds, index = expiration, i
-			end
-		end
-	end
-	if not seconds then
-		countdownText:SetText("")
-		return
-	end
-
-	local dialog = StaticPopup_FindVisible("CONFIRM_BATTLEFIELD_ENTRY", index)
-	countdown:ClearAllPoints()
-	if dialog then
-		countdown:SetPoint("BOTTOM", dialog, "TOP", 0, COUNTDOWN_OFFSET)
-	else
-		countdown:SetPoint("BOTTOM", UIParent, "CENTER", 0, COUNTDOWN_FALLBACK_Y)
-	end
-	countdownText:SetFormattedText(L["Invite expires in %d sec"], seconds)
-	if seconds <= COUNTDOWN_URGENT then
-		countdownText:SetTextColor(unpack(COUNTDOWN_URGENT_COLOR))
-	else
-		countdownText:SetTextColor(1, 1, 1)
-	end
-end
-
-countdown:SetScript("OnUpdate", function(self, elapsed)
-	self.untilTick = self.untilTick - elapsed
-	if self.untilTick > 0 then
-		return
-	end
-	self.untilTick = COUNTDOWN_TICK
-	refreshCountdown()
-end)
-
-local function updateInvite()
-	local config = ns.Config.queueInvite
-	local pendingInvite = false
-	for i = 1, MAX_BATTLEFIELD_QUEUES do
-		local confirm = GetBattlefieldStatus(i) == "confirm"
-		if confirm then
-			pendingInvite = true
-			if not confirmed[i] and config.enabled and config.sound and GetCVar("Sound_EnableSFX") == "0" then
-				PlaySoundFile(INVITE_SOUND)
-			end
-		end
-		confirmed[i] = confirm
-	end
-	if pendingInvite and config.enabled and config.countdown then
-		countdown.untilTick = 0
-		countdown:Show()
-	else
-		countdown:Hide()
-	end
-end
-
-local function applyInviteConfig()
-	local font = ns.Config.queueInvite.font
-	ns.SetFont(countdownText, font.size, font.outline, true)
-	updateInvite()
-end
-
-applyFlashConfig()
-applyInviteConfig()
-Misc:WatchConfig("queuePopFlash", applyFlashConfig)
-Misc:WatchConfig("queueInvite", applyInviteConfig)
+updateFlash()
+Misc:WatchConfig("queuePopFlash", updateFlash)
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", updateFlash)
-Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", updateInvite)
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", setProposal(false))
 Misc:RegisterEvent("LFG_PROPOSAL_SHOW", setProposal(true))
 Misc:RegisterEvent("LFG_PROPOSAL_FAILED", setProposal(false))

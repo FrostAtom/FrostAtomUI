@@ -999,6 +999,7 @@ ns.Defaults = {
 
 	queueInvite = {
 		enabled = true,
+		style = true,
 		countdown = true,
 		font = { size = 20, outline = "OUTLINE" },
 		sound = true,
