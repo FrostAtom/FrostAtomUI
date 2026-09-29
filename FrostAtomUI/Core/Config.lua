@@ -543,6 +543,7 @@ ns.Defaults = {
 		totemIcons = true,
 		totemIconSize = 24,
 		totemFullAlpha = true,
+		nonTargetAlpha = 0.85,
 		totemTimer = true,
 		totemPulse = true,
 		totemPulseHeight = 4,

@@ -25,6 +25,8 @@ local TARGET_SCALE = 1.2
 local EDGE_SIZE = 8 * 1.15
 local BACKDROP = ns.CreateBackdrop(EDGE_SIZE, 2)
 local EDGE_BACKDROP = { edgeFile = ns.Media.border, edgeSize = EDGE_SIZE }
+local TARGET_EDGE_OUTSET = 1
+local TARGET_BACKGROUND = { 1, 1, 1, 1 }
 local REACTION_COLORS = {
 	hostile = { 1, 0.15, 0.15 },
 	neutral = { 1, 0.85, 0.1 },
@@ -323,6 +325,10 @@ function Totems.Setup(plate)
 	edge:SetBackdrop(EDGE_BACKDROP)
 	totem.edge = edge
 
+	local targetEdge = NamePlates.CreateTargetEdge(totem, TARGET_EDGE_OUTSET)
+	targetEdge:SetFrameLevel(totem:GetFrameLevel() + 1)
+	totem.targetEdge = targetEdge
+
 	local inset = NamePlates.BORDER_INSET
 	local icon = totem:CreateTexture(nil, "ARTWORK")
 	icon:SetNonBlocking(true)
@@ -483,12 +489,20 @@ function Totems.Update(plate, isTarget)
 		setSize(totem, enlarged and totem.baseIconSize * TARGET_SCALE or totem.baseIconSize)
 	end
 	snapTotem(plate, totem)
-	local color = isTarget and not isTotem and config.targetBorder and frameConfig.targetBorderColor
-		or totem.reactionColor
+	local targeted = isTarget and not isTotem and config.targetBorder or false
+	if targeted ~= totem.targeted then
+		totem.targeted = targeted
+		ns.SetShown(totem.targetEdge, targeted)
+		totem.borderColor = nil
+	end
+	local color = totem.reactionColor
 	if color ~= totem.borderColor then
 		totem.borderColor = color
-		totem:SetBackdropBorderColor(color[1], color[2], color[3])
-		totem.edge:SetBackdropBorderColor(color[1], color[2], color[3])
+		local alpha = targeted and 0 or 1
+		totem:SetBackdropBorderColor(color[1], color[2], color[3], alpha)
+		totem.edge:SetBackdropBorderColor(color[1], color[2], color[3], alpha)
+		local background = targeted and TARGET_BACKGROUND or frameConfig.backdropColor
+		totem:SetBackdropColor(background[1], background[2], background[3], background[4] or 1)
 	end
 	local hovered = config.hoverHighlight and plate.info.isMouseover or false
 	if hovered ~= totem.hovered then
