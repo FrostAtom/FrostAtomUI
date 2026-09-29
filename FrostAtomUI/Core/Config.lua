@@ -56,6 +56,7 @@ end
 local function namePlateDefaults(healthColorMode, healthColor, nameColorMode, arenaIconSize)
 	return {
 		arenaIcon = false,
+		arenaPetIcon = false,
 		arenaIconSize = arenaIconSize,
 		width = 110,
 		height = 12,
@@ -69,6 +70,11 @@ local function namePlateDefaults(healthColorMode, healthColor, nameColorMode, ar
 		showAuras = true,
 	}
 end
+
+local HIDDEN_NAMES = {
+	enUS = { "Mirror Image", "Viper", "Venomous Snake", "Army of the Dead Ghoul", "Bloodworm", "Treant", "Spirit Wolf", "Val'kyr Protector" },
+	ruRU = { "Зеркальное изображение", "Гадюка", "Ядовитая змея", "Войско мертвых", "Кровавый червь", "Древень", "Дух волка", "Валь'кира-защитница" },
+}
 
 ns.Defaults = {
 	general = {
@@ -553,7 +559,7 @@ ns.Defaults = {
 		targetBorder = true,
 		fitClickArea = true,
 		hideByName = true,
-		hiddenNames = {},
+		hiddenNames = HIDDEN_NAMES[ns.CLIENT_LOCALE] or HIDDEN_NAMES.enUS,
 		castbarGap = 3,
 		nameFont = { size = 9, outline = "OUTLINE" },
 		percentFont = { size = 9, outline = "OUTLINE" },

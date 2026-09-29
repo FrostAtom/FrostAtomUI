@@ -3,9 +3,12 @@ local _, ns = ...
 local L = ns.L
 
 local GetSpellInfo = GetSpellInfo
+local GetSpellName = GetSpellName
+local GetSpellCooldown = GetSpellCooldown
 local GetTime = GetTime
 local UnitGUID = UnitGUID
-local huge, random = math.huge, math.random
+local BOOKTYPE_SPELL = BOOKTYPE_SPELL
+local abs, huge, random = math.abs, math.huge, math.random
 
 local Auras = ns.Auras
 local LossOfControl = ns:NewModule("LossOfControl")
@@ -23,6 +26,8 @@ local ICON_POP_SCALE = 1.33
 local ICON_POP_OFFSET = -20
 local LINE_START_SCALE, LINE_PEAK_SCALE = 0.1, 1.4
 local SHADOW_ALPHA = 0.6
+local LOCKOUT_TOLERANCE = 0.2
+local LOCKOUT_WINDOW = 1
 
 local PRIORITY = {
 	cyclone = 5,
@@ -460,6 +465,37 @@ local function onUpdate(_, elapsed)
 	end
 end
 
+local function measureLockout()
+	local interruptedAt, maxDuration = lockout.interruptedAt, lockout.maxDuration
+	local bestStart, bestDuration, bestEnd
+	local slot = 1
+	while GetSpellName(slot, BOOKTYPE_SPELL) do
+		local start, duration, enabled = GetSpellCooldown(slot, BOOKTYPE_SPELL)
+		if
+			enabled == 1
+			and duration > 0
+			and duration <= maxDuration + LOCKOUT_TOLERANCE
+			and abs(start - interruptedAt) <= LOCKOUT_TOLERANCE
+			and (not bestEnd or start + duration > bestEnd)
+		then
+			bestStart, bestDuration, bestEnd = start, duration, start + duration
+		end
+		slot = slot + 1
+	end
+	if not bestEnd then
+		return false
+	end
+	lockout.start, lockout.duration, lockout.expires = bestStart, bestDuration, bestEnd
+	return true
+end
+
+local function onCooldownUpdate()
+	if GetTime() > lockout.interruptedAt + LOCKOUT_WINDOW or measureLockout() then
+		LossOfControl:UnregisterEvent("SPELL_UPDATE_COOLDOWN", onCooldownUpdate)
+	end
+	refresh()
+end
+
 local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, _, spellId, _, _, _, _, extraSchool)
 	if event ~= "SPELL_INTERRUPT" or destGUID ~= playerGUID then
 		return
@@ -471,7 +507,13 @@ local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, _, spellId, _
 	local now = GetTime()
 	local _, _, texture = GetSpellInfo(spellId)
 	lockout.spellId, lockout.icon, lockout.school = spellId, texture, extraSchool
+	lockout.interruptedAt, lockout.maxDuration = now, duration
 	lockout.start, lockout.duration, lockout.expires = now, duration, now + duration
+	if measureLockout() then
+		LossOfControl:UnregisterEvent("SPELL_UPDATE_COOLDOWN", onCooldownUpdate)
+	else
+		LossOfControl:RegisterEvent("SPELL_UPDATE_COOLDOWN", onCooldownUpdate)
+	end
 	refresh()
 end
 
@@ -562,6 +604,7 @@ local function applyConfig()
 		LossOfControl:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
 	else
 		LossOfControl:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
+		LossOfControl:UnregisterEvent("SPELL_UPDATE_COOLDOWN", onCooldownUpdate)
 		lockout.expires = 0
 	end
 	playerGUID = UnitGUID("player")

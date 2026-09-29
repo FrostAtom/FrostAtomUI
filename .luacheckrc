@@ -27,7 +27,7 @@ read_globals = {
 	"UnitIsConnected", "UnitIsDeadOrGhost", "UnitAffectingCombat", "UnitInRaid",
 	"UnitHealth", "UnitHealthMax", "UnitPower", "UnitPowerMax", "UnitPowerType", "UnitCreatureFamily",
 	"UnitAura", "UnitBuff", "UnitDebuff", "LibStub", "UnitCastingInfo", "UnitChannelInfo", "CancelUnitBuff",
-	"GetSpellInfo", "GetSpellTexture", "GetItemInfo", "GetItemIcon",
+	"GetSpellInfo", "GetSpellTexture", "GetSpellName", "GetSpellCooldown", "GetItemInfo", "GetItemIcon",
 	"COMBATLOG_OBJECT_TYPE_PLAYER", "COMBATLOG_OBJECT_TYPE_PET", "COMBATLOG_OBJECT_REACTION_HOSTILE",
 	"GetActionTexture", "GetActionCooldown", "GetActionCount", "GetActionText",
 	"HasAction", "IsActionInRange", "IsUsableAction", "IsEquippedAction", "IsCurrentAction",

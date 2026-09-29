@@ -63,6 +63,12 @@ local DEMONS = {
 local HUNTER_PET_ICON = select(3, GetSpellInfo(883)) -- Call Pet
 local GHOUL_ICON = select(3, GetSpellInfo(46584)) -- Raise Dead
 local WATER_ELEMENTAL_ICON = select(3, GetSpellInfo(31687)) -- Summon Water Elemental
+local GARGOYLE_ICON = select(3, GetSpellInfo(49206)) -- Summon Gargoyle
+
+local GUARDIANS = {
+	["Ebon Gargoyle"] = GARGOYLE_ICON,
+	["Вороная горгулья"] = GARGOYLE_ICON,
+}
 
 local familyIcons = {}
 for icon, names in pairs(HUNTER_FAMILIES) do
@@ -174,7 +180,9 @@ function ArenaIcons.Identify(plate)
 	end
 	local settings = plate.settings
 	local friendly = settings == config.friendlyPlayer or settings == config.friendlyNpc
-	if not (friendly and config.friendlyPlayer or config.enemyPlayer).arenaIcon then
+	local player = settings == config.friendlyPlayer or settings == config.enemyPlayer
+	local owner = friendly and config.friendlyPlayer or config.enemyPlayer
+	if not (player and owner.arenaIcon or not player and owner.arenaPetIcon) then
 		return
 	end
 	local info = plate.info
@@ -183,7 +191,7 @@ function ArenaIcons.Identify(plate)
 		return
 	end
 	local side = friendly and "friendly" or "hostile"
-	if settings == config.friendlyPlayer or settings == config.enemyPlayer then
+	if player then
 		local class = classes[side][name] or not friendly and info.class
 		local coords = class and UF.classCoords[class]
 		if coords then
@@ -191,7 +199,7 @@ function ArenaIcons.Identify(plate)
 		end
 		return
 	end
-	return pets[side][name]
+	return pets[side][name] or GUARDIANS[name]
 end
 
 local function onEnteringWorld()
