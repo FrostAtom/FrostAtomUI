@@ -43,21 +43,41 @@ local NEW = "1.4.1"
 
 local COPY_FIELDS = { "width", "height", "showName", "healthText", "showCastbar", "castbarHeight", "showAuras" }
 
-local ARENA_ICON_LABELS = {
-	player = {
-		L["Class icon in arena"],
-		L["In arena, replace the nameplate with the class icon, framed in the reaction color. A compact castbar is shown under it, auras are not."],
-	},
-	npc = {
-		L["Pet icon in arena"],
-		L["In arena, replace the nameplates of hunter pets, warlock demons, the death knight's ghoul and the mage's water elemental with the pet's icon, framed in the reaction color. A compact castbar is shown under it, auras are not."],
-	},
-}
+local function arenaIconSchema(prefix, owner)
+	if owner then
+		return {
+			path = prefix .. "arenaIconSize",
+			new = NEW,
+			label = L["Pet icon size in arena"],
+			type = "number",
+			min = 12,
+			max = 64,
+			step = 1,
+			desc = L["Pet icons are turned on with the class icon option on the players tab."],
+			enabledBy = "namePlates." .. owner .. ".arenaIcon",
+		}
+	end
+	return {
+		path = prefix .. "arenaIcon",
+		new = NEW,
+		label = L["Class icon in arena"],
+		type = "toggle",
+		desc = L["In arena, replace the nameplates of players with their class icon and the nameplates of hunter pets, warlock demons, the death knight's ghoul and the mage's water elemental with the pet's icon, framed in the reaction color. A compact castbar is shown under it, auras are not."],
+	}, {
+		path = prefix .. "arenaIconSize",
+		new = NEW,
+		label = L["Arena icon size"],
+		type = "number",
+		min = 12,
+		max = 64,
+		step = 1,
+		enabledBy = prefix .. "arenaIcon",
+	}
+end
 
-local function categoryTab(key, name, glyph, classColors, about, colorDesc, arenaIconKind)
+local function categoryTab(key, name, glyph, classColors, about, colorDesc, arenaIconOwner)
 	local prefix = "namePlates." .. key .. "."
 	local modePath = prefix .. "healthColorMode"
-	local arenaIconLabel = ARENA_ICON_LABELS[arenaIconKind]
 	local kind = classColors and "class" or "reaction"
 	local copy = {
 		[kind .. "HealthColorMode"] = modePath,
@@ -68,115 +88,103 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc, aren
 		copy[field] = prefix .. field
 	end
 
+	local schema = {
+		{ description = about },
+		{ header = L["Layout"], glyph = "up-down-left-right" },
+		{
+			path = prefix .. "width",
+			new = NEW,
+			label = L["Health bar width"],
+			type = "number",
+			min = 40,
+			max = 200,
+			step = 1,
+			desc = L["Width of the health bar and the castbar under it."],
+		},
+		{
+			path = prefix .. "height",
+			new = NEW,
+			label = L["Health bar height"],
+			type = "number",
+			min = 3,
+			max = 30,
+			step = 1,
+		},
+		{ header = L["Display"], glyph = "bars-staggered" },
+		{ path = prefix .. "showName", new = NEW, label = L["Name"], type = "toggle" },
+		{
+			path = prefix .. "healthText",
+			new = NEW,
+			label = L["Health text"],
+			type = "select",
+			values = HEALTH_TEXT_VALUES,
+			desc = L["Health text on the right of the health bar: never, only on your target, or on every nameplate."],
+		},
+		{
+			path = prefix .. "showCastbar",
+			new = NEW,
+			label = L["Castbar"],
+			type = "toggle",
+			desc = L["Castbar under the health bar. Colors and indicators are set on the General tab."],
+		},
+		{
+			path = prefix .. "castbarHeight",
+			advanced = true,
+			new = NEW,
+			label = L["Castbar height"],
+			type = "number",
+			min = 3,
+			max = 30,
+			step = 1,
+			enabledBy = prefix .. "showCastbar",
+		},
+		{
+			path = prefix .. "showAuras",
+			new = NEW,
+			label = L["Auras"],
+			type = "toggle",
+			desc = L["CC and other tracked auras above the nameplate. Which auras are shown is set on the General tab."],
+		},
+		{ header = L["Colors"], glyph = "palette" },
+		{
+			path = modePath,
+			new = NEW,
+			label = L["Health bar color"],
+			type = "select",
+			values = classColors and PLAYER_COLOR_VALUES or NPC_COLOR_VALUES,
+			desc = colorDesc,
+		},
+		{
+			path = prefix .. "healthColor",
+			new = NEW,
+			label = L["Health color"],
+			type = "color",
+			desc = L["Used with the fixed color mode."],
+			disabled = function()
+				return ui:GetConfig(modePath) ~= "custom"
+			end,
+		},
+		{
+			path = prefix .. "nameColorMode",
+			advanced = true,
+			new = NEW,
+			label = L["Name color"],
+			type = "select",
+			values = classColors and PLAYER_NAME_COLOR_VALUES or NPC_NAME_COLOR_VALUES,
+			enabledBy = prefix .. "showName",
+		},
+		{ header = L["Arena"], glyph = "trophy" },
+	}
+	for _, row in ipairs({ arenaIconSchema(prefix, arenaIconOwner) }) do
+		schema[#schema + 1] = row
+	end
+
 	return {
 		key = key,
 		name = name,
 		glyph = glyph,
 		copy = copy,
-		schema = {
-			{ description = about },
-			{ header = L["Layout"], glyph = "up-down-left-right" },
-			{
-				path = prefix .. "width",
-				new = NEW,
-				label = L["Health bar width"],
-				type = "number",
-				min = 40,
-				max = 200,
-				step = 1,
-				desc = L["Width of the health bar and the castbar under it."],
-			},
-			{
-				path = prefix .. "height",
-				new = NEW,
-				label = L["Health bar height"],
-				type = "number",
-				min = 3,
-				max = 30,
-				step = 1,
-			},
-			{ header = L["Display"], glyph = "bars-staggered" },
-			{ path = prefix .. "showName", new = NEW, label = L["Name"], type = "toggle" },
-			{
-				path = prefix .. "healthText",
-				new = NEW,
-				label = L["Health text"],
-				type = "select",
-				values = HEALTH_TEXT_VALUES,
-				desc = L["Health text on the right of the health bar: never, only on your target, or on every nameplate."],
-			},
-			{
-				path = prefix .. "showCastbar",
-				new = NEW,
-				label = L["Castbar"],
-				type = "toggle",
-				desc = L["Castbar under the health bar. Colors and indicators are set on the General tab."],
-			},
-			{
-				path = prefix .. "castbarHeight",
-				advanced = true,
-				new = NEW,
-				label = L["Castbar height"],
-				type = "number",
-				min = 3,
-				max = 30,
-				step = 1,
-				enabledBy = prefix .. "showCastbar",
-			},
-			{
-				path = prefix .. "showAuras",
-				new = NEW,
-				label = L["Auras"],
-				type = "toggle",
-				desc = L["CC and other tracked auras above the nameplate. Which auras are shown is set on the General tab."],
-			},
-			{ header = L["Colors"], glyph = "palette" },
-			{
-				path = modePath,
-				new = NEW,
-				label = L["Health bar color"],
-				type = "select",
-				values = classColors and PLAYER_COLOR_VALUES or NPC_COLOR_VALUES,
-				desc = colorDesc,
-			},
-			{
-				path = prefix .. "healthColor",
-				new = NEW,
-				label = L["Health color"],
-				type = "color",
-				desc = L["Used with the fixed color mode."],
-				disabled = function()
-					return ui:GetConfig(modePath) ~= "custom"
-				end,
-			},
-			{
-				path = prefix .. "nameColorMode",
-				advanced = true,
-				new = NEW,
-				label = L["Name color"],
-				type = "select",
-				values = classColors and PLAYER_NAME_COLOR_VALUES or NPC_NAME_COLOR_VALUES,
-				enabledBy = prefix .. "showName",
-			},
-			{ header = L["Arena"], glyph = "trophy" },
-			{
-				path = prefix .. "arenaIcon",
-				new = NEW,
-				label = arenaIconLabel[1],
-				type = "toggle",
-				desc = arenaIconLabel[2],
-			},
-			{
-				path = prefix .. "arenaIconSize",
-				new = NEW,
-				label = L["Arena icon size"],
-				type = "number",
-				min = 12,
-				max = 64,
-				step = 1,
-				enabledBy = prefix .. "arenaIcon",
-			},
-		},
+		schema = schema,
 	}
 end
 
@@ -678,8 +686,7 @@ ns.RegisterPage({
 			"user-ninja",
 			true,
 			L["Hostile players, recognized by the class color of their nameplate."],
-			L["Class color: the player's class. Reaction color: hostile red. Health percent: a color mixed from the current health. Fixed color: the color below."],
-			"player"
+			L["Class color: the player's class. Reaction color: hostile red. Health percent: a color mixed from the current health. Fixed color: the color below."]
 		),
 		categoryTab(
 			"friendlyPlayer",
@@ -687,8 +694,7 @@ ns.RegisterPage({
 			"user-group",
 			false,
 			L["Players friendly to you."],
-			L["Reaction color: friendly blue. Health percent: a color mixed from the current health. Fixed color: the color below."],
-			"player"
+			L["Reaction color: friendly blue. Health percent: a color mixed from the current health. Fixed color: the color below."]
 		),
 		categoryTab(
 			"enemyNpc",
@@ -697,7 +703,7 @@ ns.RegisterPage({
 			false,
 			L["Hostile and neutral creatures, including the pets and guardians of enemy players."],
 			L["Reaction color: red for hostile, yellow for neutral. Health percent: a color mixed from the current health. Fixed color: the color below."],
-			"npc"
+			"enemyPlayer"
 		),
 		categoryTab(
 			"friendlyNpc",
@@ -706,7 +712,7 @@ ns.RegisterPage({
 			false,
 			L["Friendly creatures, including the pets and guardians of friendly players."],
 			L["Reaction color: friendly green. Health percent: a color mixed from the current health. Fixed color: the color below."],
-			"npc"
+			"friendlyPlayer"
 		),
 		{
 			key = "hidden",
