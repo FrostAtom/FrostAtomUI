@@ -142,6 +142,143 @@ local CC_USABLE_SPELLS = {
 	48792, -- Icebound Fortitude
 }
 
+local SILENCED_SPELLS = {
+	2048, -- Battle Shout
+	469, -- Commanding Shout
+	1160, -- Demoralizing Shout
+	1161, -- Challenging Shout
+	5246, -- Intimidating Shout
+	12323, -- Piercing Howl
+	355, -- Taunt
+	6343, -- Thunder Clap
+	1725, -- Distract
+	6795, -- Growl
+	99, -- Demoralizing Roar
+	5209, -- Challenging Roar
+	16857, -- Faerie Fire (Feral)
+	59671, -- Challenging Howl
+	56222, -- Dark Command
+	28730, -- Arcane Torrent
+	28880, -- Gift of the Naaru
+}
+
+local UNSILENCED_SPELLS = {
+	75, -- Auto Shot
+	19434, -- Aimed Shot
+	3044, -- Arcane Shot
+	3674, -- Black Arrow
+	53209, -- Chimera Shot
+	5116, -- Concussive Shot
+	19306, -- Counterattack
+	19263, -- Deterrence
+	781, -- Disengage
+	20736, -- Distracting Shot
+	53301, -- Explosive Shot
+	5384, -- Feign Death
+	1130, -- Hunter's Mark
+	53351, -- Kill Shot
+	53271, -- Master's Call
+	34477, -- Misdirection
+	1495, -- Mongoose Bite
+	2643, -- Multi-Shot
+	3045, -- Rapid Fire
+	2973, -- Raptor Strike
+	23989, -- Readiness
+	19503, -- Scatter Shot
+	3043, -- Scorpid Sting
+	1978, -- Serpent Sting
+	34490, -- Silencing Shot
+	56641, -- Steady Shot
+	19801, -- Tranquilizing Shot
+	3034, -- Viper Sting
+	1510, -- Volley
+	2974, -- Wing Clip
+	19386, -- Wyvern Sting
+	19574, -- Bestial Wrath
+	883, -- Call Pet
+	2641, -- Dismiss Pet
+	62757, -- Call Stabled Pet
+	1494, -- Track Beasts
+	19878, -- Track Demons
+	19879, -- Track Dragonkin
+	19880, -- Track Elementals
+	19882, -- Track Giants
+	19885, -- Track Hidden
+	19883, -- Track Humanoids
+	19884, -- Track Undead
+	35395, -- Crusader Strike
+	53385, -- Divine Storm
+	53595, -- Hammer of the Righteous
+	19752, -- Divine Intervention
+	31821, -- Aura Mastery
+	64205, -- Divine Sacrifice
+	5502, -- Sense Undead
+	2062, -- Earth Elemental Totem
+	2484, -- Earthbind Totem
+	2894, -- Fire Elemental Totem
+	3599, -- Searing Totem
+	3738, -- Wrath of Air Totem
+	5394, -- Healing Stream Totem
+	5675, -- Mana Spring Totem
+	5730, -- Stoneclaw Totem
+	6495, -- Sentry Totem
+	8071, -- Stoneskin Totem
+	8075, -- Strength of Earth Totem
+	8143, -- Tremor Totem
+	8170, -- Cleansing Totem
+	8177, -- Grounding Totem
+	8181, -- Frost Resistance Totem
+	8184, -- Fire Resistance Totem
+	8190, -- Magma Totem
+	8227, -- Flametongue Totem
+	8512, -- Windfury Totem
+	10595, -- Nature Resistance Totem
+	16190, -- Mana Tide Totem
+	30706, -- Totem of Wrath
+	66842, -- Call of the Elements
+	66843, -- Call of the Ancestors
+	66844, -- Call of the Spirits
+	17364, -- Stormstrike
+	60103, -- Lava Lash
+	768, -- Cat Form
+	5487, -- Bear Form
+	9634, -- Dire Bear Form
+	783, -- Travel Form
+	1066, -- Aquatic Form
+	33943, -- Flight Form
+	40120, -- Swift Flight Form
+	24858, -- Moonkin Form
+	33891, -- Tree of Life
+	15473, -- Shadowform
+	47585, -- Dispersion
+	47241, -- Metamorphosis
+	45462, -- Plague Strike
+	45902, -- Blood Strike
+	55050, -- Heart Strike
+	49020, -- Obliterate
+	55090, -- Scourge Strike
+	49998, -- Death Strike
+	49143, -- Frost Strike
+	56815, -- Rune Strike
+	48266, -- Blood Presence
+	48263, -- Frost Presence
+	48265, -- Unholy Presence
+	51271, -- Unbreakable Armor
+	55233, -- Vampiric Blood
+	49039, -- Lichborne
+	49005, -- Mark of Blood
+	45529, -- Blood Tap
+	20549, -- War Stomp
+	20572, -- Blood Fury
+	20594, -- Stoneform
+	58984, -- Shadowmeld
+	20589, -- Escape Artist
+	20577, -- Cannibalize
+	26297, -- Berserking
+	7744, -- Will of the Forsaken
+	59752, -- Every Man for Himself
+}
+
 local SILENCE_IMMUNE_CLASSES = {
 	WARRIOR = true,
 	ROGUE = true,
@@ -167,6 +304,10 @@ mapSpellNames(NAME_CATEGORIES, SILENCE_SPELLS, SILENCE)
 
 local CC_USABLE_NAMES = {}
 mapSpellNames(CC_USABLE_NAMES, CC_USABLE_SPELLS, true)
+
+local SILENCEABLE_NAMES = {}
+mapSpellNames(SILENCEABLE_NAMES, SILENCED_SPELLS, true)
+mapSpellNames(SILENCEABLE_NAMES, UNSILENCED_SPELLS, false)
 
 local silenceImmune = SILENCE_IMMUNE_CLASSES[ns.PLAYER_CLASS]
 local lockEnd, lockDuration = 0, 0
@@ -336,7 +477,10 @@ function ActionButtonMixin:UpdateSpellFlags()
 		return
 	end
 	self.ccUsable = CC_USABLE_NAMES[name] == true
-	if silenceImmune or self.ccUsable then
+	local silenceable = SILENCEABLE_NAMES[name]
+	if silenceable ~= nil then
+		self.silenceable = silenceable
+	elseif silenceImmune then
 		self.silenceable = false
 	else
 		local _, _, _, _, _, powerType = GetSpellInfo(name)
