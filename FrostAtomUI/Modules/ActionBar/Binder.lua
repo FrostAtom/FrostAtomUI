@@ -168,6 +168,7 @@ local function closeBinder()
 	binder:ClearAllPoints()
 	binder.target = nil
 	GameTooltip:Hide()
+	ActionBar:UpdateGrid()
 end
 
 local function createBinder()
@@ -223,6 +224,7 @@ function ActionBar:ToggleBindMode()
 		ns.Print(L["cannot change bindings in combat"])
 	else
 		binder:Show()
+		ActionBar:UpdateGrid()
 		StaticPopup_Show(POPUP)
 	end
 end

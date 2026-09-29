@@ -163,7 +163,9 @@ local PAGE_DRIVER_CONDITION = "[vehicleui] 11; [bonusbar:5] 11; [bar:2] 2; [bar:
 	.. "1"
 
 local PAGE_CHANGED_SNIPPET = [[
-	self:SetAttribute("action", (message - 1) * 12 + self:GetAttribute("id"))
+	local action = (message - 1) * 12 + self:GetAttribute("id")
+	self:SetAttribute("action", action)
+	self:GetFrameRef("slot"):SetAttribute("action", action)
 ]]
 
 local function setupPagedButton(button, index)
@@ -208,10 +210,12 @@ local function layoutBar(bar, barConfig, count, path, growRight)
 			button:ClearAllPoints()
 			button:SetPoint(ns.GridPoint("BOTTOMLEFT", i, columns, slot))
 			if bar.limited then
-				button:Show()
+				button:SetAttribute("slotactive", true)
+				button:UpdateGrid()
 			end
 		elseif bar.limited then
-			button:Hide()
+			button:SetAttribute("slotactive", false)
+			button:UpdateGrid()
 		end
 	end
 
@@ -251,6 +255,7 @@ function ActionBar:StyleBarButtons(bar)
 	for _, button in ipairs(bar.buttons) do
 		self:StyleHotkey(button.hotkey)
 		button:RegisterForDrag(config.dragButton)
+		button:UpdateGrid()
 		button:UpdateColors()
 		ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
 		ns.SetFont(button.count, config.countFont.size, config.countFont.outline)

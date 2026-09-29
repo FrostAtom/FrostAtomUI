@@ -218,6 +218,8 @@ ns.SetLocale("ruRU", {
 	["Class color"] = "Цвет класса",
 	["Clear the combat log when it stops delivering events inside instances."] = "Очищать боевой журнал, когда он перестаёт выдавать события в подземельях.",
 	["Click animation"] = "Анимация нажатия",
+	["Hide empty buttons"] = "Скрывать пустые кнопки",
+	["Buttons without an action are hidden and appear while a spell or item is dragged."] = "Кнопки без действия скрыты и появляются, пока перетаскивается заклинание или предмет.",
 	["Close camera distance"] = "Ближняя дистанция камеры",
 	["Close incoming trade windows while in combat."] = "Закрывать входящие окна обмена в бою.",
 	["Colors"] = "Цвета",
