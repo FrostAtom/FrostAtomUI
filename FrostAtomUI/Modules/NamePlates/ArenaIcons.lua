@@ -169,8 +169,12 @@ local function requestScan()
 end
 
 function ArenaIcons.Identify(plate)
+	if not inArena then
+		return
+	end
 	local settings = plate.settings
-	if not (inArena and settings.arenaIcon) then
+	local friendly = settings == config.friendlyPlayer or settings == config.friendlyNpc
+	if not (friendly and config.friendlyPlayer or config.enemyPlayer).arenaIcon then
 		return
 	end
 	local info = plate.info
@@ -178,7 +182,6 @@ function ArenaIcons.Identify(plate)
 	if not name then
 		return
 	end
-	local friendly = settings == config.friendlyPlayer or settings == config.friendlyNpc
 	local side = friendly and "friendly" or "hostile"
 	if settings == config.friendlyPlayer or settings == config.enemyPlayer then
 		local class = classes[side][name] or not friendly and info.class
