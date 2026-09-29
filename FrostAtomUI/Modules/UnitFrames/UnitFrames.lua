@@ -506,8 +506,8 @@ local function onLeave(frame)
 	UnitFrame_OnLeave(frame)
 end
 
-function UF:CreateBase(unit)
-	local frame = CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), UIParent, "SecureUnitButtonTemplate")
+function UF:CreateBase(unit, parent)
+	local frame = CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), parent or UIParent, "SecureUnitButtonTemplate")
 	ns.Mixin(frame, ns.EventMixin, UnitFrameMixin)
 	frame.unit = unit
 	frame.baseUnit = unit
@@ -657,8 +657,8 @@ function UF.ClassIconInset(size)
 	return size + CLASS_ICON_GAP + CLASS_ICON_INSET - BORDER_INSET
 end
 
-function UF:CreateRectangle(unit, width, height, iconSide)
-	local frame = self:CreateBase(unit)
+function UF:CreateRectangle(unit, width, height, iconSide, parent)
+	local frame = self:CreateBase(unit, parent)
 	frame:SetSize(width, height)
 	frame.innerHeight = height - BORDER_INSET * 2
 
@@ -697,8 +697,8 @@ function UF:CreateSideCastbar(frame, side, width, height)
 	return castbar
 end
 
-function UF:CreateSquare(unit, size)
-	local frame = self:CreateBase(unit)
+function UF:CreateSquare(unit, size, parent)
+	local frame = self:CreateBase(unit, parent)
 	frame:SetSize(size, size)
 
 	local health = self:AddElement(frame, "health")
@@ -714,8 +714,8 @@ local function onOwnerUnitChanged(self)
 	self:QueueUpdate()
 end
 
-function UF:CreatePet(unit, size)
-	local frame = self:CreateSquare(unit, size)
+function UF:CreatePet(unit, size, parent)
+	local frame = self:CreateSquare(unit, size, parent)
 	frame.ownerUnit = unit == "pet" and "player" or unit:gsub("pet(%d)$", "%1")
 	RegisterUnitEvent(frame, "UNIT_PET", frame.ownerUnit, onOwnerUnitChanged)
 
@@ -748,8 +748,8 @@ UF:RegisterElement("hideself", function()
 	return true
 end, updateHideSelf, testHideSelf)
 
-function UF:CreateTargetOfTarget(unit, size)
-	local frame = self:CreateSquare(unit, size)
+function UF:CreateTargetOfTarget(unit, size, parent)
+	local frame = self:CreateSquare(unit, size, parent)
 	frame.ownerUnit = unit:match("^(.+)target$")
 	RegisterUnitEvent(frame, "UNIT_TARGET", frame.ownerUnit, onOwnerUnitChanged)
 

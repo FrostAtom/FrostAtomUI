@@ -1,7 +1,7 @@
 local ADDON_NAME, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local InCombatLockdown = InCombatLockdown
+local InCombatLockdown, RegisterStateDriver = InCombatLockdown, RegisterStateDriver
 local UnitInRange = UnitInRange
 local UnitPowerType, UnitClass, UnitGUID = UnitPowerType, UnitClass, UnitGUID
 local IsInInstance = IsInInstance
@@ -12,6 +12,9 @@ local floor, ceil, min, random = math.floor, math.ceil, math.min, math.random
 local HEADER_NAME = ADDON_NAME .. "RaidHeader"
 local HOLDER_NAME = ADDON_NAME .. "RaidFrames"
 local MAX_UNITS = 40
+local RAID_DRIVER = "[@raid6,noexists] hide; show"
+local PARTY_DRIVER = "[@raid6,exists][nogroup] hide; show"
+local GROUP_DRIVER = "[nogroup] hide; show"
 local MAX_BUFFS = 6
 local INSET = 3
 local BACKDROP = ns.CreateBackdrop(10, 2)
@@ -33,6 +36,7 @@ local config = ns.Config.raidFrames
 local ufConfig = ns.Config.unitFrames
 local elements = UF.elements
 local buttons = {}
+local drivers = {}
 local holder, header, Talents
 local pending, testing, rangeActive = false, false, false
 
@@ -295,12 +299,40 @@ local function setLayout()
 	ns.ApplyPoint(holder, "raidFrames.point")
 end
 
-local function groupVisibility()
-	local _, instanceType = IsInInstance()
-	if instanceType == "pvp" then
-		return config.showInBattleground, config.showInParty
+local function visibilityDrivers()
+	if testing then
+		return "show", "show"
 	end
-	return config.showInRaid, config.showInParty
+	local _, instanceType = IsInInstance()
+	local raid
+	if instanceType == "pvp" then
+		raid = config.showInBattleground
+	else
+		raid = config.showInRaid
+	end
+	local party = config.showInParty
+	if raid and party then
+		return GROUP_DRIVER, "hide"
+	elseif raid then
+		return RAID_DRIVER, PARTY_DRIVER
+	elseif party then
+		return PARTY_DRIVER, RAID_DRIVER
+	end
+	return "hide", "show"
+end
+
+local function setDriver(frame, driver)
+	if drivers[frame] == driver then
+		return
+	end
+	drivers[frame] = driver
+	RegisterStateDriver(frame, "visibility", driver)
+end
+
+local function applyDrivers()
+	local raid, party = visibilityDrivers()
+	setDriver(holder, raid)
+	setDriver(UF.partyHolder, party)
 end
 
 local function rosterCount()
@@ -344,21 +376,6 @@ local function setRangeActive(active)
 	end
 end
 
-local function setReplacesParty(replaces)
-	replaces = replaces and true or false
-	if (UF.raidReplacesParty or false) ~= replaces then
-		UF.raidReplacesParty = replaces
-		UF.ApplyVisibility()
-	end
-end
-
-local function replacesParty(raid, party)
-	if GetNumRaidMembers() > 0 then
-		return raid or party
-	end
-	return party
-end
-
 local function runTest()
 	for i = 1, #buttons do
 		local frame = buttons[i]
@@ -388,23 +405,21 @@ local function createHeader()
 	UF:RegisterMover(holder, "raidFrames.point", "Raid", { secure = true, context = "battleground" })
 end
 
-local function applyGroup()
-	if not header or not config.enabled or testing then
+local function applyZone()
+	if not header or not config.enabled then
 		return
 	end
 	if InCombatLockdown() then
 		pending = true
 		return
 	end
-	local raid, party = groupVisibility()
-	if header:GetAttribute("showRaid") ~= raid then
-		header:SetAttribute("showRaid", raid)
+	applyDrivers()
+end
+
+local function applyRoster()
+	if header and config.enabled and not testing then
+		setRangeActive(inGroup())
 	end
-	if header:GetAttribute("showParty") ~= party then
-		header:SetAttribute("showParty", party)
-	end
-	setReplacesParty(replacesParty(raid, party))
-	setRangeActive(inGroup())
 end
 
 local function applyHeader()
@@ -415,9 +430,9 @@ local function applyHeader()
 	pending = false
 	if not config.enabled then
 		if header then
-			holder:Hide()
+			setDriver(holder, "hide")
 		end
-		setReplacesParty(false)
+		setDriver(UF.partyHolder, "show")
 		setRangeActive(false)
 		return
 	end
@@ -425,7 +440,7 @@ local function applyHeader()
 		createHeader()
 	end
 	testing = UF.testing or false
-	holder:Show()
+	applyDrivers()
 	header:Hide()
 	for i = 1, #buttons do
 		local frame = buttons[i]
@@ -435,9 +450,8 @@ local function applyHeader()
 		styleButton(frame)
 	end
 	setLayout()
-	local raid, party = groupVisibility()
-	header:SetAttribute("showRaid", testing or raid)
-	header:SetAttribute("showParty", testing or party)
+	header:SetAttribute("showRaid", true)
+	header:SetAttribute("showParty", true)
 	header:SetAttribute("showPlayer", config.showPlayer)
 	header:SetAttribute("showSolo", testing)
 	header:SetAttribute("startingIndex", testing and rosterCount() - config.testCount + 1 or 1)
@@ -448,7 +462,6 @@ local function applyHeader()
 	else
 		setRangeActive(inGroup())
 	end
-	setReplacesParty(replacesParty(raid, party))
 end
 
 local function applyColors()
@@ -486,14 +499,10 @@ end
 UF:OnInitialize(function(self)
 	Talents = ns:GetModule("Talents")
 	hooksecurefunc(self, "SetTestMode", onTestMode)
-	for _, event in ipairs({
-		"PLAYER_ENTERING_WORLD",
-		"ZONE_CHANGED_NEW_AREA",
-		"PARTY_MEMBERS_CHANGED",
-		"RAID_ROSTER_UPDATE",
-	}) do
-		self:RegisterEvent(event, applyGroup)
-	end
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", applyZone)
+	self:RegisterEvent("ZONE_CHANGED_NEW_AREA", applyZone)
+	self:RegisterEvent("PARTY_MEMBERS_CHANGED", applyRoster)
+	self:RegisterEvent("RAID_ROSTER_UPDATE", applyRoster)
 	self:RegisterEvent("PLAYER_REGEN_ENABLED", onCombatEnd)
 	applyHeader()
 	self:WatchConfig("raidFrames", applyHeader, true)
