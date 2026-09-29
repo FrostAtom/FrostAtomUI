@@ -140,6 +140,7 @@ Modules\Misc\WheelPaging.lua
 Modules\Misc\CursorTrail.lua
 Modules\Misc\LowHealthFlash.lua
 Modules\Misc\QueuePopFlash.lua
+Modules\Misc\QueueInvite.lua
 Modules\Misc\Arena.lua
 Modules\Misc\ArenaCountdown.lua
 Modules\Misc\ArenaHistory.lua

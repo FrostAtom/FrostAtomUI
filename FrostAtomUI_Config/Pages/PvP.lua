@@ -354,10 +354,17 @@ Section(schema, L["Queue invite"], "queueInvite", {
 		desc = L["Helpers for a pending arena or battleground invite."],
 	},
 	{
+		path = "style",
+		new = "1.4.1",
+		label = L["Styled invite dialog"],
+		type = "toggle",
+		desc = L["Arena art, a large match title and a countdown bar in the Enter Battle dialog."],
+	},
+	{
 		path = "countdown",
 		label = L["Invite countdown"],
 		type = "toggle",
-		desc = L["Seconds left to enter, shown above the invite dialog."],
+		desc = L["Seconds left to enter, shown above the invite dialog when it is not styled."],
 	},
 	{
 		path = "font",
