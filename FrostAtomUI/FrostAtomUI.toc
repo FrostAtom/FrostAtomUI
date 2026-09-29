@@ -145,6 +145,7 @@ Modules\Misc\ArenaHistory.lua
 Modules\Misc\MatchResults.lua
 Modules\Misc\DeathRecap.lua
 Modules\Misc\SoloQueue.lua
+Modules\Misc\ArenaSpectator.lua
 Modules\Misc\Announcers.lua
 Modules\Misc\InterruptAnnounce.lua
 Modules\Misc\SoundAlerts.lua
