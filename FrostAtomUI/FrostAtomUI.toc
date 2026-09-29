@@ -51,6 +51,7 @@ Modules\HealPrediction.lua
 # Action bars
 Modules\ActionBar\ActionBar.lua
 Modules\ActionBar\ClickAnimation.lua
+Modules\ActionBar\LockoutData.lua
 Modules\ActionBar\ActionButton.lua
 Modules\ActionBar\PetBar.lua
 Modules\ActionBar\ShapeshiftBar.lua
