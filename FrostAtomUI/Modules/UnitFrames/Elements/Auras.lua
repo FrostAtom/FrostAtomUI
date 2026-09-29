@@ -17,7 +17,7 @@ local config = ns.Config.unitFrames
 
 local MAX_AURAS = 40
 local COUNT_FONT_SCALE = 0.45
-local TIMER_FONT_SCALE = 0.42
+local TIMER_FONT_SCALE = 0.38
 local SPARE_CANCEL_SLOTS = 4
 local CATCHER_LEVEL = 3
 local ENCHANT_BUTTON_LEVEL = CATCHER_LEVEL + 1

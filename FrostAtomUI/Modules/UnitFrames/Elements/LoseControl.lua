@@ -28,6 +28,7 @@ local CC_SPELL_IDS = {
 }
 
 local TIMER_FONT_SIZE = 10
+local CENTER_SIZE = 0.6
 
 local CC_SPELL_NAMES = {}
 for i = 1, #CC_SPELL_IDS do
@@ -38,7 +39,21 @@ for i = 1, #CC_SPELL_IDS do
 end
 UF.ccSpellNames = CC_SPELL_NAMES
 
+local function layout(loseControl)
+	local frame = loseControl:GetParent()
+	local icon = frame.classicon
+	loseControl:ClearAllPoints()
+	if icon and config.showClassIcon then
+		loseControl:SetAllPoints(icon)
+	else
+		local size = frame:GetHeight() * CENTER_SIZE
+		loseControl:SetSize(size, size)
+		loseControl:SetPoint("CENTER", frame)
+	end
+end
+
 local function show(loseControl, texture, start, duration)
+	layout(loseControl)
 	loseControl.texture:SetTexture(texture)
 	if start ~= loseControl.start or duration ~= loseControl.duration then
 		loseControl.start, loseControl.duration = start, duration
@@ -90,10 +105,7 @@ local function create(frame)
 	loseControl.texture = loseControl:CreateTexture(nil, "BORDER")
 	UF.SkinIcon(loseControl, loseControl.texture)
 
-	if frame.classicon then
-		loseControl:SetAllPoints(frame.classicon)
-		loseControl:SetFrameLevel(frame.classicon:GetFrameLevel() + 3)
-	end
+	loseControl:SetFrameLevel((frame.classicon or frame):GetFrameLevel() + 3)
 
 	frame:RegisterUnitEvent("UNIT_AURA", update)
 
