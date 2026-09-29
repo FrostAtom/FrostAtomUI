@@ -761,7 +761,7 @@ ns.Defaults = {
 		arenaResultToParty = true,
 	},
 
-	dispelHighlightAlpha = 0.5,
+	dispelHighlightAlpha = 0,
 
 	equipment = {
 		enabled = true,
