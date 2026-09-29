@@ -1,7 +1,8 @@
-local _, ns = ...
+local ADDON_NAME, ns = ...
 local UF = ns:GetModule("UnitFrames")
 local max, ceil = math.max, math.ceil
 
+local PARTY_HOLDER_NAME = ADDON_NAME .. "PartyFrames"
 local MAX_PARTY_FRAMES = MAX_PARTY_MEMBERS or 4
 local MAX_ARENA_OPPONENTS = 3
 local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
@@ -220,7 +221,7 @@ local function applyVisibility()
 	pet:SetWatched(config.showPet)
 	target.targetOfTarget:SetWatched(config.showTargetOfTarget)
 	focus.targetOfTarget:SetWatched(config.showFocusTarget)
-	local showParty = config.showParty and not UF.raidReplacesParty
+	local showParty = config.showParty
 	setGroupWatched(party, showParty)
 	setGroupWatched(partyPets, showParty and config.showPartyPet)
 	setGroupWatched(partyTargets, showParty and config.showPartyTarget)
@@ -439,15 +440,15 @@ local function createTargets(self, config)
 	end
 end
 
-local function createGroupSquares(self, frame, prefix, name, index, petSquare, targetSquare)
+local function createGroupSquares(self, frame, prefix, name, index, petSquare, targetSquare, parent)
 	local config = ns.Config.unitFrames
-	local pet = self:CreatePet(prefix .. "pet" .. index, 1)
+	local pet = self:CreatePet(prefix .. "pet" .. index, 1, parent)
 	pet.moverPath = groupChildPath(prefix, index, "Pet")
 	pet.shownKey = "show" .. name .. "Pet"
 	pet:SetFrameSize(config[petSquare.keys.width], config[petSquare.keys.height])
 	frame.pet = pet
 
-	local unitTarget = self:CreateTargetOfTarget(prefix .. index .. "target", 1)
+	local unitTarget = self:CreateTargetOfTarget(prefix .. index .. "target", 1, parent)
 	unitTarget.moverPath = groupChildPath(prefix, index, "Target")
 	unitTarget.shownKey = "show" .. name .. "Target"
 	unitTarget:SetFrameSize(config[targetSquare.keys.width], config[targetSquare.keys.height])
@@ -476,9 +477,11 @@ local function createParty(self, config)
 	local debuffOptions, buffOptions = groupAuraOptions(config, UF.CategoryKeys("party"), width)
 	local petSquare = squareCategory("partyPet", true)
 	local targetSquare = squareCategory("partyTarget", false, true)
+	local holder = CreateFrame("Frame", PARTY_HOLDER_NAME, UIParent)
+	UF.partyHolder = holder
 
 	for i = 1, MAX_PARTY_FRAMES do
-		local frame = self:CreateRectangle("party" .. i, width, height, config.partyIconSide)
+		local frame = self:CreateRectangle("party" .. i, width, height, config.partyIconSide, holder)
 		party[i] = frame
 		frame.moverPath = groupFramePath("party", i)
 		frame:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
@@ -502,7 +505,7 @@ local function createParty(self, config)
 		self:AddElement(frame, "dispel")
 		self:AddElement(frame, "highlight")
 
-		local pet, unitTarget = createGroupSquares(self, frame, "party", "Party", i, petSquare, targetSquare)
+		local pet, unitTarget = createGroupSquares(self, frame, "party", "Party", i, petSquare, targetSquare, holder)
 		pet:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
 		unitTarget:RegisterEvent("PARTY_MEMBERS_CHANGED", "QueueUpdate")
 		partyPets[i], partyTargets[i] = pet, unitTarget
