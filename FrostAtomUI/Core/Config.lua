@@ -725,7 +725,7 @@ ns.Defaults = {
 	},
 
 	soundAlerts = {
-		enabled = true,
+		enabled = false,
 		throttle = 1.5,
 		targeted = false,
 		targetedArenaOnly = true,
