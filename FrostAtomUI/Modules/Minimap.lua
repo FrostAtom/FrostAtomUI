@@ -79,7 +79,7 @@ local IGNORED_PATTERNS = {
 	"^Carbonite",
 }
 
-local clock, zoneText, zoneButton, lfgHolder, fader
+local clock, clockButton, zoneText, zoneButton, lfgHolder, fader
 local cornerIcons = {}
 local blipsHidden = false
 local blipSetters, blipTextures = {}, {}
@@ -301,8 +301,36 @@ local function getLfgSize()
 	return config.lfgSize, config.lfgSize
 end
 
+local function formatTime(hour, minute)
+	if config.clock24h then
+		return format("%02d:%02d", hour, minute)
+	end
+	local hour12 = hour % 12
+	return format("%02d:%02d %s", hour12 == 0 and 12 or hour12, minute, hour < 12 and "AM" or "PM")
+end
+
+local function updateClockTooltip()
+	GameTooltip:ClearLines()
+	GameTooltip:AddLine(TIMEMANAGER_TOOLTIP_TITLE, 1, 1, 1)
+	GameTooltip:AddDoubleLine(TIMEMANAGER_TOOLTIP_REALMTIME, formatTime(GetGameTime()), 1, 0.82, 0, 1, 1, 1)
+	GameTooltip:AddDoubleLine(
+		TIMEMANAGER_TOOLTIP_LOCALTIME,
+		formatTime(tonumber(date("%H")), tonumber(date("%M"))),
+		1,
+		0.82,
+		0,
+		1,
+		1,
+		1
+	)
+	GameTooltip:Show()
+end
+
 local function updateClock()
 	clock:SetText(date(config.clock24h and "%H:%M" or "%I:%M %p"))
+	if GameTooltip:IsOwned(clockButton) then
+		updateClockTooltip()
+	end
 end
 
 local function updateZoneText()
@@ -337,9 +365,11 @@ local function applyConfig()
 	clock:SetPoint(unpack(config.clockPoint))
 	if config.showClock then
 		clock:Show()
+		clockButton:Show()
 		updateClock()
 	else
 		clock:Hide()
+		clockButton:Hide()
 	end
 
 	ns.SetFont(zoneText, config.zoneFont.size, config.zoneFont.outline, true)
@@ -402,6 +432,16 @@ function MinimapModule:Initialize()
 	MinimapBackdrop:SetPoint("BOTTOMRIGHT", 3, -3)
 
 	clock = Minimap:CreateFontString(nil, "OVERLAY")
+
+	clockButton = CreateFrame("Frame", nil, Minimap)
+	clockButton:SetAllPoints(clock)
+	clockButton:SetFrameLevel(Minimap:GetFrameLevel() + 2)
+	clockButton:EnableMouse(true)
+	clockButton:SetScript("OnEnter", function(frame)
+		GameTooltip:SetOwner(frame, "ANCHOR_BOTTOMLEFT")
+		updateClockTooltip()
+	end)
+	clockButton:SetScript("OnLeave", GameTooltip_Hide)
 
 	zoneText = Minimap:CreateFontString(nil, "OVERLAY")
 	zoneText:SetPoint("TOP", 0, -ZONE_TEXT_INSET)
