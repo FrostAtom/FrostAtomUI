@@ -107,6 +107,11 @@ local function categoryOf(id)
 	return info and info.category or "utility"
 end
 
+local function textureOf(id)
+	local info = CooldownTracker:GetInfo(id)
+	return info and info.icon or ns.SpellTexture(id)
+end
+
 local function onIconEnter(icon)
 	GameTooltip:SetOwner(icon, "ANCHOR_BOTTOMRIGHT")
 	GameTooltip:SetHyperlink("spell:" .. icon.spellId)
@@ -191,7 +196,7 @@ local function setIconState(icon, owner, id, start, duration, active)
 	local config = ns.Config.groupCooldowns
 	if icon.spellId ~= id then
 		icon.spellId = id
-		icon.texture:SetTexture(ns.SpellTexture(id))
+		icon.texture:SetTexture(textureOf(id))
 	end
 	if icon.owner ~= owner or icon.start ~= start or icon.duration ~= duration then
 		icon.owner, icon.start, icon.duration = owner, start, duration

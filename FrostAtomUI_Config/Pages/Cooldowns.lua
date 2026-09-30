@@ -248,7 +248,7 @@ local function spellToggle(id)
 	local info = ui:GetModule("CooldownTracker"):GetInfo(id)
 	local name, _, icon = GetSpellInfo(id)
 	return {
-		label = ICON_FORMAT:format(icon or QUESTION_MARK, name or tostring(id)),
+		label = ICON_FORMAT:format(info.icon or icon or QUESTION_MARK, name or tostring(id)),
 		type = "toggle",
 		desc = L["Cooldown: %s."]:format(SecondsToTime(info.cooldown)),
 		get = function()
