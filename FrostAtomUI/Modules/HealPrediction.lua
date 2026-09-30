@@ -75,20 +75,17 @@ for spellId, amount in pairs(HEAL_SPELLS) do
 end
 
 local casterTargets = { player = "target", target = "targettarget", focus = "focustarget" }
-for i = 1, 4 do
-	casterTargets["party" .. i] = "party" .. i .. "target"
-end
-for i = 1, 5 do
-	casterTargets["arena" .. i] = "arena" .. i .. "target"
-end
-
 local LOOKUP_UNITS = { "player", "target", "focus", "mouseover", "pet" }
-for i = 1, 4 do
-	LOOKUP_UNITS[#LOOKUP_UNITS + 1] = "party" .. i
+
+local function addGroupUnits(prefix, count)
+	for i = 1, count do
+		local unit = prefix .. i
+		casterTargets[unit] = unit .. "target"
+		LOOKUP_UNITS[#LOOKUP_UNITS + 1] = unit
+	end
 end
-for i = 1, 5 do
-	LOOKUP_UNITS[#LOOKUP_UNITS + 1] = "arena" .. i
-end
+addGroupUnits("party", 4)
+addGroupUnits("arena", 5)
 
 local casts = {}
 local shields = {}
@@ -192,24 +189,27 @@ local function onCastStart(_, unit, spell)
 	startTicker()
 end
 
-local function onCastDelayed(_, unit, spell)
+local function pendingCast(unit, spell)
 	if not healBase[spell] or not casterTargets[unit] then
 		return
 	end
 	local caster = UnitGUID(unit)
 	local cast = caster and casts[caster]
 	if cast and cast.dest and cast.spell == spell then
+		return cast
+	end
+end
+
+local function onCastDelayed(_, unit, spell)
+	local cast = pendingCast(unit, spell)
+	if cast then
 		cast.expires = castExpires(unit)
 	end
 end
 
 local function onCastStop(_, unit, spell)
-	if not healBase[spell] or not casterTargets[unit] then
-		return
-	end
-	local caster = UnitGUID(unit)
-	local cast = caster and casts[caster]
-	if not cast or not cast.dest or cast.spell ~= spell or UnitCastingInfo(unit) == spell then
+	local cast = pendingCast(unit, spell)
+	if not cast or UnitCastingInfo(unit) == spell then
 		return
 	end
 	local dest = cast.dest
@@ -498,7 +498,7 @@ local function coveredByHealComm(caster)
 	return HealComm and HealComm:GetCasterHealAmount(caster, HealComm.CASTED_HEALS) ~= nil
 end
 
-function Prediction.GetIncoming(guid)
+local function getIncoming(guid)
 	if not enabled or not guid then
 		return 0, 0
 	end
@@ -528,7 +528,7 @@ function Prediction.GetIncoming(guid)
 	return total, own
 end
 
-function Prediction.GetAbsorb(guid)
+local function getAbsorb(guid)
 	local set = enabled and guid and shields[guid]
 	if not set then
 		return 0, false
@@ -556,6 +556,13 @@ local function setWidth(texture, width)
 	end
 end
 
+local function showSegment(texture, fill, offset, width)
+	texture:SetPoint("TOPLEFT", fill, "TOPRIGHT", offset, 0)
+	texture:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT", offset, 0)
+	setWidth(texture, width)
+	texture:Show()
+end
+
 local function layout(bar)
 	local p = bar.prediction
 	local value = bar:GetValue()
@@ -581,10 +588,7 @@ local function layout(bar)
 	local own = p.own < heal and p.own or heal
 	local ownWidth = own * width / max
 	if ownWidth >= MIN_WIDTH then
-		p.ownHeal:SetPoint("TOPLEFT", fill, "TOPRIGHT")
-		p.ownHeal:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT")
-		setWidth(p.ownHeal, ownWidth)
-		p.ownHeal:Show()
+		showSegment(p.ownHeal, fill, 0, ownWidth)
 	else
 		ownWidth = 0
 		p.ownHeal:Hide()
@@ -592,10 +596,7 @@ local function layout(bar)
 
 	local healWidth = (heal - own) * width / max
 	if healWidth >= MIN_WIDTH then
-		p.heal:SetPoint("TOPLEFT", fill, "TOPRIGHT", ownWidth, 0)
-		p.heal:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT", ownWidth, 0)
-		setWidth(p.heal, healWidth)
-		p.heal:Show()
+		showSegment(p.heal, fill, ownWidth, healWidth)
 		healWidth = healWidth + ownWidth
 	else
 		healWidth = ownWidth
@@ -607,19 +608,12 @@ local function layout(bar)
 	local shield = amount < room and amount or room
 	local absorbWidth = shield * width / max
 	if absorbWidth >= MIN_WIDTH then
-		p.absorb:SetPoint("TOPLEFT", fill, "TOPRIGHT", healWidth, 0)
-		p.absorb:SetPoint("BOTTOMLEFT", fill, "BOTTOMRIGHT", healWidth, 0)
-		setWidth(p.absorb, absorbWidth)
-		p.absorb:Show()
+		showSegment(p.absorb, fill, healWidth, absorbWidth)
 	else
 		p.absorb:Hide()
 	end
 
-	if p.shielded and (amount > room or amount <= 0) then
-		p.glow:Show()
-	else
-		p.glow:Hide()
-	end
+	ns.SetShown(p.glow, p.shielded and (amount > room or amount <= 0))
 end
 
 local function applyColors(bar)
@@ -638,26 +632,22 @@ local function onSizeChanged(bar)
 	end
 end
 
+local function createOverlay(bar, subLevel)
+	local texture = bar:CreateTexture(nil, "ARTWORK", nil, subLevel)
+	texture:SetTexture(ns.Media.blank)
+	texture:Hide()
+	return texture
+end
+
 function Prediction.CreateBars(bar)
-	local heal = bar:CreateTexture(nil, "ARTWORK", nil, 1)
-	heal:SetTexture(ns.Media.blank)
-	heal:Hide()
-
-	local ownHeal = bar:CreateTexture(nil, "ARTWORK", nil, 1)
-	ownHeal:SetTexture(ns.Media.blank)
-	ownHeal:Hide()
-
-	local absorbTexture = bar:CreateTexture(nil, "ARTWORK", nil, 1)
-	absorbTexture:SetTexture(ns.Media.blank)
-	absorbTexture:Hide()
-
-	local glow = bar:CreateTexture(nil, "ARTWORK", nil, 2)
-	glow:SetTexture(ns.Media.blank)
+	local heal = createOverlay(bar, 1)
+	local ownHeal = createOverlay(bar, 1)
+	local absorbTexture = createOverlay(bar, 1)
+	local glow = createOverlay(bar, 2)
 	glow:SetBlendMode("ADD")
 	glow:SetWidth(GLOW_WIDTH)
 	glow:SetPoint("TOPRIGHT")
 	glow:SetPoint("BOTTOMRIGHT")
-	glow:Hide()
 
 	bar.prediction = {
 		heal = heal,
@@ -688,14 +678,14 @@ end
 function Prediction.Refresh(bar, guid, _, showHeal, showAbsorb)
 	local incoming, own = 0, 0
 	if showHeal then
-		incoming, own = Prediction.GetIncoming(guid)
+		incoming, own = getIncoming(guid)
 		if not ns.Config.unitFrames.healPredictionSplit then
 			own = 0
 		end
 	end
 	local absorbAmount, shielded = 0, false
 	if showAbsorb then
-		absorbAmount, shielded = Prediction.GetAbsorb(guid)
+		absorbAmount, shielded = getAbsorb(guid)
 	end
 	Prediction.SetValues(bar, incoming, absorbAmount, shielded, own)
 end

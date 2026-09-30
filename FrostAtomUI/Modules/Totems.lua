@@ -196,11 +196,7 @@ local function applyConfig()
 		pulse.bar:SetStatusBarColor(pulseColor[1], pulseColor[2], pulseColor[3])
 		updateButton(button)
 	end
-	if config.enabled then
-		holder:Show()
-	else
-		holder:Hide()
-	end
+	ns.SetShown(holder, config.enabled)
 end
 
 function Totems:Initialize()

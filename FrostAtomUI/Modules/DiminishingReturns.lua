@@ -153,8 +153,9 @@ local function onUnitAura(self, unit)
 	local ended = false
 	local order = state.order
 	for j = 1, #order do
-		local entry = state[order[j]]
-		if entry.active > 0 and not carried[order[j]] and now - entry.appliedAt > RECONCILE_GRACE then
+		local category = order[j]
+		local entry = state[category]
+		if entry.active > 0 and not carried[category] and now - entry.appliedAt > RECONCILE_GRACE then
 			entry.active = 0
 			entry.expires = now + RESET_TIME
 			ended = true

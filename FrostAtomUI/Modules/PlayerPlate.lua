@@ -177,11 +177,7 @@ end
 local function styleText(text, font, shown)
 	ns.SetFont(text, font.size, font.outline)
 	text:SetTextColor(unpack(frameConfig.textColor))
-	if shown then
-		text:Show()
-	else
-		text:Hide()
-	end
+	ns.SetShown(text, shown)
 end
 
 local function layout()

@@ -363,31 +363,19 @@ local function applyConfig()
 	ns.SetFont(clock, config.clockFont.size, config.clockFont.outline, true)
 	clock:ClearAllPoints()
 	clock:SetPoint(unpack(config.clockPoint))
+	ns.SetShown(clock, config.showClock)
+	ns.SetShown(clockButton, config.showClock)
 	if config.showClock then
-		clock:Show()
-		clockButton:Show()
 		updateClock()
-	else
-		clock:Hide()
-		clockButton:Hide()
 	end
 
 	ns.SetFont(zoneText, config.zoneFont.size, config.zoneFont.outline, true)
 	zoneText:SetSize(size - ZONE_TEXT_INSET * 2, config.zoneFont.size + 4)
-	if config.showZoneText then
-		zoneText:Show()
-		zoneButton:Show()
-		updateZoneText()
-	else
-		zoneText:Hide()
-		zoneButton:Hide()
-	end
+	ns.SetShown(zoneText, config.showZoneText)
+	ns.SetShown(zoneButton, config.showZoneText)
+	updateZoneText()
 
-	if config.showTracking then
-		MiniMapTracking:Show()
-	else
-		MiniMapTracking:Hide()
-	end
+	ns.SetShown(MiniMapTracking, config.showTracking)
 
 	for i = 1, #cornerIcons do
 		local icon = cornerIcons[i]
