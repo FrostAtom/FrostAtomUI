@@ -316,6 +316,47 @@ local function createGlyph(parent, name, size, color)
 	return glyph
 end
 
+local function addTooltipLine(text, color, wrap)
+	GameTooltip:AddLine(text, color.r, color.g, color.b, wrap)
+end
+
+local function showTooltip(owner, title, desc)
+	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+	GameTooltip:SetText(title, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+	if desc then
+		addTooltipLine(desc, NORMAL_FONT_COLOR, true)
+	end
+	GameTooltip:Show()
+end
+
+local function forwardWheel(frame, delta)
+	local scroll = frame:GetParent()
+	while scroll and scroll:GetObjectType() ~= "ScrollFrame" do
+		scroll = scroll:GetParent()
+	end
+	local handler = scroll and scroll:GetScript("OnMouseWheel")
+	if handler then
+		handler(scroll, delta)
+	end
+end
+
+local function createHighlight(parent, alpha)
+	local highlight = parent:CreateTexture(nil, "BACKGROUND")
+	highlight:SetTexture(HIGHLIGHT_TEXTURE)
+	highlight:SetBlendMode("ADD")
+	highlight:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3], alpha)
+	highlight:SetAllPoints()
+	return highlight
+end
+
+local function createSpacerLine(parent)
+	local line = parent:CreateTexture(nil, "ARTWORK")
+	line:SetTexture(SPACER_TEXTURE)
+	line:SetVertexColor(0.6, 0.6, 0.6)
+	line:SetHeight(16)
+	return line
+end
+
 local function paintButtonGlyph(button)
 	local color = NORMAL_FONT_COLOR
 	if button:IsEnabled() ~= 1 then
@@ -469,35 +510,28 @@ local function rowEnter(row)
 	GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
 	GameTooltip:SetText(entry.label, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 	if entry.desc then
-		GameTooltip:AddLine(entry.desc, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
+		addTooltipLine(entry.desc, NORMAL_FONT_COLOR, true)
 	end
 	if problem then
-		GameTooltip:AddLine(problem.text, problem.color.r, problem.color.g, problem.color.b, true)
+		addTooltipLine(problem.text, problem.color, true)
 	end
 	if requirement then
-		GameTooltip:AddLine(requirement, RED_FONT_COLOR.r, RED_FONT_COLOR.g, RED_FONT_COLOR.b, true)
+		addTooltipLine(requirement, RED_FONT_COLOR, true)
 	end
 	if entry.reload then
-		GameTooltip:AddLine(L["Requires a UI reload."], RELOAD_COLOR.r, RELOAD_COLOR.g, RELOAD_COLOR.b, true)
+		addTooltipLine(L["Requires a UI reload."], RELOAD_COLOR, true)
 	end
 	if range then
-		GameTooltip:AddLine(
+		addTooltipLine(
 			("%s - %s"):format(formatValue(entry, entry.min), formatValue(entry, entry.max)),
-			GRAY_FONT_COLOR.r,
-			GRAY_FONT_COLOR.g,
-			GRAY_FONT_COLOR.b
+			GRAY_FONT_COLOR
 		)
 	end
 	if default then
-		GameTooltip:AddLine(L["Default: %s"]:format(default), GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+		addTooltipLine(L["Default: %s"]:format(default), GRAY_FONT_COLOR)
 	end
 	if wheel then
-		GameTooltip:AddLine(
-			L["Shift + mouse wheel changes the value."],
-			GRAY_FONT_COLOR.r,
-			GRAY_FONT_COLOR.g,
-			GRAY_FONT_COLOR.b
-		)
+		addTooltipLine(L["Shift + mouse wheel changes the value."], GRAY_FONT_COLOR)
 	end
 	GameTooltip:Show()
 end
@@ -607,11 +641,7 @@ local function createRow(parent, entry)
 	row:SetScript("OnEnter", rowEnter)
 	row:SetScript("OnLeave", rowLeave)
 
-	local highlight = row:CreateTexture(nil, "BACKGROUND")
-	highlight:SetTexture(HIGHLIGHT_TEXTURE)
-	highlight:SetBlendMode("ADD")
-	highlight:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3], 0.35)
-	highlight:SetAllPoints()
+	local highlight = createHighlight(row, 0.35)
 	highlight:Hide()
 	row.highlight = highlight
 
@@ -864,7 +894,6 @@ do
 		end
 		return false
 	end
-	changes.IsModified = isModified
 
 	function changes.Reset(entry)
 		PlaySound("igMainMenuOptionCheckBoxOff")
@@ -927,7 +956,7 @@ do
 		elseif kind == "color" and type(value) == "table" then
 			return ("%02x%02x%02x"):format(value[1] * 255, value[2] * 255, value[3] * 255)
 		elseif kind == "string" and type(value) == "string" then
-			return value == "" and L["(empty)"] or ("\"%s\""):format(value)
+			return value == "" and L["(empty)"] or ('"%s"'):format(value)
 		end
 	end
 
@@ -1117,14 +1146,7 @@ local function createSliderBox(row, entry, sliderWidth)
 			end
 			return
 		end
-		local scroll = self:GetParent()
-		while scroll and scroll:GetObjectType() ~= "ScrollFrame" do
-			scroll = scroll:GetParent()
-		end
-		local handler = scroll and scroll:GetScript("OnMouseWheel")
-		if handler then
-			handler(scroll, delta)
-		end
+		forwardWheel(self, delta)
 	end)
 	box.OnCommit = function(self)
 		local value = parseValue(entry, self:GetText())
@@ -1168,6 +1190,10 @@ ns.CreateDropdown = createDropdown
 ns.BindRow = bindRow
 ns.BindHighlight = bindHighlight
 ns.ValidateRow = changes.Validate
+ns.ShowTooltip = showTooltip
+ns.ForwardWheel = forwardWheel
+
+local function noop() end
 
 function creators.header(parent, entry)
 	local header = CreateFrame("Frame", nil, parent)
@@ -1191,13 +1217,9 @@ function creators.header(parent, entry)
 		width = width + 6 + badge:GetStringWidth()
 	end
 
-	local line = header:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(SPACER_TEXTURE)
-	line:SetVertexColor(0.6, 0.6, 0.6)
-	line:SetHeight(16)
+	local line = createSpacerLine(header)
 	line:SetPoint("BOTTOMLEFT", x + width + 8, 4)
 	line:SetPoint("BOTTOMRIGHT", -4, 4)
-	header.title = label
 	header.line = line
 	return header
 end
@@ -1311,7 +1333,7 @@ function creators.input(parent, entry)
 	end
 	button:SetScript("OnClick", submit)
 
-	row.Refresh = function() end
+	row.Refresh = noop
 	row.SetEnabled = function(_, enabled)
 		setEditBoxEnabled(box, enabled)
 		setControlEnabled(button, enabled)
@@ -1472,7 +1494,7 @@ function creators.execute(parent, entry)
 		end
 	end)
 	bindRow(button, row)
-	row.Refresh = function() end
+	row.Refresh = noop
 	row.SetEnabled = function(_, enabled)
 		setControlEnabled(button, enabled)
 	end
@@ -1646,6 +1668,15 @@ local function listsElement(view, element)
 	return element.tab == tab.key or tab.elements == "all" or (tab.elements == "untabbed" and element.tab == nil)
 end
 
+local function copyWith(entry, key, value)
+	local copy = {}
+	for k, v in pairs(entry) do
+		copy[k] = v
+	end
+	copy[key] = value
+	return copy
+end
+
 local function inlineSchema(element, enabledBy)
 	if element.inline then
 		return element.inline
@@ -1681,21 +1712,11 @@ local function inlineSchema(element, enabledBy)
 		if flat and entry.header then
 			advanced = entry.advanced
 		elseif flat and advanced and not entry.advanced then
-			local copy = {}
-			for key, value in pairs(entry) do
-				copy[key] = value
-			end
-			copy.advanced = true
-			inline[#inline + 1] = copy
+			inline[#inline + 1] = copyWith(entry, "advanced", true)
 		elseif not entry.header then
 			inline[#inline + 1] = entry
 		elseif index > 1 then
-			local copy = {}
-			for key, value in pairs(entry) do
-				copy[key] = value
-			end
-			copy.header = element.name .. ": " .. entry.header
-			inline[#inline + 1] = copy
+			inline[#inline + 1] = copyWith(entry, "header", element.name .. ": " .. entry.header)
 		end
 	end
 	element.inline = inline
@@ -1866,10 +1887,13 @@ do
 		end
 	end
 
+	-- Shared by every entry without owner requirements; callers only read it.
+	local NO_REQUIREMENTS = {}
+
 	local function ownerRequirements(entry)
 		local owner = entry.page
 		if not owner or owner.element then
-			return {}
+			return NO_REQUIREMENTS
 		end
 		local paths = {}
 		if owner.enable then
@@ -2104,12 +2128,7 @@ local function createExpander(parent, page, section)
 	button:SetPoint("LEFT")
 	button:SetPoint("RIGHT")
 
-	local highlight = button:CreateTexture(nil, "BACKGROUND")
-	highlight:SetTexture(HIGHLIGHT_TEXTURE)
-	highlight:SetBlendMode("ADD")
-	highlight:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3], 0.35)
-	highlight:SetAllPoints()
-	button:SetHighlightTexture(highlight)
+	button:SetHighlightTexture(createHighlight(button, 0.35))
 
 	local glyph = createGlyph(button, "chevron-right", MARKER_SIZE, NORMAL_FONT_COLOR)
 	glyph:SetPoint("CENTER", button, "LEFT", LABEL_X + GLYPH_BOX / 2, 0)
@@ -2223,10 +2242,6 @@ local function rebuildPage(page)
 	showContent(page, scroll, offset)
 end
 
-local showPage
-
-local refreshPage
-
 local function refreshView(page)
 	if not page or not page.rows then
 		return
@@ -2251,7 +2266,7 @@ local function refreshView(page)
 	refreshing = false
 end
 
-function refreshPage(page)
+local function refreshPage(page)
 	if page and page.tabs then
 		refreshView(page.head)
 		if page.activeTab then
@@ -2470,11 +2485,7 @@ do
 		button.tab = tab
 		button.group = group
 
-		local selected = button:CreateTexture(nil, "BACKGROUND")
-		selected:SetTexture(HIGHLIGHT_TEXTURE)
-		selected:SetBlendMode("ADD")
-		selected:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3], 0.8)
-		selected:SetAllPoints()
+		local selected = createHighlight(button, 0.8)
 		local underline = button:CreateTexture(nil, "ARTWORK")
 		underline:SetTexture(NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 		underline:SetHeight(2)
@@ -2483,12 +2494,7 @@ do
 		button.selected = selected
 		button.underline = underline
 
-		local highlight = button:CreateTexture(nil, "BACKGROUND")
-		highlight:SetTexture(HIGHLIGHT_TEXTURE)
-		highlight:SetBlendMode("ADD")
-		highlight:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3], 0.35)
-		highlight:SetAllPoints()
-		button:SetHighlightTexture(highlight)
+		button:SetHighlightTexture(createHighlight(button, 0.35))
 
 		local x = TAB_PADDING
 		if tab.glyph then
@@ -2601,11 +2607,7 @@ do
 			end
 		end
 		bar.topY = placeTabRow(top, CONTENT_WIDTH, 0)
-		local line = bar:CreateTexture(nil, "ARTWORK")
-		line:SetTexture(SPACER_TEXTURE)
-		line:SetVertexColor(0.6, 0.6, 0.6)
-		line:SetHeight(16)
-		bar.line = line
+		bar.line = createSpacerLine(bar)
 		page.tabBar = bar
 		layoutTabBar(page)
 	end
@@ -2709,21 +2711,11 @@ do
 			ToggleDropDownMenu(1, nil, copyMenu, self, 0, 0)
 		end)
 		copy:HookScript("OnEnter", function(self)
-			GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-			GameTooltip:SetText(
+			showTooltip(
+				self,
 				L["Copy from..."],
-				HIGHLIGHT_FONT_COLOR.r,
-				HIGHLIGHT_FONT_COLOR.g,
-				HIGHLIGHT_FONT_COLOR.b
+				L["Copy the settings this tab shares with another tab, such as sizes and castbar."]
 			)
-			GameTooltip:AddLine(
-				L["Copy the settings this tab shares with another tab, such as sizes and castbar."],
-				NORMAL_FONT_COLOR.r,
-				NORMAL_FONT_COLOR.g,
-				NORMAL_FONT_COLOR.b,
-				true
-			)
-			GameTooltip:Show()
 		end)
 		copy:HookScript("OnLeave", GameTooltip_Hide)
 		copy:Hide()
@@ -2731,7 +2723,7 @@ do
 	end
 end
 
-function showPage(page)
+local function showPage(page)
 	if currentPage then
 		if currentPage.onHide then
 			currentPage.onHide()
@@ -2876,27 +2868,25 @@ do
 		end
 	end
 
+	local function currentSchema(source, page)
+		if not source.buildSchema then
+			return source.schema
+		end
+		local schema = source.buildSchema()
+		adoptEntries(schema, page)
+		return schema
+	end
+
 	function collectSearch(search)
 		local groups = {}
 		for _, page in ipairs(pages) do
 			local pageContext = lower(page.name)
-			local schema = page.schema
-			if page.buildSchema then
-				schema = page.buildSchema()
-				adoptEntries(schema, page)
-			end
-			collectEntries(groups, schema, page.name, pageContext, search, page.glyph)
+			collectEntries(groups, currentSchema(page, page), page.name, pageContext, search, page.glyph)
 			for _, tab in ipairs(page.tabs or {}) do
-				local tabSchema = tab.schema
-				if tab.buildSchema then
-					tabSchema = tab.buildSchema()
-					adoptEntries(tabSchema, page)
-				end
-				local title = page.name .. " / " .. tab.name
 				collectEntries(
 					groups,
-					tabSchema,
-					title,
+					currentSchema(tab, page),
+					page.name .. " / " .. tab.name,
 					pageContext .. " " .. lower(tab.name),
 					search,
 					tab.glyph or page.glyph
