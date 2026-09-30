@@ -342,9 +342,9 @@ Misc:OnInitialize(function(self)
 	self:WatchConfig("tweaks.scriptErrors", applyScriptErrors)
 	self:WatchConfig("tweaks.hideGroundClutter", applyGroundClutter)
 	self:WatchConfig("tweaks.cameraDistanceMax", applyCameraDistance)
-	self:WatchConfig("tweaks.hideErrors", applyErrors)
-	self:WatchConfig("tweaks.dedupErrors", applyErrors)
-	self:WatchConfig("tweaks.filterCooldownErrors", applyErrors)
+	for _, key in ipairs({ "hideErrors", "dedupErrors", "filterCooldownErrors" }) do
+		self:WatchConfig("tweaks." .. key, applyErrors)
+	end
 
 	for key in pairs(CVAR_TOGGLES) do
 		applyCVarToggle(key)
@@ -426,12 +426,8 @@ SLASH_FROSTATOMUI_CONFIG4 = "/ui"
 
 local MENU_BUTTON_COLOR = { 0.09, 0.49, 0.75 }
 
-local menuButton = CreateFrame(
-	"Button",
-	"FrostAtomUIMenuButton",
-	GameMenuFrame,
-	"GameMenuButtonTemplate,SecureActionButtonTemplate"
-)
+local menuButton =
+	CreateFrame("Button", "FrostAtomUIMenuButton", GameMenuFrame, "GameMenuButtonTemplate,SecureActionButtonTemplate")
 menuButton:SetText("FrostAtomUI")
 menuButton:SetPoint("TOP", GameMenuButtonUIOptions, "BOTTOM", 0, -1)
 menuButton:SetAttribute("type", "click")
@@ -530,8 +526,8 @@ function FrostAtomUI_SetCameraDistance(preset)
 	snapFrame:SetScript("OnUpdate", finishSnap)
 end
 
-Misc:RegisterEvent("UPDATE_BINDINGS", function(self)
-	self:UnregisterEvent("UPDATE_BINDINGS")
+local function defaultFocusKey(self)
+	self:UnregisterEvent("UPDATE_BINDINGS", defaultFocusKey)
 
 	if ns.db.focusKeyDefaulted or GetBindingKey(FOCUS_COMMAND) then
 		return
@@ -541,4 +537,6 @@ Misc:RegisterEvent("UPDATE_BINDINGS", function(self)
 		SetBindingClick(FOCUS_DEFAULT_KEY, FOCUS_BUTTON_NAME)
 		SaveBindings(GetCurrentBindingSet())
 	end
-end)
+end
+
+Misc:RegisterEvent("UPDATE_BINDINGS", defaultFocusKey)

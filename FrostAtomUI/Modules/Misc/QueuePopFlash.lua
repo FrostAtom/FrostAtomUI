@@ -121,7 +121,8 @@ local function placeCentered(texture, x, y, size)
 end
 
 local function spawnRing(delay)
-	for _, ring in ipairs(rings) do
+	for i = 1, RING_POOL do
+		local ring = rings[i]
 		if not ring.start then
 			ring.start = flash.elapsed + (delay or 0)
 			ring:SetAlpha(0)
@@ -140,7 +141,8 @@ local function currentColor()
 end
 
 local function updateRings(intensity, x, y, r, g, b)
-	for _, ring in ipairs(rings) do
+	for i = 1, RING_POOL do
+		local ring = rings[i]
 		local start = ring.start
 		if start then
 			local age = flash.elapsed - start

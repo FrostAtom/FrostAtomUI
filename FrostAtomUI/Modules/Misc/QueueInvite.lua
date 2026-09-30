@@ -13,6 +13,7 @@ local abs, ceil, cos, min, max = math.abs, math.ceil, math.cos, math.min, math.m
 local MAX_BATTLEFIELD_QUEUES = MAX_BATTLEFIELD_QUEUES or 2
 
 local Misc = ns:GetModule("Misc")
+local pulse = ns.QueuePulse
 
 local WHICH = "CONFIRM_BATTLEFIELD_ENTRY"
 local INVITE_SOUND = "Sound\\Spells\\PVPThroughQueue.wav"
@@ -24,13 +25,14 @@ local COUNTDOWN_FALLBACK_Y = 160
 
 local DIALOG_WIDTH = 340
 local DIALOG_HEIGHT = 178
+local DIALOG_INSETS = { left = 11, right = 12, top = 12, bottom = 11 }
 local DIALOG_BACKDROP = {
 	bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
 	edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Gold-Border",
 	tile = true,
 	tileSize = 32,
 	edgeSize = 32,
-	insets = { left = 11, right = 12, top = 12, bottom = 11 },
+	insets = DIALOG_INSETS,
 }
 local BLIZZARD_BACKDROP = {
 	bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -38,7 +40,7 @@ local BLIZZARD_BACKDROP = {
 	tile = true,
 	tileSize = 32,
 	edgeSize = 32,
-	insets = { left = 11, right = 12, top = 12, bottom = 11 },
+	insets = DIALOG_INSETS,
 }
 local BANNER_HEIGHT = 90
 local BAR_HEIGHT = 16
@@ -247,7 +249,6 @@ end
 local function fillSkin(skin, index)
 	local _, mapName, instanceID, _, _, teamSize, registeredMatch = GetBattlefieldStatus(index)
 	local invite = getInvite(index)
-	skin.index = index
 	skin.invite = invite
 
 	if teamSize ~= 0 then
@@ -277,12 +278,7 @@ end
 
 local function updateShine(skin, t)
 	local cycle = t - SHINE_FIRST
-	if cycle < 0 then
-		skin.shine[1]:Hide()
-		skin.shine[2]:Hide()
-		return
-	end
-	local progress = (cycle % SHINE_EVERY) / SHINE_TIME
+	local progress = cycle >= 0 and (cycle % SHINE_EVERY) / SHINE_TIME or 1
 	if progress >= 1 then
 		skin.shine[1]:Hide()
 		skin.shine[2]:Hide()
@@ -313,7 +309,7 @@ end
 local function updateSkin(skin)
 	local now = GetTime()
 	local t = now - skin.invite.start
-	local beat = ns.QueuePulse and ns.QueuePulse.value or 0
+	local beat = pulse.value
 
 	local pop = fade(t, 0, TITLE_POP_TIME)
 	skin.titleFrame:SetScale(1 + (TITLE_POP_SCALE - 1) * (1 - easeOut(pop)))

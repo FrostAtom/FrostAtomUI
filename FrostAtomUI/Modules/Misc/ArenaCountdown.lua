@@ -93,6 +93,7 @@ end
 
 local numberFrame = createGlyphs("BLEND", 1)
 local glowFrame = createGlyphs("ADD", 2)
+local glyphFrames = { numberFrame, glowFrame }
 
 local function setDigit(texture, digit)
 	local row = digit < 8 and 0 or 0.5
@@ -136,7 +137,8 @@ local function sizeGlyphs(frame, height)
 end
 
 local function showGlyphs(value, height, r, g, b)
-	for _, frame in ipairs({ numberFrame, glowFrame }) do
+	for i = 1, #glyphFrames do
+		local frame = glyphFrames[i]
 		sizeGlyphs(frame, height)
 		setGlyphs(frame, value, r, g, b)
 	end

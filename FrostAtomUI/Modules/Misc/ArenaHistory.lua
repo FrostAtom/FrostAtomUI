@@ -523,8 +523,8 @@ Misc:RegisterEvent("UNIT_NAME_UPDATE", function(_, unit)
 	end
 end)
 
-Misc:RegisterEvent("UNIT_AURA", function(_, unit)
-	if unit ~= "player" or not inArena or startTime then
+Misc:RegisterUnitEvent("UNIT_AURA", "player", function()
+	if not inArena or startTime then
 		return
 	end
 	if UnitBuff("player", ARENA_PREPARATION) then
@@ -1158,9 +1158,7 @@ ns.OnLocaleReady(function()
 	StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_DELETE.text = L["Delete this game from the history?"]
 end)
 
-Misc:WatchConfig("arenaHistory", function()
-	refresh()
-end)
+Misc:WatchConfig("arenaHistory", refresh)
 
 local function toggle()
 	if not history then

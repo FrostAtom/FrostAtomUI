@@ -262,11 +262,7 @@ Misc:OnInitialize(function()
 		local font = config.coordFont
 		ns.SetFont(cursorText, font.size, font.outline)
 		ns.SetFont(playerText, font.size, font.outline)
-		if config.showCoords then
-			coords:Show()
-		else
-			coords:Hide()
-		end
+		ns.SetShown(coords, config.showCoords)
 		WorldMapPlayer:SetSize(config.arrowSize, config.arrowSize)
 		if WorldMapFrame:IsShown() then
 			layout()

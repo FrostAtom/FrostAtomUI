@@ -163,8 +163,17 @@ local BOTTOM_ART = "Interface\\MerchantFrame\\UI-Merchant-BotLeft"
 local STRETCHES = {
 	{ art = TOP_ART, split = 0.6, left = 0.6, right = 0.98, bottom = 1 },
 	{ art = BOTTOM_ART, split = 0.625, left = 0.3, right = 0.6, bottom = 1 },
-	{ name = "MerchantFrameBottomLeftBorder", split = 0.6, left = 0.1, right = 0.55, bottom = 0.4765625, border = true },
+	{
+		name = "MerchantFrameBottomLeftBorder",
+		split = 0.6,
+		left = 0.1,
+		right = 0.55,
+		bottom = 0.4765625,
+		border = true,
+	},
 }
+
+local BUYBACK_ART = { "BuybackFrameTopLeft", "BuybackFrameTopRight", "BuybackFrameBotLeft", "BuybackFrameBotRight" }
 
 local FILTER_GLYPH_SIZE = 14
 local FILTER_ACTIVE_COLOR = { 0.25, 0.8, 1 }
@@ -342,7 +351,13 @@ local function createStretch(info)
 	local x = 0
 	while x < EXTRA_WIDTH do
 		local width = min(tileWidth, EXTRA_WIDTH - x)
-		local piece = sliceTexture(texture, info.left, info.left + (info.right - info.left) * width / tileWidth, info.bottom, width)
+		local piece = sliceTexture(
+			texture,
+			info.left,
+			info.left + (info.right - info.left) * width / tileWidth,
+			info.bottom,
+			width
+		)
 		piece:SetPoint("LEFT", texture, "RIGHT", x, 0)
 		stretch.pieces[#stretch.pieces + 1] = piece
 		x = x + width
@@ -427,10 +442,9 @@ local function applyLayout()
 		itemFrame(i):Hide()
 	end
 	if buyback then
-		BuybackFrameTopLeft:Hide()
-		BuybackFrameTopRight:Hide()
-		BuybackFrameBotLeft:Hide()
-		BuybackFrameBotRight:Hide()
+		for i = 1, #BUYBACK_ART do
+			_G[BUYBACK_ART[i]]:Hide()
+		end
 	end
 	MerchantNextPageButton:ClearAllPoints()
 	MerchantNextPageButton:SetPoint("CENTER", MerchantFrame, "BOTTOMLEFT", NEXT_BUTTON_X + EXTRA_WIDTH, NEXT_BUTTON_Y)
@@ -969,11 +983,7 @@ saveOriginalPoints()
 hooksecurefunc("MerchantFrame_UpdateMerchantInfo", onMerchantInfo)
 hooksecurefunc("MerchantFrame_UpdateBuybackInfo", onBuybackInfo)
 
-Misc:WatchConfig("merchant", function()
-	if MerchantFrame:IsShown() then
-		MerchantFrame_Update()
-	end
-end)
+Misc:WatchConfig("merchant", refresh)
 
 local function scheduleRefresh()
 	ns.Defer("MerchantFilters", refresh)
@@ -1014,14 +1024,14 @@ end)
 Misc:RegisterEvent("MERCHANT_SHOW", function()
 	levelRetries = 0
 	wipe(knownCache)
-	local config = ns.Config.merchant
-	if not config.enabled or (config.shiftToSkip and IsShiftKeyDown()) then
+	local c = config()
+	if not c.enabled or (c.shiftToSkip and IsShiftKeyDown()) then
 		return
 	end
-	if config.sellGreys then
+	if c.sellGreys then
 		sellGreys()
 	end
-	if config.autoRepair then
+	if c.autoRepair then
 		repair()
 	end
 end)
