@@ -6,6 +6,8 @@ local L = ui.L
 local max, min, floor, ceil = math.max, math.min, math.floor, math.ceil
 
 local creators = ns.creators
+local showTooltip = ns.ShowTooltip
+local forwardWheel = ns.ForwardWheel
 local CONTROL_X = ns.CONTROL_X
 local ROW_HEIGHT = ns.ROW_HEIGHT
 local RESET_RESERVE = 26
@@ -48,6 +50,10 @@ local ANCHOR_GRID = {
 	{ "BOTTOM", L["Bottom center"] },
 	{ "BOTTOMRIGHT", L["Bottom right"] },
 }
+local ANCHOR_NAMES = {}
+for _, option in ipairs(ANCHOR_GRID) do
+	ANCHOR_NAMES[option[1]] = option[2]
+end
 
 ns.UNITS = {
 	s = L["%s s"],
@@ -196,11 +202,7 @@ end
 local function setSegmentedEnabled(control, enabled)
 	control.enabled = enabled and true or false
 	for _, segment in ipairs(control.segments) do
-		if enabled then
-			segment:Enable()
-		else
-			segment:Disable()
-		end
+		ns.SetControlEnabled(segment, enabled)
 		paintSegment(segment)
 	end
 end
@@ -240,7 +242,7 @@ local function createSegment(control, option, width, glyphOnly)
 	return segment
 end
 
-function ns.CreateSegmented(parent, values, widths, glyphOnly, onSelect)
+local function createSegmented(parent, values, widths, glyphOnly, onSelect)
 	local control = CreateFrame("Frame", nil, parent)
 	control.segments = {}
 	control.enabled = true
@@ -269,7 +271,7 @@ end
 
 local function createSegmentedRow(parent, entry, widths, glyphOnly)
 	local row = ns.CreateRow(parent, entry)
-	local control = ns.CreateSegmented(row, entry.values, widths, glyphOnly, function(value)
+	local control = createSegmented(row, entry.values, widths, glyphOnly, function(value)
 		ns.Set(entry, value)
 		row.Refresh()
 	end)
@@ -281,7 +283,6 @@ local function createSegmentedRow(parent, entry, widths, glyphOnly)
 	control.OnSegmentLeave = function()
 		ns.RowLeave(row)
 	end
-	row.segmented = control
 	row.Refresh = function()
 		control:SetValue(ns.Get(entry))
 	end
@@ -401,7 +402,8 @@ function creators.multiselect(parent, entry)
 	local row = ns.CreateRow(parent, entry)
 	local checks, widths = {}, {}
 	for i, option in ipairs(entry.values) do
-		local target = { path = entry.path .. "." .. option[1], type = "toggle", label = option[2], reload = entry.reload }
+		local target =
+			{ path = entry.path .. "." .. option[1], type = "toggle", label = option[2], reload = entry.reload }
 		local check = ns.CreateCheckButton(row, "InterfaceOptionsSmallCheckButtonTemplate")
 		local label = _G[check:GetName() .. "Text"]
 		label:SetFontObject(ns.Font("GameFontHighlightSmall"))
@@ -448,26 +450,6 @@ function creators.multiselect(parent, entry)
 	return row
 end
 
-local function showTooltip(owner, title, desc)
-	GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
-	GameTooltip:SetText(title, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-	if desc then
-		GameTooltip:AddLine(desc, NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
-	end
-	GameTooltip:Show()
-end
-
-local function forwardWheel(frame, delta)
-	local scroll = frame:GetParent()
-	while scroll and scroll:GetObjectType() ~= "ScrollFrame" do
-		scroll = scroll:GetParent()
-	end
-	local handler = scroll and scroll:GetScript("OnMouseWheel")
-	if handler then
-		handler(scroll, delta)
-	end
-end
-
 local function createAxis(row, text, commit)
 	local label = row:CreateFontString(nil, "ARTWORK")
 	label:SetFontObject(ns.Font("GameFontHighlightSmall"))
@@ -498,12 +480,7 @@ local function setAxisEnabled(label, box, enabled)
 end
 
 local function anchorName(point)
-	for _, option in ipairs(ANCHOR_GRID) do
-		if option[1] == point then
-			return option[2]
-		end
-	end
-	return point
+	return ANCHOR_NAMES[point] or point
 end
 
 local function paintCell(cell)
@@ -562,7 +539,7 @@ local function cellClick(cell)
 	grid.onSelect(point)
 end
 
-function ns.CreateAnchorGrid(row, onSelect)
+local function createAnchorGrid(row, onSelect)
 	local grid = CreateFrame("Frame", nil, row)
 	local step = GRID_CELL + GRID_GAP
 	grid:SetSize(GRID_CELL * 3 + GRID_GAP * 2, GRID_CELL * 3 + GRID_GAP * 2)
@@ -611,7 +588,7 @@ function creators.point(parent, entry)
 		end
 	end
 
-	grid = ns.CreateAnchorGrid(row, commit)
+	grid = createAnchorGrid(row, commit)
 	grid:SetPoint("LEFT", CONTROL_X, 0)
 	local xLabel, yLabel
 	xLabel, xBox = createAxis(row, "X", commit)
@@ -643,10 +620,13 @@ function creators.point(parent, entry)
 		if anchorPath then
 			local anchorLabel = ui.Movers.GetLabel(anchorPath)
 			anchor:SetText(L["of %s"]:format(anchorLabel))
-			detach.tooltipText = L["Offsets are relative to %s, point: %s."]:format(anchorLabel, anchorName(anchorPoint))
+			detach.tooltipText =
+				L["Offsets are relative to %s, point: %s."]:format(anchorLabel, anchorName(anchorPoint))
 			detach:Show()
 		else
-			anchor:SetText(anchorPoint and anchorPoint ~= point and L["of screen %s"]:format(anchorName(anchorPoint)) or "")
+			anchor:SetText(
+				anchorPoint and anchorPoint ~= point and L["of screen %s"]:format(anchorName(anchorPoint)) or ""
+			)
 			detach:Hide()
 		end
 	end
@@ -697,6 +677,15 @@ local function confirmText(action, value)
 		return confirm(value)
 	end
 	return confirm and confirm:format(value)
+end
+
+local function hasOption(options, value)
+	for _, option in ipairs(options) do
+		if option[1] == value then
+			return true
+		end
+	end
+	return false
 end
 
 function creators.choice(parent, entry)
@@ -758,17 +747,8 @@ function creators.choice(parent, entry)
 	end
 
 	row.Refresh = function()
-		if selected ~= nil then
-			local found = false
-			for _, option in ipairs(getValues()) do
-				if option[1] == selected then
-					found = true
-					break
-				end
-			end
-			if not found then
-				selected = nil
-			end
+		if selected ~= nil and not hasOption(getValues(), selected) then
+			selected = nil
 		end
 		dropdown:Select(selected)
 		if selected == nil then
@@ -802,6 +782,14 @@ end
 
 local MOVE_BUTTON_WIDTH = 96
 
+-- refreshView treats every row with Refresh as a settings row: it reads row.entry and greys row.label.
+local function addHiddenRowLabel(header, entry)
+	header.entry = entry
+	header.label = header:CreateFontString(nil, "ARTWORK")
+	header.label:SetFontObject(ns.Font("GameFontHighlightSmall"))
+	header.label:Hide()
+end
+
 local function addMoveButton(header, entry)
 	local element = entry.element
 	local button = ns.CreateButton(header, L["Move"], MOVE_BUTTON_WIDTH, true, 18, "up-down-left-right")
@@ -810,11 +798,14 @@ local function addMoveButton(header, entry)
 		ns.EditElement(element.path)
 	end)
 	button:SetScript("OnEnter", function(self)
-		showTooltip(self, L["Move"], L["Open this frame in move mode; the window next to it holds its size and position settings."])
+		showTooltip(
+			self,
+			L["Move"],
+			L["Open this frame in move mode; the window next to it holds its size and position settings."]
+		)
 	end)
 	button:SetScript("OnLeave", GameTooltip_Hide)
 	header.line:SetPoint("BOTTOMRIGHT", button, "BOTTOMLEFT", -4, 2)
-	header.moveButton = button
 	if header.Refresh then
 		local setEnabled = header.SetEnabled
 		header.SetEnabled = function(self, enabled)
@@ -823,25 +814,15 @@ local function addMoveButton(header, entry)
 		end
 		return
 	end
-	header.entry = entry
-	header.label = header:CreateFontString(nil, "ARTWORK")
-	header.label:SetFontObject(ns.Font("GameFontHighlightSmall"))
-	header.label:Hide()
+	addHiddenRowLabel(header, entry)
 	header.Refresh = function() end
 	header.SetEnabled = function(_, enabled)
 		ns.SetControlEnabled(button, enabled)
 	end
 end
 
-function creators.header(parent, entry)
-	local header = createHeader(parent, entry)
+local function addGroupToggle(header, entry)
 	local toggles = entry.toggles
-	if not toggles then
-		if entry.element then
-			addMoveButton(header, entry)
-		end
-		return header
-	end
 	local check = ns.CreateCheckButton(header)
 	check:SetPoint("BOTTOMLEFT", CHECK_X, 0)
 	local dash = ui.CreateGlyph(check, "minus", GLYPH_SIZE, "OVERLAY")
@@ -860,11 +841,7 @@ function creators.header(parent, entry)
 	check:SetScript("OnLeave", GameTooltip_Hide)
 	header.line:SetPoint("BOTTOMRIGHT", header, "BOTTOMLEFT", CHECK_X - 4, 4)
 
-	local label = header:CreateFontString(nil, "ARTWORK")
-	label:SetFontObject(ns.Font("GameFontHighlightSmall"))
-	label:Hide()
-	header.entry = entry
-	header.label = label
+	addHiddenRowLabel(header, entry)
 	header.Refresh = function()
 		local state = groupState(toggles)
 		check:SetChecked(state == true)
@@ -874,6 +851,13 @@ function creators.header(parent, entry)
 		ns.SetControlEnabled(check, enabled)
 		local color = enabled and NORMAL_FONT_COLOR or GRAY_FONT_COLOR
 		dash:SetTextColor(color.r, color.g, color.b)
+	end
+end
+
+function creators.header(parent, entry)
+	local header = createHeader(parent, entry)
+	if entry.toggles then
+		addGroupToggle(header, entry)
 	end
 	if entry.element then
 		addMoveButton(header, entry)
@@ -974,10 +958,11 @@ local function insertTagText(row, insert, offset)
 	if #value > (row.entry.maxLetters or 24) then
 		return
 	end
+	local cursor = offset + #insert
 	box:SetFocus()
 	box:SetText(value)
-	box:SetCursorPosition(offset + #insert)
-	row.tagCursor = offset + #insert
+	box:SetCursorPosition(cursor)
+	row.tagCursor = cursor
 	box:OnCommit()
 	box.committed = value
 end
@@ -1042,7 +1027,8 @@ local function placeTagSection(popover, title, options, modifier, y)
 	if not options then
 		return y
 	end
-	local index = #popover.shownHeaders + 1
+	local index = popover.shownHeaders + 1
+	popover.shownHeaders = index
 	local header = popover.headers[index]
 	if not header then
 		header = popover:CreateFontString(nil, "ARTWORK")
@@ -1052,7 +1038,6 @@ local function placeTagSection(popover, title, options, modifier, y)
 	header:SetText(title)
 	header:SetPoint("TOPLEFT", TAG_PADDING + 4, y - 4)
 	header:Show()
-	popover.shownHeaders[index] = header
 	y = y - TAG_HEADER
 	for _, option in ipairs(options) do
 		local count = popover.shownItems + 1
@@ -1081,7 +1066,7 @@ local function layoutTagPopover(popover, entry)
 	for _, header in ipairs(popover.headers) do
 		header:Hide()
 	end
-	wipe(popover.shownHeaders)
+	popover.shownHeaders = 0
 	popover.shownItems = 0
 	local y = placeTagSection(popover, L["Tags"], entry.tags, false, -TAG_PADDING)
 	y = placeTagSection(popover, L["Tag options"], entry.modifiers, true, y)
@@ -1110,7 +1095,7 @@ local function createTagPopover()
 	popover:Hide()
 	popover.items = {}
 	popover.headers = {}
-	popover.shownHeaders = {}
+	popover.shownHeaders = 0
 	popover.shownItems = 0
 	popover:SetScript("OnUpdate", tagPopoverUpdate)
 	tagPopover = popover
