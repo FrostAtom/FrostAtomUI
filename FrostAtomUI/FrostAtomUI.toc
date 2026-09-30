@@ -68,6 +68,7 @@ Modules\UnitFrames\Tags.lua
 Modules\UnitFrames\Elements\Health.lua
 Modules\UnitFrames\Elements\Power.lua
 Modules\UnitFrames\Elements\Name.lua
+Modules\UnitFrames\Elements\Texts.lua
 Modules\UnitFrames\Elements\Combat.lua
 Modules\UnitFrames\Elements\ClassIcon.lua
 Modules\UnitFrames\Elements\Leader.lua

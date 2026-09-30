@@ -34,6 +34,8 @@ local GRID_ROW_HEIGHT = 34
 local GRID_COLOR = { 0.45, 0.45, 0.45 }
 local GRID_HOVER_COLOR = { 1, 1, 1 }
 local GRID_SELECTED_COLOR = { 1, 0.82, 0 }
+local GRID_MARKED_COLOR = { 0.3, 0.8, 0.3 }
+local GRID_NAME_GAP = 12
 local ACTION_BUTTON_WIDTH = 28
 local ACTION_GAP = 4
 local PREVIEW_FONT_SIZE = 13
@@ -485,11 +487,14 @@ end
 
 local function paintCell(cell)
 	local grid = cell.grid
+	local point = cell.option[1]
 	local color = GRID_COLOR
-	if grid.value == cell.option[1] then
+	if grid.value == point then
 		color = GRID_SELECTED_COLOR
 	elseif cell.hovered and grid.enabled then
 		color = GRID_HOVER_COLOR
+	elseif grid.marked and grid.marked(point) then
+		color = GRID_MARKED_COLOR
 	end
 	local shade = grid.enabled and 1 or 0.5
 	cell.texture:SetVertexColor(color[1] * shade, color[2] * shade, color[3] * shade)
@@ -515,10 +520,11 @@ local function setGridEnabled(grid, enabled)
 end
 
 local function cellEnter(cell)
+	local grid = cell.grid
 	cell.hovered = true
 	paintCell(cell)
-	cell.grid.row.highlight:Show()
-	showTooltip(cell, cell.option[2])
+	grid.row.highlight:Show()
+	showTooltip(cell, cell.option[2], grid.describe and grid.describe(cell.option[1]))
 end
 
 local function cellLeave(cell)
@@ -539,7 +545,19 @@ local function cellClick(cell)
 	grid.onSelect(point)
 end
 
-local function createAnchorGrid(row, onSelect)
+local function listsPoint(points, point)
+	if not points then
+		return true
+	end
+	for _, value in ipairs(points) do
+		if value == point then
+			return true
+		end
+	end
+	return false
+end
+
+local function createAnchorGrid(row, onSelect, points)
 	local grid = CreateFrame("Frame", nil, row)
 	local step = GRID_CELL + GRID_GAP
 	grid:SetSize(GRID_CELL * 3 + GRID_GAP * 2, GRID_CELL * 3 + GRID_GAP * 2)
@@ -550,23 +568,51 @@ local function createAnchorGrid(row, onSelect)
 	grid.SetValue = setGridValue
 	grid.SetEnabled = setGridEnabled
 	for i, option in ipairs(ANCHOR_GRID) do
-		local cell = CreateFrame("Button", nil, grid)
-		cell:SetSize(GRID_CELL, GRID_CELL)
-		cell:SetPoint("TOPLEFT", ((i - 1) % 3) * step, -floor((i - 1) / 3) * step)
-		cell:SetHitRectInsets(-GRID_GAP / 2, -GRID_GAP / 2, -GRID_GAP / 2, -GRID_GAP / 2)
-		local texture = cell:CreateTexture(nil, "ARTWORK")
-		texture:SetTexture(ui.Media.blank)
-		texture:SetAllPoints()
-		cell.texture = texture
-		cell.grid = grid
-		cell.option = option
-		cell:SetScript("OnEnter", cellEnter)
-		cell:SetScript("OnLeave", cellLeave)
-		cell:SetScript("OnClick", cellClick)
-		grid.cells[i] = cell
+		if listsPoint(points, option[1]) then
+			local cell = CreateFrame("Button", nil, grid)
+			cell:SetSize(GRID_CELL, GRID_CELL)
+			cell:SetPoint("TOPLEFT", ((i - 1) % 3) * step, -floor((i - 1) / 3) * step)
+			cell:SetHitRectInsets(-GRID_GAP / 2, -GRID_GAP / 2, -GRID_GAP / 2, -GRID_GAP / 2)
+			local texture = cell:CreateTexture(nil, "ARTWORK")
+			texture:SetTexture(ui.Media.blank)
+			texture:SetAllPoints()
+			cell.texture = texture
+			cell.grid = grid
+			cell.option = option
+			cell:SetScript("OnEnter", cellEnter)
+			cell:SetScript("OnLeave", cellLeave)
+			cell:SetScript("OnClick", cellClick)
+			grid.cells[#grid.cells + 1] = cell
+		end
 	end
 	paintGrid(grid)
 	return grid
+end
+
+function creators.anchor(parent, entry)
+	local row = ns.CreateRow(parent, entry)
+	row:SetHeight(max(row:GetHeight(), GRID_ROW_HEIGHT))
+	local grid = createAnchorGrid(row, function(point)
+		ns.Set(entry, point)
+	end, entry.points)
+	grid:SetPoint("LEFT", CONTROL_X, 0)
+	grid.marked = entry.marked
+	grid.describe = entry.describe
+
+	local name = row:CreateFontString(nil, "ARTWORK")
+	name:SetFontObject(ns.Font("GameFontHighlightSmall"))
+	name:SetPoint("LEFT", grid, "RIGHT", GRID_NAME_GAP, 0)
+
+	row.Refresh = function()
+		local point = ns.Get(entry)
+		grid:SetValue(point)
+		name:SetText(anchorName(point))
+	end
+	row.SetEnabled = function(_, enabled)
+		grid:SetEnabled(enabled)
+		ns.SetTextEnabled(name, enabled)
+	end
+	return row
 end
 
 function creators.point(parent, entry)
