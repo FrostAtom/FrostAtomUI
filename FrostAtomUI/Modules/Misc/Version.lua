@@ -139,6 +139,27 @@ local function isValid(theirVersion, theirBuild)
 		and theirBuild:find(BUILD_PATTERN) ~= nil
 end
 
+local function versionParts(ver)
+	local major, minor, patch = ver:match("^(%d+)%.(%d+)%.?(%d*)")
+	return tonumber(major) or 0, tonumber(minor) or 0, tonumber(patch) or 0
+end
+
+local ownValid = version:find(VERSION_PATTERN) ~= nil
+local ownMajor, ownMinor, ownPatch = versionParts(version)
+
+local function isNewer(theirVersion)
+	if not ownValid then
+		return false
+	end
+	local major, minor, patch = versionParts(theirVersion)
+	if major ~= ownMajor then
+		return major > ownMajor
+	elseif minor ~= ownMinor then
+		return minor > ownMinor
+	end
+	return patch > ownPatch
+end
+
 local function reportNewer(theirVersion, theirBuild)
 	if newerReported then
 		return
@@ -167,7 +188,7 @@ Misc:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, message, channel, sende
 	end
 	user.version, user.build = theirVersion, theirBuild
 
-	if build:find(BUILD_PATTERN) and theirBuild > build then
+	if isNewer(theirVersion) then
 		reportNewer(theirVersion, theirBuild)
 	end
 	if kind == "Q" and channel == "WHISPER" and isTalkable(sender) then
