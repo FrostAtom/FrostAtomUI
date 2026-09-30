@@ -1896,7 +1896,6 @@ do
 		end
 	end
 
-	-- Shared by every entry without owner requirements; callers only read it.
 	local NO_REQUIREMENTS = {}
 
 	local function ownerRequirements(entry)

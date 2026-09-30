@@ -782,7 +782,6 @@ end
 
 local MOVE_BUTTON_WIDTH = 96
 
--- refreshView treats every row with Refresh as a settings row: it reads row.entry and greys row.label.
 local function addHiddenRowLabel(header, entry)
 	header.entry = entry
 	header.label = header:CreateFontString(nil, "ARTWORK")

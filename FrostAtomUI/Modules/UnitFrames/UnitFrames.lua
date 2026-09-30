@@ -304,7 +304,6 @@ function UnitFrameMixin:QueueUpdate()
 	ns.Defer(self, self.UpdateAll)
 end
 
--- One wrapper per handler, so the same handler registered by many frames shares a single closure.
 local function wrapperCache(wrap)
 	return setmetatable({}, {
 		__index = function(self, handler)
@@ -323,7 +322,6 @@ local eventWrappers = wrapperCache(function(handler)
 	end
 end)
 
--- Unit events drop the unit argument: handlers read frame.unit, which follows vehicle swaps.
 local unitEventWrappers = wrapperCache(function(handler)
 	return function(frame, _, ...)
 		if frame.watched and not UF.testing then
@@ -491,7 +489,7 @@ local TEXT_ELEMENTS = { "health", "power", "name" }
 local function setHovered(frame, hovered)
 	frame.hovered = hovered
 	ns.SetShown(frame.hover, hovered and config.hoverHighlight)
-	local method = UF.testing and "test" or frame:IsShown() and "update"
+	local method = frame.test and "test" or frame:IsShown() and "update"
 	if not method then
 		return
 	end

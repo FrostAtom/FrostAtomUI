@@ -38,7 +38,6 @@ local function register(map, value, ...)
 	end
 end
 
--- Openers gain an extra point for Subtlety rogues (Initiative).
 local function registerOpener(gain, ...)
 	register(GENERATORS, gain, ...)
 	register(INITIATIVE, true, ...)

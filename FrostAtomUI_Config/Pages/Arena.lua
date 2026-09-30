@@ -166,8 +166,6 @@ Section(schema, L["Diminishing returns"], "diminishingReturns", {
 	ns.ClickThrough("clickThrough"),
 }, nil, "1.4.0", "arrow-trend-down")
 
--- Paths outside the section prefix, so they are inserted after its entries were added:
--- "Show on" right after Enable.
 tinsert(schema, #schema - 3, {
 	path = "diminishingReturns",
 	label = L["Show on"],
@@ -275,7 +273,6 @@ tinsert(schema, #schema - 3, {
 	desc = L["Unit frames that show the internal cooldown icons."],
 })
 
--- Before the active buff color.
 tinsert(schema, #schema - 1, {
 	path = "unitFrames.cooldownReadyFlash",
 	label = L["Cooldown ready flash"],

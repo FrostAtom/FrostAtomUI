@@ -334,7 +334,6 @@ local function trimSpaces(text, from, to)
 	return from, to
 end
 
--- handler(text, from, to, a, b): extra args instead of closures, the parser runs on every keystroke
 local function splitRanges(text, from, to, separator, handler, a, b)
 	local start = from
 	while start <= to + 1 do
@@ -809,7 +808,6 @@ local function escaped(text, from, to)
 	return (strgsub(strsub(text, from, to), "|", "||"))
 end
 
--- one output buffer shared by Render and Decode: both run on every editor keystroke
 local pieces, pieceCount, outLength = {}, 0, 0
 local renderText, renderCursor, escapedCursor
 

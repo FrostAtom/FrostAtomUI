@@ -26,7 +26,6 @@ end
 
 function RuneMixin:OnUpdate()
 	local start, duration, ready = GetRuneCooldown(self:GetID())
-	-- no rune data yet before PLAYER_ENTERING_WORLD: keep polling
 	if not start then
 		return
 	end

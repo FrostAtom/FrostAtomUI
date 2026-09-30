@@ -115,15 +115,6 @@ for i = 1, MAX_RAID_MEMBERS do
 	RAID_TARGETS[i] = RAID[i] .. "target"
 end
 
--- Memoized "<unit>target" tokens, so tooltip updates do not build the string every time.
-local TARGET_OF = setmetatable({}, {
-	__index = function(self, unit)
-		local target = unit .. "target"
-		self[unit] = target
-		return target
-	end,
-})
-
 local function corner(top, left)
 	if top then
 		return left and "TOPLEFT" or "TOPRIGHT"
@@ -243,7 +234,6 @@ local function onTooltipSetItem(tooltip)
 		end
 	end
 
-	-- custom server qualities have no ITEM_QUALITY_COLORS entry
 	local qualityColor = quality and quality >= 2 and ITEM_QUALITY_COLORS[quality]
 	if config.colorBorder and qualityColor then
 		Skin.SetBorder(tooltip, qualityColor.r, qualityColor.g, qualityColor.b)
@@ -876,7 +866,7 @@ local function watch(tooltip, unit, guid)
 	end
 	local owner = tooltip:GetOwner()
 	watcher.unit, watcher.guid = unit, guid
-	watcher.targetUnit = TARGET_OF[unit]
+	watcher.targetUnit = unit .. "target"
 	watcher.target = UnitGUID(watcher.targetUnit)
 	watcher.count, watcher.sum = 0, 0
 	if config.showTargetedBy then
@@ -964,7 +954,7 @@ local function onTooltipSetUnit(tooltip)
 		end
 	end
 
-	local target = TARGET_OF[unit]
+	local target = unit .. "target"
 	if config.showTarget and unit ~= "player" and UnitExists(target) then
 		local name = UnitIsUnit(target, "player") and L["|cffff0000<YOU>|r"] or colorize(target, UnitName(target))
 		tooltip:AddDoubleLine(L["Target"], name)

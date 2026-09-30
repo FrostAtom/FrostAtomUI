@@ -154,7 +154,6 @@ end
 
 Misc:WatchConfig("popups", applyDeclines)
 
--- Registers SLASH_FROSTATOMUI_NODUEL1 = "/noduel" etc.
 for key, decline in pairs(DECLINES) do
 	local label = decline.slashLabel
 	local command = "FROSTATOMUI_" .. label:upper()

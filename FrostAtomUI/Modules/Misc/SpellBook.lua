@@ -813,8 +813,6 @@ local function createToolbar()
 	frame.combatNote = combatNote
 end
 
--- Widens the stock book art: each span is { file, texcoord from, texcoord to (px), on-screen size };
--- the second span mirrors the first file's right part (texcoords run backwards) to fill the gap.
 local function artSpans(slice, lastSize)
 	return {
 		{ 1, 0, 256, 256 },
