@@ -68,7 +68,7 @@ end
 local chatBackdrops = {}
 local tabs = {}
 local fader
-local updateTabColors, chatInsets
+local updateTabColors, updateOverflowColors, chatInsets, createHoverZone
 
 local function applyPosition()
 	ns.ApplyPoint(ChatFrame1, "chat.point")
@@ -87,6 +87,7 @@ local function applyFrameConfig()
 	for i = 1, #tabs do
 		updateTabColors(tabs[i])
 	end
+	updateOverflowColors()
 	fader:Configure(config.mouseover, config.fadeAlpha)
 	applyPosition()
 end
@@ -145,6 +146,10 @@ local function onDockFrame(chatFrame)
 	end
 end
 
+local function isChatActive()
+	return ChatFrame1EditBox:IsShown() or GENERAL_CHAT_DOCK.overflowButton.list:IsShown()
+end
+
 function Chat:Initialize()
 	ns:GetModule("CVars"):Pin("chatStyle", "classic")
 	self:HookMessages()
@@ -160,16 +165,14 @@ function Chat:Initialize()
 	end
 	hooksecurefunc("FCF_DockFrame", onDockFrame)
 	self:WatchConfig("chat.hideCombatLog", applyCombatLog)
-	local function isTyping()
-		return ChatFrame1EditBox:IsShown()
+	local hover = { createHoverZone(), ChatFrame1EditBox }
+	local chatFrames = {}
+	for i = 1, NUM_CHAT_WINDOWS do
+		chatFrames[i] = _G["ChatFrame" .. i]
 	end
-	local hover = { ChatFrame1, ChatFrame1EditBox }
-	for i = 1, #tabs do
-		hover[#hover + 1] = tabs[i]
-	end
-	fader = ns.CreateFader({ ChatFrame1 }, hover, isTyping)
+	fader = ns.CreateFader(chatFrames, hover, isChatActive)
 	if config.skin then
-		ns.CreateFader(tabs, hover, isTyping):Configure(true, 0)
+		ns.CreateFader({ GeneralDockManager }, hover, isChatActive):Configure(true, 0)
 	end
 	applyFrameConfig()
 	captureBlizzardSticky()
@@ -833,10 +836,16 @@ local FRIENDS_BUTTON_ALPHA = 0.4
 local FRIENDS_COLOR = { 0.75, 0.75, 0.75 }
 local FRIENDS_HOVER_COLOR = { 1, 0.82, 0 }
 local TAB_HEIGHT = 22
+local TAB_HIGHLIGHT_ALPHA = 0.08
 local DOCK_OFFSET = 6
 local TAB_INACTIVE_ALPHA = 0.45
 local TAB_ACTIVE_COLOR = { 1, 1, 1 }
 local TAB_INACTIVE_COLOR = { 0.55, 0.55, 0.55 }
+local TAB_ALERT_COLOR = { 1, 0.5, 0.25 }
+local OVERFLOW_WIDTH = 22
+local OVERFLOW_LIFT = 2
+local OVERFLOW_GLYPH = "chevron-down"
+local OVERFLOW_GLYPH_SIZE = 9
 local PANEL_INSET = 6
 local MIN_FONT_SIZE = 8
 local MAX_FONT_SIZE = 24
@@ -845,12 +854,23 @@ function chatInsets()
 	if not config.skin then
 		return 0, 0, 0, 0
 	end
-	local backdrop = ChatFrame1Tab.backdrop
+	local bounds = ChatFrame1Tab.bounds
 	local top = PANEL_INSET
-	if ChatFrame1Tab:IsShown() and backdrop:GetTop() and ChatFrame1:GetTop() then
-		top = max(backdrop:GetTop() - ChatFrame1:GetTop(), top)
+	if ChatFrame1Tab:IsShown() and bounds:GetTop() and ChatFrame1:GetTop() then
+		top = max(bounds:GetTop() - ChatFrame1:GetTop(), top)
 	end
 	return PANEL_INSET, PANEL_INSET, top, PANEL_INSET
+end
+
+function createHoverZone()
+	local zone = CreateFrame("Frame", nil, UIParent)
+	zone:SetPoint("BOTTOMRIGHT", ChatFrame1, PANEL_INSET, -PANEL_INSET)
+	if config.skin then
+		zone:SetPoint("TOPLEFT", ChatFrame1Tab.bounds)
+	else
+		zone:SetPoint("TOPLEFT", GeneralDockManager, -PANEL_INSET, 0)
+	end
+	return zone
 end
 
 local function hideRegions(prefix, ...)
@@ -870,57 +890,84 @@ local function addBackdrop(parent, inset)
 	return backdrop
 end
 
-local function fitTabBackdrop(clip)
-	local width, height = clip:GetWidth(), clip:GetHeight()
-	if width >= 1 and height >= 1 then
-		clip:GetScrollChild():SetSize(width, height + BACKDROP.edgeSize)
-	end
+local function createEdge(frame, ...)
+	local edge = frame:CreateTexture(nil, "BORDER")
+	edge:SetTexture(BACKDROP.edgeFile)
+	edge:SetTexCoord(...)
+	return edge
 end
 
-local function isFirstTab(tab)
-	if tab:GetParent() ~= GeneralDockManager then
-		return true
+local function decorateTab(frame, bounds)
+	local size, inset = BACKDROP.edgeSize, BACKDROP.insets.left
+
+	local background = frame:CreateTexture(nil, "BACKGROUND")
+	background:SetTexture(BACKDROP.bgFile)
+	background:SetPoint("TOPLEFT", bounds, inset, -inset)
+	background:SetPoint("BOTTOMRIGHT", bounds, -inset, 0)
+
+	local topLeft = createEdge(frame, 0.5, 0.625, 0, 1)
+	topLeft:SetSize(size, size)
+	topLeft:SetPoint("TOPLEFT", bounds)
+	local topRight = createEdge(frame, 0.625, 0.75, 0, 1)
+	topRight:SetSize(size, size)
+	topRight:SetPoint("TOPRIGHT", bounds)
+	local top = createEdge(frame, 0.25, 1, 0.375, 1, 0.25, 0, 0.375, 0)
+	top:SetPoint("TOPLEFT", topLeft, "TOPRIGHT")
+	top:SetPoint("BOTTOMRIGHT", topRight, "BOTTOMLEFT")
+	local left = createEdge(frame, 0, 0.125, 0, 1)
+	left:SetPoint("TOPLEFT", topLeft, "BOTTOMLEFT")
+	left:SetPoint("BOTTOMRIGHT", bounds, "BOTTOMLEFT", size, 0)
+	local right = createEdge(frame, 0.125, 0.25, 0, 1)
+	right:SetPoint("TOPRIGHT", topRight, "BOTTOMRIGHT")
+	right:SetPoint("BOTTOMLEFT", bounds, "BOTTOMRIGHT", -size, 0)
+
+	frame.background, frame.edges = background, { topLeft, top, topRight, left, right }
+	return background
+end
+
+local function paintTab(frame, selected)
+	frame.background:SetVertexColor(0, 0, 0, config.backgroundAlpha)
+	local alpha = selected and 1 or TAB_INACTIVE_ALPHA
+	local edges = frame.edges
+	for i = 1, #edges do
+		edges[i]:SetVertexColor(1, 1, 1, alpha)
 	end
-	local left = tab:GetLeft()
-	if not left then
-		return false
-	end
-	for i = 1, #tabs do
-		local other = tabs[i]
-		if other ~= tab and other:IsShown() and other:GetParent() == GeneralDockManager then
-			local otherLeft = other:GetLeft()
-			if otherLeft and otherLeft < left then
-				return false
-			end
-		end
-	end
-	return true
+	return selected and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR
 end
 
 local function layoutTabs()
 	for i = 1, #tabs do
 		local tab = tabs[i]
-		if tab:GetParent() == GeneralDockManagerScrollFrameChild then
-			tab:SetParent(GeneralDockManager)
-		end
-	end
-	for i = 1, #tabs do
-		local tab = tabs[i]
-		tab.clip:SetPoint("BOTTOMLEFT", isFirstTab(tab) and -PANEL_INSET or 0, 0)
+		local chatFrame = tab.chatFrame
+		local left = (not chatFrame.isDocked or chatFrame == GENERAL_CHAT_DOCK.primary) and -PANEL_INSET or 0
+		tab.bounds:SetPoint("BOTTOMLEFT", left, 0)
+		tab:SetHitRectInsets(left, 0, tab:GetHeight() - TAB_HEIGHT, 0)
 	end
 end
 
 function updateTabColors(tab, selected)
-	if not tab.backdrop then
+	if not tab.edges then
 		return
 	end
 	if selected == nil then
-		selected = SELECTED_DOCK_FRAME == tab.chatFrame
+		local chatFrame = tab.chatFrame
+		selected = not chatFrame.isDocked or chatFrame == FCFDock_GetSelectedWindow(GENERAL_CHAT_DOCK)
 	end
-	tab.backdrop:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
-	tab.backdrop:SetBackdropBorderColor(1, 1, 1, selected and 1 or TAB_INACTIVE_ALPHA)
-	local color = selected and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR
+	local color = paintTab(tab, selected)
 	tab:GetFontString():SetTextColor(color[1], color[2], color[3])
+end
+
+function updateOverflowColors()
+	local button = GENERAL_CHAT_DOCK.overflowButton
+	if not button.edges then
+		return
+	end
+	local selected = button.list:IsShown()
+	local color = paintTab(button, selected)
+	if button.alerting and not selected then
+		color = TAB_ALERT_COLOR
+	end
+	button.glyph:SetTextColor(color[1], color[2], color[3])
 end
 
 local TAB_TEXTURE_PARTS = { "left", "middle", "right" }
@@ -936,27 +983,56 @@ local function setupTab(name)
 	end
 
 	tab.chatFrame = _G[name:gsub("Tab$", "")]
+	tab:SetAlpha(1)
 
-	local clip = CreateFrame("ScrollFrame", nil, tab)
-	clip:SetFrameLevel(max(tab:GetFrameLevel() - 1, 0))
-	clip:SetPoint("BOTTOMLEFT")
-	clip:SetPoint("TOPRIGHT", tab, "BOTTOMRIGHT", 0, TAB_HEIGHT)
-	local backdrop = CreateFrame("Frame", nil, clip)
-	backdrop:SetBackdrop(BACKDROP)
-	clip:SetScrollChild(backdrop)
-	clip:SetScript("OnSizeChanged", fitTabBackdrop)
-	chatBackdrops[#chatBackdrops + 1] = backdrop
-	tab.clip, tab.backdrop = clip, backdrop
-	fitTabBackdrop(clip)
-	tab:HookScript("OnSizeChanged", layoutTabs)
+	local bounds = CreateFrame("Frame", nil, tab)
+	bounds:SetPoint("BOTTOMLEFT")
+	bounds:SetPoint("TOPRIGHT", tab, "BOTTOMRIGHT", 0, TAB_HEIGHT)
+	tab.bounds = bounds
 
 	local highlight = tab:CreateTexture(nil, "HIGHLIGHT")
-	highlight:SetTexture(1, 1, 1, 0.08)
-	highlight:SetPoint("TOPLEFT", clip, "TOPLEFT", 3, -3)
-	highlight:SetPoint("BOTTOMRIGHT", clip, "BOTTOMRIGHT", -3, 0)
+	highlight:SetTexture(1, 1, 1, TAB_HIGHLIGHT_ALPHA)
+	highlight:SetAllPoints(decorateTab(tab, bounds))
 
 	tabs[#tabs + 1] = tab
 	updateTabColors(tab)
+end
+
+local function colorOverflowListButton(button, chatFrame)
+	local selected = chatFrame == FCFDock_GetSelectedWindow(GENERAL_CHAT_DOCK)
+	local color = selected and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR
+	button:GetFontString():SetTextColor(color[1], color[2], color[3])
+	button.highlight:SetTexture(1, 1, 1, TAB_HIGHLIGHT_ALPHA)
+end
+
+local function skinOverflow()
+	local button = GENERAL_CHAT_DOCK.overflowButton
+	button:GetNormalTexture():SetTexture(nil)
+	button:SetAlpha(1)
+	button:SetSize(OVERFLOW_WIDTH, TAB_HEIGHT + OVERFLOW_LIFT)
+	button:SetHitRectInsets(0, -PANEL_INSET, 0, OVERFLOW_LIFT)
+	button.width = OVERFLOW_WIDTH
+
+	local bounds = CreateFrame("Frame", nil, button)
+	bounds:SetPoint("BOTTOMLEFT", 0, OVERFLOW_LIFT)
+	bounds:SetPoint("TOPRIGHT", PANEL_INSET, 0)
+	local highlight = button:GetHighlightTexture()
+	highlight:SetTexture(1, 1, 1, TAB_HIGHLIGHT_ALPHA)
+	highlight:ClearAllPoints()
+	highlight:SetAllPoints(decorateTab(button, bounds))
+	button.glyph = ns.CreateGlyph(button, OVERFLOW_GLYPH, OVERFLOW_GLYPH_SIZE, "ARTWORK")
+	button.glyph:SetPoint("CENTER", bounds)
+
+	local list = button.list
+	list:SetBackdrop(BACKDROP)
+	list:ClearAllPoints()
+	list:SetPoint("LEFT", bounds, "RIGHT")
+	chatBackdrops[#chatBackdrops + 1] = list
+	list:HookScript("OnShow", updateOverflowColors)
+	list:HookScript("OnHide", updateOverflowColors)
+	hooksecurefunc("FCFDockOverflowListButton_SetValue", colorOverflowListButton)
+	hooksecurefunc("FCFDockOverflowButton_UpdatePulseState", updateOverflowColors)
+	updateOverflowColors()
 end
 
 local EDIT_BOX_TEXTURE_PARTS = { "Left", "Right", "Mid" }
@@ -1135,14 +1211,12 @@ function Chat:HookMessages()
 end
 
 function Chat:Skin()
-	CHAT_FRAME_FADE_OUT_TIME = 0.5
-	CHAT_TAB_HIDE_DELAY = 0
 	CHAT_FRAME_TAB_SELECTED_MOUSEOVER_ALPHA = 1
-	CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 0
+	CHAT_FRAME_TAB_SELECTED_NOMOUSE_ALPHA = 1
 	CHAT_FRAME_TAB_ALERTING_MOUSEOVER_ALPHA = 1
 	CHAT_FRAME_TAB_ALERTING_NOMOUSE_ALPHA = 1
 	CHAT_FRAME_TAB_NORMAL_MOUSEOVER_ALPHA = 1
-	CHAT_FRAME_TAB_NORMAL_NOMOUSE_ALPHA = 0
+	CHAT_FRAME_TAB_NORMAL_NOMOUSE_ALPHA = 1
 
 	ChatFrameMenuButton:Hide()
 	ChatFrameMenuButton:SetScript("OnShow", ChatFrameMenuButton.Hide)
@@ -1150,6 +1224,7 @@ function Chat:Skin()
 	skinFriendsButton()
 	attachFriendsButton()
 	hooksecurefunc("FCFDock_SelectWindow", attachFriendsButton)
+	skinOverflow()
 
 	GeneralDockManager:ClearAllPoints()
 	GeneralDockManager:SetPoint("BOTTOMLEFT", ChatFrame1, "TOPLEFT", 0, DOCK_OFFSET)

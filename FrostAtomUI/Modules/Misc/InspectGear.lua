@@ -117,20 +117,7 @@ local STAT_KEYS = {
 local SKIP_WORDS = { ["к"] = true, ["ко"] = true, your = true, ["вашей"] = true, ["ваш"] = true }
 local BY_WORD = { ruRU = "на" }
 
-local function lowerCyrillicLow(c)
-	return "\208" .. string.char(c:byte() + 32)
-end
-
-local function lowerCyrillicHigh(c)
-	return "\209" .. string.char(c:byte() - 32)
-end
-
-local function lower(text)
-	text = text:lower()
-	text = text:gsub("\208([\144-\159])", lowerCyrillicLow)
-	text = text:gsub("\208([\160-\175])", lowerCyrillicHigh)
-	return (text:gsub("\208\129", "\209\145"))
-end
+local lower = ns.Lower
 
 local function stem(word)
 	local count, i = 0, 1
