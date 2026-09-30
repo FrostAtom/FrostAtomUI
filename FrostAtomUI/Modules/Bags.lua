@@ -431,7 +431,8 @@ function ItemMixin:Update()
 		local itemLevel, itemQuality, pending = ns.ItemButtonLevel(link)
 		quality = itemQuality or quality
 		if not offline and GetContainerItemQuestInfo(bag, slot) then
-			r, g, b = unpack(config.questItemColor)
+			local color = config.questItemColor
+			r, g, b = color[1], color[2], color[3]
 		elseif quality and quality >= 0 then
 			r, g, b = GetItemQualityColor(quality)
 		else
@@ -879,7 +880,7 @@ function ContainerMixin:Layout()
 	local buttonSize = config.buttonSize
 	local step = buttonSize + config.spacing
 	local columns = config[self.columnsKey]
-	local bags, buttons, holders = self.bags, self.buttons, self.holders
+	local bags, buttons, holders, bagOffsets = self.bags, self.buttons, self.holders, self.bagOffsets
 	local offline = self.offline or false
 	local index = 0
 
@@ -889,6 +890,7 @@ function ContainerMixin:Layout()
 		local bag = bags[i]
 		local size = self:BagSize(bag)
 		bagSizes[bag] = size
+		bagOffsets[bag] = index
 		if offline then
 			bagFamilies[bag] = 0
 		else
@@ -935,12 +937,9 @@ function ContainerMixin:UpdateBag(bag)
 	if not self.offline then
 		updateBagFamily(bag)
 	end
-	local buttons = self.buttons
-	for i = 1, #buttons do
-		local button = buttons[i]
-		if button.bag == bag and button:IsShown() then
-			button:Update()
-		end
+	local buttons, offset = self.buttons, self.bagOffsets[bag]
+	for i = offset + 1, offset + bagSizes[bag] do
+		buttons[i]:Update()
 	end
 	self:UpdateInfo()
 end
@@ -1061,17 +1060,24 @@ local function onSearchTextChanged(self)
 	end
 end
 
+local SEARCH_HELP = {
+	{ "q:epic  q>=3", "quality" },
+	{ "ilvl>=251  ilvl<200", "item level" },
+	{ "t:cloth  n:frost", "type / name" },
+	{ "tt:text", "tooltip text" },
+	{ "s:name", "equipment set" },
+	{ "boe  bop  boa  quest", "binding" },
+	{ "!a   a | b   a b", "not / or / and" },
+}
+
 local function onSearchEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_TOPLEFT")
 	GameTooltip:SetText(L["Search"], 1, 1, 1)
 	GameTooltip:AddLine(L["Plain text matches name, type and slot."], 0.8, 0.8, 0.8)
-	GameTooltip:AddDoubleLine("q:epic  q>=3", L["quality"], 1, 0.82, 0, 0.8, 0.8, 0.8)
-	GameTooltip:AddDoubleLine("ilvl>=251  ilvl<200", L["item level"], 1, 0.82, 0, 0.8, 0.8, 0.8)
-	GameTooltip:AddDoubleLine("t:cloth  n:frost", L["type / name"], 1, 0.82, 0, 0.8, 0.8, 0.8)
-	GameTooltip:AddDoubleLine("tt:text", L["tooltip text"], 1, 0.82, 0, 0.8, 0.8, 0.8)
-	GameTooltip:AddDoubleLine("s:name", L["equipment set"], 1, 0.82, 0, 0.8, 0.8, 0.8)
-	GameTooltip:AddDoubleLine("boe  bop  boa  quest", L["binding"], 1, 0.82, 0, 0.8, 0.8, 0.8)
-	GameTooltip:AddDoubleLine("!a   a | b   a b", L["not / or / and"], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	for i = 1, #SEARCH_HELP do
+		local line = SEARCH_HELP[i]
+		GameTooltip:AddDoubleLine(line[1], L[line[2]], 1, 0.82, 0, 0.8, 0.8, 0.8)
+	end
 	GameTooltip:Show()
 end
 ns.ShowItemSearchHelp = onSearchEnter
@@ -1217,6 +1223,8 @@ local function createContainer(key, title, bags, columnsKey)
 	frame.positionPath = "bags." .. key
 	frame.buttons = {}
 	frame.bagButtons = {}
+	-- buttons[bagOffsets[bag] + slot] is the button of that slot since the last Layout
+	frame.bagOffsets = {}
 	frame:Hide()
 
 	frame:SetFrameStrata("HIGH")
@@ -1362,14 +1370,9 @@ end
 
 function Bags:ToggleSlotLock(bag, slot)
 	local key = lockKey(bag, slot)
-	local saveKey = bag .. ":" .. slot
-	if slotLocks[key] then
-		slotLocks[key] = nil
-		savedLocks[saveKey] = nil
-	else
-		slotLocks[key] = true
-		savedLocks[saveKey] = true
-	end
+	local locked = not slotLocks[key] or nil
+	slotLocks[key] = locked
+	savedLocks[bag .. ":" .. slot] = locked
 	refreshSortLocks()
 end
 
@@ -1396,15 +1399,9 @@ end
 function Bags:ITEM_LOCK_CHANGED(bag, slot)
 	if slot then
 		local frame = bagFrames[bag]
-		if frame and frame:IsShown() and not frame.offline then
-			local buttons = frame.buttons
-			for i = 1, #buttons do
-				local button = buttons[i]
-				if button.bag == bag and button.slot == slot and button:IsShown() then
-					button:UpdateLock()
-					return
-				end
-			end
+		local offset = frame and frame.bagOffsets[bag]
+		if offset and frame:IsShown() and not frame.offline and slot <= bagSizes[bag] then
+			frame.buttons[offset + slot]:UpdateLock()
 		end
 		return
 	end

@@ -491,10 +491,9 @@ local function filterQueueSpam(message)
 		return true
 	end
 
-	local teamRating
-	teamRating, low, high = match(message, QUEUE_TEAM_FOUND_PATTERN)
+	local teamRating, teamLow, teamHigh = match(message, QUEUE_TEAM_FOUND_PATTERN)
 	if teamRating then
-		low, high = tonumber(low), tonumber(high)
+		low, high = tonumber(teamLow), tonumber(teamHigh)
 		ns:Fire(ns.SOLOQ_SEARCHING, low, high, tonumber(teamRating))
 		return false,
 			L["Team found (%s), searching opponents: %d |cff7f7f7f[%d-%d]|r"]:format(
@@ -920,7 +919,8 @@ function updateTabColors(tab, selected)
 	end
 	tab.backdrop:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 	tab.backdrop:SetBackdropBorderColor(1, 1, 1, selected and 1 or TAB_INACTIVE_ALPHA)
-	tab:GetFontString():SetTextColor(unpack(selected and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR))
+	local color = selected and TAB_ACTIVE_COLOR or TAB_INACTIVE_COLOR
+	tab:GetFontString():SetTextColor(color[1], color[2], color[3])
 end
 
 local TAB_TEXTURE_PARTS = { "left", "middle", "right" }
