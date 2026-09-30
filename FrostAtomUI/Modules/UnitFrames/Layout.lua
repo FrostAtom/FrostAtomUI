@@ -235,7 +235,6 @@ local function applyVisibility()
 	setGroupWatched(arenaTargets, config.showArena and config.showArenaTarget)
 	setGroupWatched(bosses, config.showBoss)
 end
-UF.ApplyVisibility = applyVisibility
 
 local function applyGroupAnchors()
 	anchorGroupTrinkets(party, "LEFT")
@@ -582,11 +581,8 @@ local function squareResizer(key)
 end
 
 local function registerSquareMovers(self, frame, key, label, shownPaths, context)
-	local keys = UF.CategoryKeys(key)
-	local enabledPath = {}
-	for i = 1, #shownPaths do
-		enabledPath[i] = shownPaths[i]
-	end
+	local castbarEnabledPath = { unpack(shownPaths) }
+	castbarEnabledPath[#castbarEnabledPath + 1] = "unitFrames." .. UF.CategoryKeys(key).castbar
 	self:RegisterMover(frame, frame.moverPath, label, {
 		secure = true,
 		enabledPath = shownPaths,
@@ -594,9 +590,8 @@ local function registerSquareMovers(self, frame, key, label, shownPaths, context
 		insets = auraInsets(frame, SQUARE_AURA_GAP),
 		context = context,
 	})
-	enabledPath[#enabledPath + 1] = "unitFrames." .. keys.castbar
 	self:RegisterMover(frame.castbar, frame.castbar.moverPath, label .. " castbar", {
-		enabledPath = enabledPath,
+		enabledPath = castbarEnabledPath,
 		insets = castbarInsets(frame.castbar),
 		resize = castbarResizer(key),
 		context = context,

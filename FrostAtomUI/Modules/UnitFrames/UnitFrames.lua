@@ -97,6 +97,10 @@ function UF.SetCastbarSize(castbar, width, height)
 	UF.SetCastbarHeight(castbar, height)
 end
 
+local function classIconSize(frameHeight)
+	return frameHeight - CLASS_ICON_INSET * 2
+end
+
 local function isArenaUnit(unit)
 	return unit:find("^arena%d$") ~= nil
 end
@@ -300,29 +304,33 @@ function UnitFrameMixin:QueueUpdate()
 	ns.Defer(self, self.UpdateAll)
 end
 
-local eventWrappers = setmetatable({}, {
-	__index = function(self, handler)
-		local wrapper = function(frame, ...)
-			if frame.watched and not UF.testing then
-				handler(frame, ...)
-			end
-		end
-		self[handler] = wrapper
-		return wrapper
-	end,
-})
+-- One wrapper per handler, so the same handler registered by many frames shares a single closure.
+local function wrapperCache(wrap)
+	return setmetatable({}, {
+		__index = function(self, handler)
+			local wrapper = wrap(handler)
+			self[handler] = wrapper
+			return wrapper
+		end,
+	})
+end
 
-local unitEventWrappers = setmetatable({}, {
-	__index = function(self, handler)
-		local wrapper = function(frame, _, ...)
-			if frame.watched and not UF.testing then
-				handler(frame, ...)
-			end
+local eventWrappers = wrapperCache(function(handler)
+	return function(frame, ...)
+		if frame.watched and not UF.testing then
+			handler(frame, ...)
 		end
-		self[handler] = wrapper
-		return wrapper
-	end,
-})
+	end
+end)
+
+-- Unit events drop the unit argument: handlers read frame.unit, which follows vehicle swaps.
+local unitEventWrappers = wrapperCache(function(handler)
+	return function(frame, _, ...)
+		if frame.watched and not UF.testing then
+			handler(frame, ...)
+		end
+	end
+end)
 
 local RegisterEvent = ns.EventMixin.RegisterEvent
 local RegisterUnitEvent = ns.EventMixin.RegisterUnitEvent
@@ -382,7 +390,7 @@ function UnitFrameMixin:SetDisplayUnit(unit)
 	self.unit = unit
 end
 
-local function onVehicleChanged(frame)
+local function queueUpdate(frame)
 	frame:QueueUpdate()
 end
 
@@ -391,8 +399,8 @@ function UnitFrameMixin:EnableVehicleSwap(owner, vehicleUnit, fixed)
 	self.vehicleUnit = vehicleUnit
 	self.fixedUnit = fixed
 	self:SetAttribute("toggleForVehicle", true)
-	RegisterUnitEvent(self, "UNIT_ENTERED_VEHICLE", owner, onVehicleChanged)
-	RegisterUnitEvent(self, "UNIT_EXITED_VEHICLE", owner, onVehicleChanged)
+	RegisterUnitEvent(self, "UNIT_ENTERED_VEHICLE", owner, queueUpdate)
+	RegisterUnitEvent(self, "UNIT_EXITED_VEHICLE", owner, queueUpdate)
 end
 
 local function capitalize(text)
@@ -422,7 +430,6 @@ function UF.CategoryKeys(key)
 		auraGrowth = key .. "AuraGrowth",
 		auraOrder = key .. "AuraOrder",
 		auraSpacing = key .. "AuraSpacing",
-		ownAuraScale = key .. "OwnAuraScale",
 		debuffSize = key .. "DebuffSize",
 		debuffMax = key .. "DebuffMax",
 		debuffPosition = key .. "DebuffPosition",
@@ -516,7 +523,8 @@ local function setMiddleClick(frame, action)
 end
 
 function UF:CreateBase(unit, parent)
-	local frame = CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), parent or UIParent, "SecureUnitButtonTemplate")
+	local frame =
+		CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), parent or UIParent, "SecureUnitButtonTemplate")
 	ns.Mixin(frame, ns.EventMixin, UnitFrameMixin)
 	frame.unit = unit
 	frame.baseUnit = unit
@@ -605,12 +613,12 @@ function UF:ApplyColors()
 end
 
 function UF:ApplyClicks()
-	local action = RIGHT_CLICK_ACTIONS[config.rightClick]
+	local rightAction = RIGHT_CLICK_ACTIONS[config.rightClick]
 	local middleAction = RIGHT_CLICK_ACTIONS[config.middleClick]
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
 		if not isArenaUnit(frame.unit) then
-			frame:SetAttribute("*type2", action)
+			frame:SetAttribute("*type2", rightAction)
 			setMiddleClick(frame, middleAction)
 		end
 	end
@@ -637,7 +645,7 @@ function UnitFrameMixin:SetFrameSize(width, height)
 	end
 	local icon = self.classicon
 	if icon then
-		local size = height - CLASS_ICON_INSET * 2
+		local size = classIconSize(height)
 		icon:SetSize(size, size)
 	end
 	self:UpdateContentInset()
@@ -678,7 +686,7 @@ function UF:CreateRectangle(unit, width, height, iconSide, parent)
 	frame:SetContentInset(0)
 
 	if iconSide then
-		self:AddElement(frame, "classicon", height - CLASS_ICON_INSET * 2)
+		self:AddElement(frame, "classicon", classIconSize(height))
 		frame:SetIconSide(iconSide)
 	end
 
@@ -716,14 +724,10 @@ function UF:CreateSquare(unit, size, parent)
 	return frame
 end
 
-local function onOwnerUnitChanged(self)
-	self:QueueUpdate()
-end
-
 function UF:CreatePet(unit, size, parent)
 	local frame = self:CreateSquare(unit, size, parent)
 	frame.ownerUnit = unit == "pet" and "player" or unit:gsub("pet(%d)$", "%1")
-	RegisterUnitEvent(frame, "UNIT_PET", frame.ownerUnit, onOwnerUnitChanged)
+	RegisterUnitEvent(frame, "UNIT_PET", frame.ownerUnit, queueUpdate)
 
 	frame.innerHeight = size - BORDER_INSET * 2
 	local power = self:AddElement(frame, "power")
@@ -757,7 +761,7 @@ end, updateHideSelf, testHideSelf)
 function UF:CreateTargetOfTarget(unit, size, parent)
 	local frame = self:CreateSquare(unit, size, parent)
 	frame.ownerUnit = unit:match("^(.+)target$")
-	RegisterUnitEvent(frame, "UNIT_TARGET", frame.ownerUnit, onOwnerUnitChanged)
+	RegisterUnitEvent(frame, "UNIT_TARGET", frame.ownerUnit, queueUpdate)
 
 	local name = self:AddElement(frame, "name", "[name:3]")
 	name:SetPoint("TOP", 0, -BORDER_INSET)

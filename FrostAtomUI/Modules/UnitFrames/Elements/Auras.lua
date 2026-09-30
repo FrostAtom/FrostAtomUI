@@ -777,32 +777,18 @@ local function createContainer(frame, options, filter, isDebuff)
 	return container
 end
 
-local function updateBuffs(frame)
-	updateContainer(frame.buffs)
-end
-
-local function createBuffs(frame, options)
-	frame:RegisterUnitEvent("UNIT_AURA", updateBuffs)
-	return createContainer(frame, options, "HELPFUL", false)
-end
-
-local function testBuffs(frame)
-	testContainer(frame.buffs, TEST_BUFFS)
-end
-
-UF:RegisterElement("buffs", createBuffs, updateBuffs, testBuffs)
-
-local function updateDebuffs(frame)
-	updateContainer(frame.debuffs)
-end
-
-local function createDebuffs(frame, options)
-	frame:RegisterUnitEvent("UNIT_AURA", updateDebuffs)
-	return createContainer(frame, options, "HARMFUL", true)
-end
-
-local function testDebuffs(frame)
-	testContainer(frame.debuffs, TEST_DEBUFFS)
+local function registerAuraElement(key, filter, isDebuff, testSpells, poll)
+	local function update(frame)
+		updateContainer(frame[key])
+	end
+	local function create(frame, options)
+		frame:RegisterUnitEvent("UNIT_AURA", update)
+		return createContainer(frame, options, filter, isDebuff)
+	end
+	local function test(frame)
+		testContainer(frame[key], testSpells)
+	end
+	UF:RegisterElement(key, create, update, test, poll)
 end
 
 local function pollAuras(frame)
@@ -820,7 +806,9 @@ local function pollAuras(frame)
 	end
 end
 
-UF:RegisterElement("debuffs", createDebuffs, updateDebuffs, testDebuffs, pollAuras)
+registerAuraElement("buffs", "HELPFUL", false, TEST_BUFFS)
+-- Only debuffs poll: pollAuras refreshes both grids of a frame after a single Auras.Invalidate.
+registerAuraElement("debuffs", "HARMFUL", true, TEST_DEBUFFS, pollAuras)
 
 local function queueAllCatchers()
 	for i = 1, #cancelContainers do

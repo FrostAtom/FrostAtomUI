@@ -46,7 +46,6 @@ local START_FLASH_ALPHA = 0.7
 
 UF.CAST_INTERRUPTED = "FrostAtomUI_CAST_INTERRUPTED"
 UF.CAST_SILENCED = "FrostAtomUI_CAST_SILENCED"
-UF.INTERRUPTED_TEXT = INTERRUPTED_TEXT
 UF.CANCELLED_TEXT = CANCELLED_TEXT
 
 ns.OnLocaleReady(function()
@@ -121,7 +120,6 @@ for spellId, ticks in pairs(CHANNEL_TICKS) do
 		channelTicks[name] = ticks
 	end
 end
-UF.channelTicks = channelTicks
 
 local TEST_CASTS = {
 	12826, -- Polymorph
@@ -865,9 +863,9 @@ local function create(frame, iconSide)
 	else
 		castbar.icon:SetPoint("RIGHT", castbar, "LEFT", -ICON_GAP, 0)
 	end
-	castbar.iconBorder = castbar:CreateTexture(nil, "ARTWORK")
-	castbar.iconBorder:SetTexture(ns.Media.buttonNormal)
-	castbar.iconBorder:SetAllPoints(castbar.icon)
+	local iconBorder = castbar:CreateTexture(nil, "ARTWORK")
+	iconBorder:SetTexture(ns.Media.buttonNormal)
+	iconBorder:SetAllPoints(castbar.icon)
 
 	castbar.timer = createText(bar)
 	castbar.timer:SetPoint("RIGHT")

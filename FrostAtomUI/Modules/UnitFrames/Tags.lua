@@ -179,7 +179,10 @@ local colors = {
 	power = function(unit, data)
 		local powerType = data and data.powerType or UnitPowerType(unit)
 		local color = PowerBarColor[powerType]
-		return color and color.r or 1, color and color.g or 1, color and color.b or 1
+		if color then
+			return color.r, color.g, color.b
+		end
+		return WHITE
 	end,
 	reaction = function(unit, data)
 		if data then

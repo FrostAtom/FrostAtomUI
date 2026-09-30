@@ -60,12 +60,17 @@ UF.SPELL_TRIM = SPELL_TRIM
 UF.classCoords = classCoords
 UF.specIcons = SPEC_ICONS
 
+local function specIconFor(class, spec)
+	local icons = class and spec and SPEC_ICONS[class]
+	return icons and icons[spec]
+end
+
 function UF.SetClassTexture(texture, class, spec)
 	local coords = class and innerClassCoords[class]
 	if not coords then
 		return false
 	end
-	local specIcon = spec and SPEC_ICONS[class] and SPEC_ICONS[class][spec]
+	local specIcon = specIconFor(class, spec)
 	if specIcon then
 		texture:SetTexture(specIcon)
 		texture:SetTexCoord(SPELL_TRIM, 1 - SPELL_TRIM, SPELL_TRIM, 1 - SPELL_TRIM)
@@ -77,7 +82,7 @@ function UF.SetClassTexture(texture, class, spec)
 end
 
 function UF.SetSpecBadge(icon, class, spec)
-	local specIcon = class and spec and SPEC_ICONS[class] and SPEC_ICONS[class][spec]
+	local specIcon = specIconFor(class, spec)
 	local badge = icon.badge
 	if not specIcon then
 		if badge then
