@@ -467,6 +467,15 @@ function FrostAtomUI_SetCameraDistance(preset)
 	snapStopFrames = nil
 	snapDistance = tostring(distance)
 
+	local view = tonumber(GetCVar("cameraView"))
+	if view and view >= 1 and view <= 5 then
+		local blendStyle = GetCVar("cameraViewBlendStyle")
+		SaveView(view)
+		SetCVar("cameraViewBlendStyle", "2")
+		SetView(view)
+		SetCVar("cameraViewBlendStyle", blendStyle)
+	end
+
 	SetCVar("cameraDistanceMaxFactor", "1")
 	SetCVar("cameraDistanceMax", snapDistance)
 	MoveViewInStart(CAMERA_SNAP_SPEED)
