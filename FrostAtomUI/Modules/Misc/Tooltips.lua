@@ -243,11 +243,12 @@ local function onTooltipSetItem(tooltip)
 		end
 	end
 
-	if config.colorBorder and quality and quality >= 2 then
-		local color = ITEM_QUALITY_COLORS[quality]
-		Skin.SetBorder(tooltip, color.r, color.g, color.b)
+	-- custom server qualities have no ITEM_QUALITY_COLORS entry
+	local qualityColor = quality and quality >= 2 and ITEM_QUALITY_COLORS[quality]
+	if config.colorBorder and qualityColor then
+		Skin.SetBorder(tooltip, qualityColor.r, qualityColor.g, qualityColor.b)
 		if sideIcon and tooltip == GameTooltip then
-			Skin.SetIconBorder(color.r, color.g, color.b)
+			Skin.SetIconBorder(qualityColor.r, qualityColor.g, qualityColor.b)
 		end
 	end
 
