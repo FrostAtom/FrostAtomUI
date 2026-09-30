@@ -6,7 +6,7 @@
       "env": { "GLOBAL_CLIENT": "rescuealone" }
     },
     "walkmpq": {
-      "command": "D:\\workspace\\atomengine_wip\\WalkMPQ\\build\\x86-Release-Live\\WalkMPQMcp.exe",
+      "command": "D:\\Programs\\WalkMPQ\\WalkMPQMcp.exe",
       "args": ["D:\\games\\World of Warcraft 3.3.5a"]
     }
   }

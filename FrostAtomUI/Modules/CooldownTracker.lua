@@ -46,6 +46,7 @@ for _, spells in pairs(SPELLS) do
 			dynamic = entry.dynamic,
 			category = entry.cat,
 			hidden = entry.hide,
+			icon = entry.icon,
 		}
 		baseSpell[id] = id
 		local ranks = entry.ranks

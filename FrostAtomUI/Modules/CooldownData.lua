@@ -1,5 +1,7 @@
 local _, ns = ...
 
+local PVP_TRINKET_ICON = "Interface\\Icons\\INV_Jewelry_TrinketPVP_02"
+
 local SPELLS = {
 	DEATHKNIGHT = {
 		{ 47528, 10, cat = "interrupt" }, -- Mind Freeze
@@ -237,8 +239,7 @@ local SPELLS = {
 		{ 64382, 300, cat = "utility" }, -- Shattering Throw
 	},
 	COMMON = {
-		{ 42292, 120, cat = "trinket" }, -- PvP Trinket
-		{ 59752, 120, cat = "trinket" }, -- Every Man for Himself
+		{ 42292, 120, cat = "trinket", ranks = { 59752 }, icon = PVP_TRINKET_ICON }, -- PvP Trinket, Every Man for Himself
 		{ 7744, 120, cat = "trinket" }, -- Will of the Forsaken
 		{ 20549, 120, cat = "cc" }, -- War Stomp
 		{ 20589, 105, cat = "mobility" }, -- Escape Artist
@@ -776,8 +777,7 @@ for i = 1, #MOD_TALENTS do
 end
 
 local SHARED_COOLDOWNS = {
-	[42292] = { 59752, 120, 7744, 45 },
-	[59752] = { 42292, 120 },
+	[42292] = { 7744, 45 },
 	[7744] = { 42292, 45 },
 	[16979] = { 49376, 15 },
 	[49376] = { 16979, 15 },
@@ -916,7 +916,6 @@ ns.CooldownData = {
 	TALENT_SWAP = { [63644] = true, [63645] = true },
 	MAX_TALENT_POINTS = 71,
 	RACIALS = {
-		Human = 59752,
 		Scourge = 7744,
 		Tauren = 20549,
 		Gnome = 20589,
