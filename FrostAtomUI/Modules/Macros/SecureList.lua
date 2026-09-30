@@ -220,7 +220,9 @@ function SecureList.CombatBlocked()
 	if key then
 		ns.Print(L["in combat the macro window opens and closes only with its key (%s)"], GetBindingText(key, "KEY_"))
 	else
-		ns.Print(L["in combat the macro window opens and closes only with its key; set one in Key Bindings - FrostAtomUI"])
+		ns.Print(
+			L["in combat the macro window opens and closes only with its key; set one in Key Bindings - FrostAtomUI"]
+		)
 	end
 	return true
 end

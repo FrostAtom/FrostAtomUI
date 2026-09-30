@@ -4,6 +4,7 @@ local L = ns.L
 local strbyte, strsub, strfind, strmatch, strlower, strtrim, strsplit =
 	string.byte, string.sub, string.find, string.match, string.lower, strtrim, strsplit
 local floor, min, max, ceil = math.floor, math.min, math.max, math.ceil
+local tconcat = table.concat
 local InCombatLockdown, GetCursorInfo, ClearCursor = InCombatLockdown, GetCursorInfo, ClearCursor
 local GetMacroInfo, GetNumMacros, CreateMacro, EditMacro, DeleteMacro, PickupMacro =
 	GetMacroInfo, GetNumMacros, CreateMacro, EditMacro, DeleteMacro, PickupMacro
@@ -40,6 +41,7 @@ local PICKER_ROWS = 4
 local PICKER_ROW_HEIGHT = 36
 local MENU_BUTTON_HEIGHT = 16
 local MENU_HIDE_DELAY = 2
+local BYTE_PIPE, BYTE_C, BYTE_R = strbyte("|"), strbyte("c"), strbyte("r")
 
 local TOOLTIP_BACKDROP = {
 	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -78,6 +80,7 @@ local POPUP_ART = {
 
 local HORIZONTAL_BAR = "Interface\\ClassTrainerFrame\\UI-ClassTrainer-HorizontalBar"
 local FILTER_BORDER = "Interface\\ClassTrainerFrame\\UI-ClassTrainer-FilterBorder"
+local FILTER_BORDER_PARTS = { { 0, 0.09375, 12 }, { 0.09375, 0.90625, 175 }, { 0.90625, 1, 12 } }
 
 local LEVEL_COLORS = {
 	[Parser.ERROR] = RED_FONT_COLOR,
@@ -108,6 +111,7 @@ local TABS = {
 	{ key = "gameAccount", label = "Game: account" },
 	{ key = "gameChar", label = "Game: character" },
 }
+local GAME_LIMITS = { gameAccount = Macros.MAX_ACCOUNT, gameChar = Macros.MAX_CHARACTER }
 
 local frame
 local tab = "account"
@@ -119,11 +123,19 @@ local gameDirty = false
 local rendering = false
 local errorCounts = {}
 local icons
-local gutter = { cache = {}, cacheSize = 0 }
+local gutter = { cache = {}, cacheSize = 0, parts = {} }
+
+local function applyTooltipColors(region)
+	region:SetBackdropBorderColor(TOOLTIP_DEFAULT_COLOR.r, TOOLTIP_DEFAULT_COLOR.g, TOOLTIP_DEFAULT_COLOR.b)
+	region:SetBackdropColor(
+		TOOLTIP_DEFAULT_BACKGROUND_COLOR.r,
+		TOOLTIP_DEFAULT_BACKGROUND_COLOR.g,
+		TOOLTIP_DEFAULT_BACKGROUND_COLOR.b
+	)
+end
 
 local function isGame(key)
-	key = key or tab
-	return key == "gameAccount" or key == "gameChar"
+	return GAME_LIMITS[key or tab] ~= nil
 end
 
 local function selected()
@@ -422,7 +434,7 @@ local function wrappedRows(line)
 end
 
 local function updateGutter()
-	local parts, count, number = {}, 0, 0
+	local parts, count, number = gutter.parts, 0, 0
 	for line in (editorRaw .. "\n"):gmatch("([^\n]*)\n") do
 		number = number + 1
 		count = count + 1
@@ -432,7 +444,7 @@ local function updateGutter()
 			parts[count] = ""
 		end
 	end
-	gutter.numbers:SetText(table.concat(parts, "\n"))
+	gutter.numbers:SetText(tconcat(parts, "\n", 1, count))
 end
 
 function analyzeEditor(cursorRaw)
@@ -456,13 +468,13 @@ end
 local function isCodeRun(value, from, to)
 	local position = from
 	while position <= to do
-		if strbyte(value, position) ~= strbyte("|") then
+		if strbyte(value, position) ~= BYTE_PIPE then
 			return false
 		end
 		local nextByte = strbyte(value, position + 1)
-		if nextByte == strbyte("r") then
+		if nextByte == BYTE_R then
 			position = position + 2
-		elseif nextByte == strbyte("c") and strfind(value, "^%x%x%x%x%x%x%x%x", position + 2) then
+		elseif nextByte == BYTE_C and strfind(value, "^%x%x%x%x%x%x%x%x", position + 2) then
 			position = position + 10
 		else
 			return false
@@ -475,7 +487,7 @@ local function charLength(value, position)
 	local byte = strbyte(value, position)
 	if not byte then
 		return 0
-	elseif byte == strbyte("|") then
+	elseif byte == BYTE_PIPE then
 		return 2
 	elseif byte >= 0xF0 then
 		return 4
@@ -490,12 +502,12 @@ end
 local function skipCodesForward(value, position)
 	while true do
 		local nextByte = strbyte(value, position + 2)
-		if strbyte(value, position + 1) ~= strbyte("|") then
+		if strbyte(value, position + 1) ~= BYTE_PIPE then
 			return position
 		end
-		if nextByte == strbyte("r") then
+		if nextByte == BYTE_R then
 			position = position + 2
-		elseif nextByte == strbyte("c") and strfind(value, "^%x%x%x%x%x%x%x%x", position + 3) then
+		elseif nextByte == BYTE_C and strfind(value, "^%x%x%x%x%x%x%x%x", position + 3) then
 			position = position + 10
 		else
 			return position
@@ -512,7 +524,7 @@ local function previousCharStart(value, position)
 			return nil
 		end
 	until byte < 0x80 or byte >= 0xC0
-	if start > 1 and strbyte(value, start) == strbyte("|") and strbyte(value, start - 1) == strbyte("|") then
+	if start > 1 and strbyte(value, start) == BYTE_PIPE and strbyte(value, start - 1) == BYTE_PIPE then
 		start = start - 1
 	end
 	return start
@@ -717,7 +729,15 @@ local function keysText(keys)
 	for i = 1, #keys do
 		labels[i] = keyLabel(keys[i])
 	end
-	return table.concat(labels, ", ")
+	return tconcat(labels, ", ")
+end
+
+local function stubTarget(entry)
+	if isVirtual(entry) then
+		return nil
+	end
+	local id = Macros.StubOf(select(3, GetMacroInfo(entry)))
+	return id and Macros.FindById(id)
 end
 
 function refreshDetail()
@@ -734,8 +754,7 @@ function refreshDetail()
 		detail.subtitle:SetText("/click " .. Macros.ButtonName(entry))
 		detail.place:SetText(L["Put on action bar"])
 	else
-		local stubId = Macros.StubOf(select(3, GetMacroInfo(entry)))
-		local target = stubId and Macros.FindById(stubId)
+		local target = stubTarget(entry)
 		if target then
 			detail.subtitle:SetFormattedText(L["Runs unlimited macro %s"], target.name)
 		else
@@ -773,13 +792,10 @@ local function refreshTabs()
 	if not InCombatLockdown() then
 		SecureList.PlaceTabOverlays(frame.tabs, frame.tabOverlays)
 	end
-	local full
-	if tab == "gameAccount" then
-		full = numAccount >= Macros.MAX_ACCOUNT
-	elseif tab == "gameChar" then
-		full = numCharacter >= Macros.MAX_CHARACTER
-	end
-	if full then
+	if
+		tab == "gameAccount" and numAccount >= Macros.MAX_ACCOUNT
+		or tab == "gameChar" and numCharacter >= Macros.MAX_CHARACTER
+	then
 		frame.new:Disable()
 	else
 		frame.new:Enable()
@@ -788,10 +804,9 @@ local function refreshTabs()
 end
 
 local function slotCount()
-	if tab == "gameAccount" then
-		return max(#entries, Macros.MAX_ACCOUNT - hiddenStubs)
-	elseif tab == "gameChar" then
-		return max(#entries, Macros.MAX_CHARACTER - hiddenStubs)
+	local limit = GAME_LIMITS[tab]
+	if limit then
+		return max(#entries, limit - hiddenStubs)
 	end
 	return max(LIST_ROWS, ceil(#entries / COLUMNS)) * COLUMNS
 end
@@ -1231,21 +1246,20 @@ local function createPickerName(picker)
 	name:SetAutoFocus(false)
 	name:SetFontObject(ChatFontNormal)
 
-	local left = name:CreateTexture(nil, "BACKGROUND")
-	left:SetTexture(FILTER_BORDER)
-	left:SetTexCoord(0, 0.09375, 0, 1)
-	left:SetSize(12, 29)
-	left:SetPoint("TOPLEFT", -11, 0)
-	local middle = name:CreateTexture(nil, "BACKGROUND")
-	middle:SetTexture(FILTER_BORDER)
-	middle:SetTexCoord(0.09375, 0.90625, 0, 1)
-	middle:SetSize(175, 29)
-	middle:SetPoint("LEFT", left, "RIGHT")
-	local right = name:CreateTexture(nil, "BACKGROUND")
-	right:SetTexture(FILTER_BORDER)
-	right:SetTexCoord(0.90625, 1, 0, 1)
-	right:SetSize(12, 29)
-	right:SetPoint("LEFT", middle, "RIGHT")
+	local previous
+	for i = 1, #FILTER_BORDER_PARTS do
+		local part = FILTER_BORDER_PARTS[i]
+		local texture = name:CreateTexture(nil, "BACKGROUND")
+		texture:SetTexture(FILTER_BORDER)
+		texture:SetTexCoord(part[1], part[2], 0, 1)
+		texture:SetSize(part[3], 29)
+		if previous then
+			texture:SetPoint("LEFT", previous, "RIGHT")
+		else
+			texture:SetPoint("TOPLEFT", -11, 0)
+		end
+		previous = texture
+	end
 
 	name:SetScript("OnTextChanged", function(self)
 		if picker:IsShown() then
@@ -1393,12 +1407,7 @@ local function createEditor()
 	holder:SetPoint("TOPLEFT", 18, -305)
 	holder:SetSize(EDITOR_WIDTH, EDITOR_HEIGHT)
 	holder:SetBackdrop(TOOLTIP_BACKDROP)
-	holder:SetBackdropBorderColor(TOOLTIP_DEFAULT_COLOR.r, TOOLTIP_DEFAULT_COLOR.g, TOOLTIP_DEFAULT_COLOR.b)
-	holder:SetBackdropColor(
-		TOOLTIP_DEFAULT_BACKGROUND_COLOR.r,
-		TOOLTIP_DEFAULT_BACKGROUND_COLOR.g,
-		TOOLTIP_DEFAULT_BACKGROUND_COLOR.b
-	)
+	applyTooltipColors(holder)
 
 	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "EditorScroll", holder, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", 9, -6)
@@ -1709,14 +1718,6 @@ local function exportItem(scope, entry)
 	}
 end
 
-local function stubTarget(entry)
-	if isVirtual(entry) then
-		return nil
-	end
-	local id = Macros.StubOf(select(3, GetMacroInfo(entry)))
-	return id and Macros.FindById(id)
-end
-
 local function scopeItems(scope, items)
 	if isGame(scope) then
 		local indices = Macros.GameIndices(scope, {})
@@ -1745,7 +1746,7 @@ local function transferSummary(items)
 			parts[#parts + 1] = ("%s: %d"):format(L[TABS[i].label], count)
 		end
 	end
-	return L["%d macros"]:format(#items) .. " - " .. table.concat(parts, ", ")
+	return L["%d macros"]:format(#items) .. " - " .. tconcat(parts, ", ")
 end
 
 local transfer
@@ -1761,12 +1762,7 @@ local function createTransfer()
 	holder:SetPoint("TOPLEFT", 16, -30)
 	holder:SetPoint("BOTTOMRIGHT", -16, 16 + BUTTON_HEIGHT + 24)
 	holder:SetBackdrop(TOOLTIP_BACKDROP)
-	holder:SetBackdropBorderColor(TOOLTIP_DEFAULT_COLOR.r, TOOLTIP_DEFAULT_COLOR.g, TOOLTIP_DEFAULT_COLOR.b)
-	holder:SetBackdropColor(
-		TOOLTIP_DEFAULT_BACKGROUND_COLOR.r,
-		TOOLTIP_DEFAULT_BACKGROUND_COLOR.g,
-		TOOLTIP_DEFAULT_BACKGROUND_COLOR.b
-	)
+	applyTooltipColors(holder)
 
 	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "TransferScroll", holder, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", 9, -6)
@@ -1936,12 +1932,7 @@ local function createMenu(style)
 	menu:EnableMouse(true)
 	menu:SetBackdrop(MENU_BACKDROPS[style])
 	if style == "menu" then
-		menu:SetBackdropBorderColor(TOOLTIP_DEFAULT_COLOR.r, TOOLTIP_DEFAULT_COLOR.g, TOOLTIP_DEFAULT_COLOR.b)
-		menu:SetBackdropColor(
-			TOOLTIP_DEFAULT_BACKGROUND_COLOR.r,
-			TOOLTIP_DEFAULT_BACKGROUND_COLOR.g,
-			TOOLTIP_DEFAULT_BACKGROUND_COLOR.b
-		)
+		applyTooltipColors(menu)
 	end
 	menu.buttons = {}
 	menu:SetScript("OnUpdate", onMenuUpdate)
@@ -2195,7 +2186,7 @@ function Macros.Toggle()
 	end
 end
 
-local function onKnowledgeChanged(_, reason)
+local function onMacrosChanged(_, reason)
 	if not frame or not frame:IsShown() then
 		return
 	end
@@ -2220,7 +2211,7 @@ Macros:OnInitialize(function(self)
 	ShowMacroFrame = Macros.Show
 	SlashCmdList.MACRO = Macros.Toggle
 
-	self:RegisterEvent(Macros.CHANGED, onKnowledgeChanged)
+	self:RegisterEvent(Macros.CHANGED, onMacrosChanged)
 	self:RegisterEvent("UPDATE_MACROS", function()
 		if not frame or not frame:IsShown() then
 			return

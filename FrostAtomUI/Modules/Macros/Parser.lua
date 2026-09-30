@@ -1,8 +1,8 @@
 local _, ns = ...
 local L = ns.L
 
-local strbyte, strsub, strfind, strmatch, strlower, strupper, strgsub =
-	string.byte, string.sub, string.find, string.match, string.lower, string.upper, string.gsub
+local strbyte, strsub, strfind, strmatch, strlower, strupper, strgsub, gmatch =
+	string.byte, string.sub, string.find, string.match, string.lower, string.upper, string.gsub, string.gmatch
 local tconcat, pairs, tonumber, type, loadstring = table.concat, pairs, tonumber, type, loadstring
 local GetSpellInfo, GetSpellName, GetItemInfo, GetItemCount, IsEquippedItem =
 	GetSpellInfo, GetSpellName, GetItemInfo, GetItemCount, IsEquippedItem
@@ -15,7 +15,7 @@ ns.MacroParser = Parser
 
 local BYTE_SPACE, BYTE_TAB = strbyte(" "), strbyte("\t")
 local BYTE_SLASH, BYTE_HASH, BYTE_DASH = strbyte("/"), strbyte("#"), strbyte("-")
-local BYTE_OPEN, BYTE_SEMICOLON = strbyte("["), strbyte(";")
+local BYTE_OPEN, BYTE_SEMICOLON, BYTE_AT = strbyte("["), strbyte(";"), strbyte("@")
 local BYTE_PIPE, BYTE_C, BYTE_R = strbyte("|"), strbyte("c"), strbyte("r")
 
 Parser.RUN_LIMIT = 1023
@@ -279,7 +279,6 @@ local function isUnitToken(unit)
 	return (strgsub(rest, "target", "")) == ""
 end
 
-local result
 local spans, issues
 
 local function span(from, to, color)
@@ -335,14 +334,15 @@ local function trimSpaces(text, from, to)
 	return from, to
 end
 
-local function splitRanges(text, from, to, separator, handler)
+-- handler(text, from, to, a, b): extra args instead of closures, the parser runs on every keystroke
+local function splitRanges(text, from, to, separator, handler, a, b)
 	local start = from
 	while start <= to + 1 do
 		local stop = strfind(text, separator, start, true)
 		if not stop or stop > to then
 			stop = to + 1
 		end
-		handler(start, stop - 1)
+		handler(text, start, stop - 1, a, b)
 		if stop <= to then
 			span(stop, stop, COLORS.punct)
 		end
@@ -401,6 +401,20 @@ local function checkArgument(kind, name, value)
 	end
 end
 
+local function parseConditionArg(text, argFrom, argTo, kind, name)
+	argFrom, argTo = trimSpaces(text, argFrom, argTo)
+	if argFrom > argTo then
+		return
+	end
+	local message = checkArgument(kind, name, strsub(text, argFrom, argTo))
+	if message then
+		span(argFrom, argTo, COLORS.error)
+		issue(Parser.WARNING, message)
+	else
+		span(argFrom, argTo, COLORS.arg)
+	end
+end
+
 local function parseCondition(text, from, to)
 	from, to = trimSpaces(text, from, to)
 	if from > to then
@@ -411,7 +425,7 @@ local function parseCondition(text, from, to)
 		local unitFrom, unitTo = trimSpaces(text, from + 7, to)
 		span(unitFrom, unitTo, COLORS.unit)
 		return strsub(text, unitFrom, unitTo)
-	elseif strbyte(text, from) == strbyte("@") then
+	elseif strbyte(text, from) == BYTE_AT then
 		span(from, from, COLORS.unit)
 		local unitFrom, unitTo = trimSpaces(text, from + 1, to)
 		span(unitFrom, unitTo, COLORS.unit)
@@ -461,29 +475,22 @@ local function parseCondition(text, from, to)
 		issue(Parser.WARNING, L["[%s] takes no arguments, they are ignored"], name)
 		return
 	end
-	splitRanges(text, colon + 1, to, "/", function(argFrom, argTo)
-		argFrom, argTo = trimSpaces(text, argFrom, argTo)
-		if argFrom > argTo then
-			return
-		end
-		local message = checkArgument(kind, name, strsub(text, argFrom, argTo))
-		if message then
-			span(argFrom, argTo, COLORS.error)
-			issue(Parser.WARNING, message)
-		else
-			span(argFrom, argTo, COLORS.arg)
-		end
-	end)
+	splitRanges(text, colon + 1, to, "/", parseConditionArg, kind, name)
+end
+
+local groupUnit
+
+local function parseGroupCondition(text, condFrom, condTo)
+	local target = parseCondition(text, condFrom, condTo)
+	if target then
+		groupUnit = target
+	end
 end
 
 local function parseGroup(text, from, to)
-	local unit
-	splitRanges(text, from, to, ",", function(condFrom, condTo)
-		local target = parseCondition(text, condFrom, condTo)
-		if target then
-			unit = target
-		end
-	end)
+	groupUnit = nil
+	splitRanges(text, from, to, ",", parseGroupCondition)
+	local unit = groupUnit
 	if unit and unit ~= "" then
 		if #unit > 31 then
 			issue(Parser.ERROR, L["unit %q is longer than 31 characters"], unit)
@@ -552,29 +559,25 @@ local function checkAction(text, from, to)
 	issue(Parser.ERROR, L["unknown spell or item %q"], action)
 end
 
+local function checkResetWord(text, wordFrom, wordTo)
+	local word = strlower(strsub(text, wordFrom, wordTo))
+	if RESET_WORDS[word] or strfind(word, "^%d+$") then
+		span(wordFrom, wordTo, COLORS.arg)
+	else
+		span(wordFrom, wordTo, COLORS.error)
+		issue(Parser.WARNING, L["unknown reset condition %q: use seconds, target, combat, shift, ctrl or alt"], word)
+	end
+end
+
 local function checkSequence(text, from, to)
 	from, to = trimRange(text, from, to)
 	local resetFrom, resetTo = strfind(text, "^reset=[^%s]+", from)
 	if resetTo and resetTo <= to then
 		span(resetFrom, resetFrom + 5, COLORS.condition)
-		splitRanges(text, resetFrom + 6, resetTo, "/", function(wordFrom, wordTo)
-			local word = strlower(strsub(text, wordFrom, wordTo))
-			if RESET_WORDS[word] or strfind(word, "^%d+$") then
-				span(wordFrom, wordTo, COLORS.arg)
-			else
-				span(wordFrom, wordTo, COLORS.error)
-				issue(
-					Parser.WARNING,
-					L["unknown reset condition %q: use seconds, target, combat, shift, ctrl or alt"],
-					word
-				)
-			end
-		end)
+		splitRanges(text, resetFrom + 6, resetTo, "/", checkResetWord)
 		from = resetTo + 1
 	end
-	splitRanges(text, from, to, ",", function(actionFrom, actionTo)
-		checkAction(text, actionFrom, actionTo)
-	end)
+	splitRanges(text, from, to, ",", checkAction)
 end
 
 local function checkArgs(kind, text, from, to)
@@ -583,9 +586,7 @@ local function checkArgs(kind, text, from, to)
 	if kind == "action" then
 		checkAction(text, from, to)
 	elseif kind == "actions" then
-		splitRanges(text, from, to, ",", function(actionFrom, actionTo)
-			checkAction(text, actionFrom, actionTo)
-		end)
+		splitRanges(text, from, to, ",", checkAction)
 	elseif kind == "sequence" then
 		checkSequence(text, from, to)
 	elseif kind == "item" then
@@ -776,7 +777,7 @@ local function parseLine(text, from, to)
 end
 
 function Parser.Analyze(text, limit)
-	result = { spans = {}, issues = {}, bytes = #text }
+	local result = { spans = {}, issues = {}, bytes = #text }
 	spans, issues = result.spans, result.issues
 	lineNumber = 0
 	local position, length = 1, #text
@@ -800,37 +801,42 @@ function Parser.Analyze(text, limit)
 		lineNumber = nil
 		issue(Parser.ERROR, L["%d of %d characters: the game macro cannot hold more"], length, limit)
 	end
-	local out = result
-	result, spans, issues = nil, nil, nil
-	return out
+	spans, issues = nil, nil
+	return result
 end
 
 local function escaped(text, from, to)
 	return (strgsub(strsub(text, from, to), "|", "||"))
 end
 
+-- one output buffer shared by Render and Decode: both run on every editor keystroke
+local pieces, pieceCount, outLength = {}, 0, 0
+local renderText, renderCursor, escapedCursor
+
+local function emit(piece)
+	pieceCount = pieceCount + 1
+	pieces[pieceCount] = piece
+	outLength = outLength + #piece
+end
+
+local function emitText(from, to, allowEnd)
+	local cursor = renderCursor
+	if cursor and not escapedCursor and cursor >= from - 1 and (cursor < to or allowEnd and cursor == to) then
+		escapedCursor = outLength + #escaped(renderText, from, cursor)
+	end
+	if from <= to then
+		emit(escaped(renderText, from, to))
+	end
+end
+
+local function joinPieces()
+	return tconcat(pieces, "", 1, pieceCount)
+end
+
 function Parser.Render(text, spanList, cursor)
-	local parts, count = {}, 0
-	local outLength = 0
-	local escapedCursor
+	renderText, renderCursor, escapedCursor = text, cursor, nil
+	pieceCount, outLength = 0, 0
 	local position = 1
-
-	local function emit(piece)
-		count = count + 1
-		parts[count] = piece
-		outLength = outLength + #piece
-	end
-
-	local function emitText(from, to, allowEnd)
-		if cursor and not escapedCursor and cursor >= from - 1 and (cursor < to or allowEnd and cursor == to) then
-			local before = escaped(text, from, cursor)
-			escapedCursor = outLength + #before
-		end
-		if from <= to then
-			emit(escaped(text, from, to))
-		end
-	end
-
 	for i = 1, #spanList do
 		local item = spanList[i]
 		local from, to = item[1], item[2]
@@ -844,16 +850,18 @@ function Parser.Render(text, spanList, cursor)
 		position = to + 1
 	end
 	emitText(position, #text, true)
-	return tconcat(parts), escapedCursor or outLength
+	local cursorOut = escapedCursor or outLength
+	renderText = nil
+	return joinPieces(), cursorOut
 end
 
 function Parser.Decode(value, cursor)
-	local parts, count, rawLength = {}, 0, 0
+	pieceCount, outLength = 0, 0
 	local rawCursor
 	local position, length = 1, #value
 	while position <= length do
 		if cursor and not rawCursor and position - 1 >= cursor then
-			rawCursor = rawLength
+			rawCursor = outLength
 		end
 		local piece, consumed
 		if strbyte(value, position) == BYTE_PIPE then
@@ -871,21 +879,19 @@ function Parser.Decode(value, cursor)
 			local stop = strfind(value, "|", position, true)
 			stop = stop and stop - 1 or length
 			if cursor and not rawCursor and cursor < stop then
-				rawCursor = rawLength + cursor - position + 1
+				rawCursor = outLength + cursor - position + 1
 			end
 			piece, consumed = strsub(value, position, stop), stop - position + 1
 		end
 		if piece then
-			count = count + 1
-			parts[count] = piece
-			rawLength = rawLength + #piece
+			emit(piece)
 		end
 		position = position + consumed
 	end
 	if cursor and not rawCursor then
-		rawCursor = rawLength
+		rawCursor = outLength
 	end
-	return tconcat(parts), rawCursor
+	return joinPieces(), rawCursor
 end
 
 local function conditionKnown(condition)
@@ -899,16 +905,17 @@ local function conditionKnown(condition)
 	return CONDITIONS[strtrim((strmatch(condition, "^([^:]*)")))] ~= nil
 end
 
-function Parser.OptionsValid(text)
-	local rest = strgsub(text, "%[([^%]]*)%]", function(group)
-		for condition in string.gmatch(group .. ",", "([^,]*),") do
-			if not conditionKnown(condition) then
-				return "["
-			end
+local function markUnknownGroup(group)
+	for condition in gmatch(group .. ",", "([^,]*),") do
+		if not conditionKnown(condition) then
+			return "["
 		end
-		return ""
-	end)
-	return not strfind(rest, "[", 1, true)
+	end
+	return ""
+end
+
+function Parser.OptionsValid(text)
+	return not strfind((strgsub(text, "%[([^%]]*)%]", markUnknownGroup)), "[", 1, true)
 end
 
 function Parser.FirstAction(text)

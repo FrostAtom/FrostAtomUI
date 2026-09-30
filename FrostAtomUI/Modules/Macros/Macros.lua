@@ -217,8 +217,9 @@ local function syncStub(macro)
 	local index = Macros.FindStub(macro)
 	if index then
 		local name, _, current = GetMacroInfo(index)
-		if current ~= body or name ~= stubName(macro) then
-			EditMacro(index, stubName(macro), nil, body)
+		local wanted = stubName(macro)
+		if current ~= body or name ~= wanted then
+			EditMacro(index, wanted, nil, body)
 		end
 	end
 end
@@ -327,6 +328,14 @@ function Macros.Delete(macro)
 	return true
 end
 
+local function gameSlotFree(scope)
+	local numAccount, numCharacter = GetNumMacros()
+	if scope == "gameChar" then
+		return numCharacter < MAX_CHARACTER
+	end
+	return numAccount < MAX_ACCOUNT
+end
+
 function Macros.PlaceOnBar(macro)
 	if InCombatLockdown() then
 		ns.Print(L["cannot change macros in combat"])
@@ -338,9 +347,8 @@ function Macros.PlaceOnBar(macro)
 	if index then
 		EditMacro(index, stubName(macro), iconIndexOf(macro.icon), body)
 	else
-		local numAccount, numCharacter = GetNumMacros()
 		local perCharacter = Macros.ScopeOf(macro) == "char"
-		if perCharacter and numCharacter >= MAX_CHARACTER or not perCharacter and numAccount >= MAX_ACCOUNT then
+		if not gameSlotFree(perCharacter and "gameChar" or "gameAccount") then
 			ns.Print(L["no free game macro slot to put %s on an action bar; key bindings work without one"], macro.name)
 			return
 		end
@@ -458,14 +466,6 @@ local function uniqueName(base, taken, limit)
 	end
 	taken[strlower(name)] = true
 	return name
-end
-
-local function gameSlotFree(scope)
-	local numAccount, numCharacter = GetNumMacros()
-	if scope == "gameChar" then
-		return numCharacter < MAX_CHARACTER
-	end
-	return numAccount < MAX_ACCOUNT
 end
 
 function Macros.Import(items)
