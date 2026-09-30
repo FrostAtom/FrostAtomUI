@@ -13,6 +13,7 @@ local Misc = ns:GetModule("Misc")
 
 local DECLINES = {
 	declineDuels = {
+		slashLabel = "NoDuel",
 		event = "DUEL_REQUESTED",
 		decline = function()
 			CancelDuel()
@@ -20,12 +21,14 @@ local DECLINES = {
 		message = ERR_DUEL_CANCELLED,
 	},
 	declineInvites = {
+		slashLabel = "NoParty",
 		event = "PARTY_INVITE_REQUEST",
 		decline = function()
 			DeclineGroup()
 		end,
 	},
 	declineTrades = {
+		slashLabel = "NoTrade",
 		event = "TRADE_REQUEST",
 		decline = function()
 			CancelTrade()
@@ -151,17 +154,12 @@ end
 
 Misc:WatchConfig("popups", applyDeclines)
 
-SlashCmdList.FROSTATOMUI_NODUEL = function(args)
-	toggleDecline("declineDuels", "NoDuel", args)
+-- Registers SLASH_FROSTATOMUI_NODUEL1 = "/noduel" etc.
+for key, decline in pairs(DECLINES) do
+	local label = decline.slashLabel
+	local command = "FROSTATOMUI_" .. label:upper()
+	SlashCmdList[command] = function(args)
+		toggleDecline(key, label, args)
+	end
+	_G["SLASH_" .. command .. "1"] = "/" .. label:lower()
 end
-SLASH_FROSTATOMUI_NODUEL1 = "/noduel"
-
-SlashCmdList.FROSTATOMUI_NOPARTY = function(args)
-	toggleDecline("declineInvites", "NoParty", args)
-end
-SLASH_FROSTATOMUI_NOPARTY1 = "/noparty"
-
-SlashCmdList.FROSTATOMUI_NOTRADE = function(args)
-	toggleDecline("declineTrades", "NoTrade", args)
-end
-SLASH_FROSTATOMUI_NOTRADE1 = "/notrade"

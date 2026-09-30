@@ -22,11 +22,7 @@ flash:SetScript("OnUpdate", function(self, elapsed)
 	self:SetAlpha(alpha)
 end)
 
-local function update(_, unit)
-	if unit and unit ~= "player" then
-		return
-	end
-
+local function update()
 	local config = ns.Config.lowHealthFlash
 	local max = UnitHealthMax("player")
 	if
@@ -43,12 +39,10 @@ local function update(_, unit)
 	end
 end
 
-Misc:RegisterEvent("UNIT_HEALTH", update)
-Misc:RegisterEvent("UNIT_MAXHEALTH", update)
+Misc:RegisterUnitEvent("UNIT_HEALTH", "player", update)
+Misc:RegisterUnitEvent("UNIT_MAXHEALTH", "player", update)
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", update)
 Misc:RegisterEvent("PLAYER_DEAD", update)
 Misc:RegisterEvent("PLAYER_ALIVE", update)
 Misc:RegisterEvent("PLAYER_UNGHOST", update)
-Misc:WatchConfig("lowHealthFlash", function()
-	update()
-end)
+Misc:WatchConfig("lowHealthFlash", update)

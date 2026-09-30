@@ -172,7 +172,12 @@ end
 local function onPulse(self, elapsed)
 	local phase = GetTime() % PULSE_PERIOD / PULSE_PERIOD
 	local color = STATES.queued.color
-	self:SetBackdropBorderColor(color[1], color[2], color[3], PULSE_MIN_ALPHA + (1 - PULSE_MIN_ALPHA) * (0.5 + 0.5 * cos(phase * 2 * pi)))
+	self:SetBackdropBorderColor(
+		color[1],
+		color[2],
+		color[3],
+		PULSE_MIN_ALPHA + (1 - PULSE_MIN_ALPHA) * (0.5 + 0.5 * cos(phase * 2 * pi))
+	)
 
 	self.untilTooltipRefresh = self.untilTooltipRefresh - elapsed
 	if self.untilTooltipRefresh <= 0 then
@@ -232,11 +237,7 @@ local function setState(state, queueIndex)
 	if isQueueState(state) then
 		MiniMapBattlefieldFrame:Hide()
 	end
-	if info.glow then
-		button.glow:Show()
-	else
-		button.glow:Hide()
-	end
+	ns.SetShown(button.glow, info.glow)
 	button.untilTooltipRefresh = 0
 	button:SetScript("OnUpdate", info.pulse and onPulse or nil)
 	button:Show()
@@ -323,8 +324,8 @@ Misc:RegisterMover(button, "soloQueue.point", "Solo queue", {
 })
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", update)
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", update)
-Misc:RegisterEvent("UNIT_AURA", function(_, unit)
-	if unit == "player" and button.state == "arena" and button.locked ~= isPreparing() then
+Misc:RegisterUnitEvent("UNIT_AURA", "player", function()
+	if button.state == "arena" and button.locked ~= isPreparing() then
 		update()
 	end
 end)

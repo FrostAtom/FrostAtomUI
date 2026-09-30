@@ -154,17 +154,14 @@ Misc:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
 	end
 end)
 
-Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", function(_, unit)
+local function onArenaUnitUpdate(_, unit)
 	if inArena and unit:find("^arena%d$") then
 		collectArenaUnit(unit)
 	end
-end)
+end
 
-Misc:RegisterEvent("UNIT_NAME_UPDATE", function(_, unit)
-	if inArena and unit:find("^arena%d$") then
-		collectArenaUnit(unit)
-	end
-end)
+Misc:RegisterEvent("ARENA_OPPONENT_UPDATE", onArenaUnitUpdate)
+Misc:RegisterEvent("UNIT_NAME_UPDATE", onArenaUnitUpdate)
 
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
 	if ratingReported or not (IsActiveBattlefieldArena() and GetBattlefieldWinner()) then
