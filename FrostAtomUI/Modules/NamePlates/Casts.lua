@@ -21,9 +21,43 @@ local ICON_GAP = NamePlates.ICON_GAP
 local FINISH_WINDOW = NamePlates.CAST_FINISH_WINDOW
 local LATE_INTERRUPT = NamePlates.CAST_LATE_INTERRUPT
 local STOP_TIMEOUT = 0.5
+local INSTANT_WINDOW = 0.2
 local TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
 local CANCELLED = {}
+
+local INSTANT_PROCS = {
+	[12043] = true, -- Presence of Mind
+	[48108] = { 11366 }, -- Hot Streak (Pyroblast)
+	[57761] = { 133, 44614 }, -- Fireball! (Fireball, Frostfire Bolt)
+	[54741] = { 2120 }, -- Firestarter (Flamestrike)
+	[59578] = { 879, 19750 }, -- The Art of War (Exorcism, Flash of Light)
+	[54149] = { 19750 }, -- Infusion of Light (Flash of Light)
+	[33151] = { 585, 2061 }, -- Surge of Light (Smite, Flash Heal)
+	[16166] = { 403, 421, 51505 }, -- Elemental Mastery (Lightning Bolt, Chain Lightning, Lava Burst)
+	[53817] = { 403, 421, 331, 8004, 1064, 51514 }, -- Maelstrom Weapon (Lightning Bolt, Chain Lightning, Healing Wave, Lesser Healing Wave, Chain Heal, Hex)
+	[16188] = true, -- Nature's Swiftness
+	[17116] = true, -- Nature's Swiftness
+	[69369] = true, -- Predator's Swiftness
+	[17941] = { 686 }, -- Shadow Trance (Shadow Bolt)
+	[34936] = { 686, 29722 }, -- Backlash (Shadow Bolt, Incinerate)
+}
+
+local procSpells = {}
+for auraId, spells in pairs(INSTANT_PROCS) do
+	if spells == true then
+		procSpells[auraId] = true
+	else
+		local names = {}
+		for i = 1, #spells do
+			local name = GetSpellInfo(spells[i])
+			if name then
+				names[name] = true
+			end
+		end
+		procSpells[auraId] = names
+	end
+end
 
 local casts = {}
 local pool = {}
@@ -352,6 +386,11 @@ local function isEnemyPlayer(flags)
 	return band(flags, TYPE_PLAYER) > 0 and band(flags, REACTION_HOSTILE) > 0
 end
 
+local function guidUnit(guid)
+	local plate = guidPlates[guid]
+	return plate and NamePlates.GetPlateUnit(plate) or ns.UnitByGUID(guid)
+end
+
 local function onLogCastStart(srcGUID, srcFlags, _, _, spellId, spellName)
 	if not config.castbarsCombatLog or not isEnemyPlayer(srcFlags) then
 		return
@@ -359,6 +398,11 @@ local function onLogCastStart(srcGUID, srcFlags, _, _, spellId, spellName)
 	local now = GetTime()
 	local entry = casts[srcGUID]
 	if entry and not entry.fromLog and entry.endTime > now then
+		return
+	end
+	local unit = guidUnit(srcGUID)
+	if unit then
+		recordUnitCast(unit)
 		return
 	end
 	local castTime = spellCastTime(spellId)
@@ -392,6 +436,15 @@ local function onLogCastSuccess(srcGUID, _, _, _, spellId, spellName)
 	elseif entry.fromLog and isInstantCast(spellId) then
 		removeCast(srcGUID)
 	end
+end
+
+local function onLogProcRemoved(_, _, dstGUID, _, spellId)
+	local spells = procSpells[spellId]
+	local entry = spells and casts[dstGUID]
+	if not entry or not entry.fromLog or spells ~= true and not spells[entry.name] then
+		return
+	end
+	removeCast(dstGUID, GetTime() - entry.startTime > INSTANT_WINDOW)
 end
 
 local function onLogInterrupt(_, _, dstGUID)
@@ -499,6 +552,7 @@ NamePlates:OnInitialize(function(self)
 	end
 	NamePlates.AddLogHandler("SPELL_CAST_START", onLogCastStart)
 	NamePlates.AddLogHandler("SPELL_CAST_SUCCESS", onLogCastSuccess)
+	NamePlates.AddLogHandler("SPELL_AURA_REMOVED", onLogProcRemoved)
 	NamePlates.AddLogHandler("SPELL_INTERRUPT", onLogInterrupt)
 	NamePlates.AddLogHandler("UNIT_DIED", onLogDied)
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity

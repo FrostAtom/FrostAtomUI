@@ -30,7 +30,7 @@ local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local time, date = time, date
 local floor, max = math.floor, math.max
 local tinsert, tremove, tconcat, sort = table.insert, table.remove, table.concat, table.sort
-local format = string.format
+local format, find, strtrim = string.format, string.find, strtrim
 
 local Misc = ns:GetModule("Misc")
 local UF = ns:GetModule("UnitFrames")
@@ -42,6 +42,8 @@ local WIDTH = 800
 local INSET = ns.WINDOW_INSET
 local INSET_PADDING = 4
 local TOOLBAR_HEIGHT = 22
+local SEARCH_WIDTH = 160
+local SEARCH_GAP = 12
 local SECTION_GAP = 8
 local LIST_ROWS = 14
 local LIST_ROW_HEIGHT = 18
@@ -177,8 +179,17 @@ local arenaFaction
 
 local frame
 local filter = "all"
+local query = ""
 local filtered = {}
 local selected
+
+local lowered = setmetatable({}, {
+	__index = function(cache, text)
+		local value = ns.Lower(text)
+		cache[text] = value
+		return value
+	end,
+})
 
 local function stripRealm(name)
 	return name and name:match("^([^%-]+)") or name
@@ -938,6 +949,7 @@ local function refreshList()
 		end
 	end
 	FauxScrollFrame_Update(frame.scroll, #filtered, LIST_ROWS, LIST_ROW_HEIGHT)
+	frame.empty:SetText(#history == 0 and L["No games recorded yet"] or L["Nothing found"])
 	ns.SetShown(frame.empty, #filtered == 0)
 end
 
@@ -988,6 +1000,23 @@ local function refreshFilters()
 	end
 end
 
+local function contains(text, needle)
+	return text ~= nil and find(lowered[text], needle, 1, true) ~= nil
+end
+
+local function matchesQuery(record)
+	if query == "" or contains(record.team.name, query) or contains(record.enemy.name, query) then
+		return true
+	end
+	local players = record.players
+	for i = 1, #players do
+		if contains(players[i].name, query) then
+			return true
+		end
+	end
+	return false
+end
+
 function refresh()
 	if not frame or not frame:IsShown() then
 		return
@@ -996,7 +1025,7 @@ function refresh()
 	wipe(filtered)
 	for i = 1, #history do
 		local record = history[i]
-		if filter == "all" or record.bracket == filter then
+		if (filter == "all" or record.bracket == filter) and matchesQuery(record) then
 			filtered[#filtered + 1] = record
 		end
 	end
@@ -1010,12 +1039,29 @@ function refresh()
 	refreshDetail()
 end
 
-local function onFilterSelect(index)
-	filter = frame.filters[index]
+local function resetList()
 	selected = nil
 	FauxScrollFrame_SetOffset(frame.scroll, 0)
 	frame.scrollBar:SetValue(0)
 	refresh()
+end
+
+local function onFilterSelect(index)
+	filter = frame.filters[index]
+	resetList()
+end
+
+local function onSearchChanged(box)
+	local text = ns.Lower(strtrim(box:GetText()))
+	if text ~= query then
+		query = text
+		resetList()
+	end
+end
+
+local function onSearchEscape(box)
+	box:SetText("")
+	box:ClearFocus()
 end
 
 local function createFrame()
@@ -1028,6 +1074,7 @@ local function createFrame()
 	end)
 	frame:SetScript("OnHide", function()
 		PlaySound("igCharacterInfoClose")
+		frame.search:ClearFocus()
 	end)
 
 	local filters, labels = {}, {}
@@ -1046,6 +1093,14 @@ local function createFrame()
 	clear:SetScript("OnClick", function()
 		StaticPopup_Show("FROSTATOMUI_ARENA_HISTORY_CLEAR")
 	end)
+
+	local search = ns.CreateEditBox(frame, SEARCH_WIDTH, 20, FRAME_NAME .. "Search", L["Team or player"])
+	search:SetPoint("RIGHT", clear, "LEFT", -SEARCH_GAP, 0)
+	search.placeholder:SetFontObject(GameFontDisableSmall)
+	search:HookScript("OnTextChanged", onSearchChanged)
+	search:SetScript("OnEscapePressed", onSearchEscape)
+	search:SetScript("OnEnterPressed", search.ClearFocus)
+	frame.search = search
 
 	local stats = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	stats:SetPoint("LEFT", frame, "TOPLEFT", INSET.left + INSET_PADDING, -(INSET.top + TOOLBAR_HEIGHT / 2))

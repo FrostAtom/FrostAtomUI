@@ -215,8 +215,8 @@ local SPELLS = {
 		{ 18708, 180, cat = "utility", talent = true, buff = true, hide = true }, -- Fel Domination
 	},
 	WARRIOR = {
-		{ 6552, 10, cat = "interrupt", ranks = { 6554 } }, -- Pummel
 		{ 72, 12, cat = "interrupt", ranks = { 1671, 1672, 29704 } }, -- Shield Bash
+		{ 6552, 10, cat = "interrupt", ranks = { 6554 }, hide = true }, -- Pummel
 		{ 100, 15, cat = "mobility", ranks = { 6178, 11578 } }, -- Charge
 		{ 20252, 30, cat = "mobility", ranks = { 20616, 20617, 25272, 25275 } }, -- Intercept
 		{ 5246, 120, cat = "cc" }, -- Intimidating Shout

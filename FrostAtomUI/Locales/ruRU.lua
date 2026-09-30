@@ -960,6 +960,7 @@ ns.SetLocale("ruRU", {
 	["%d games"] = "%d игр",
 	["Clear"] = "Очистить",
 	["No games recorded yet"] = "Пока нет записанных игр",
+	["Team or player"] = "Команда или игрок",
 	["Clear the whole arena history?"] = "Очистить всю историю арен?",
 	["Delete this game from the history?"] = "Удалить эту игру из истории?",
 	["Join solo queue"] = "Встать в соло-очередь",

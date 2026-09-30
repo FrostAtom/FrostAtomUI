@@ -1,9 +1,9 @@
 {
   "mcpServers": {
-    "wow-addon-dev": {
+    "global": {
       "command": "py",
-      "args": ["-3.12", "D:\\workspace\\atomengine_wip\\Global\\tools\\mcp\\addon_dev.py"],
-      "env": { "GLOBAL_CLIENT": "rescuealone" }
+      "args": ["-3.12", "D:\\workspace\\atomengine_wip\\Global\\tools\\mcp\\global_mcp.py"],
+      "env": { "GLOBAL_CLIENT": "hellohello78" }
     },
     "walkmpq": {
       "command": "D:\\Programs\\WalkMPQ\\WalkMPQMcp.exe",

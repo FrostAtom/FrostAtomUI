@@ -2777,25 +2777,10 @@ local function selectPage(page)
 	end
 end
 
-local lower, collectSearch, parseQuery
+local lower = ui.Lower
+local collectSearch, parseQuery
 
 do
-	local CYRILLIC_LOWER = {}
-	for byte = 0x80, 0xAF do
-		local upper = "\208" .. string.char(byte)
-		if byte < 0x90 then
-			CYRILLIC_LOWER[upper] = "\209" .. string.char(byte + 0x10)
-		elseif byte < 0xA0 then
-			CYRILLIC_LOWER[upper] = "\208" .. string.char(byte + 0x20)
-		else
-			CYRILLIC_LOWER[upper] = "\209" .. string.char(byte - 0x20)
-		end
-	end
-
-	function lower(text)
-		return (text:lower():gsub("\208[\128-\175]", CYRILLIC_LOWER))
-	end
-
 	local SCORE_QUERY = 1000
 	local SCORE_EXACT = 100
 	local SCORE_PREFIX = 50
