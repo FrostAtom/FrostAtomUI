@@ -25,8 +25,8 @@ local TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
 
 local C_NamePlate = _G.C_NamePlate
+-- nameplateN tokens only exist on backported clients; stock 3.3.5 falls back to name/health matching.
 local hasNamePlateTokens = C_NamePlate and C_NamePlate.GetNamePlateForUnit and true or false
-NamePlates.hasNamePlateTokens = hasNamePlateTokens
 
 local ARENA_UNITS, ARENA_PET_UNITS = {}, {}
 for i = 1, MAX_ARENA do
@@ -60,7 +60,6 @@ for i = 1, #NAMEPLATE_UNITS do
 end
 NamePlates.ARENA_UNITS = ARENA_UNITS
 NamePlates.ARENA_PET_UNITS = ARENA_PET_UNITS
-NamePlates.NAMEPLATE_UNITS = NAMEPLATE_UNITS
 NamePlates.EVENT_UNITS = EVENT_UNITS
 
 local targetOf = setmetatable({}, {
@@ -79,7 +78,6 @@ local onIdentity = {}
 local onPass = {}
 local groupTargets, groupTargetCount = {}, 0
 NamePlates.guidPlates = guidPlates
-NamePlates.enemyPlayers = enemyPlayers
 NamePlates.onIdentity = onIdentity
 NamePlates.onPass = onPass
 
@@ -331,7 +329,6 @@ end
 local function requestPass()
 	ns.Defer(pass, pass)
 end
-NamePlates.RequestIdentityPass = requestPass
 
 local function updateRoster()
 	groupTargetCount = 0

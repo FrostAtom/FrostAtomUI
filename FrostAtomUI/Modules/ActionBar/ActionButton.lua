@@ -24,6 +24,7 @@ local UnitExists = UnitExists
 local GetTime = GetTime
 local GameTooltip = GameTooltip
 local max = math.max
+local sort = table.sort
 local band = bit.band
 
 local Media = ns.Media
@@ -309,12 +310,6 @@ local interruptedAt = -math.huge
 local actionButtons = {}
 local hasTarget = false
 
-local DRAG_MODIFIERS = {
-	shift = IsShiftKeyDown,
-	ctrl = IsControlKeyDown,
-	alt = IsAltKeyDown,
-}
-
 local ACTION_EVENTS = {
 	UPDATE_SHAPESHIFT_FORM = "Update",
 	UPDATE_MACROS = "Update",
@@ -348,6 +343,7 @@ local function abbreviateKey(key)
 	end
 	return key
 end
+
 local function updateHotkey(button)
 	local key = GetBindingKey(button.bindingName)
 	if not key and button.blizzardBinding then
@@ -652,8 +648,7 @@ function ActionButtonMixin:OnAttributeChanged(attribute, value)
 end
 
 function ActionButtonMixin:OnDragStart()
-	local modifier = DRAG_MODIFIERS[config.dragModifier]
-	if (not modifier or modifier()) and not InCombatLockdown() then
+	if ActionBar.CanDrag() then
 		PickupAction(self.action)
 	end
 end
@@ -783,7 +778,7 @@ local function scanLossOfControl()
 	for i = #scannedControls, count + 1, -1 do
 		scannedControls[i] = nil
 	end
-	table.sort(scannedControls, sortByExpiry)
+	sort(scannedControls, sortByExpiry)
 
 	local changed = count ~= controlCount
 	for i = 1, count do

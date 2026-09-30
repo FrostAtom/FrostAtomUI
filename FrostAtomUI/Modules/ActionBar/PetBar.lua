@@ -22,12 +22,6 @@ local AUTOCAST_TEXTURE = "Interface\\Buttons\\UI-AutoCastableOverlay"
 local buttons = ActionBar.petButtons
 local updateHotkey = ActionBar.UpdateHotkey
 
-local DRAG_MODIFIERS = {
-	shift = IsShiftKeyDown,
-	ctrl = IsControlKeyDown,
-	alt = IsAltKeyDown,
-}
-
 local tokenTextures = setmetatable({}, {
 	__index = function(self, token)
 		local path = _G[token]
@@ -46,8 +40,7 @@ local function setTooltip(button)
 end
 
 local function onDragStart(button)
-	local modifier = DRAG_MODIFIERS[config.dragModifier]
-	if (not modifier or modifier()) and not InCombatLockdown() then
+	if ActionBar.CanDrag() then
 		PickupPetAction(button:GetID())
 	end
 end
@@ -59,11 +52,7 @@ local function onReceiveDrag(button)
 end
 
 local function setAutoCast(button, allowed, enabled)
-	if allowed then
-		button.autoCastable:Show()
-	else
-		button.autoCastable:Hide()
-	end
+	ns.SetShown(button.autoCastable, allowed)
 	enabled = enabled and true or false
 	if enabled ~= button.autoCasting then
 		button.autoCasting = enabled
@@ -98,11 +87,7 @@ function ActionBar:UpdatePetBar()
 			button.icon:SetDesaturated(not GetPetActionSlotUsable(i))
 
 			self:SetButtonChecked(button, isActive)
-			if isToken and not isActive then
-				self:SetButtonColors(button, 0.4)
-			else
-				self:SetButtonColors(button, 1)
-			end
+			self:SetButtonColors(button, isToken and not isActive and 0.4 or 1)
 			setAutoCast(button, autoCastAllowed, autoCastEnabled)
 		else
 			button.icon:SetTexture(Media.emptySlot)

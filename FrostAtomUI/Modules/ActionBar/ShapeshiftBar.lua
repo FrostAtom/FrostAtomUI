@@ -63,11 +63,7 @@ function ActionBar:UpdateShapeshiftBar()
 		CooldownFrame_SetTimer(button.cooldown, GetShapeshiftFormCooldown(i))
 
 		self:SetButtonChecked(button, currentForm == i)
-		if isCastable and (isActive or currentForm == 0) then
-			self:SetButtonColors(button, 1)
-		else
-			self:SetButtonColors(button, 0.4)
-		end
+		self:SetButtonColors(button, isCastable and (isActive or currentForm == 0) and 1 or 0.4)
 	end
 end
 
@@ -87,11 +83,7 @@ function ActionBar:UpdateShapeshiftVisibility()
 				self:RegisterEvent("PLAYER_REGEN_ENABLED", "UpdateShapeshiftVisibility")
 				return
 			end
-			if shouldShow then
-				button:Show()
-			else
-				button:Hide()
-			end
+			ns.SetShown(button, shouldShow)
 		end
 	end
 

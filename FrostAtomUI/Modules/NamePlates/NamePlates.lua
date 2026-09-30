@@ -9,6 +9,7 @@ local sort = table.sort
 
 local NamePlates = ns:NewModule("NamePlates")
 local PlateLayer = ns.PlateLayer
+local FRIENDLY = PlateLayer.FRIENDLY
 
 local config = ns.Config.namePlates
 local frameConfig = ns.Config.unitFrames
@@ -70,7 +71,6 @@ NamePlates.onPlateShow = onPlateShow
 NamePlates.onPlateHide = onPlateHide
 NamePlates.onPlateLayout = onPlateLayout
 NamePlates.BORDER_INSET = BORDER_INSET
-NamePlates.TEXT_INSET = TEXT_INSET
 NamePlates.ICON_GAP = ICON_GAP
 NamePlates.CAST_GLOW_SIZE = CAST_GLOW_SIZE
 NamePlates.CAST_FINISH_WINDOW = CAST_FINISH_WINDOW
@@ -112,23 +112,17 @@ function PlateMixin:UpdateColors()
 	end
 	local class = info.class
 
-	local reactionColor
-	if reaction == PlateLayer.FRIENDLY then
+	local reactionColor, settings
+	if reaction == FRIENDLY then
 		reactionColor = isPlayer and FRIENDLY_PLAYER_COLOR or FRIENDLY_COLOR
-	elseif reaction == PlateLayer.NEUTRAL then
-		reactionColor = NEUTRAL_COLOR
+		settings = isPlayer and config.friendlyPlayer or config.friendlyNpc
 	else
-		reactionColor = HOSTILE_COLOR
+		reactionColor = reaction == PlateLayer.NEUTRAL and NEUTRAL_COLOR or HOSTILE_COLOR
+		settings = isPlayer and config.enemyPlayer or config.enemyNpc
 	end
 	self.reaction = reaction
 	NamePlates.Totems.SetReaction(self, reaction)
 
-	local settings
-	if reaction == PlateLayer.FRIENDLY then
-		settings = isPlayer and config.friendlyPlayer or config.friendlyNpc
-	else
-		settings = isPlayer and config.enemyPlayer or config.enemyNpc
-	end
 	if settings ~= self.settings then
 		self.settings = settings
 		self.layoutDirty = true
@@ -154,10 +148,6 @@ function PlateMixin:UpdateColors()
 	end
 	self.nameColor = nameColor
 	self:SetNameColor(nameColor[1], nameColor[2], nameColor[3])
-end
-
-function PlateMixin:RefreshColors()
-	self:UpdateColors()
 end
 
 function PlateMixin:SetNameColor(r, g, b)
@@ -303,7 +293,8 @@ function PlateMixin:OnUpdate()
 	if self.hiddenByName then
 		return
 	end
-	if not self:IsTarget() and self:GetAlpha() < 1 then
+	local isTarget = self:IsTarget()
+	if not isTarget and self:GetAlpha() < 1 then
 		self:SetAlpha(config.nonTargetAlpha)
 	end
 	if self.stackLevel and self.holder:GetFrameLevel() ~= self.stackLevel then
@@ -312,13 +303,12 @@ function PlateMixin:OnUpdate()
 
 	applyHighlight(self)
 
-	local healthbar = self.healthbar
 	if self.healthMode == "health" then
 		self:ApplyBarColor()
 	end
 
 	if self.totem:IsShown() then
-		NamePlates.Totems.Update(self, self:IsTarget())
+		NamePlates.Totems.Update(self, isTarget)
 		return
 	end
 
@@ -332,7 +322,6 @@ function PlateMixin:OnUpdate()
 
 	self:SnapHolder()
 
-	local isTarget = self:IsTarget()
 	local threat = self.threat
 	local hasThreat = threat:IsShown()
 	local holder = self.holder
@@ -360,17 +349,24 @@ function PlateMixin:OnUpdate()
 		ns.SetShown(holder.targetEdge, targeted)
 	end
 
+	local healthbar = self.healthbar
 	local _, max = healthbar:GetMinMaxValues()
 	setHealthText(healthbar.percent, healthbar:GetValue(), max, isTarget, self.settings.healthText)
 end
 
 local function setIconShown(icon, shown)
-	if shown then
-		icon:Show()
-		icon.border:Show()
-	else
-		icon:Hide()
-		icon.border:Hide()
+	ns.SetShown(icon, shown)
+	ns.SetShown(icon.border, shown)
+end
+
+local function refreshCastbarLayout(plate)
+	local castbar = plate.castbar
+	if castbar:IsShown() then
+		if plate.settings.showCastbar then
+			castbar:Layout()
+		else
+			castbar:Hide()
+		end
 	end
 end
 
@@ -382,14 +378,7 @@ function PlateMixin:ApplyLayout()
 	self.snapX = nil
 	self:SnapHolder()
 	ns.SetShown(self.name, settings.showName)
-	local castbar = self.castbar
-	if castbar:IsShown() then
-		if settings.showCastbar then
-			castbar:Layout()
-		else
-			castbar:Hide()
-		end
-	end
+	refreshCastbarLayout(self)
 end
 
 function PlateMixin:ApplyHidden()
@@ -417,7 +406,7 @@ function PlateMixin:OnShow()
 		self.clampLeft = nil
 	end
 	local Totems = NamePlates.Totems
-	self:RefreshColors()
+	self:UpdateColors()
 	self.hiddenByName = isHiddenName(name)
 	if self.hiddenByName then
 		self:ApplyHidden()
@@ -435,14 +424,7 @@ function PlateMixin:OnShow()
 			Totems.Show(self, totemSpell)
 		else
 			Totems.ShowIcon(self, unitIcon, unitIconCoords, self.settings.arenaIconSize)
-			local castbar = self.castbar
-			if castbar:IsShown() then
-				if self.settings.showCastbar then
-					castbar:Layout()
-				else
-					castbar:Hide()
-				end
-			end
+			refreshCastbarLayout(self)
 		end
 		self.holder:Hide()
 		self.healthbar:Hide()
@@ -580,7 +562,6 @@ function CastbarMixin:OnShow()
 	end
 
 	self:Layout()
-	self.locked = nil
 	self:OnUpdate(0)
 	self:StartCast()
 end
@@ -690,27 +671,19 @@ local function showCastResult(plate, texture, iconShown, locked, interruptText, 
 
 	local bar = result.bar
 	bar:SetTexture(ns.Media.statusbar)
-	if interruptText then
-		bar:SetVertexColor(CAST_INTERRUPT_COLOR[1], CAST_INTERRUPT_COLOR[2], CAST_INTERRUPT_COLOR[3])
-		result.text:SetText(interruptText)
+	local color = interruptText and CAST_INTERRUPT_COLOR or locked and config.castbarLockedColor or config.castbarColor
+	bar:SetVertexColor(color[1], color[2], color[3])
+	if interruptText or cancelled then
+		result.text:SetText(interruptText or UF.CANCELLED_TEXT)
 		result.hold = CAST_INTERRUPT_HOLD
 		result.flashing = false
 		result.flash:Hide()
 	else
-		local color = locked and config.castbarLockedColor or config.castbarColor
-		bar:SetVertexColor(color[1], color[2], color[3])
-		if cancelled then
-			result.text:SetText(UF.CANCELLED_TEXT)
-			result.hold = CAST_INTERRUPT_HOLD
-			result.flashing = false
-			result.flash:Hide()
-		else
-			result.text:SetText("")
-			result.hold = CAST_FLASH_TIME
-			result.flashing = true
-			result.flash:SetAlpha(CAST_FLASH_ALPHA)
-			result.flash:Show()
-		end
+		result.text:SetText("")
+		result.hold = CAST_FLASH_TIME
+		result.flashing = true
+		result.flash:SetAlpha(CAST_FLASH_ALPHA)
+		result.flash:Show()
 	end
 	result.interrupted = interruptText ~= nil
 	result.cancelled = not interruptText and cancelled or false
@@ -811,7 +784,7 @@ local function onTargetTargetChanged()
 end
 
 local function refreshTargetCast()
-	local plate = NamePlates:GetTargetPlate()
+	local plate = PlateLayer.GetTargetPlate()
 	if plate and plate.castbar:IsShown() then
 		plate.castbar:StartCast()
 	end
@@ -835,8 +808,6 @@ local function onTargetAura()
 		castbar.immune = ns.HasCastImmunity("target") or false
 	end
 end
-
-NamePlates.SetIconShown = setIconShown
 
 onPlateShow[#onPlateShow + 1] = function(plate)
 	local castbar = plate.castbar
@@ -1078,10 +1049,6 @@ local function setupNamePlate(plate, info)
 	plates[#plates + 1] = plate
 end
 
-function NamePlates:GetTargetPlate()
-	return (PlateLayer.GetTargetPlate())
-end
-
 local stack = {}
 
 local function stackOrder(a, b)
@@ -1145,12 +1112,7 @@ local function spreadPlates(elapsed)
 	for i = 1, #plates do
 		local plate = plates[i]
 		local x, y
-		if
-			plate:IsShown()
-			and not plate.hiddenByName
-			and plate.reaction ~= "friendly"
-			and not plate.totem:IsShown()
-		then
+		if plate:IsShown() and not plate.hiddenByName and plate.reaction ~= FRIENDLY and not plate.totem:IsShown() then
 			local _
 			_, _, _, x, y = plate:GetPoint(1)
 		end
@@ -1222,21 +1184,11 @@ end
 
 local layerHandlers = {
 	created = setupNamePlate,
-	shown = function(plate)
-		plate:OnShow()
-	end,
-	hidden = function(plate)
-		plate:OnHide()
-	end,
-	renamed = function(plate)
-		plate:OnShow()
-	end,
-	recolored = function(plate)
-		plate:UpdateColors()
-	end,
-	update = function(plate)
-		plate:OnUpdate()
-	end,
+	shown = PlateMixin.OnShow,
+	hidden = PlateMixin.OnHide,
+	renamed = PlateMixin.OnShow,
+	recolored = PlateMixin.UpdateColors,
+	update = PlateMixin.OnUpdate,
 }
 
 local function applyStyle()
@@ -1253,7 +1205,7 @@ local function applyStyle()
 		plate.healthbar.percent.mode = nil
 		styleArenaLabel(plate)
 		applyHighlight(plate)
-		plate:RefreshColors()
+		plate:UpdateColors()
 		if plate:IsShown() then
 			plate:OnShow()
 		end
@@ -1276,7 +1228,7 @@ local function onIdentity(plate)
 	if config.totemIcons and NamePlates.Totems.Identify(plate) ~= plate.totemSpell then
 		plate:OnShow()
 	else
-		plate:RefreshColors()
+		plate:UpdateColors()
 	end
 end
 

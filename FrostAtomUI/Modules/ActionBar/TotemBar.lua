@@ -27,10 +27,9 @@ end
 local function sizeArrow(button, width, height)
 	height = height or width * ARROW_HEIGHT / ARROW_WIDTH
 	button:SetSize(width, height)
-	button:GetHighlightTexture():SetSize(
-		width * ARROW_HIGHLIGHT_WIDTH / ARROW_WIDTH,
-		height * ARROW_HIGHLIGHT_HEIGHT / ARROW_HEIGHT
-	)
+	button
+		:GetHighlightTexture()
+		:SetSize(width * ARROW_HIGHLIGHT_WIDTH / ARROW_WIDTH, height * ARROW_HIGHLIGHT_HEIGHT / ARROW_HEIGHT)
 	return height
 end
 
@@ -49,7 +48,13 @@ local function layoutFlyout()
 			local column, row = floor(shown / perColumn), shown % perColumn
 			button:SetSize(size, size)
 			button:ClearAllPoints()
-			button:SetPoint("BOTTOMLEFT", flyout, "BOTTOMLEFT", FLYOUT_PADDING + column * step, FLYOUT_PADDING + row * step)
+			button:SetPoint(
+				"BOTTOMLEFT",
+				flyout,
+				"BOTTOMLEFT",
+				FLYOUT_PADDING + column * step,
+				FLYOUT_PADDING + row * step
+			)
 			shown = shown + 1
 		end
 	end
