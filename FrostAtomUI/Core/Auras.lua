@@ -160,8 +160,8 @@ local CAST_IMMUNITY = {
 	[31224] = true, -- Cloak of Shadows
 	[54748] = true, -- Burning Determination
 }
-local AURA_MASTERY = 31821 -- Aura Mastery
-local CONCENTRATION_AURA = 19746 -- Concentration Aura
+local AURA_MASTERY = 31821
+local CONCENTRATION_AURA = 19746
 
 function ns.HasCastImmunity(unit)
 	local set, n = Auras.Get(unit, "HELPFUL")

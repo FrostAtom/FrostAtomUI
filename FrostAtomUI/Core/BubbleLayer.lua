@@ -40,14 +40,13 @@ local function stripBrackets(text)
 	return (gsub(text, "[%[%]]", ""))
 end
 
-local function normalize(text)
+local function stripMarkup(text)
 	text = gsub(text, "|c........", "")
 	text = gsub(text, "|r", "")
 	text = gsub(text, "|H.-|h(.-)|h", stripBrackets)
 	text = gsub(text, "|T.-|t", "")
 	return text
 end
-BubbleLayer.Normalize = normalize
 
 local function takePending(message, now)
 	local i = 1
@@ -120,7 +119,7 @@ local function addPending(kind, message, sender, ...)
 	if not (message and GetCVarBool(kind.cvar)) then
 		return
 	end
-	local text = normalize(message)
+	local text = stripMarkup(message)
 	if kind.monster then
 		text = gsub(text, "%%%%", "%%")
 	end

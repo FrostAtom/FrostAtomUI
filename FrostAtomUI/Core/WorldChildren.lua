@@ -71,23 +71,23 @@ local function add(frame)
 	end
 end
 
-local function scan(frame, ...)
+local function addAll(frame, ...)
 	if not frame then
 		return
 	end
 	add(frame)
-	return scan(...)
+	return addAll(...)
 end
 
-function WorldChildren.Scan()
+local function scanNewChildren()
 	local count = WorldFrame:GetNumChildren()
 	if count == known then
 		return
 	end
 	if count > known then
-		scan(select(known + 1, WorldFrame:GetChildren()))
+		addAll(select(known + 1, WorldFrame:GetChildren()))
 	else
-		scan(WorldFrame:GetChildren())
+		addAll(WorldFrame:GetChildren())
 	end
 	known = count
 end
@@ -108,7 +108,7 @@ function WorldChildren.Register(kind, handler)
 end
 
 local scanner = CreateFrame("Frame")
-scanner:SetScript("OnUpdate", WorldChildren.Scan)
+scanner:SetScript("OnUpdate", scanNewChildren)
 scanner:SetScript("OnEvent", WorldChildren.UpdatePixel)
 scanner:RegisterEvent("PLAYER_LOGIN")
 scanner:RegisterEvent("DISPLAY_SIZE_CHANGED")

@@ -1,6 +1,7 @@
 local _, ns = ...
 
 local GetTime = GetTime
+local tremove = table.remove
 
 local Scheduler = {}
 ns.Scheduler = Scheduler
@@ -12,6 +13,7 @@ local tickers, tickerCount = {}, 0
 local tickerIndex = {}
 
 local timers, timerCount = {}, 0
+local timerPool = {}
 
 local deferred, deferredCount = {}, 0
 local deferredIndex = {}
@@ -43,8 +45,12 @@ function Scheduler.RemoveTicker(key)
 end
 
 function Scheduler.After(delay, callback, arg)
+	local timer = tremove(timerPool) or {}
+	timer.at = GetTime() + delay
+	timer.callback = callback
+	timer.arg = arg
 	timerCount = timerCount + 1
-	timers[timerCount] = { at = GetTime() + delay, callback = callback, arg = arg }
+	timers[timerCount] = timer
 	wake()
 end
 
@@ -84,7 +90,10 @@ local function runTimers(now)
 			timers[i] = timers[timerCount]
 			timers[timerCount] = nil
 			timerCount = timerCount - 1
-			timer.callback(timer.arg)
+			local callback, arg = timer.callback, timer.arg
+			timer.callback, timer.arg = nil, nil
+			timerPool[#timerPool + 1] = timer
+			callback(arg)
 		else
 			i = i + 1
 		end

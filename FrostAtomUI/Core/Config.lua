@@ -72,8 +72,26 @@ local function namePlateDefaults(healthColorMode, healthColor, nameColorMode, ar
 end
 
 local HIDDEN_NAMES = {
-	enUS = { "Mirror Image", "Viper", "Venomous Snake", "Army of the Dead Ghoul", "Bloodworm", "Treant", "Spirit Wolf", "Val'kyr Protector" },
-	ruRU = { "Зеркальное изображение", "Гадюка", "Ядовитая змея", "Войско мертвых", "Кровавый червь", "Древень", "Дух волка", "Валь'кира-защитница" },
+	enUS = {
+		"Mirror Image",
+		"Viper",
+		"Venomous Snake",
+		"Army of the Dead Ghoul",
+		"Bloodworm",
+		"Treant",
+		"Spirit Wolf",
+		"Val'kyr Protector",
+	},
+	ruRU = {
+		"Зеркальное изображение",
+		"Гадюка",
+		"Ядовитая змея",
+		"Войско мертвых",
+		"Кровавый червь",
+		"Древень",
+		"Дух волка",
+		"Валь'кира-защитница",
+	},
 }
 
 ns.Defaults = {
@@ -1218,24 +1236,38 @@ ns.Defaults = {
 	},
 }
 
-local function copy(source)
+local copy
+
+local function clone(value)
+	return type(value) == "table" and copy(value) or value
+end
+
+function copy(source)
 	local target = {}
 	for key, value in pairs(source) do
-		target[key] = type(value) == "table" and copy(value) or value
+		target[key] = clone(value)
 	end
 	return target
 end
 
-local function merge(target, source)
-	for key, value in pairs(source) do
-		if type(value) == "table" and type(target[key]) == "table" then
-			if value[1] ~= nil or target[key][1] ~= nil then
-				wipe(target[key])
-			end
-			merge(target[key], value)
-		else
-			target[key] = type(value) == "table" and copy(value) or value
+local merge
+
+-- Lists are replaced as a whole; keyed tables are merged key by key.
+local function mergeValue(target, key, value)
+	local current = target[key]
+	if type(value) == "table" and type(current) == "table" then
+		if value[1] ~= nil or current[1] ~= nil then
+			wipe(current)
 		end
+		merge(current, value)
+	else
+		target[key] = clone(value)
+	end
+end
+
+function merge(target, source)
+	for key, value in pairs(source) do
+		mergeValue(target, key, value)
 	end
 end
 
@@ -1280,10 +1312,8 @@ local function assign(node, key, value)
 	if type(value) == "table" and type(node[key]) == "table" then
 		wipe(node[key])
 		merge(node[key], value)
-	elseif type(value) == "table" then
-		node[key] = copy(value)
 	else
-		node[key] = value
+		node[key] = clone(value)
 	end
 end
 
@@ -1321,7 +1351,7 @@ local function reset(target, defaults)
 		if type(value) == "table" and type(target[key]) == "table" then
 			reset(target[key], value)
 		else
-			target[key] = type(value) == "table" and copy(value) or value
+			target[key] = clone(value)
 		end
 	end
 end
@@ -1360,13 +1390,17 @@ end
 local CVAR_MIN_SCALE, CVAR_MAX_SCALE = 0.64, 1
 local MIN_UI_SCALE, MAX_UI_SCALE = 0.4, 1.15
 
+local function clamp(value, low, high)
+	return math.max(low, math.min(high, value))
+end
+
 function ns.GetTargetUiScale()
 	local general = ns.Config.general
 	if not general.useUiScale then
 		return nil
 	end
 	local scale = general.pixelPerfectScale and ns.PixelPerfectScale() or general.uiScale
-	return math.max(MIN_UI_SCALE, math.min(MAX_UI_SCALE, scale))
+	return clamp(scale, MIN_UI_SCALE, MAX_UI_SCALE)
 end
 
 local function applyUiScale()
@@ -1374,7 +1408,7 @@ local function applyUiScale()
 	if not scale or InCombatLockdown() then
 		return
 	end
-	local cvarScale = math.max(CVAR_MIN_SCALE, math.min(CVAR_MAX_SCALE, scale))
+	local cvarScale = clamp(scale, CVAR_MIN_SCALE, CVAR_MAX_SCALE)
 	if GetCVar("useUiScale") ~= "1" then
 		SetCVar("useUiScale", 1)
 	end
@@ -1387,8 +1421,7 @@ local function applyUiScale()
 end
 
 local function applyGeneral()
-	local general = ns.Config.general
-	ns.ApplyMedia(general)
+	ns.ApplyMedia(ns.Config.general)
 	applyUiScale()
 end
 
@@ -1425,13 +1458,8 @@ local function mergeKnown(target, source, defaults)
 			local current = target[key]
 			if isSection(value, default) and type(current) == "table" then
 				mergeKnown(current, value, default)
-			elseif type(value) == "table" and type(current) == "table" then
-				if value[1] ~= nil or current[1] ~= nil then
-					wipe(current)
-				end
-				merge(current, value)
 			else
-				target[key] = type(value) == "table" and copy(value) or value
+				mergeValue(target, key, value)
 			end
 		end
 	end
@@ -1836,6 +1864,7 @@ local function migrateCastbarLayout(profile)
 	end
 	local defaults = ns.Defaults.unitFrames
 	local castbarHeight = unitFrames.castbarHeight or LEGACY_CASTBAR_HEIGHT
+	local castbarWidth = (unitFrames.playerWidth or defaults.playerWidth) - castbarHeight - CASTBAR_ICON_GAP
 	for _, unit in ipairs({ "target", "focus" }) do
 		local key = unit .. "Castbar"
 		if unitFrames[key] == nil then
@@ -1845,8 +1874,7 @@ local function migrateCastbarLayout(profile)
 				unitFrames[key] = point
 			end
 		end
-		local width = unitFrames.playerWidth or defaults.playerWidth
-		setChanged(unitFrames, key .. "Width", width - castbarHeight - CASTBAR_ICON_GAP)
+		setChanged(unitFrames, key .. "Width", castbarWidth)
 	end
 	for _, prefix in ipairs({ "party", "arena" }) do
 		local width = unitFrames[prefix .. "Width"] or defaults[prefix .. "Width"]
@@ -2102,6 +2130,20 @@ function migrate(profile)
 	migrateLoseControl(profile)
 end
 
+local function seedUnitFrameCategories(profile)
+	migrateUnitFrameCategories(profile, true)
+end
+
+-- Run once per saved-variables file, before the regular migrate(); order matters.
+local ONE_TIME_MIGRATIONS = {
+	{ "castbarLayoutMigrated", migrateCastbarLayout },
+	{ "squareFramesMigrated", migrateSquareFrames },
+	{ "unitFrameCategoriesMigrated", seedUnitFrameCategories },
+	{ "playerDebuffsMigrated", migratePlayerDebuffs },
+	{ "diminishArenaSizeMigrated", migrateDiminishArenaSize },
+	{ "interruptGrowthMigrated", migrateGroupCooldownInterruptGrowth },
+}
+
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 	db.profiles = db.profiles or {}
 	db.charProfile = db.charProfile or {}
@@ -2110,32 +2152,16 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 		db.config = nil
 	end
 	for _, profile in pairs(db.profiles) do
-		if not db.castbarLayoutMigrated then
-			migrateCastbarLayout(profile)
-		end
-		if not db.squareFramesMigrated then
-			migrateSquareFrames(profile)
-		end
-		if not db.unitFrameCategoriesMigrated then
-			migrateUnitFrameCategories(profile, true)
-		end
-		if not db.playerDebuffsMigrated then
-			migratePlayerDebuffs(profile)
-		end
-		if not db.diminishArenaSizeMigrated then
-			migrateDiminishArenaSize(profile)
-		end
-		if not db.interruptGrowthMigrated then
-			migrateGroupCooldownInterruptGrowth(profile)
+		for _, migration in ipairs(ONE_TIME_MIGRATIONS) do
+			if not db[migration[1]] then
+				migration[2](profile)
+			end
 		end
 		migrate(profile)
 	end
-	db.castbarLayoutMigrated = true
-	db.squareFramesMigrated = true
-	db.unitFrameCategoriesMigrated = true
-	db.playerDebuffsMigrated = true
-	db.diminishArenaSizeMigrated = true
-	db.interruptGrowthMigrated = true
+	for _, migration in ipairs(ONE_TIME_MIGRATIONS) do
+		db[migration[1]] = true
+	end
 	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)
