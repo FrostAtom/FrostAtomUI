@@ -470,8 +470,7 @@ function FrostAtomUI_SetCameraDistance(preset)
 	local view = tonumber(GetCVar("cameraView"))
 	if view and view >= 1 and view <= 5 then
 		local blendStyle = GetCVar("cameraViewBlendStyle")
-		SaveView(view)
-		SetCVar("cameraViewBlendStyle", "2")
+		SetCVar("cameraViewBlendStyle", "0")
 		SetView(view)
 		SetCVar("cameraViewBlendStyle", blendStyle)
 	end
