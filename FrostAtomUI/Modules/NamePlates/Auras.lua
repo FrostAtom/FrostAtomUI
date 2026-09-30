@@ -44,7 +44,7 @@ local function getSet(guid)
 	local set = cache[guid]
 	if not set then
 		local count = #setPool
-		set = setPool[count] or { exactAt = 0 }
+		set = setPool[count] or {}
 		setPool[count] = nil
 		set.exactAt = 0
 		cache[guid] = set
@@ -133,6 +133,13 @@ local function fill(entry, spellId, name, icon, count, duration, expires, kind)
 	entry.kind = kind
 end
 
+local function addAura(set, aura, kind, isPlayer)
+	fill(addEntry(set), aura.spellId, aura.name, aura.icon, aura.count, aura.duration, aura.expires, kind)
+	if isPlayer then
+		learn(aura.spellId, aura.duration)
+	end
+end
+
 local function exactScan(unit, guid, now)
 	local set = getSet(guid)
 	if now - set.exactAt < SAME_SCAN then
@@ -149,10 +156,7 @@ local function exactScan(unit, guid, now)
 		local aura = auras[i]
 		local kind = ClassifyDebuff(aura.spellId, aura.name, isOwn(aura.caster))
 		if kind then
-			fill(addEntry(set), aura.spellId, aura.name, aura.icon, aura.count, aura.duration, aura.expires, kind)
-			if isPlayer then
-				learn(aura.spellId, aura.duration)
-			end
+			addAura(set, aura, kind, isPlayer)
 		end
 	end
 
@@ -162,10 +166,7 @@ local function exactScan(unit, guid, now)
 			local aura = auras[i]
 			local kind = ClassifyBuff(aura.spellId, aura.name, aura.debuffType, aura.duration)
 			if kind then
-				fill(addEntry(set), aura.spellId, aura.name, aura.icon, aura.count, aura.duration, aura.expires, kind)
-				if isPlayer then
-					learn(aura.spellId, aura.duration)
-				end
+				addAura(set, aura, kind, isPlayer)
 			end
 		end
 	end

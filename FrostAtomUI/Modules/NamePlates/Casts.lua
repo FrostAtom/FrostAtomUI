@@ -17,7 +17,6 @@ local EVENT_UNITS = NamePlates.EVENT_UNITS
 local importantCasts = UF.importantCasts
 
 local BORDER_INSET = NamePlates.BORDER_INSET
-local TEXT_INSET = NamePlates.TEXT_INSET
 local ICON_GAP = NamePlates.ICON_GAP
 local FINISH_WINDOW = NamePlates.CAST_FINISH_WINDOW
 local LATE_INTERRUPT = NamePlates.CAST_LATE_INTERRUPT
@@ -31,7 +30,6 @@ local pool = {}
 local castTimes = {}
 local lastStop = {}
 local lastTexture = {}
-NamePlates.casts = casts
 
 local updatePlate
 
@@ -44,6 +42,11 @@ local function acquire(guid)
 		casts[guid] = entry
 	end
 	return entry
+end
+
+local function unitCast(unit)
+	local guid = UnitGUID(unit)
+	return guid, guid and casts[guid]
 end
 
 local function refreshGUID(guid)
@@ -254,32 +257,28 @@ local function onCastEvent(_, unit)
 end
 
 local function onCastStop(_, unit)
-	local guid = UnitGUID(unit)
-	local entry = guid and casts[guid]
+	local guid, entry = unitCast(unit)
 	if entry then
 		removeCast(guid, GetTime() >= entry.endTime - FINISH_WINDOW)
 	end
 end
 
 local function onCastFailed(_, unit, _, _, castId)
-	local guid = UnitGUID(unit)
-	local entry = guid and casts[guid]
+	local guid, entry = unitCast(unit)
 	if entry and (entry.fromLog or entry.castId == castId) then
 		removeCast(guid)
 	end
 end
 
 local function onCastInterrupted(_, unit, _, _, castId)
-	local guid = UnitGUID(unit)
-	local entry = guid and casts[guid]
+	local guid, entry = unitCast(unit)
 	if entry and (entry.isChannel or entry.fromLog or entry.castId == castId) then
 		removeCast(guid, config.castbarInterrupter and (UF.RecentSilence(guid) or CANCELLED) or nil)
 	end
 end
 
 local function setLocked(unit, locked)
-	local guid = UnitGUID(unit)
-	local entry = guid and casts[guid]
+	local guid, entry = unitCast(unit)
 	if entry then
 		entry.locked = locked or unitLocked(unit)
 		refreshGUID(guid)
@@ -295,8 +294,7 @@ local function onNotInterruptible(_, unit)
 end
 
 local function onUnitAura(_, unit)
-	local guid = UnitGUID(unit)
-	local entry = guid and casts[guid]
+	local guid, entry = unitCast(unit)
 	if entry and ns.HasCastImmunity then
 		local locked = ns.HasCastImmunity(unit) or false
 		if locked ~= entry.locked then
@@ -449,11 +447,7 @@ local function onEnteringWorld()
 end
 
 local function relayout(plate)
-	local bar = plate.vcast
-	if bar then
-		bar.entry = nil
-		bar:Hide()
-	end
+	hideBar(plate)
 	updatePlate(plate)
 end
 

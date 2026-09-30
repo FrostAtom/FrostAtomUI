@@ -7,11 +7,11 @@ local GetNumBattlefieldScores = GetNumBattlefieldScores
 local GetBattlefieldScore = GetBattlefieldScore
 local UnitFactionGroup = UnitFactionGroup
 local match = string.match
+local floor = math.floor
 
 local POLL_INTERVAL = 10
 local CROSS_TEXTURE = "Interface\\LFGFrame\\UI-LFG-ICON-ROLES"
 local CROSS_GAP = 2
-local floor = math.floor
 local config = ns.Config.namePlates
 
 local plates = NamePlates.plates

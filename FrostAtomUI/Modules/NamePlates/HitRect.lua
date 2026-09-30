@@ -8,6 +8,9 @@ local config = ns.Config.namePlates
 local HitRect = {}
 NamePlates.HitRect = HitRect
 
+-- 3.3.5 nameplates are protected WorldFrame children, so their click area cannot be resized from
+-- insecure code in combat. Each plate's wanted size is encoded in a secure marker's clamp-rect
+-- insets (settable in combat); restricted snippets read marker:GetRect() and resize the plates.
 local MARKER_OFFSET = -100
 local SPARE_MARKERS = 40
 local PRE_BODY = "return nil, true"

@@ -7,7 +7,6 @@ local GetSpellInfo = GetSpellInfo
 local IsInInstance = IsInInstance
 local wipe = wipe
 
-local PlateLayer = ns.PlateLayer
 local config = ns.Config.namePlates
 local plates = NamePlates.plates
 

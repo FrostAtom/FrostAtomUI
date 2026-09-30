@@ -38,15 +38,21 @@ local function register(map, value, ...)
 	end
 end
 
+-- Openers gain an extra point for Subtlety rogues (Initiative).
+local function registerOpener(gain, ...)
+	register(GENERATORS, gain, ...)
+	register(INITIATIVE, true, ...)
+end
+
 register(GENERATORS, 1, 1752, 1757, 1758, 1759, 1760, 8621, 11293, 11294, 26861, 26862, 48637, 48638) -- Sinister Strike
 register(GENERATORS, 1, 53, 2589, 2590, 2591, 8721, 11279, 11280, 11281, 25300, 26863, 48656, 48657) -- Backstab
 register(GENERATORS, 1, 16511, 17347, 17348, 26864, 48660) -- Hemorrhage
 register(GENERATORS, 1, 14278) -- Ghostly Strike
 register(GENERATORS, 1, 1776, 1777, 8629, 11285, 11286, 38764) -- Gouge
 register(GENERATORS, 1, 14251) -- Riposte
-register(GENERATORS, 2, 8676, 8724, 8725, 11267, 11268, 11269, 27441, 48689, 48690, 48691) -- Ambush
-register(GENERATORS, 1, 703, 8631, 8632, 8633, 11289, 11290, 26839, 26884, 48675, 48676) -- Garrote
-register(GENERATORS, 2, 1833) -- Cheap Shot
+registerOpener(2, 8676, 8724, 8725, 11267, 11268, 11269, 27441, 48689, 48690, 48691) -- Ambush
+registerOpener(1, 703, 8631, 8632, 8633, 11289, 11290, 26839, 26884, 48675, 48676) -- Garrote
+registerOpener(2, 1833) -- Cheap Shot
 register(GENERATORS, 2, 1329, 34411, 34412, 34413, 48663, 48666) -- Mutilate
 register(GENERATORS, 1, 1082, 3029, 5201, 9849, 9850, 27000, 48569, 48570) -- Claw
 register(GENERATORS, 1, 1822, 1823, 1824, 9904, 27003, 48573, 48574) -- Rake
@@ -56,10 +62,6 @@ register(GENERATORS, 1, 6785, 6787, 9866, 9867, 27005, 48578, 48579) -- Ravage
 register(GENERATORS, 1, 9005, 9823, 9827, 27006, 49803) -- Pounce
 register(GENERATORS, 1, 14189) -- Seal Fate
 register(GENERATORS, 1, 16953) -- Primal Fury
-
-register(INITIATIVE, true, 8676, 8724, 8725, 11267, 11268, 11269, 27441, 48689, 48690, 48691) -- Ambush
-register(INITIATIVE, true, 703, 8631, 8632, 8633, 11289, 11290, 26839, 26884, 48675, 48676) -- Garrote
-register(INITIATIVE, true, 1833) -- Cheap Shot
 
 register(FINISHERS, "target", 2098, 6760, 6761, 6762, 8623, 8624, 11299, 11300, 31016, 26865, 48667, 48668) -- Eviscerate
 register(FINISHERS, "target", 32645, 32684, 57992, 57993) -- Envenom

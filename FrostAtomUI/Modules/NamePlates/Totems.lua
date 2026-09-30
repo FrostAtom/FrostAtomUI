@@ -16,6 +16,7 @@ local Totems = {}
 NamePlates.Totems = Totems
 
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
+local BORDER_INSET = NamePlates.BORDER_INSET
 local GUID_CREATURE = "F13"
 local ICON_CROP = 0.08
 local HOVER_ALPHA = 0.15
@@ -329,11 +330,10 @@ function Totems.Setup(plate)
 	targetEdge:SetFrameLevel(totem:GetFrameLevel() + 1)
 	totem.targetEdge = targetEdge
 
-	local inset = NamePlates.BORDER_INSET
 	local icon = totem:CreateTexture(nil, "ARTWORK")
 	icon:SetNonBlocking(true)
-	icon:SetPoint("TOPLEFT", inset, -inset)
-	icon:SetPoint("BOTTOMRIGHT", -inset, inset)
+	icon:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
+	icon:SetPoint("BOTTOMRIGHT", -BORDER_INSET, BORDER_INSET)
 	icon:SetTexCoord(ICON_CROP, 1 - ICON_CROP, ICON_CROP, 1 - ICON_CROP)
 	totem.icon = icon
 
@@ -361,8 +361,8 @@ function Totems.Setup(plate)
 	pulse:Hide()
 	local pulseBar = CreateFrame("StatusBar", nil, pulse)
 	pulseBar:SetFrameLevel(totem:GetFrameLevel() + 1)
-	pulseBar:SetPoint("TOPLEFT", inset, -inset)
-	pulseBar:SetPoint("BOTTOMRIGHT", -inset, inset)
+	pulseBar:SetPoint("TOPLEFT", BORDER_INSET, -BORDER_INSET)
+	pulseBar:SetPoint("BOTTOMRIGHT", -BORDER_INSET, BORDER_INSET)
 	pulseBar:SetMinMaxValues(0, 1)
 	ns.SkinStatusBar(pulseBar)
 	pulse.bar = pulseBar
@@ -396,10 +396,9 @@ function Totems.SetReaction(plate, reaction)
 end
 
 local function setSize(totem, iconSize)
-	local inset = NamePlates.BORDER_INSET
-	local size = snap(iconSize + inset * 2)
+	local size = snap(iconSize + BORDER_INSET * 2)
 	totem:SetSize(size, size)
-	totem.iconSize = size - inset * 2
+	totem.iconSize = size - BORDER_INSET * 2
 	totem.snapX = nil
 end
 
@@ -445,10 +444,9 @@ function Totems.Show(plate, spellId)
 	local totem = plate.totem
 	plate.unitIcon, plate.unitIconCoords = nil, nil
 	setIcon(totem, spells[spellId].icon, nil, config.totemIconSize)
-	local inset = NamePlates.BORDER_INSET
 	local pulse = totem.pulse
 	local gap = snap(config.castbarGap)
-	pulse:SetHeight(snap(config.totemPulseHeight + inset * 2))
+	pulse:SetHeight(snap(config.totemPulseHeight + BORDER_INSET * 2))
 	pulse:SetPoint("BOTTOMLEFT", totem, "TOPLEFT", 0, gap)
 	pulse:SetPoint("BOTTOMRIGHT", totem, "TOPRIGHT", 0, gap)
 	if plate.totemSpell ~= spellId then

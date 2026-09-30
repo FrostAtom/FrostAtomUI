@@ -11,7 +11,6 @@ local max, min, ceil, floor = math.max, math.min, math.ceil, math.floor
 local Media = ns.Media
 local ActionBar = ns:NewModule("ActionBar")
 ActionBar.configKey = "actionBar"
-ns.ActionBar = ActionBar
 
 local config = ns.Config.actionBar
 local BUTTONS_PER_BAR = 12
@@ -64,19 +63,22 @@ function ActionBar:SetButtonColors(button, shade)
 end
 
 function ActionBar:SetButtonChecked(button, checked)
-	if checked then
-		button.checkedTexture:Show()
-	else
-		button.checkedTexture:Hide()
-	end
+	ns.SetShown(button.checkedTexture, checked)
 end
 
 function ActionBar:SetButtonEquipped(button, equipped)
-	if equipped then
-		button.equippedTexture:Show()
-	else
-		button.equippedTexture:Hide()
-	end
+	ns.SetShown(button.equippedTexture, equipped)
+end
+
+local DRAG_MODIFIERS = {
+	shift = IsShiftKeyDown,
+	ctrl = IsControlKeyDown,
+	alt = IsAltKeyDown,
+}
+
+function ActionBar.CanDrag()
+	local modifier = DRAG_MODIFIERS[config.dragModifier]
+	return (not modifier or modifier()) and not InCombatLockdown()
 end
 
 function ActionBar:StyleHotkey(hotkey)
@@ -226,11 +228,7 @@ local function layoutBar(bar, barConfig, count, path, growRight)
 	ns.ApplyPoint(bar, path)
 	bar.fader:Configure(barConfig.mouseover, barConfig.fadeAlpha, barConfig.combat)
 	if barConfig.enabled ~= nil then
-		if barConfig.enabled then
-			bar:Show()
-		else
-			bar:Hide()
-		end
+		ns.SetShown(bar, barConfig.enabled)
 	end
 end
 
@@ -260,16 +258,8 @@ function ActionBar:StyleBarButtons(bar)
 		ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)
 		ns.SetFont(button.count, config.countFont.size, config.countFont.outline)
 		ns.SetFont(button.cooldown.timer, config.cooldownFont.size, config.cooldownFont.outline)
-		if config.showNames then
-			button.name:Show()
-		else
-			button.name:Hide()
-		end
-		if config.showCounts then
-			button.count:Show()
-		else
-			button.count:Hide()
-		end
+		ns.SetShown(button.name, config.showNames)
+		ns.SetShown(button.count, config.showCounts)
 	end
 end
 

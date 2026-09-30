@@ -200,6 +200,7 @@ local PURGE_DURATIONS = {
 }
 
 local KIND_OWN_CC, KIND_CC, KIND_DEFENSIVE, KIND_OWN, KIND_PURGE, KIND_OTHER = 1, 2, 3, 4, 5, 6
+local PURGE_MAX_DURATION = 60
 
 local Data = {
 	KIND_OWN_CC = KIND_OWN_CC,
@@ -208,7 +209,6 @@ local Data = {
 	KIND_OWN = KIND_OWN,
 	KIND_PURGE = KIND_PURGE,
 	KIND_OTHER = KIND_OTHER,
-	PURGE_MAX_DURATION = 60,
 }
 NamePlates.AuraData = Data
 
@@ -266,7 +266,7 @@ function Data.ClassifyBuff(spellId, name, debuffType, duration)
 		(debuffType == "Magic" or debuffType == "Enrage")
 		and duration
 		and duration > 0
-		and duration <= Data.PURGE_MAX_DURATION
+		and duration <= PURGE_MAX_DURATION
 	then
 		return KIND_PURGE
 	end
