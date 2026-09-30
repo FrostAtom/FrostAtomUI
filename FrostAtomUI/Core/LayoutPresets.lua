@@ -47,6 +47,8 @@ ns.LayoutSettings = {
 	"raidFrames.growthY",
 	"groupCooldowns.friendlyGrowth",
 	"groupCooldowns.enemyGrowth",
+	"groupCooldowns.friendlyInterruptGrowth",
+	"groupCooldowns.enemyInterruptGrowth",
 	"chat.width",
 	"chat.height",
 	"minimap.size",

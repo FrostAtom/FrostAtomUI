@@ -38,11 +38,96 @@ local MICRO_BUTTONS = {
 
 local BACKPACK_SIZE = 32
 local BACKPACK_BORDER_SIZE = BACKPACK_SIZE * 64 / 36
-local MICRO_MENU_WIDTH = 252
+local MICRO_BUTTON_WIDTH = 28
+local MICRO_BUTTON_HEIGHT = 58
+local MICRO_BUTTON_SPACING = -3
 local MICRO_MENU_HEIGHT = 40
 
 local function detachTalentFrame()
 	PlayerTalentFrame:UnregisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
+end
+
+local microMenu, microMenuResize
+local microButtons = {}
+local microButtonIndex = {}
+
+local function microMenuWidth()
+	local count = max(#microButtons, 1)
+	return count * MICRO_BUTTON_WIDTH + (count - 1) * MICRO_BUTTON_SPACING
+end
+
+local function isMicroButton(frame)
+	if microButtonIndex[frame] or frame == microMenu or not frame:IsObjectType("Button") then
+		return false
+	end
+	local name = frame:GetName()
+	if name and name:find("MicroButton$") then
+		return true
+	end
+	return floor(frame:GetWidth() + 0.5) == MICRO_BUTTON_WIDTH and floor(frame:GetHeight() + 0.5) == MICRO_BUTTON_HEIGHT
+end
+
+local function addMicroButton(button)
+	local _, relativeTo = button:GetPoint(1)
+	local position = #microButtons + 1
+	for i, known in ipairs(microButtons) do
+		if known == relativeTo then
+			position = i + 1
+			break
+		end
+	end
+	table.insert(microButtons, position, button)
+	microButtonIndex[button] = true
+end
+
+local function collectMicroButtons(parent, found)
+	if not parent then
+		return
+	end
+	for _, child in ipairs({ parent:GetChildren() }) do
+		if isMicroButton(child) then
+			found[#found + 1] = child
+		end
+	end
+end
+
+local function layoutMicroMenu()
+	if InCombatLockdown() then
+		ActionBar:RegisterEvent("PLAYER_REGEN_ENABLED", layoutMicroMenu)
+		return
+	end
+	ActionBar:UnregisterEvent("PLAYER_REGEN_ENABLED", layoutMicroMenu)
+
+	local found = {}
+	collectMicroButtons(MainMenuBarArtFrame, found)
+	collectMicroButtons(VehicleMenuBarArtFrame, found)
+	collectMicroButtons(MainMenuBar, found)
+	collectMicroButtons(microMenu, found)
+	while #found > 0 do
+		local index = 1
+		for i, button in ipairs(found) do
+			local _, relativeTo = button:GetPoint(1)
+			if relativeTo and microButtonIndex[relativeTo] then
+				index = i
+				break
+			end
+		end
+		addMicroButton(tremove(found, index))
+	end
+
+	for i, button in ipairs(microButtons) do
+		if button:GetParent() ~= microMenu then
+			button:SetParent(microMenu)
+			button:Show()
+		end
+		button:ClearAllPoints()
+		button:SetPoint("BOTTOMLEFT", microMenu, "BOTTOMLEFT", (i - 1) * (MICRO_BUTTON_WIDTH + MICRO_BUTTON_SPACING), 0)
+	end
+
+	local width = microMenuWidth()
+	microMenu:SetSize(width, MICRO_MENU_HEIGHT)
+	microMenuResize.minWidth = width / 2
+	microMenuResize.maxWidth = width * 2
 end
 
 function ActionBar:HideBlizzard()
@@ -109,25 +194,27 @@ function ActionBar:HideBlizzard()
 		DestroyFrame(_G["CharacterBag" .. i .. "Slot"])
 	end
 
-	local microMenu = CreateFrame("Frame", "FrostAtomUIMicroMenu", UIParent)
-	microMenu:SetSize(MICRO_MENU_WIDTH, MICRO_MENU_HEIGHT)
+	microMenu = CreateFrame("Frame", "FrostAtomUIMicroMenu", UIParent)
+	microMenuResize = {
+		get = function()
+			return microMenuWidth() * ns.Config.actionBar.microMenuScale, MICRO_MENU_HEIGHT
+		end,
+		set = function(width)
+			ns:SetConfig("actionBar.microMenuScale", width / microMenuWidth())
+		end,
+	}
 	for _, name in ipairs(MICRO_BUTTONS) do
-		_G[name]:SetParent(microMenu)
+		local button = _G[name]
+		if button then
+			microButtons[#microButtons + 1] = button
+			microButtonIndex[button] = true
+		end
 	end
-	CharacterMicroButton:ClearAllPoints()
-	CharacterMicroButton:SetPoint("BOTTOMLEFT", microMenu, "BOTTOMLEFT", 0, 0)
+	layoutMicroMenu()
+	hooksecurefunc("UpdateMicroButtons", layoutMicroMenu)
 	self:AnchorToConfig(microMenu, "actionBar.microMenu", "Micro menu", {
 		secure = true,
-		resize = {
-			minWidth = MICRO_MENU_WIDTH / 2,
-			maxWidth = MICRO_MENU_WIDTH * 2,
-			get = function()
-				return MICRO_MENU_WIDTH * ns.Config.actionBar.microMenuScale, MICRO_MENU_HEIGHT
-			end,
-			set = function(width)
-				ns:SetConfig("actionBar.microMenuScale", width / MICRO_MENU_WIDTH)
-			end,
-		},
+		resize = microMenuResize,
 	})
 
 	MainMenuBarBackpackButton:SetParent(UIParent)

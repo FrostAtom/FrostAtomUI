@@ -906,6 +906,8 @@ ns.Defaults = {
 		enemyInterruptPoint = { "BOTTOMRIGHT", 0, 8, "groupCooldowns.enemyPoint", "TOPRIGHT" },
 		friendlyGrowth = "RIGHT",
 		enemyGrowth = "LEFT",
+		friendlyInterruptGrowth = "RIGHT",
+		enemyInterruptGrowth = "LEFT",
 		friendlyLayout = "frames",
 		enemyLayout = "frames",
 		friendlySeparateInterrupts = false,
@@ -919,16 +921,29 @@ ns.Defaults = {
 		arena1Point = { "TOPRIGHT", -4, 0, "unitFrames.arena", "BOTTOMLEFT" },
 		arena2Point = { "TOPRIGHT", -4, 0, "unitFrames.arena2", "BOTTOMLEFT" },
 		arena3Point = { "TOPRIGHT", -4, 0, "unitFrames.arena3", "BOTTOMLEFT" },
-		size = 24,
-		spacing = 2,
-		perRow = 6,
-		framePerRow = 10,
-		rowSpacing = 3,
+		friendlySize = 24,
+		friendlySpacing = 2,
+		friendlyPerRow = 6,
+		friendlyFramePerRow = 8,
+		friendlyRowSpacing = 3,
+		enemySize = 24,
+		enemySpacing = 2,
+		enemyPerRow = 6,
+		enemyFramePerRow = 8,
+		enemyRowSpacing = 3,
+		friendlyInterruptSize = 24,
+		friendlyInterruptSpacing = 2,
+		friendlyInterruptPerRow = 6,
+		friendlyInterruptRowSpacing = 3,
+		enemyInterruptSize = 24,
+		enemyInterruptSpacing = 2,
+		enemyInterruptPerRow = 6,
+		enemyInterruptRowSpacing = 3,
 		labels = true,
 		desaturate = true,
 		readyFlash = true,
 		glowColor = { 1, 0.85, 0.3 },
-		clickThrough = false,
+		clickThrough = true,
 		friendlyCategories = {
 			trinket = true,
 			defensive = true,
@@ -2021,6 +2036,39 @@ local function migrateUnitFrameCategories(profile, seed)
 	end
 end
 
+local GROUP_COOLDOWN_SPLIT_KEYS = {
+	size = { "friendlySize", "enemySize", "friendlyInterruptSize", "enemyInterruptSize" },
+	spacing = { "friendlySpacing", "enemySpacing", "friendlyInterruptSpacing", "enemyInterruptSpacing" },
+	perRow = { "friendlyPerRow", "enemyPerRow", "friendlyInterruptPerRow", "enemyInterruptPerRow" },
+	rowSpacing = { "friendlyRowSpacing", "enemyRowSpacing", "friendlyInterruptRowSpacing", "enemyInterruptRowSpacing" },
+	framePerRow = { "friendlyFramePerRow", "enemyFramePerRow" },
+}
+
+local function migrateGroupCooldownLayout(profile)
+	local config = profile.groupCooldowns
+	if not config then
+		return
+	end
+	local defaults = ns.Defaults.groupCooldowns
+	for old, targets in pairs(GROUP_COOLDOWN_SPLIT_KEYS) do
+		for _, key in ipairs(targets) do
+			setIfChanged(config, defaults, key, config[old])
+		end
+		config[old] = nil
+	end
+end
+
+local function migrateGroupCooldownInterruptGrowth(profile)
+	local config = profile.groupCooldowns
+	if not config then
+		return
+	end
+	local defaults = ns.Defaults.groupCooldowns
+	for _, side in ipairs({ "friendly", "enemy" }) do
+		setIfChanged(config, defaults, side .. "InterruptGrowth", config[side .. "Growth"])
+	end
+end
+
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
@@ -2030,6 +2078,7 @@ function migrate(profile)
 	migrateClassColorHealth(profile)
 	migrateNamePlateCategories(profile)
 	migrateUnitFrameCategories(profile)
+	migrateGroupCooldownLayout(profile)
 end
 
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
@@ -2055,6 +2104,9 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 		if not db.diminishArenaSizeMigrated then
 			migrateDiminishArenaSize(profile)
 		end
+		if not db.interruptGrowthMigrated then
+			migrateGroupCooldownInterruptGrowth(profile)
+		end
 		migrate(profile)
 	end
 	db.castbarLayoutMigrated = true
@@ -2062,6 +2114,7 @@ Config:RegisterEvent(ns.DB_LOADED, function(_, db)
 	db.unitFrameCategoriesMigrated = true
 	db.playerDebuffsMigrated = true
 	db.diminishArenaSizeMigrated = true
+	db.interruptGrowthMigrated = true
 	activate(db.charProfile[charKey()] or ns:GetDefaultProfile())
 	applyGeneral()
 	ns:Fire(ns.CONFIG_CHANGED)
