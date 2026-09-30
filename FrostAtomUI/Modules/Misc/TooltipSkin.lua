@@ -29,6 +29,10 @@ local BAR_INSET = 8
 local BAR_HEIGHT = 6
 local THIN_BAR_HEIGHT = 3
 local THIN_BAR_INSET = 4
+local INNER_BAR_LAYOUTS = {
+	inside = { inset = BAR_INSET, height = BAR_HEIGHT },
+	thin = { inset = THIN_BAR_INSET, height = THIN_BAR_HEIGHT },
+}
 local DEBUFF_OVERLAY = "Interface\\Buttons\\UI-Debuff-Overlays"
 
 local Skin = {}
@@ -113,18 +117,17 @@ local function skinTooltip(tooltip)
 end
 
 local function applyGradients()
-	for tooltip, state in pairs(states) do
+	for _, state in pairs(states) do
 		if state.gradient then
 			ns.SetShown(state.gradient, config.gradient)
 		end
 	end
 end
 
+-- Only registered as a config watcher while the skin is enabled.
 local function repaint()
 	for tooltip in pairs(states) do
-		if enabled then
-			paint(tooltip)
-		end
+		paint(tooltip)
 	end
 	applyGradients()
 end
@@ -159,14 +162,16 @@ local function skinMoney(tooltip)
 	end
 end
 
+local MENU_BACKDROPS = { "Backdrop", "MenuBackdrop" }
+
 local function skinMenus()
 	local menuBackdrop = ns.CreateBackdrop(14, 3)
+	local color, border = config.backdropColor, config.borderColor
 	for i = 1, UIDROPDOWNMENU_MAXLEVELS do
-		for _, suffix in ipairs({ "Backdrop", "MenuBackdrop" }) do
+		for _, suffix in ipairs(MENU_BACKDROPS) do
 			local frame = _G["DropDownList" .. i .. suffix]
 			if frame then
 				frame:SetBackdrop(menuBackdrop)
-				local color, border = config.backdropColor, config.borderColor
 				frame:SetBackdropColor(color[1], color[2], color[3], color[4])
 				frame:SetBackdropBorderColor(border[1], border[2], border[3])
 			end
@@ -206,26 +211,23 @@ end
 
 local healthBar = GameTooltipStatusBar
 
+function Skin.HealthBarMode()
+	return enabled and config.healthBar or "outside"
+end
+
 local function layoutHealthBar()
 	healthBar:ClearAllPoints()
-	local mode = enabled and config.healthBar or "outside"
-	if mode == "inside" then
-		healthBar:SetPoint("BOTTOMLEFT", GameTooltip, "BOTTOMLEFT", BAR_INSET, BAR_INSET)
-		healthBar:SetPoint("BOTTOMRIGHT", GameTooltip, "BOTTOMRIGHT", -BAR_INSET, BAR_INSET)
-		healthBar:SetHeight(BAR_HEIGHT)
-	elseif mode == "thin" then
-		healthBar:SetPoint("BOTTOMLEFT", GameTooltip, "BOTTOMLEFT", THIN_BAR_INSET, THIN_BAR_INSET)
-		healthBar:SetPoint("BOTTOMRIGHT", GameTooltip, "BOTTOMRIGHT", -THIN_BAR_INSET, THIN_BAR_INSET)
-		healthBar:SetHeight(THIN_BAR_HEIGHT)
+	local inner = INNER_BAR_LAYOUTS[Skin.HealthBarMode()]
+	if inner then
+		local inset = inner.inset
+		healthBar:SetPoint("BOTTOMLEFT", GameTooltip, "BOTTOMLEFT", inset, inset)
+		healthBar:SetPoint("BOTTOMRIGHT", GameTooltip, "BOTTOMRIGHT", -inset, inset)
+		healthBar:SetHeight(inner.height)
 	else
 		healthBar:SetPoint("TOPLEFT", GameTooltip, "BOTTOMLEFT", 2, -1)
 		healthBar:SetPoint("TOPRIGHT", GameTooltip, "BOTTOMRIGHT", -2, -1)
 		healthBar:SetHeight(8)
 	end
-end
-
-function Skin.HealthBarMode()
-	return enabled and config.healthBar or "outside"
 end
 
 local reserveKey = {}

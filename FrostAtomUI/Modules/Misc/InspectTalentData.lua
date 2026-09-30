@@ -68,7 +68,10 @@ ns.InspectTalentData = {
 	[1932] = { { "spellHit", 0, { 1, 2, 3 } } }, -- Virulence
 	[1934] = { { "stat", 0, { 1, 2, 3 } } }, -- Ravenous Dead
 	[1938] = { { "apFromArmor", 0, { 180, 90, 60, 45, 36 } } }, -- Bladed Armor
-	[1943] = { { "crit", 0, { 1, 2, 3, 4, 5 }, weapon = 173555 }, { "spellCrit", 0, { 1, 2, 3, 4, 5 }, weapon = 173555 } }, -- Dark Conviction
+	[1943] = {
+		{ "crit", 0, { 1, 2, 3, 4, 5 }, weapon = 173555 },
+		{ "spellCrit", 0, { 1, 2, 3, 4, 5 }, weapon = 173555 },
+	}, -- Dark Conviction
 	[1950] = { { "stat", 0, { 2, 4, 6 } }, { "stat", 2, { 1, 2, 3 } }, { "expertise", 0, { 2, 4, 6 } } }, -- Veteran of the Third War
 	[1968] = { { "armor", 0, { 2, 4, 6, 8, 10 } } }, -- Toughness
 	[1971] = { { "stat", 0, { 2, 4 } } }, -- Endless Winter

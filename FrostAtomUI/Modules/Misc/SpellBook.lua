@@ -772,7 +772,9 @@ local function createFilterCheck(filter, previous)
 		check:UnlockHighlight()
 	end)
 	click:SetScript("PostClick", function()
-		PlaySound(frame:GetAttribute(filter.attribute) and "igMainMenuOptionCheckBoxOn" or "igMainMenuOptionCheckBoxOff")
+		PlaySound(
+			frame:GetAttribute(filter.attribute) and "igMainMenuOptionCheckBoxOn" or "igMainMenuOptionCheckBoxOff"
+		)
 	end)
 	frame:WrapScript(click, "OnClick", FILTER_TOGGLE_SNIPPET:format(filter.attribute, filter.attribute))
 	return check
@@ -811,6 +813,8 @@ local function createToolbar()
 	frame.combatNote = combatNote
 end
 
+-- Widens the stock book art: each span is { file, texcoord from, texcoord to (px), on-screen size };
+-- the second span mirrors the first file's right part (texcoords run backwards) to fill the gap.
 local function artSpans(slice, lastSize)
 	return {
 		{ 1, 0, 256, 256 },
@@ -827,10 +831,11 @@ local function createArt()
 	portrait:SetPoint("TOPLEFT", 10, -8)
 
 	local files = { { "TopLeft", "TopRight" }, { "BotLeft", "BotRight" } }
+	local columns = artSpans(SLICE_X, 128)
 	local y = 0
 	for _, row in ipairs(artSpans(SLICE_Y, 256)) do
 		local x = 0
-		for _, column in ipairs(artSpans(SLICE_X, 128)) do
+		for _, column in ipairs(columns) do
 			local texture = frame:CreateTexture(nil, "ARTWORK")
 			texture:SetTexture(ART .. files[row[1]][column[1]])
 			local width = column[1] == 1 and 256 or 128

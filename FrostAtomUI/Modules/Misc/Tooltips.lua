@@ -69,6 +69,11 @@ local OWN_GUILD_HEX = "|cffe066ff"
 local GREY_HEX = "|cff999999"
 local STATUS_HEX = "|cffff9900"
 local DEAD_R, DEAD_G, DEAD_B = 0.5, 0.5, 0.5
+local OFFLINE_TAG = " " .. GREY_HEX .. "<" .. PLAYER_OFFLINE .. ">|r"
+local DEAD_TAG = " " .. GREY_HEX .. "<" .. DEAD .. ">|r"
+local AFK_TAG = " " .. STATUS_HEX .. CHAT_FLAG_AFK .. "|r"
+local DND_TAG = " " .. STATUS_HEX .. CHAT_FLAG_DND .. "|r"
+local CORPSE_TAG = GREY_HEX .. "(" .. CORPSE .. ")|r"
 local CLUTTER_LINES = { [PVP] = true, [PVP_ENABLED] = true, [FACTION_ALLIANCE] = true, [FACTION_HORDE] = true }
 local CLASSIFICATIONS = {
 	worldboss = "|cffff2020" .. BOSS .. "|r",
@@ -108,6 +113,22 @@ end
 for i = 1, MAX_RAID_MEMBERS do
 	RAID[i] = "raid" .. i
 	RAID_TARGETS[i] = RAID[i] .. "target"
+end
+
+-- Memoized "<unit>target" tokens, so tooltip updates do not build the string every time.
+local TARGET_OF = setmetatable({}, {
+	__index = function(self, unit)
+		local target = unit .. "target"
+		self[unit] = target
+		return target
+	end,
+})
+
+local function corner(top, left)
+	if top then
+		return left and "TOPLEFT" or "TOPRIGHT"
+	end
+	return left and "BOTTOMLEFT" or "BOTTOMRIGHT"
 end
 
 local labelHex
@@ -342,14 +363,9 @@ end
 
 local function anchorToOwner(tooltip, parent)
 	local top, left = screenHalves(parent)
-	local side = left and "LEFT" or "RIGHT"
 	tooltip:SetOwner(parent, "ANCHOR_NONE")
 	tooltip:ClearAllPoints()
-	if top then
-		tooltip:SetPoint("TOP" .. side, parent, "BOTTOM" .. side, 0, -4)
-	else
-		tooltip:SetPoint("BOTTOM" .. side, parent, "TOP" .. side, 0, 4)
-	end
+	tooltip:SetPoint(corner(top, left), parent, corner(not top, left), 0, top and -4 or 4)
 end
 
 hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
@@ -368,11 +384,10 @@ hooksecurefunc("GameTooltip_SetDefaultAnchor", function(tooltip, parent)
 			followCursor(tooltip, parent)
 		end
 	else
-		local top, left = screenHalves(anchor)
-		local corner = (top and "TOP" or "BOTTOM") .. (left and "LEFT" or "RIGHT")
+		local point = corner(screenHalves(anchor))
 		tooltip:SetOwner(parent, "ANCHOR_NONE")
 		tooltip:ClearAllPoints()
-		tooltip:SetPoint(corner, anchor, corner)
+		tooltip:SetPoint(point, anchor, point)
 	end
 end)
 
@@ -450,13 +465,13 @@ local function styleName(tooltip, unit, isPlayer)
 	nameParts[#nameParts + 1] = colorize(unit, name)
 	if isPlayer then
 		if not UnitIsConnected(unit) then
-			nameParts[#nameParts + 1] = " " .. GREY_HEX .. "<" .. PLAYER_OFFLINE .. ">|r"
+			nameParts[#nameParts + 1] = OFFLINE_TAG
 		elseif isDead(unit) then
-			nameParts[#nameParts + 1] = " " .. GREY_HEX .. "<" .. DEAD .. ">|r"
+			nameParts[#nameParts + 1] = DEAD_TAG
 		elseif config.showStatus and UnitIsAFK(unit) then
-			nameParts[#nameParts + 1] = " " .. STATUS_HEX .. CHAT_FLAG_AFK .. "|r"
+			nameParts[#nameParts + 1] = AFK_TAG
 		elseif config.showStatus and UnitIsDND(unit) then
-			nameParts[#nameParts + 1] = " " .. STATUS_HEX .. CHAT_FLAG_DND .. "|r"
+			nameParts[#nameParts + 1] = DND_TAG
 		end
 	end
 	title:SetText(tconcat(nameParts))
@@ -512,7 +527,7 @@ local function styleLevel(tooltip, unit, isPlayer)
 		addLevelPart(CLASSIFICATIONS[UnitClassification(unit)])
 		addLevelPart(UnitCreatureFamily(unit) or UnitCreatureType(unit))
 		if isDead(unit) then
-			addLevelPart(GREY_HEX .. "(" .. CORPSE .. ")|r")
+			addLevelPart(CORPSE_TAG)
 		end
 	end
 	local line = leftLine(tooltip, index)
@@ -678,8 +693,11 @@ local teamParts = {}
 
 local function addArenaTeams(tooltip, unit, guid)
 	local cached = arenaTeams[guid]
-	if not cached or GetTime() - cached.time > TEAMS_CACHE_TIME then
-		arenaTeams[guid] = { teams = cached and cached.teams, time = GetTime() }
+	if not cached then
+		arenaTeams[guid] = { time = GetTime() }
+		Inspect:Request(unit, nil, true)
+	elseif GetTime() - cached.time > TEAMS_CACHE_TIME then
+		cached.time = GetTime()
 		Inspect:Request(unit, nil, true)
 	end
 	local teams = cached and cached.teams
@@ -758,7 +776,7 @@ local function placeAura(icon, size, step, right, row, col, up)
 		icon.size = size
 		icon:SetSize(size, size)
 	end
-	local point = (up and "BOTTOM" or "TOP") .. (right and "RIGHT" or "LEFT")
+	local point = corner(not up, not right)
 	icon:ClearAllPoints()
 	icon:SetPoint(point, auraAnchor, point, right and -col * step or col * step, up and row * step or -row * step)
 end
@@ -857,7 +875,7 @@ local function watch(tooltip, unit, guid)
 	end
 	local owner = tooltip:GetOwner()
 	watcher.unit, watcher.guid = unit, guid
-	watcher.targetUnit = unit .. "target"
+	watcher.targetUnit = TARGET_OF[unit]
 	watcher.target = UnitGUID(watcher.targetUnit)
 	watcher.count, watcher.sum = 0, 0
 	if config.showTargetedBy then
@@ -945,7 +963,7 @@ local function onTooltipSetUnit(tooltip)
 		end
 	end
 
-	local target = unit .. "target"
+	local target = TARGET_OF[unit]
 	if config.showTarget and unit ~= "player" and UnitExists(target) then
 		local name = UnitIsUnit(target, "player") and L["|cffff0000<YOU>|r"] or colorize(target, UnitName(target))
 		tooltip:AddDoubleLine(L["Target"], name)
