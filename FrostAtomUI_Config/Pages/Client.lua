@@ -116,41 +116,29 @@ Section(schema, L["Camera"], "tweaks", {
 	},
 }, nil, nil, "camera")
 
-Section(schema, L["Camera distance presets"], "tweaks", {
+local cameraPresets = {
 	{
 		description = L["Keys that snap the camera to these distances. Also in Key Bindings > FrostAtomUI."],
 	},
-	{
-		path = "cameraDistanceClose",
-		label = L["Close camera distance"],
+}
+for _, preset in ipairs({
+	{ "Close", L["Close camera distance"], L["Distance the Close camera distance key binding snaps to."] },
+	{ "Medium", L["Medium camera distance"], L["Distance the Medium camera distance key binding snaps to."] },
+	{ "Far", L["Far camera distance"], L["Distance the Far camera distance key binding snaps to."] },
+}) do
+	cameraPresets[#cameraPresets + 1] = {
+		path = "cameraDistance" .. preset[1],
+		label = preset[2],
 		type = "number",
 		min = 0,
 		max = 50,
 		step = 1,
-		desc = L["Distance the Close camera distance key binding snaps to."],
-	},
-	cameraKey("FROSTATOMUI_CAMERA_CLOSE"),
-	{
-		path = "cameraDistanceMedium",
-		label = L["Medium camera distance"],
-		type = "number",
-		min = 0,
-		max = 50,
-		step = 1,
-		desc = L["Distance the Medium camera distance key binding snaps to."],
-	},
-	cameraKey("FROSTATOMUI_CAMERA_MEDIUM"),
-	{
-		path = "cameraDistanceFar",
-		label = L["Far camera distance"],
-		type = "number",
-		min = 0,
-		max = 50,
-		step = 1,
-		desc = L["Distance the Far camera distance key binding snaps to."],
-	},
-	cameraKey("FROSTATOMUI_CAMERA_FAR"),
-}, nil, nil, "magnifying-glass-plus")
+		desc = preset[3],
+	}
+	cameraPresets[#cameraPresets + 1] = cameraKey("FROSTATOMUI_CAMERA_" .. preset[1]:upper())
+end
+
+Section(schema, L["Camera distance presets"], "tweaks", cameraPresets, nil, nil, "magnifying-glass-plus")
 
 local function customMouseSpeedOff()
 	return FrostAtomUI:GetConfig("tweaks.mouseSpeedMode") ~= "custom"

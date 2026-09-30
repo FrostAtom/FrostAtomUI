@@ -191,6 +191,7 @@ Section(schema, L["FPS / latency"], "performance", {
 	},
 }, nil, nil, "gauge-high")
 
+-- Outside the section prefix, so inserted afterwards, right after Enable.
 tinsert(schema, #schema - 5, {
 	path = "performance",
 	label = L["Show"],

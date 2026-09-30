@@ -4,36 +4,22 @@ local L = FrostAtomUI.L
 
 local SHARED_LAYOUT = { "bags.buttonSize", "bags.spacing", "bags.padding" }
 
-ns.RegisterElement({
-	path = "bags.inventory",
-	page = "bags",
-	name = L["Inventory"],
-	glyph = "bag-shopping",
-	enabledBy = "bags.enabled",
-	layout = SHARED_LAYOUT,
-	schema = {
-		{
-			path = "bags.inventoryColumns",
-			label = L["Columns"],
-			type = "number",
-			min = 4,
-			max = 24,
-			step = 1,
+local function bagWindow(key, name, glyph)
+	ns.RegisterElement({
+		path = "bags." .. key,
+		page = "bags",
+		name = name,
+		glyph = glyph,
+		enabledBy = "bags.enabled",
+		layout = SHARED_LAYOUT,
+		schema = {
+			{ path = "bags." .. key .. "Columns", label = L["Columns"], type = "number", min = 4, max = 24, step = 1 },
 		},
-	},
-})
+	})
+end
 
-ns.RegisterElement({
-	path = "bags.bank",
-	page = "bags",
-	name = L["Bank"],
-	glyph = "building-columns",
-	enabledBy = "bags.enabled",
-	layout = SHARED_LAYOUT,
-	schema = {
-		{ path = "bags.bankColumns", label = L["Columns"], type = "number", min = 4, max = 24, step = 1 },
-	},
-})
+bagWindow("inventory", L["Inventory"], "bag-shopping")
+bagWindow("bank", L["Bank"], "building-columns")
 
 ns.RegisterPage({
 	key = "bags",

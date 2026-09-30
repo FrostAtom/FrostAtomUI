@@ -1,10 +1,9 @@
 local _, ns = ...
 
-local L = FrostAtomUI.L
+local ui = FrostAtomUI
+local L = ui.L
 
 local Section = ns.Section
-
-local ui = FrostAtomUI
 
 local function errorsHidden()
 	return ui:GetConfig("tweaks.hideErrors")
@@ -171,7 +170,14 @@ Section(schema, L["Merchant"], "merchant", {
 	},
 }, nil, nil, "coins")
 
-Section(schema, L["Equipment"], "equipment", {
+local QUALITY_TIERS = {
+	{ "uncommon", L["Average: green from"], L["Average item level colored by quality tier. Grey below this value."] },
+	{ "rare", L["Average: blue from"] },
+	{ "epic", L["Average: purple from"] },
+	{ "legendary", L["Average: orange from"] },
+}
+
+local equipmentEntries = {
 	{
 		path = "enabled",
 		label = L["Enable"],
@@ -200,72 +206,43 @@ Section(schema, L["Equipment"], "equipment", {
 		enabledBy = "equipment.showItemLevels",
 		desc = L["Average item level of the equipped gear on the character and inspect windows."],
 	},
-	{
-		path = "qualityThresholds.uncommon",
-		atMost = "equipment.qualityThresholds.rare",
-		label = L["Average: green from"],
+}
+for i, tier in ipairs(QUALITY_TIERS) do
+	local lower, higher = QUALITY_TIERS[i - 1], QUALITY_TIERS[i + 1]
+	equipmentEntries[#equipmentEntries + 1] = {
+		path = "qualityThresholds." .. tier[1],
+		atLeast = lower and "equipment.qualityThresholds." .. lower[1],
+		atMost = higher and "equipment.qualityThresholds." .. higher[1],
+		label = tier[2],
 		type = "number",
 		min = 1,
 		max = 400,
 		step = 1,
 		advanced = true,
 		enabledBy = "equipment.showItemLevels",
-		desc = L["Average item level colored by quality tier. Grey below this value."],
-	},
-	{
-		path = "qualityThresholds.rare",
-		atLeast = "equipment.qualityThresholds.uncommon",
-		atMost = "equipment.qualityThresholds.epic",
-		label = L["Average: blue from"],
-		type = "number",
-		min = 1,
-		max = 400,
-		step = 1,
-		advanced = true,
-		enabledBy = "equipment.showItemLevels",
-	},
-	{
-		path = "qualityThresholds.epic",
-		atLeast = "equipment.qualityThresholds.rare",
-		atMost = "equipment.qualityThresholds.legendary",
-		label = L["Average: purple from"],
-		type = "number",
-		min = 1,
-		max = 400,
-		step = 1,
-		advanced = true,
-		enabledBy = "equipment.showItemLevels",
-	},
-	{
-		path = "qualityThresholds.legendary",
-		atLeast = "equipment.qualityThresholds.epic",
-		label = L["Average: orange from"],
-		type = "number",
-		min = 1,
-		max = 400,
-		step = 1,
-		advanced = true,
-		enabledBy = "equipment.showItemLevels",
-	},
-	{
-		path = "durabilityWarning",
-		label = L["Durability warning"],
-		type = "toggle",
-		desc = L["Print a chat warning when gear durability gets low."],
-	},
-	{
-		path = "durabilityThreshold",
-		advanced = true,
-		label = L["Warn below"],
-		type = "number",
-		min = 0.05,
-		max = 0.9,
-		step = 0.05,
-		percent = true,
-		enabledBy = "equipment.durabilityWarning",
-		desc = L["Warn when any equipped item drops below this durability."],
-	},
-}, nil, nil, "shirt")
+		desc = tier[3],
+	}
+end
+equipmentEntries[#equipmentEntries + 1] = {
+	path = "durabilityWarning",
+	label = L["Durability warning"],
+	type = "toggle",
+	desc = L["Print a chat warning when gear durability gets low."],
+}
+equipmentEntries[#equipmentEntries + 1] = {
+	path = "durabilityThreshold",
+	advanced = true,
+	label = L["Warn below"],
+	type = "number",
+	min = 0.05,
+	max = 0.9,
+	step = 0.05,
+	percent = true,
+	enabledBy = "equipment.durabilityWarning",
+	desc = L["Warn when any equipped item drops below this durability."],
+}
+
+Section(schema, L["Equipment"], "equipment", equipmentEntries, nil, nil, "shirt")
 
 Section(schema, L["Character model"], "modelControls", {
 	{
@@ -298,52 +275,56 @@ Section(schema, L["Character model"], "modelControls", {
 	},
 }, nil, nil, "street-view")
 
-schema[#schema + 1] = { header = L["Blizzard windows"], glyph = "window-maximize" }
-schema[#schema + 1] = {
-	path = "macros.enabled",
-	new = "1.4.1",
-	label = L["Macro editor"],
-	type = "toggle",
-	reload = true,
-	desc = L["Replaces the /macro window: unlimited macros of any length, syntax and error highlighting, key bindings right in the window. /macro opens it."],
-}
-schema[#schema + 1] = {
-	path = "spellBook.enabled",
-	new = "1.4.1",
-	label = L["Spellbook"],
-	type = "toggle",
-	reload = true,
-	desc = L["Replaces the spellbook: every tab and the pet book in one wide window, four columns, search and a switch to hide passive abilities."],
-}
-schema[#schema + 1] = {
-	path = "talentFrame.enabled",
-	new = "1.4.1",
-	label = L["Talents"],
-	type = "toggle",
-	reload = true,
-	desc = L["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."],
-}
-schema[#schema + 1] = {
-	path = "inspectFrame.enabled",
-	new = "1.4.1",
-	label = L["Inspect"],
-	type = "toggle",
-	reload = true,
-	desc = L["Replaces the inspect window: gear with enchants, gems and missing ones, stats from gear, set bonuses, both talent specs, arena teams, honor, arena statistics and PvP achievements."],
-}
-schema[#schema + 1] = {
-	path = "wheelPaging.enabled",
-	label = L["Mouse wheel paging"],
-	type = "toggle",
-	desc = L["Scroll pages in the merchant, spellbook, mailbox, auction house and calendar with the mouse wheel."],
-}
-schema[#schema + 1] = {
-	path = "combatLogFix.enabled",
-	label = L["Fix stalled combat log"],
-	type = "toggle",
-	hidden = not FrostAtomUI.IS_WOWCIRCLE,
-	desc = L["Clear the combat log when it stops delivering events inside instances."],
-}
+for _, entry in ipairs({
+	{ header = L["Blizzard windows"], glyph = "window-maximize" },
+	{
+		path = "macros.enabled",
+		new = "1.4.1",
+		label = L["Macro editor"],
+		type = "toggle",
+		reload = true,
+		desc = L["Replaces the /macro window: unlimited macros of any length, syntax and error highlighting, key bindings right in the window. /macro opens it."],
+	},
+	{
+		path = "spellBook.enabled",
+		new = "1.4.1",
+		label = L["Spellbook"],
+		type = "toggle",
+		reload = true,
+		desc = L["Replaces the spellbook: every tab and the pet book in one wide window, four columns, search and a switch to hide passive abilities."],
+	},
+	{
+		path = "talentFrame.enabled",
+		new = "1.4.1",
+		label = L["Talents"],
+		type = "toggle",
+		reload = true,
+		desc = L["Replaces the talent window: all three trees side by side with glyphs next to them, dual spec, pet talents and preview."],
+	},
+	{
+		path = "inspectFrame.enabled",
+		new = "1.4.1",
+		label = L["Inspect"],
+		type = "toggle",
+		reload = true,
+		desc = L["Replaces the inspect window: gear with enchants, gems and missing ones, stats from gear, set bonuses, both talent specs, arena teams, honor, arena statistics and PvP achievements."],
+	},
+	{
+		path = "wheelPaging.enabled",
+		label = L["Mouse wheel paging"],
+		type = "toggle",
+		desc = L["Scroll pages in the merchant, spellbook, mailbox, auction house and calendar with the mouse wheel."],
+	},
+	{
+		path = "combatLogFix.enabled",
+		label = L["Fix stalled combat log"],
+		type = "toggle",
+		hidden = not ui.IS_WOWCIRCLE,
+		desc = L["Clear the combat log when it stops delivering events inside instances."],
+	},
+}) do
+	schema[#schema + 1] = entry
+end
 
 ns.RegisterPage({
 	key = "qol",

@@ -8,7 +8,7 @@ local Requires = ns.Requires
 local LOSS_OF_CONTROL = "lossOfControl.enabled"
 local EXTERNALS = "externalDefensives.enabled"
 
-local function toggleTestMode(moduleName)
+local function testModeToggle(moduleName)
 	return function()
 		local module = FrostAtomUI:GetModule(moduleName)
 		module:SetTestMode(not module:IsTesting())
@@ -50,7 +50,7 @@ ns.RegisterElement({
 			glyph = "flask",
 			enabledBy = LOSS_OF_CONTROL,
 			desc = L["Cycle through fake effects to preview the alert. /uftest toggles it too."],
-			func = toggleTestMode("LossOfControl"),
+			func = testModeToggle("LossOfControl"),
 		},
 	}),
 })
@@ -99,7 +99,7 @@ ns.RegisterElement({
 			glyph = "flask",
 			enabledBy = EXTERNALS,
 			desc = L["Show fake buffs to preview the layout. /uftest toggles it too."],
-			func = toggleTestMode("ExternalDefensives"),
+			func = testModeToggle("ExternalDefensives"),
 		},
 	}),
 })
@@ -240,7 +240,7 @@ local SOUND_VALUES = {
 	{ "WriteQuest", L["Quest update"] },
 }
 
-local function sound(path, label, enabledBy)
+local function soundSelect(path, label, enabledBy)
 	return {
 		path = path,
 		label = label,
@@ -295,7 +295,7 @@ Section(schema, L["Sound alerts"], "soundAlerts", {
 		enabledBy = "soundAlerts.targeted",
 		desc = L['Class colored "Targeted by" message in the error text area at the top of the screen.'],
 	},
-	sound("targetedSound", L["Targeted sound"], "soundAlerts.targeted"),
+	soundSelect("targetedSound", L["Targeted sound"], "soundAlerts.targeted"),
 }, nil, "1.4.0", "volume-high")
 
 Section(schema, L["Interrupt sounds"], "soundAlerts", {
@@ -313,14 +313,14 @@ Section(schema, L["Interrupt sounds"], "soundAlerts", {
 		enabledBy = "soundAlerts.interruptible",
 		desc = L["Also alert on interruptible casts of a hostile focus."],
 	},
-	sound("interruptibleSound", L["Interruptible cast sound"], "soundAlerts.interruptible"),
+	soundSelect("interruptibleSound", L["Interruptible cast sound"], "soundAlerts.interruptible"),
 	{
 		path = "interruptSuccess",
 		label = L["Your interrupt succeeded"],
 		type = "toggle",
 		desc = L["When you or your pet interrupt a cast."],
 	},
-	sound("interruptSuccessSound", L["Interrupt sound"], "soundAlerts.interruptSuccess"),
+	soundSelect("interruptSuccessSound", L["Interrupt sound"], "soundAlerts.interruptSuccess"),
 }, nil, nil, "hand")
 
 Section(schema, L["Dispel sounds"], "soundAlerts", {
@@ -343,7 +343,7 @@ Section(schema, L["Dispel sounds"], "soundAlerts", {
 		enabledBy = "soundAlerts.dispellable",
 		desc = L["Shorter debuffs are ignored."],
 	},
-	sound("dispellableSound", L["Dispellable debuff sound"], "soundAlerts.dispellable"),
+	soundSelect("dispellableSound", L["Dispellable debuff sound"], "soundAlerts.dispellable"),
 }, cannotDispel, nil, "wand-magic-sparkles")
 
 Section(schema, L["Queue invite"], "queueInvite", {

@@ -120,22 +120,18 @@ for i = 1, 6 do
 end
 
 local function addGroup(prefix, count, kind, shownPath)
+	local frameSize, castSize, shown = unitSize(prefix), castbarSize(prefix), enabled(shownPath)
 	for i = 1, count do
 		local path = "unitFrames." .. (i == 1 and prefix or prefix .. i)
-		ELEMENTS[#ELEMENTS + 1] = { path, kind, unitSize(prefix), enabled(shownPath) }
-		ELEMENTS[#ELEMENTS + 1] = {
-			"unitFrames." .. prefix .. i .. "Castbar",
-			"cast",
-			castbarSize(prefix),
-			enabled(shownPath),
-		}
+		ELEMENTS[#ELEMENTS + 1] = { path, kind, frameSize, shown }
+		ELEMENTS[#ELEMENTS + 1] = { "unitFrames." .. prefix .. i .. "Castbar", "cast", castSize, shown }
 	end
 end
 
 addGroup("party", 4, "friend", "unitFrames.showParty")
 addGroup("arena", 3, "enemy", "unitFrames.showArena")
 
-local tail = {
+for _, element in ipairs({
 	{ "playerPlate.point", "friend", nil, enabled("playerPlate.enabled") },
 	{ "unitFrames.playerCastbar", "cast", castbarSize("player") },
 	{ "unitFrames.targetCastbar", "cast", castbarSize("target"), enabled("unitFrames.showTargetCastbar") },
@@ -143,8 +139,7 @@ local tail = {
 	{ "unitFrames.player", "friend", unitSize("player") },
 	{ "unitFrames.target", "enemy", unitSize("target") },
 	{ "unitFrames.focus", "focus", unitSize("focus") },
-}
-for _, element in ipairs(tail) do
+}) do
 	ELEMENTS[#ELEMENTS + 1] = element
 end
 
@@ -242,8 +237,9 @@ local function drawThumbnail(thumb, preset)
 	end
 end
 
-local function thumbHeight()
-	return floor(THUMB_WIDTH * UIParent:GetHeight() / UIParent:GetWidth() + 0.5)
+local function cardHeight()
+	local thumbHeight = floor(THUMB_WIDTH * UIParent:GetHeight() / UIParent:GetWidth() + 0.5)
+	return thumbHeight + CARD_PADDING * 2 + NAME_HEIGHT
 end
 
 local function paintCard(card)
@@ -344,16 +340,16 @@ end
 
 local function galleryHeight()
 	local lines = ceil(#ui.Movers.GetPresets() / COLUMNS)
-	return lines * (thumbHeight() + CARD_PADDING * 2 + NAME_HEIGHT) + (lines - 1) * CARD_GAP + 4
+	return lines * cardHeight() + (lines - 1) * CARD_GAP + 4
 end
 
 local function buildGallery(row)
 	row:EnableMouse(false)
-	local cardHeight = thumbHeight() + CARD_PADDING * 2 + NAME_HEIGHT
+	local height = cardHeight()
 	row:SetHeight(galleryHeight())
 	row.cards = {}
 	for index, preset in ipairs(ui.Movers.GetPresets()) do
-		row.cards[index] = createCard(row, preset, index, cardHeight)
+		row.cards[index] = createCard(row, preset, index, height)
 	end
 end
 

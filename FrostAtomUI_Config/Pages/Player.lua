@@ -83,10 +83,12 @@ Section(schema, L["Totems"], "totems", {
 	ns.ClickThrough("clickThrough"),
 }, NotClass("SHAMAN"), nil, "monument")
 
-local enchantClickThrough = ns.ClickThrough("clickThrough")
-enchantClickThrough.disabled = function()
+local function enchantsInAuras()
 	return ui:GetConfig("temporaryEnchant.showInAuras") and ui:GetConfig("unitFrames.enabled")
 end
+
+local enchantClickThrough = ns.ClickThrough("clickThrough")
+enchantClickThrough.disabled = enchantsInAuras
 enchantClickThrough.disabledDesc = L["In the player buffs the enchants follow the click-through of the player buffs."]
 
 Section(schema, L["Weapon enchants"], "temporaryEnchant", {
@@ -298,9 +300,7 @@ ns.RegisterElement({
 	name = L["Weapon enchants"],
 	glyph = "wand-sparkles",
 	enabledBy = "temporaryEnchant.enabled",
-	disabled = function()
-		return ui:GetConfig("temporaryEnchant.showInAuras") and ui:GetConfig("unitFrames.enabled")
-	end,
+	disabled = enchantsInAuras,
 	schema = ElementSchema("temporaryEnchant", {
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },
