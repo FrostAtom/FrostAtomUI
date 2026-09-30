@@ -15,7 +15,6 @@ local DEAD, AFK, DND, OFFLINE = DEAD, AFK, DND, FRIENDS_LIST_OFFLINE
 local FormatValue = ns.FormatValue
 local TruncateUTF8 = ns.TruncateUTF8
 local ColorGradient = ns.ColorGradient
-local config = ns.Config.unitFrames
 
 local HP_GRADIENT = { 1, 0.2, 0.2, 1, 0.85, 0.2, 0.3, 1, 0.3 }
 local REACTION_COLORS = { hostile = { 1, 0.3, 0.3 }, neutral = { 1, 0.85, 0.3 }, friendly = { 0.3, 1, 0.3 } }
@@ -301,30 +300,10 @@ function UF.CheckTag(body)
 	end
 end
 
-local TEXT_KEYS = { left = "leftText", right = "rightText", power = "powerText" }
-local HOVER_KEYS = { left = "leftTextHover", right = "rightTextHover", power = "powerTextHover" }
-
-local function textTemplate(frame, fontString, side)
-	local template = fontString.template
-	if template then
-		return template
-	end
-	if frame.hovered then
-		local hover = config[HOVER_KEYS[side]]
-		if hover ~= "" then
-			return hover
-		end
-	end
-	return config[TEXT_KEYS[side]]
+function UF.TemplateUses(template, key)
+	return compiled[template][key]
 end
 
-function UF.UpdateText(frame, fontString, side)
-	fontString:SetText(renderTags(textTemplate(frame, fontString, side), frame.unit, frame.test))
-end
-
-function UF.UpdateTextIfUses(frame, fontString, side, key)
-	local template = textTemplate(frame, fontString, side)
-	if compiled[template][key] then
-		fontString:SetText(renderTags(template, frame.unit, frame.test))
-	end
+function UF.UpdateText(frame, fontString)
+	fontString:SetText(renderTags(fontString.template, frame.unit, frame.test))
 end

@@ -40,9 +40,13 @@ local function setPlaceholder(health, setValue, fill, text)
 	health:SetMinMaxValues(0, 1)
 	setValue(health, fill)
 	health.colorClass = nil
-	health.text:SetText(text)
+	health.placeholder = text
+	if health.text then
+		health.text:SetText(text)
+	end
 	health.lastCurrent = nil
 	Prediction.SetValues(health, 0, 0, false)
+	UF.UpdateTexts(health:GetParent(), "health")
 end
 
 local function setDead(health, setValue)
@@ -84,18 +88,14 @@ local function setAlive(health, setValue, current, max, class)
 		health.colorClass = nil
 		setColor(health, HealthColor(max > 0 and current / max or 0))
 	end
+	health.placeholder = nil
 	local frame = health:GetParent()
 	if frame.UpdateHealthText then
 		frame:UpdateHealthText(current, max)
-	else
-		UF.UpdateText(frame, health.text, "right")
+	elseif health.text then
+		UF.UpdateText(frame, health.text)
 	end
-	if frame.name then
-		UF.UpdateTextIfUses(frame, frame.name, "left", "health")
-	end
-	if frame.power then
-		UF.UpdateTextIfUses(frame, frame.power.text, "power", "health")
-	end
+	UF.UpdateTexts(frame, "health")
 end
 
 local function update(frame)
@@ -186,10 +186,6 @@ local function create(frame)
 	health.cutaway:Hide()
 
 	Prediction.CreateBars(health)
-
-	health.text = health:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(health.text, config.textFont.size, config.textFont.outline)
-	health.text:SetTextColor(unpack(UF.textColor))
 
 	health:SetScript("OnUpdate", onUpdate)
 	frame:RegisterUnitEvent("UNIT_MAXHEALTH", update)

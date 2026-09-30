@@ -16,7 +16,7 @@ local GetNumArenaOpponents = GetNumArenaOpponents
 local GetNumPartyMembers = GetNumPartyMembers
 local UNKNOWNOBJECT = UNKNOWNOBJECT
 local MAX_BATTLEFIELD_QUEUES = MAX_BATTLEFIELD_QUEUES or 2
-local min, floor = math.min, math.floor
+local min = math.min
 
 local Talents = ns:GetModule("Talents")
 
@@ -52,7 +52,6 @@ local function createBar(ghost)
 	bar.bg = bar:CreateTexture(nil, "BORDER")
 	bar.bg:SetAllPoints()
 	bar.bg:SetTexture(ns.Media.blank)
-	bar.text = bar:CreateFontString(nil, "OVERLAY")
 	return bar
 end
 
@@ -89,12 +88,9 @@ local function layout(ghost)
 	ghost.stealth:SetSize(height, height)
 	UF.SetBackdropColors(ghost)
 
-	local font = config.textFont
 	local texts = ghost.texts
 	for i = 1, #texts do
-		local text = texts[i]
-		ns.SetFont(text, font.size, font.outline)
-		text:SetTextColor(unpack(config.textColor))
+		UF.StyleText(texts[i])
 	end
 end
 
@@ -113,6 +109,16 @@ local function setBarValue(bar, current, max)
 	bar:SetValue(current)
 end
 
+local function renderTexts(ghost, info, health, healthMax, power, powerMax)
+	local data = ghost.data
+	data.name = info.name or ""
+	data.class = info.class
+	data.dead = info.dead
+	data.health, data.healthMax = health, healthMax
+	data.power, data.powerMax = power, powerMax
+	UF.UpdateTexts(ghost, nil, data)
+end
+
 local function renderPrep(ghost, info)
 	local health, power = ghost.health, ghost.power
 	ghost:SetAlpha(1)
@@ -123,9 +129,11 @@ local function renderPrep(ghost, info)
 	else
 		setGrey(health)
 	end
-	health.text:SetText(nil)
+	health.placeholder = ""
 	setBarValue(power, 1, 1)
 	setGrey(power)
+	power.empty = true
+	renderTexts(ghost, info, 0, 0, 0, 0)
 	ghost.stealth:Hide()
 end
 
@@ -134,26 +142,31 @@ local function renderUnseen(ghost, info)
 	ghost:SetAlpha(ns.Config.arenaUnseen.alpha)
 
 	local healthMax = info.healthMax or 0
+	local current = 0
 	if info.dead then
 		setBarValue(health, 0, 1)
-		health.text:SetText(L["RIP"])
+		health.placeholder = L["RIP"]
 	elseif healthMax > 0 then
-		local current = min(info.health or healthMax, healthMax)
+		current = min(info.health or healthMax, healthMax)
 		setBarValue(health, current, healthMax)
-		health.text:SetFormattedText("%d%%", floor(current / healthMax * 100 + 0.5))
+		health.placeholder = nil
 	else
 		setBarValue(health, 1, 1)
-		health.text:SetText(nil)
+		health.placeholder = ""
 	end
 	setGrey(health)
 
 	local powerMax = info.powerMax or 0
-	if powerMax > 0 and not info.dead then
-		setBarValue(power, min(info.power or 0, powerMax), powerMax)
-	else
+	local powerCurrent = 0
+	power.empty = powerMax <= 0 or info.dead
+	if power.empty then
 		setBarValue(power, 0, 1)
+	else
+		powerCurrent = min(info.power or 0, powerMax)
+		setBarValue(power, powerCurrent, powerMax)
 	end
 	setGrey(power)
+	renderTexts(ghost, info, current, healthMax, powerCurrent, powerMax)
 	ghost.stealth:Show()
 end
 
@@ -168,7 +181,6 @@ local function render(ghost)
 	local info = ghost.info
 	layout(ghost)
 	setClassIcon(ghost, info.class, info.spec or (info.guid and Talents:GetSpec(info.guid)))
-	ghost.name:SetText(info.name)
 	if state == "prep" then
 		renderPrep(ghost, info)
 	else
@@ -239,7 +251,7 @@ local function snapshot(ghost)
 	local frame, info = ghost.frame, ghost.info
 	local health, power = frame.health, frame.power
 	local _, healthMax = health:GetMinMaxValues()
-	info.dead = health.text:GetText() == L["RIP"] or UnitIsDeadOrGhost(ghost.unit) and true or false
+	info.dead = health.placeholder == L["RIP"] or UnitIsDeadOrGhost(ghost.unit) and true or false
 	if health.lastCurrent then
 		info.health = health.lastCurrent
 		info.healthMax = healthMax
@@ -311,12 +323,10 @@ local function create(frame)
 	ghost.info = {}
 
 	local health = createBar(ghost)
-	health.text:SetPoint("BOTTOMRIGHT")
 	ghost.health = health
 
 	local power = createBar(ghost)
 	power:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT")
-	power.text:SetPoint("RIGHT")
 	ghost.power = power
 
 	local classicon = CreateFrame("Frame", nil, ghost)
@@ -324,11 +334,8 @@ local function create(frame)
 	classicon.texture:SetAllPoints()
 	ghost.classicon = classicon
 
-	local name = ghost:CreateFontString(nil, "OVERLAY")
-	name:SetJustifyH("RIGHT")
-	name:SetPoint("BOTTOMLEFT", health)
-	ghost.name = name
-	ghost.texts = { health.text, power.text, name }
+	ghost.texts = UF.CreateTexts(ghost)
+	ghost.data = {}
 
 	local stealth = createIcon(UIParent, STEALTH_ICON)
 	stealth:SetFrameStrata(frame:GetFrameStrata())

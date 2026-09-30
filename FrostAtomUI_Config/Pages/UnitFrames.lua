@@ -1,6 +1,7 @@
 local _, ns = ...
 
-local L = FrostAtomUI.L
+local ui = FrostAtomUI
+local L = ui.L
 
 local function size(path, label, min, max, desc, enabledBy)
 	return {
@@ -91,11 +92,110 @@ local function validateTags(template)
 	return true
 end
 
-local function text(path, label, desc)
+local TEXT_POINTS = {
+	health = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" },
+	power = { "LEFT", "RIGHT" },
+}
+local selectedTextPoints = {}
+
+local function textSlots(bar)
+	return ui.Config.unitFrames[bar .. "Texts"]
+end
+
+local function defaultTextSlots(bar)
+	return ui.Defaults.unitFrames[bar .. "Texts"]
+end
+
+local function hasText(slot)
+	return slot.text ~= "" or slot.hover ~= ""
+end
+
+local function selectedTextPoint(bar)
+	local point = selectedTextPoints[bar]
+	if point then
+		return point
+	end
+	local points, slots = TEXT_POINTS[bar], textSlots(bar)
+	point = points[1]
+	for _, candidate in ipairs(points) do
+		if hasText(slots[candidate]) then
+			point = candidate
+			break
+		end
+	end
+	selectedTextPoints[bar] = point
+	return point
+end
+
+local function describeTextPoint(bar, point)
+	local slot = textSlots(bar)[point]
+	if not hasText(slot) then
+		return L["No text"]
+	end
+	local lines = {}
+	if slot.text ~= "" then
+		lines[#lines + 1] = slot.text
+	end
+	if slot.hover ~= "" then
+		lines[#lines + 1] = L["Mouseover: %s"]:format(slot.hover)
+	end
+	return table.concat(lines, "\n")
+end
+
+local function isDefaultTexts(bar)
+	local slots, defaults = textSlots(bar), defaultTextSlots(bar)
+	for _, point in ipairs(TEXT_POINTS[bar]) do
+		local slot, default = slots[point], defaults[point]
+		if slot.text ~= default.text or slot.hover ~= default.hover then
+			return false
+		end
+	end
+	return true
+end
+
+local function textPoint(bar, label, desc)
 	return {
-		path = path,
+		label = label,
+		type = "anchor",
+		desc = desc,
+		points = TEXT_POINTS[bar],
+		get = function()
+			return selectedTextPoint(bar)
+		end,
+		set = function(point)
+			local focus = GetCurrentKeyBoardFocus()
+			if focus and focus.editing then
+				focus:ClearFocus()
+			end
+			selectedTextPoints[bar] = point
+			ns.RefreshPage()
+		end,
+		marked = function(point)
+			return hasText(textSlots(bar)[point])
+		end,
+		describe = function(point)
+			return describeTextPoint(bar, point)
+		end,
+		isDefault = function()
+			return isDefaultTexts(bar)
+		end,
+		reset = function()
+			ui:ResetConfig(uf(bar .. "Texts"))
+		end,
+	}
+end
+
+local function textField(bar, field, label, desc)
+	local function path()
+		return uf(("%sTexts.%s.%s"):format(bar, selectedTextPoint(bar), field))
+	end
+	local function default()
+		return defaultTextSlots(bar)[selectedTextPoint(bar)][field]
+	end
+	return {
 		label = label,
 		type = "string",
+		indent = true,
 		width = 220,
 		maxLetters = 120,
 		desc = desc,
@@ -103,6 +203,30 @@ local function text(path, label, desc)
 		modifiers = TAG_MODIFIERS,
 		render = renderTags,
 		validate = validateTags,
+		get = function()
+			return ui:GetConfig(path())
+		end,
+		set = function(value)
+			ui:SetConfig(path(), value)
+		end,
+		isDefault = function()
+			return ui:GetConfig(path()) == default()
+		end,
+		reset = function()
+			ui:ResetConfig(path())
+		end,
+		defaultText = function()
+			local value = default()
+			return value == "" and L["(empty)"] or ('"%s"'):format(value)
+		end,
+	}
+end
+
+local function textEntries(bar, label, desc)
+	return {
+		textPoint(bar, label, desc),
+		textField(bar, "text", L["Text"], L["Empty: no text at this point."]),
+		textField(bar, "hover", L["Text (mouseover)"], L["Empty to keep the text on mouseover."]),
 	}
 end
 
@@ -1011,7 +1135,7 @@ registerElement({
 	schema = bossSchema(),
 })
 
-local function generalSchema()
+local function generalSettings()
 	return {
 		{ header = L["General"], glyph = "gear" },
 		{
@@ -1229,12 +1353,11 @@ local function generalSchema()
 			desc = L["Name, health and power text."],
 		},
 		{ path = "unitFrames.castbarFont", label = L["Castbar font"], type = "font" },
-		text("unitFrames.leftText", L["Left text"], L["Bottom-left of the health bar."]),
-		text("unitFrames.leftTextHover", L["Left text (mouseover)"], L["Empty to keep the left text on mouseover."]),
-		text("unitFrames.rightText", L["Right text"], L["Bottom-right of the health bar."]),
-		text("unitFrames.rightTextHover", L["Right text (mouseover)"], L["Empty to keep the right text on mouseover."]),
-		text("unitFrames.powerText", L["Power text"], L["Right side of the power bar."]),
-		text("unitFrames.powerTextHover", L["Power text (mouseover)"], L["Empty to keep the power text on mouseover."]),
+	}
+end
+
+local function colorSettings()
+	return {
 		{ header = L["Colors"], glyph = "palette", advanced = true },
 		{ path = "unitFrames.textColor", label = L["Text"], type = "color" },
 		{ path = "unitFrames.backdropColor", label = L["Backdrop"], type = "color", alpha = true },
@@ -1314,6 +1437,23 @@ local function generalSchema()
 			desc = L["Also used by nameplates."],
 		},
 	}
+end
+
+local function generalSchema()
+	return concat(
+		generalSettings(),
+		textEntries(
+			"health",
+			L["Health bar texts"],
+			L["Pick a point of the health bar to edit its text; points with a text are green. Each text is aligned to its point and grows away from it."]
+		),
+		textEntries(
+			"power",
+			L["Power bar texts"],
+			L["Pick a side of the power bar to edit its text; sides with a text are green."]
+		),
+		colorSettings()
+	)
 end
 
 local RECT_COPY = { "Width", "Height", "IconSide", "CastbarWidth", "CastbarHeight" }

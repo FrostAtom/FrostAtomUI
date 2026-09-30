@@ -207,13 +207,13 @@ local function setupButton(frame)
 	health:SetScript("OnUpdate", nil)
 	health.SetValue = health.SnapValue
 	health.noCutaway = true
+	health.text = UF.CreateText(health)
 	health.text:SetPoint("BOTTOMLEFT", 2, 1)
 	frame.UpdateHealthText = updateHealthText
 
 	local power = UF:AddElement(frame, "power")
 	power:SetScript("OnUpdate", nil)
 	power.SetValue = power.SnapValue
-	power.text.template = ""
 	power:SetPoint("TOPLEFT", health, "BOTTOMLEFT")
 	power:SetPoint("BOTTOMRIGHT", -INSET, INSET)
 

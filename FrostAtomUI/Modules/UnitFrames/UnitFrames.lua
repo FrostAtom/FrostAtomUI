@@ -76,6 +76,17 @@ function UF.SkinIcon(icon, texture)
 	icon.border:SetAllPoints()
 end
 
+function UF.StyleText(text)
+	ns.SetFont(text, config.textFont.size, config.textFont.outline)
+	text:SetTextColor(unpack(UF.textColor))
+end
+
+function UF.CreateText(parent)
+	local text = parent:CreateFontString(nil, "OVERLAY")
+	UF.StyleText(text)
+	return text
+end
+
 function UF.SetBackdropColors(frame)
 	frame:SetBackdropColor(unpack(config.backdropColor))
 	frame:SetBackdropBorderColor(unpack(config.borderColor))
@@ -484,20 +495,11 @@ function UF.SetPollingActive(active)
 	ns.SetShown(poller, active)
 end
 
-local TEXT_ELEMENTS = { "health", "power", "name" }
-
 local function setHovered(frame, hovered)
 	frame.hovered = hovered
 	ns.SetShown(frame.hover, hovered and config.hoverHighlight)
-	local method = frame.test and "test" or frame:IsShown() and "update"
-	if not method then
-		return
-	end
-	for i = 1, #TEXT_ELEMENTS do
-		local key = TEXT_ELEMENTS[i]
-		if frame[key] then
-			elements[key][method](frame)
-		end
+	if frame.test or frame:IsShown() then
+		UF.UpdateTexts(frame)
 	end
 end
 
@@ -585,13 +587,16 @@ function UF:ApplyColors()
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
 		UF.SetBackdropColors(frame)
-		for j = 1, #TEXT_ELEMENTS do
-			local key = TEXT_ELEMENTS[j]
-			local element = frame[key]
-			local text = element and (element.text or (key == "name" and element))
-			if text then
-				text:SetTextColor(unpack(config.textColor))
-				ns.SetFont(text, config.textFont.size, config.textFont.outline)
+		if frame.health.text then
+			UF.StyleText(frame.health.text)
+		end
+		if frame.name then
+			UF.StyleText(frame.name)
+		end
+		local texts = frame.texts
+		if texts then
+			for j = 1, #texts do
+				UF.StyleText(texts[j])
 			end
 		end
 		local castbar = frame.castbar
@@ -675,11 +680,9 @@ function UF:CreateRectangle(unit, width, height, iconSide, parent)
 	frame.innerHeight = height - BORDER_INSET * 2
 
 	local health = self:AddElement(frame, "health")
-	health.text:SetPoint("BOTTOMRIGHT")
 
 	local power = self:AddElement(frame, "power")
 	power:SetPoint("TOPRIGHT", health, "BOTTOMRIGHT")
-	power.text:SetPoint("RIGHT")
 
 	frame:SetContentInset(0)
 
@@ -688,9 +691,7 @@ function UF:CreateRectangle(unit, width, height, iconSide, parent)
 		frame:SetIconSide(iconSide)
 	end
 
-	local name = self:AddElement(frame, "name")
-	name:SetJustifyH("RIGHT")
-	name:SetPoint("BOTTOMLEFT", health)
+	self:AddElement(frame, "texts")
 
 	local combat = self:AddElement(frame, "combat")
 	if frame.classicon then
@@ -716,6 +717,7 @@ function UF:CreateSquare(unit, size, parent)
 	local health = self:AddElement(frame, "health")
 	health:SetPoint("TOPRIGHT", -BORDER_INSET, -BORDER_INSET)
 	health:SetPoint("BOTTOMLEFT", BORDER_INSET, BORDER_INSET)
+	health.text = UF.CreateText(health)
 	health.text:SetPoint("CENTER")
 	health.text.template = "[curhp]"
 
@@ -730,7 +732,6 @@ function UF:CreatePet(unit, size, parent)
 	frame.innerHeight = size - BORDER_INSET * 2
 	local power = self:AddElement(frame, "power")
 	power:SetPoint("TOPRIGHT", frame.health, "BOTTOMRIGHT")
-	power.text.template = ""
 	frame:SetContentInset(0)
 
 	if not isArenaUnit(frame.ownerUnit) then

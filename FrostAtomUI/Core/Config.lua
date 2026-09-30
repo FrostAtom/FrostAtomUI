@@ -390,12 +390,21 @@ ns.Defaults = {
 		castbarFinishFlash = true,
 		textFont = { size = 10, outline = "OUTLINE" },
 		castbarFont = { size = 12, outline = "OUTLINE" },
-		leftText = "[name]",
-		leftTextHover = "",
-		rightText = "[curhp]",
-		rightTextHover = "[curhp] / [maxhp]",
-		powerText = "",
-		powerTextHover = "[curpp] / [maxpp]",
+		healthTexts = {
+			TOPLEFT = { text = "", hover = "" },
+			TOP = { text = "", hover = "" },
+			TOPRIGHT = { text = "", hover = "" },
+			LEFT = { text = "", hover = "" },
+			CENTER = { text = "", hover = "" },
+			RIGHT = { text = "", hover = "" },
+			BOTTOMLEFT = { text = "[name]", hover = "" },
+			BOTTOM = { text = "", hover = "" },
+			BOTTOMRIGHT = { text = "[curhp]", hover = "[curhp] / [maxhp]" },
+		},
+		powerTexts = {
+			LEFT = { text = "", hover = "" },
+			RIGHT = { text = "", hover = "[curpp] / [maxpp]" },
+		},
 		showClassIcon = true,
 		classIconStyle = "spec",
 		playerIconSide = "LEFT",
@@ -2116,6 +2125,36 @@ local function migrateLoseControl(profile)
 	end
 end
 
+local UNIT_FRAME_TEXT_KEYS = {
+	leftText = { "healthTexts", "BOTTOMLEFT", "text" },
+	leftTextHover = { "healthTexts", "BOTTOMLEFT", "hover" },
+	rightText = { "healthTexts", "BOTTOMRIGHT", "text" },
+	rightTextHover = { "healthTexts", "BOTTOMRIGHT", "hover" },
+	powerText = { "powerTexts", "RIGHT", "text" },
+	powerTextHover = { "powerTexts", "RIGHT", "hover" },
+}
+
+local function migrateUnitFrameTexts(profile)
+	local unitFrames = profile.unitFrames
+	if not unitFrames then
+		return
+	end
+	for old, target in pairs(UNIT_FRAME_TEXT_KEYS) do
+		local value = unitFrames[old]
+		if value ~= nil then
+			unitFrames[old] = nil
+			local group, point, field = target[1], target[2], target[3]
+			local texts = unitFrames[group] or {}
+			local slot = texts[point] or {}
+			setIfChanged(slot, ns.Defaults.unitFrames[group][point], field, value)
+			if next(slot) then
+				texts[point] = slot
+				unitFrames[group] = texts
+			end
+		end
+	end
+end
+
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
@@ -2127,6 +2166,7 @@ function migrate(profile)
 	migrateUnitFrameCategories(profile)
 	migrateGroupCooldownLayout(profile)
 	migrateLoseControl(profile)
+	migrateUnitFrameTexts(profile)
 end
 
 local function seedUnitFrameCategories(profile)

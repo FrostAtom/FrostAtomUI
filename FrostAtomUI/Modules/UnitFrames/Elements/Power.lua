@@ -28,18 +28,8 @@ local function setPower(power, setValue, current, max, powerType)
 		local color = powerColors[powerType]
 		setBarColor(power, color[1], color[2], color[3])
 	end
-	local frame = power:GetParent()
-	if max > 0 then
-		UF.UpdateText(frame, power.text, "power")
-	else
-		power.text:SetText(nil)
-	end
-	if frame.name then
-		UF.UpdateTextIfUses(frame, frame.name, "left", "power")
-	end
-	if frame.health.lastCurrent then
-		UF.UpdateTextIfUses(frame, frame.health.text, "right", "power")
-	end
+	power.empty = max <= 0
+	UF.UpdateTexts(power:GetParent(), "power")
 end
 
 local function update(frame)
@@ -59,7 +49,8 @@ local function update(frame)
 		setValue(power, 0)
 		power.colorType = nil
 		power.bg:SetVertexColor(frame:GetBackdropColor())
-		power.text:SetText(nil)
+		power.empty = true
+		UF.UpdateTexts(frame, "power")
 	else
 		setPower(power, setValue, UnitPower(unit), UnitPowerMax(unit), UnitPowerType(unit))
 	end
@@ -89,10 +80,6 @@ local function create(frame)
 	power.bg = power:CreateTexture(nil, "BORDER")
 	power.bg:SetAllPoints()
 	power.bg:SetTexture(ns.Media.blank)
-
-	power.text = power:CreateFontString(nil, "OVERLAY")
-	ns.SetFont(power.text, config.textFont.size, config.textFont.outline)
-	power.text:SetTextColor(unpack(UF.textColor))
 
 	power:SetScript("OnUpdate", onUpdate)
 	for i = 1, #POWER_CHANGE_EVENTS do

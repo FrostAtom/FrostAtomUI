@@ -934,7 +934,11 @@ do
 
 	function changes.DefaultText(entry)
 		if entry.defaultText or not tracks(entry) or entry.isDefault then
-			return entry.defaultText
+			local text = entry.defaultText
+			if type(text) == "function" then
+				return text()
+			end
+			return text
 		end
 		local kind = entry.type
 		if kind == "multiselect" then
