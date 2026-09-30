@@ -56,7 +56,7 @@ end
 local function namePlateDefaults(healthColorMode, healthColor, nameColorMode, arenaIconSize)
 	return {
 		arenaIcon = false,
-		arenaPetIcon = false,
+		arenaPetIcon = true,
 		arenaIconSize = arenaIconSize,
 		width = 110,
 		height = 12,
@@ -399,6 +399,7 @@ ns.Defaults = {
 		showArenaTarget = false,
 		showLoseControl = true,
 		rightClick = "menu",
+		middleClick = "focus",
 		hoverHighlight = true,
 		hoverAlpha = 0.08,
 		healthCutaway = true,
@@ -455,7 +456,7 @@ ns.Defaults = {
 
 	raidFrames = {
 		enabled = true,
-		point = { "TOPRIGHT", -130, -250 },
+		point = { "BOTTOMLEFT", 0, 30, "chat.point", "TOPLEFT" },
 		showInBattleground = true,
 		showInRaid = true,
 		showInParty = false,
@@ -468,7 +469,7 @@ ns.Defaults = {
 		columns = 8,
 		orientation = "horizontal",
 		growthX = "RIGHT",
-		growthY = "DOWN",
+		growthY = "UP",
 		sort = "group",
 		classColor = true,
 		healthText = "none",
@@ -594,6 +595,8 @@ ns.Defaults = {
 		healerCrossSize = 28,
 		healerThreshold = 2,
 		healerClasses = { PRIEST = true, PALADIN = true, SHAMAN = true, DRUID = true },
+		comboPoints = true,
+		comboPointSize = 8,
 	},
 
 	playerPlate = {
@@ -866,7 +869,7 @@ ns.Defaults = {
 		timingMethod = "",
 		muteArmorFoley = false,
 		soundAtHead = false,
-		worldStatePoint = { "TOP", 0, -40 },
+		worldStatePoint = { "BOTTOMLEFT", -6, 30, "chat.point", "TOPLEFT" },
 	},
 
 	popups = {
@@ -891,7 +894,7 @@ ns.Defaults = {
 		backgroundAlpha = 0.6,
 	},
 
-	arenaTrinket = { enabled = true, party = true, size = 30 },
+	arenaTrinket = { size = 30 },
 
 	groupCooldowns = {
 		enabled = true,
@@ -899,11 +902,27 @@ ns.Defaults = {
 		enemy = true,
 		friendlyPoint = { "BOTTOMLEFT", -370, 190, nil, "BOTTOM" },
 		enemyPoint = { "BOTTOMRIGHT", 370, 190, nil, "BOTTOM" },
+		friendlyInterruptPoint = { "BOTTOMLEFT", 0, 8, "groupCooldowns.friendlyPoint", "TOPLEFT" },
+		enemyInterruptPoint = { "BOTTOMRIGHT", 0, 8, "groupCooldowns.enemyPoint", "TOPRIGHT" },
 		friendlyGrowth = "RIGHT",
 		enemyGrowth = "LEFT",
+		friendlyLayout = "frames",
+		enemyLayout = "frames",
+		friendlySeparateInterrupts = false,
+		enemySeparateInterrupts = false,
+		friendlySeparateTrinket = false,
+		enemySeparateTrinket = false,
+		party1Point = { "TOPLEFT", 4, 0, "unitFrames.party", "BOTTOMRIGHT" },
+		party2Point = { "TOPLEFT", 4, 0, "unitFrames.party2", "BOTTOMRIGHT" },
+		party3Point = { "TOPLEFT", 4, 0, "unitFrames.party3", "BOTTOMRIGHT" },
+		party4Point = { "TOPLEFT", 4, 0, "unitFrames.party4", "BOTTOMRIGHT" },
+		arena1Point = { "TOPRIGHT", -4, 0, "unitFrames.arena", "BOTTOMLEFT" },
+		arena2Point = { "TOPRIGHT", -4, 0, "unitFrames.arena2", "BOTTOMLEFT" },
+		arena3Point = { "TOPRIGHT", -4, 0, "unitFrames.arena3", "BOTTOMLEFT" },
 		size = 24,
 		spacing = 2,
 		perRow = 6,
+		framePerRow = 10,
 		rowSpacing = 3,
 		labels = true,
 		desaturate = true,
@@ -911,6 +930,7 @@ ns.Defaults = {
 		glowColor = { 1, 0.85, 0.3 },
 		clickThrough = false,
 		friendlyCategories = {
+			trinket = true,
 			defensive = true,
 			offensive = true,
 			interrupt = true,
@@ -919,6 +939,7 @@ ns.Defaults = {
 			utility = true,
 		},
 		enemyCategories = {
+			trinket = true,
 			defensive = true,
 			offensive = true,
 			interrupt = true,
@@ -935,9 +956,9 @@ ns.Defaults = {
 		target = false,
 		focus = false,
 		player = true,
-		size = 24,
-		arenaSize = 31,
-		playerSize = 36,
+		size = 28,
+		arenaSize = 36,
+		playerSize = 41,
 		spacing = 2,
 		playerPoint = { "CENTER", 0, 160 },
 		arenaSide = "LEFT",
@@ -1047,6 +1068,7 @@ ns.Defaults = {
 		maxGames = 1000,
 		winColor = { 0.1, 1, 0.1 },
 		lossColor = { 1, 0.1, 0.1 },
+		leftColor = { 1, 0.5, 0 },
 	},
 
 	deathRecap = {

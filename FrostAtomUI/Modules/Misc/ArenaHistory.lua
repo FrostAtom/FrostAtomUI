@@ -29,7 +29,7 @@ local FauxScrollFrame_SetOffset = FauxScrollFrame_SetOffset
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local time, date = time, date
 local floor, max = math.floor, math.max
-local tinsert, tremove, tconcat = table.insert, table.remove, table.concat
+local tinsert, tremove, tconcat, sort = table.insert, table.remove, table.concat, table.sort
 local format = string.format
 
 local Misc = ns:GetModule("Misc")
@@ -58,6 +58,7 @@ local STRIP_TEXTURE = "Interface\\WorldStateFrame\\WorldStateFinalScore-Highligh
 local STRIP_COLORS = {
 	win = { 0.19, 0.57, 0.11 },
 	loss = { 0.52, 0.075, 0.18 },
+	left = { 0.6, 0.3, 0 },
 	none = { 0.3, 0.3, 0.3 },
 }
 
@@ -170,6 +171,9 @@ local soloQueueSearchSeen = false
 local isSoloMatch = false
 local preparing = false
 local startTime
+local ended = false
+local arenaMap
+local arenaFaction
 
 local frame
 local filter = "all"
@@ -219,6 +223,12 @@ local function collectArena()
 end
 
 local function collectTeams()
+	if IsActiveBattlefieldArena() then
+		local faction = GetBattlefieldArenaFaction()
+		if faction == 0 or faction == 1 then
+			arenaFaction = faction
+		end
+	end
 	for teamIndex = 0, 1 do
 		local name = GetBattlefieldTeamInfo(teamIndex)
 		if name and name ~= "" then
@@ -293,8 +303,88 @@ local refresh
 local scores = {}
 local currentTeam
 
+local function insertRecord(record)
+	tinsert(history, 1, record)
+	while #history > ns.Config.arenaHistory.maxGames do
+		tremove(history)
+	end
+end
+
+local function newPlayer(entry)
+	entry.spec = entry.guid and Talents:GetSpec(entry.guid) or entry.spec
+	return { name = entry.name, class = entry.class, race = entry.race, spec = entry.spec, team = entry.team }
+end
+
+local rosterNames = {}
+
+local function rosterKey(players, side)
+	wipe(rosterNames)
+	for i = 1, #players do
+		local player = players[i]
+		if player.team == side and player.name ~= UNKNOWN_NAME then
+			rosterNames[#rosterNames + 1] = player.name
+		end
+	end
+	sort(rosterNames)
+	return tconcat(rosterNames, ",")
+end
+
+local function knownTeamName(players, side)
+	local key = rosterKey(players, side)
+	if key == "" then
+		return
+	end
+	for i = 1, #history do
+		local record = history[i]
+		local team = side == 1 and record.team or record.enemy
+		local name = team and team.name
+		if name and name ~= "" and record.players and rosterKey(record.players, side) == key then
+			return name
+		end
+	end
+end
+
+local function recordLeave()
+	if not inArena or current or ended or not startTime or not history or not ns.Config.arenaHistory.enabled then
+		return
+	end
+	local players, counts = {}, { 0, 0 }
+	for i = 1, #sightings do
+		local player = newPlayer(sightings[i])
+		counts[player.team] = counts[player.team] + 1
+		players[#players + 1] = player
+	end
+	if #players == 0 then
+		return
+	end
+	local function team(teamIndex)
+		return { name = teamIndex and teamNames[teamIndex], lost = 0, gained = 0, change = 0, mmr = 0 }
+	end
+	local record = {
+		time = time(),
+		left = true,
+		map = arenaMap,
+		mapKey = MAP_KEYS[arenaMap],
+		duration = time() - startTime,
+		win = false,
+		team = team(arenaFaction),
+		enemy = team(arenaFaction and 1 - arenaFaction),
+		players = players,
+	}
+	record.bracket = bracketOf(record.team.name, max(counts[1], counts[2]))
+	if record.bracket ~= "solo" then
+		record.team.name = record.team.name or knownTeamName(players, 1)
+		record.enemy.name = record.enemy.name or knownTeamName(players, 2)
+	end
+	insertRecord(record)
+	refresh()
+end
+
 local function snapshot()
 	local winner = GetBattlefieldWinner()
+	if winner then
+		ended = true
+	end
 	if not winner or not history or not ns.Config.arenaHistory.enabled then
 		return
 	end
@@ -336,10 +426,7 @@ local function snapshot()
 	if not record then
 		record = { time = time() }
 		current = record
-		tinsert(history, 1, record)
-		while #history > ns.Config.arenaHistory.maxGames do
-			tremove(history)
-		end
+		insertRecord(record)
 	end
 	record.map = GetRealZoneText()
 	record.mapKey = MAP_KEYS[record.map]
@@ -355,7 +442,6 @@ local function snapshot()
 	local players, counts = {}, { 0, 0 }
 	for i = 1, #sightings do
 		local entry = sightings[i]
-		entry.spec = entry.guid and Talents:GetSpec(entry.guid) or entry.spec
 		if not entry.scored then
 			for j = 1, #unknowns do
 				if unknowns[j].team == entry.team then
@@ -365,8 +451,7 @@ local function snapshot()
 			end
 		end
 		counts[entry.team] = counts[entry.team] + 1
-		local player =
-			{ name = entry.name, class = entry.class, race = entry.race, spec = entry.spec, team = entry.team }
+		local player = newPlayer(entry)
 		copyScore(player, entry)
 		players[#players + 1] = player
 	end
@@ -390,11 +475,15 @@ Misc:RegisterEvent(ns.DB_LOADED, function(_, db)
 end)
 
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", function()
+	recordLeave()
 	inArena = select(2, IsInInstance()) == "arena"
 	current = nil
 	currentTeam = nil
 	preparing = inArena and UnitBuff("player", ARENA_PREPARATION) ~= nil
 	startTime = nil
+	ended = false
+	arenaMap = inArena and GetRealZoneText() or nil
+	arenaFaction = nil
 	wipe(seen)
 	wipe(sightings)
 	wipe(teamNames)
@@ -481,14 +570,20 @@ local function played(record)
 end
 
 local function resultColor(record, win)
+	local config = ns.Config.arenaHistory
+	if record.left then
+		return unpack(win and config.winColor or config.leftColor)
+	end
 	if not played(record) then
 		return GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b
 	end
-	local config = ns.Config.arenaHistory
 	return unpack(win and config.winColor or config.lossColor)
 end
 
 local function stripColor(record, win)
+	if record.left then
+		return win and STRIP_COLORS.win or STRIP_COLORS.left
+	end
 	if not played(record) then
 		return STRIP_COLORS.none
 	end
@@ -658,7 +753,10 @@ local function fillListRow(row, record)
 	cells.bracket:SetText(bracketLabel(record))
 	cells.map:SetText(mapLabel(record))
 	cells.duration:SetText(formatDuration(record.duration))
-	if played(record) then
+	if record.left then
+		cells.result:SetText(L["Left game"])
+		cells.mmr:SetText("")
+	elseif played(record) then
 		cells.result:SetFormattedText("%s %+d", record.win and L["Win"] or L["Loss"], record.team.change)
 		cells.mmr:SetText(record.team.mmr)
 	else
@@ -669,7 +767,7 @@ local function fillListRow(row, record)
 	fillIcons(row.icons[1], record, 1)
 	fillIcons(row.icons[2], record, 2)
 	cells.names:SetText(coloredTeamNames(record, 2))
-	if played(record) then
+	if record.left or played(record) then
 		setStripColor(row.strip, stripColor(record, record.win), LIST_STRIP_ALPHA)
 		setStripShown(row.strip, true)
 	else
@@ -735,7 +833,7 @@ local function createListRow(parent, index)
 end
 
 local function createDetailRow(detail, index)
-	local row = CreateFrame("Frame", nil, detail)
+	local row = CreateFrame("Frame", nil, detail.content)
 	row:SetSize(DETAIL_WIDTH, DETAIL_ROW_HEIGHT)
 	createCells(row, DETAIL_COLUMNS, DETAIL_ROW_HEIGHT)
 
@@ -756,20 +854,20 @@ local function fillDetailRow(row, player)
 	cells.name:SetText(player.name)
 	cells.name:SetTextColor(classColor(player.class))
 	cells.race:SetText(player.race or "")
-	cells.kb:SetText(player.kb)
-	cells.deaths:SetText(player.deaths)
-	cells.damage:SetText(ns.FormatValue(player.damage))
-	cells.healing:SetText(ns.FormatValue(player.healing))
+	cells.kb:SetText(player.kb or "")
+	cells.deaths:SetText(player.deaths or "")
+	cells.damage:SetText(player.damage and ns.FormatValue(player.damage) or "")
+	cells.healing:SetText(player.healing and ns.FormatValue(player.healing) or "")
 end
 
 local function refreshDetail()
 	local detail = frame.detail
 	local record = selected
 	if not record then
-		detail:Hide()
-		return 0
+		detail.content:Hide()
+		return
 	end
-	detail:Show()
+	detail.content:Show()
 
 	local title = mapLabel(record)
 		.. SEPARATOR
@@ -778,7 +876,9 @@ local function refreshDetail()
 		.. date("%d.%m.%Y %H:%M", record.time)
 		.. SEPARATOR
 		.. formatDuration(record.duration)
-	if not played(record) then
+	if record.left then
+		title = title .. SEPARATOR .. L["Left the arena"]
+	elseif not played(record) then
 		title = title .. SEPARATOR .. L["No game"]
 	end
 	local banner = detail.banner
@@ -813,10 +913,6 @@ local function refreshDetail()
 	for i = rowIndex + 1, #detail.rows do
 		detail.rows[i]:Hide()
 	end
-
-	local height = -y + INSET_PADDING
-	detail:SetHeight(height)
-	return height + SECTION_GAP
 end
 
 local function createTeamHeader(parent)
@@ -846,10 +942,12 @@ local function refreshList()
 end
 
 local function refreshStats()
-	local total, wins, change = 0, 0, 0
+	local total, wins, change, left = 0, 0, 0, 0
 	for i = 1, #filtered do
 		local record = filtered[i]
-		if played(record) then
+		if record.left then
+			left = left + 1
+		elseif played(record) then
 			total = total + 1
 			if record.win then
 				wins = wins + 1
@@ -858,19 +956,25 @@ local function refreshStats()
 		end
 	end
 	local losses = total - wins
+	local leftText = ""
+	if left > 0 then
+		local r, g, b = unpack(ns.Config.arenaHistory.leftColor)
+		leftText = format("   |cff%02x%02x%02x%s|r", r * 255, g * 255, b * 255, format(L["%d left"], left))
+	end
 	if total == 0 then
-		frame.stats:SetText("")
+		frame.stats:SetText(leftText:sub(4))
 		return
 	end
 	frame.stats:SetFormattedText(
-		"%s   %s%d|r - %s%d|r   %d%%   %s",
+		"%s   %s%d|r - %s%d|r   %d%%   %s%s",
 		format(L["%d games"], total),
 		GREEN_FONT_COLOR_CODE,
 		wins,
 		RED_FONT_COLOR_CODE,
 		losses,
 		wins / total * 100,
-		formatChange(change)
+		formatChange(change),
+		leftText
 	)
 end
 
@@ -903,8 +1007,7 @@ function refresh()
 	refreshFilters()
 	refreshStats()
 	refreshList()
-	local detailHeight = refreshDetail()
-	frame:SetHeight(frame.listBottom + detailHeight + INSET.bottom)
+	refreshDetail()
 end
 
 local function onFilterSelect(index)
@@ -987,15 +1090,22 @@ local function createFrame()
 	empty:SetText(L["No games recorded yet"])
 	frame.empty = empty
 
-	frame.listBottom = listTop + listInset:GetHeight()
-
+	local detailHeight = INSET_PADDING * 3
+		+ BANNER_HEIGHT
+		+ COLUMN_HEADER_HEIGHT
+		+ (MAX_TEAM + 1) * 2 * DETAIL_ROW_HEIGHT
 	local detail = ns.CreateInset(frame, "box")
 	detail:SetPoint("TOPLEFT", listInset, "BOTTOMLEFT", 0, -SECTION_GAP)
-	detail:SetWidth(CONTENT_WIDTH)
+	detail:SetSize(CONTENT_WIDTH, detailHeight)
 	detail.rows = {}
 	frame.detail = detail
+	frame:SetHeight(listTop + listInset:GetHeight() + SECTION_GAP + detailHeight + INSET.bottom)
 
-	local banner = CreateFrame("Frame", nil, detail)
+	local content = CreateFrame("Frame", nil, detail)
+	content:SetAllPoints()
+	detail.content = content
+
+	local banner = CreateFrame("Frame", nil, content)
 	banner:SetPoint("TOPLEFT", INSET_PADDING, -INSET_PADDING)
 	banner:SetSize(DETAIL_WIDTH, BANNER_HEIGHT)
 	banner.strip = createStrip(banner)
@@ -1003,12 +1113,12 @@ local function createFrame()
 	banner.text:SetPoint("CENTER")
 	detail.banner = banner
 
-	local detailHeader = CreateFrame("Frame", nil, detail)
+	local detailHeader = CreateFrame("Frame", nil, content)
 	detailHeader:SetPoint("TOPLEFT", banner, "BOTTOMLEFT", 0, -INSET_PADDING)
 	detailHeader:SetSize(DETAIL_WIDTH, COLUMN_HEADER_HEIGHT)
 	createColumnHeaders(detailHeader, DETAIL_COLUMNS, FRAME_NAME .. "DetailHeader")
 
-	detail.teamHeaders = { createTeamHeader(detail), createTeamHeader(detail) }
+	detail.teamHeaders = { createTeamHeader(content), createTeamHeader(content) }
 end
 
 StaticPopupDialogs.FROSTATOMUI_ARENA_HISTORY_CLEAR = {

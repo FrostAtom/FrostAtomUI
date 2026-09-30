@@ -570,6 +570,26 @@ local generalSchema = {
 		enabledBy = "namePlates.showHealers",
 		indent = false,
 	},
+	{ header = L["Enemy combo points"], glyph = "circle-dot" },
+	{
+		path = "namePlates.comboPoints",
+		new = NEW,
+		label = L["Enable"],
+		type = "toggle",
+		desc = L["In arena, combo points of enemy rogues and feral druids under their nameplates. The client does not receive other players' combo points, so they are counted from the combat log and can be off after unseen talent procs."],
+	},
+	{
+		path = "namePlates.comboPointSize",
+		new = NEW,
+		advanced = true,
+		label = L["Combo point size"],
+		type = "number",
+		min = 4,
+		max = 20,
+		step = 1,
+		enabledBy = "namePlates.comboPoints",
+		indent = false,
+	},
 }
 
 local HIDDEN_PATH = "namePlates.hiddenNames"

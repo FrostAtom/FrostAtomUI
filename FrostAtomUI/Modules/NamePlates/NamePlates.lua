@@ -490,8 +490,9 @@ end
 NamePlates.CastAnchor = castAnchor
 
 function NamePlates.LayoutCastbar(bar)
-	local anchor, height, compact = castAnchor(bar:GetParent())
-	local offset = config.castbarGap + BORDER_INSET
+	local plate = bar:GetParent()
+	local anchor, height, compact = castAnchor(plate)
+	local offset = config.castbarGap + BORDER_INSET + (plate.comboOffset or 0)
 	bar:ClearAllPoints()
 	bar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", BORDER_INSET, -offset)
 	bar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", -BORDER_INSET, -offset)
@@ -675,9 +676,10 @@ local function showCastResult(plate, texture, iconShown, locked, interruptText, 
 	end
 	local result = plate.castbar.result
 	local anchor, height, compact = castAnchor(plate)
+	local offset = config.castbarGap + (plate.comboOffset or 0)
 	result:ClearAllPoints()
-	result:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -config.castbarGap)
-	result:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -config.castbarGap)
+	result:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -offset)
+	result:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", 0, -offset)
 	result:SetHeight(height + BORDER_INSET * 2)
 	ns.SetShown(result.text, not compact)
 

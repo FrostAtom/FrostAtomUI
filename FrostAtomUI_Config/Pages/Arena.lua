@@ -68,7 +68,7 @@ Section(schema, L["Arena"], "arena", {
 		path = "countdown",
 		label = L["Start countdown"],
 		type = "toggle",
-		desc = L["Large timer for the last 15 seconds before the gates open."],
+		desc = L["Timer for the last 30 seconds before the gates open, set to 15 seconds by the server's 15 seconds message."],
 	},
 	{
 		label = L["Preview countdown"],
@@ -341,6 +341,13 @@ Section(schema, L["Arena history"], "arenaHistory", {
 		type = "color",
 		advanced = true,
 		desc = L["Result text of lost games in the history window."],
+	},
+	{
+		path = "leftColor",
+		label = L["Left color"],
+		type = "color",
+		advanced = true,
+		desc = L["Result text of games you left before the end in the history window."],
 	},
 	{
 		label = L["History window"],

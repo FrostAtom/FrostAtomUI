@@ -252,7 +252,7 @@ local SPELLS = {
 	},
 }
 
-local CATEGORIES = { "defensive", "offensive", "interrupt", "cc", "mobility", "utility" }
+local CATEGORIES = { "trinket", "interrupt","defensive", "offensive", "cc", "mobility", "utility" }
 
 local SPEC_HINTS = {
 	DEATHKNIGHT = {

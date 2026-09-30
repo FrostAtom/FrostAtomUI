@@ -124,6 +124,7 @@ local HORIZONTAL_GROWTH_VALUES = {
 
 local CLASS_ICON_STYLE_VALUES = {
 	{ "spec", L["Spec icon"] },
+	{ "badge", L["Class icon with spec badge"] },
 	{ "class", L["Class icon"] },
 	{ "portrait", L["2D portrait"] },
 	{ "model", L["3D portrait"] },
@@ -752,38 +753,6 @@ local function playerDebuffSection()
 	}
 end
 
-local function trinketSize()
-	local entry = size("arenaTrinket.size", L["Trinket size (arena, party)"], 16, 60)
-	entry.enabledByAny = { "arenaTrinket.enabled", "arenaTrinket.party" }
-	return entry
-end
-
-local function partyTrinket()
-	return {
-		{ header = L["Trinket"], glyph = "medal" },
-		{
-			path = "arenaTrinket.party",
-			label = L["Party trinkets"],
-			type = "toggle",
-			desc = L["PvP trinket cooldown icon left of each party pet, only inside arenas. Size is shared with arena trinkets."],
-		},
-		trinketSize(),
-	}
-end
-
-local function arenaTrinket()
-	return {
-		{ header = L["Trinket"], glyph = "medal" },
-		{
-			path = "arenaTrinket.enabled",
-			label = L["Arena trinkets"],
-			type = "toggle",
-			desc = L["PvP trinket cooldown icon next to each arena frame."],
-		},
-		trinketSize(),
-	}
-end
-
 local function arenaUnseen()
 	return {
 		{ header = L["Unseen opponents"], glyph = "user-secret" },
@@ -960,8 +929,7 @@ local function partySchema()
 				description = L["Each frame moves on its own; by default it is attached to the previous one, so dragging the first frame moves the whole group."],
 			},
 		},
-		groupAuras("party", "unitFrames.showParty"),
-		partyTrinket()
+		groupAuras("party", "unitFrames.showParty")
 	)
 end
 
@@ -973,8 +941,7 @@ local function arenaSchema()
 				description = L["Each frame moves on its own; by default it is attached to the previous one, so dragging the first frame moves the whole group."],
 			},
 		},
-		groupAuras("arena", "unitFrames.showArena"),
-		arenaTrinket()
+		groupAuras("arena", "unitFrames.showArena")
 	)
 end
 
@@ -1078,6 +1045,13 @@ local function generalSchema()
 			type = "select",
 			values = RIGHT_CLICK_VALUES,
 			desc = L["Action on right-clicking a frame. Arena frames always set focus."],
+		},
+		{
+			path = "unitFrames.middleClick",
+			label = L["Middle click"],
+			type = "select",
+			values = RIGHT_CLICK_VALUES,
+			desc = L["Action on middle-clicking a frame. Set focus on the focus frame clears it."],
 		},
 		{
 			path = "unitFrames.hoverHighlight",
@@ -1708,8 +1682,7 @@ ns.RegisterPage({
 				framesSection(),
 				frameLayout("party", "unitFrames.showParty", L["Party frames"]),
 				castbarSection("party", 60, 400, L["Shared by all frames of the group."], "unitFrames.showParty"),
-				groupAuras("party", "unitFrames.showParty"),
-				partyTrinket()
+				groupAuras("party", "unitFrames.showParty")
 			),
 		},
 		squareTabEntry("partyPet", "party", L["Party pets"], "paw"),
@@ -1726,7 +1699,6 @@ ns.RegisterPage({
 				frameLayout("arena", "unitFrames.showArena", L["Arena frames"]),
 				castbarSection("arena", 60, 400, L["Shared by all frames of the group."], "unitFrames.showArena"),
 				groupAuras("arena", "unitFrames.showArena"),
-				arenaTrinket(),
 				arenaUnseen()
 			),
 		},

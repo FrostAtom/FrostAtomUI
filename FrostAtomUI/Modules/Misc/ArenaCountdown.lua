@@ -6,12 +6,16 @@ local ceil, floor, min, max = math.ceil, math.floor, math.min, math.max
 local Misc = ns:GetModule("Misc")
 
 local COUNTDOWN_MESSAGES = {
-	"Fifteen seconds until the Arena battle begins!",
-	"Пятнадцать секунд",
-	"пятнадцать секунд",
-	"15 секунд",
+	{ "Thirty seconds until the Arena battle begins!", 30 },
+	{ "Тридцать секунд", 30 },
+	{ "тридцать секунд", 30 },
+	{ "30 секунд", 30 },
+	{ "Fifteen seconds until the Arena battle begins!", 15 },
+	{ "Пятнадцать секунд", 15 },
+	{ "пятнадцать секунд", 15 },
+	{ "15 секунд", 15 },
 }
-local COUNTDOWN_SECONDS = 15
+local COUNTDOWN_SECONDS = 30
 local NUMBERS_SECONDS = 10
 local LARGE_SECONDS = 5
 local URGENT_SECONDS = 3
@@ -55,7 +59,6 @@ bar:SetSize(BAR_WIDTH, BAR_HEIGHT)
 bar:SetPoint("CENTER")
 bar:SetStatusBarTexture(BAR_TEXTURE)
 bar:SetStatusBarColor(unpack(BAR_COLOR))
-bar:SetMinMaxValues(0, COUNTDOWN_SECONDS)
 
 local barBackground = bar:CreateTexture(nil, "BACKGROUND")
 barBackground:SetTexture(ns.Media.blank)
@@ -211,25 +214,32 @@ countdown:SetScript("OnUpdate", function(self, elapsed)
 	end
 end)
 
-local function startCountdown()
-	countdown.remain = COUNTDOWN_SECONDS
+local function startCountdown(seconds)
+	if countdown:IsShown() and countdown.remain > NUMBERS_SECONDS then
+		countdown.remain = seconds
+		return
+	end
+	countdown.remain = seconds
 	countdown.elapsed = 0
 	countdown.second = nil
+	bar:SetMinMaxValues(0, seconds)
 	pop(1, 0, 0)
 	updateBar(countdown)
 	bar:Show()
 	countdown:Show()
 end
 
-SlashCmdList.FROSTATOMUI_ARENA_COUNTDOWN_TEST = startCountdown
+SlashCmdList.FROSTATOMUI_ARENA_COUNTDOWN_TEST = function(seconds)
+	startCountdown(tonumber(seconds) or COUNTDOWN_SECONDS)
+end
 
-local function isCountdownMessage(message)
+local function countdownSeconds(message)
 	for i = 1, #COUNTDOWN_MESSAGES do
-		if message:find(COUNTDOWN_MESSAGES[i], 1, true) then
-			return true
+		local entry = COUNTDOWN_MESSAGES[i]
+		if message:find(entry[1], 1, true) then
+			return entry[2]
 		end
 	end
-	return false
 end
 
 countdown:SetScript("OnEvent", function(self, event, message)
@@ -240,9 +250,11 @@ countdown:SetScript("OnEvent", function(self, event, message)
 		and ns.Config.arena.countdown
 		and message
 		and select(2, IsInInstance()) == "arena"
-		and isCountdownMessage(message)
 	then
-		startCountdown()
+		local seconds = countdownSeconds(message)
+		if seconds then
+			startCountdown(seconds)
+		end
 	end
 end)
 countdown:RegisterEvent("CHAT_MSG_BG_SYSTEM_NEUTRAL")

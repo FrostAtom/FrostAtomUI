@@ -274,6 +274,50 @@ local function fixLFDCooldownFrame()
 	end)
 end
 
+local WORLD_STATE_WIDTH = 160
+local WORLD_STATE_ROW = 16
+local WORLD_STATE_ICON = 14
+
+local function layoutWorldState()
+	local shown = 0
+	local previous
+	for i = 1, NUM_ALWAYS_UP_UI_FRAMES or 0 do
+		local name = "AlwaysUpFrame" .. i
+		local frame = _G[name]
+		if frame and frame:IsShown() then
+			local icon, text = _G[name .. "Icon"], _G[name .. "Text"]
+			local dynamic, flash = _G[name .. "DynamicIconButton"], _G[name .. "Flash"]
+			local texture = icon:GetTexture()
+			if texture and texture:find("UI%-PVP") then
+				icon:SetTexCoord(0, 0.625, 0, 0.625)
+			else
+				icon:SetTexCoord(0, 1, 0, 1)
+			end
+			icon:SetSize(WORLD_STATE_ICON, WORLD_STATE_ICON)
+			icon:ClearAllPoints()
+			icon:SetPoint("LEFT")
+			text:ClearAllPoints()
+			text:SetPoint("LEFT", icon, "RIGHT", 3, 0)
+			dynamic:SetSize(WORLD_STATE_ROW, WORLD_STATE_ROW)
+			dynamic:ClearAllPoints()
+			dynamic:SetPoint("LEFT", text, "RIGHT", 2, 0)
+			_G[name .. "DynamicIconButtonIcon"]:SetSize(WORLD_STATE_ROW, WORLD_STATE_ROW)
+			flash:SetSize(WORLD_STATE_ROW, WORLD_STATE_ROW)
+			_G[name .. "FlashTexture"]:SetSize(WORLD_STATE_ROW, WORLD_STATE_ROW)
+			frame:SetSize(WORLD_STATE_ICON + 3 + text:GetStringWidth(), WORLD_STATE_ROW)
+			frame:ClearAllPoints()
+			if previous then
+				frame:SetPoint("TOPLEFT", previous, "BOTTOMLEFT")
+			else
+				frame:SetPoint("TOPLEFT", WorldStateAlwaysUpFrame)
+			end
+			previous = frame
+			shown = shown + 1
+		end
+	end
+	WorldStateAlwaysUpFrame:SetSize(WORLD_STATE_WIDTH, max(shown, 1) * WORLD_STATE_ROW)
+end
+
 local function onPopupClick(self)
 	if self.value == "SPECTATE" then
 		SendChatMessage(".spec pla " .. UIDROPDOWNMENU_INIT_MENU.name)
@@ -327,7 +371,11 @@ Misc:OnInitialize(function(self)
 	applySoundListener()
 	self:WatchConfig("tweaks.soundAtHead", applySoundListener)
 
-	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", "World state", { size = { 200, 30 } })
+	hooksecurefunc("WorldStateAlwaysUpFrame_Update", layoutWorldState)
+	layoutWorldState()
+	self:AnchorToConfig(WorldStateAlwaysUpFrame, "tweaks.worldStatePoint", "World state", {
+		size = { WORLD_STATE_WIDTH, WORLD_STATE_ROW * 2 },
+	})
 
 	UnitPopupButtons.SPECTATE = { text = L["Spectate"], dist = 0 }
 	for _, menu in ipairs({ "FRIEND", "TEAM", "BN_FRIEND" }) do

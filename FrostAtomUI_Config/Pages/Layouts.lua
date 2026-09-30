@@ -63,6 +63,20 @@ local function enabled(path)
 	end
 end
 
+local function cooldownBlock(side)
+	local prefix = "groupCooldowns." .. side
+	return function()
+		return ui:GetConfig(prefix) ~= false and ui:GetConfig(prefix .. "Layout") ~= "frames"
+	end
+end
+
+local function interruptPanel(side)
+	local prefix = "groupCooldowns." .. side
+	return function()
+		return ui:GetConfig(prefix) ~= false and ui:GetConfig(prefix .. "SeparateInterrupts") == true
+	end
+end
+
 local function barSize(key)
 	local prefix = "actionBar." .. key .. "."
 	return function(setting)
@@ -93,8 +107,10 @@ local ELEMENTS = {
 	{ "unitFrames.playerAuras", "info" },
 	{ "unitFrames.playerDebuffs", "info" },
 	{ "actionBar.microMenu", "info" },
-	{ "groupCooldowns.friendlyPoint", "cooldown", nil, enabled("groupCooldowns.friendly") },
-	{ "groupCooldowns.enemyPoint", "cooldown", nil, enabled("groupCooldowns.enemy") },
+	{ "groupCooldowns.friendlyPoint", "cooldown", nil, cooldownBlock("friendly") },
+	{ "groupCooldowns.enemyPoint", "cooldown", nil, cooldownBlock("enemy") },
+	{ "groupCooldowns.friendlyInterruptPoint", "cooldown", nil, interruptPanel("friendly") },
+	{ "groupCooldowns.enemyInterruptPoint", "cooldown", nil, interruptPanel("enemy") },
 }
 
 for i = 1, 6 do

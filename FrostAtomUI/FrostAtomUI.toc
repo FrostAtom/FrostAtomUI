@@ -99,6 +99,7 @@ Modules\NamePlates\Casts.lua
 Modules\NamePlates\AuraData.lua
 Modules\NamePlates\Auras.lua
 Modules\NamePlates\Healers.lua
+Modules\NamePlates\ComboPoints.lua
 
 Modules\PlayerPlate.lua
 Modules\Trackers.lua

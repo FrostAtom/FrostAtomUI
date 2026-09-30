@@ -122,7 +122,6 @@ local modern = sideBars({
 	["unitFrames.playerCastbar"] = { "BOTTOM", 0, 190 },
 	["groupCooldowns.friendlyPoint"] = { "BOTTOMRIGHT", -235, 2, nil, "BOTTOM" },
 	["groupCooldowns.enemyPoint"] = { "BOTTOMLEFT", 235, 2, nil, "BOTTOM" },
-	["tweaks.worldStatePoint"] = { "TOP", 0, -30 },
 })
 group(modern, "party", 4, { "TOPLEFT", 100, -180 }, { "LEFT", 0, -160, "LEFT" })
 group(modern, "arena", 3, { "TOPRIGHT", -200, -200 }, { "RIGHT", 0, -160, "RIGHT" })
@@ -137,7 +136,6 @@ local modernCompact = {
 	["unitFrames.targetCastbar"] = { "BOTTOMLEFT", 27, 4, "unitFrames.target", "TOPLEFT" },
 	["unitFrames.playerCastbar"] = { "BOTTOM", 0, 160 },
 	["externalDefensives.point"] = castbarDefensives,
-	["tweaks.worldStatePoint"] = { "TOP", 0, -5 },
 }
 
 local classic = {
@@ -158,7 +156,6 @@ local classic = {
 	["unitFrames.playerCastbar"] = { "BOTTOM", 0, 150 },
 	["groupCooldowns.friendlyPoint"] = { "TOPLEFT", 260, 0, "unitFrames.party", "TOPRIGHT" },
 	["groupCooldowns.enemyPoint"] = { "TOPRIGHT", -260, 0, "unitFrames.arena", "TOPLEFT" },
-	["tweaks.worldStatePoint"] = { "TOP", 0, -5 },
 }
 group(classic, "party", 4, { "TOPLEFT", 100, -260 }, { "LEFT", 0, -160, "LEFT" })
 group(classic, "arena", 3, { "TOPRIGHT", -200, -250 }, { "RIGHT", 0, -160, "RIGHT" })
@@ -181,7 +178,6 @@ local arena = {
 	["unitFrames.playerCastbar"] = { "BOTTOM", 0, 160 },
 	["groupCooldowns.friendlyPoint"] = { "TOPLEFT", 260, 0, "unitFrames.party", "TOPRIGHT" },
 	["groupCooldowns.enemyPoint"] = { "TOPRIGHT", -260, 0, "unitFrames.arena", "TOPLEFT" },
-	["tweaks.worldStatePoint"] = { "TOP", 0, -30 },
 }
 group(arena, "party", 4, { "TOP", -520, -170 }, { "LEFT", 0, -160, "LEFT" })
 group(arena, "arena", 3, { "TOP", 520, -170 }, { "RIGHT", 0, -160, "RIGHT" })
@@ -193,7 +189,6 @@ local arenaCompact = {
 	["groupCooldowns.friendlyPoint"] = { "TOPLEFT", 260, -120, "unitFrames.party", "TOPRIGHT" },
 	["groupCooldowns.enemyPoint"] = { "TOPRIGHT", -260, -120, "unitFrames.arena", "TOPLEFT" },
 	["externalDefensives.point"] = castbarDefensives,
-	["tweaks.worldStatePoint"] = { "TOP", 0, -5 },
 }
 
 local healer = {
@@ -208,7 +203,7 @@ local healer = {
 	["groupCooldowns.friendlyPoint"] = { "BOTTOMRIGHT", -55, 0, "unitFrames.party", "BOTTOMLEFT" },
 	["groupCooldowns.enemyPoint"] = { "TOPRIGHT", -260, 0, "unitFrames.arena", "TOPLEFT" },
 	["externalDefensives.point"] = { "RIGHT", -8, 0, "unitFrames.pet", "LEFT" },
-	["tweaks.worldStatePoint"] = { "TOP", 0, -5 },
+	["raidFrames.point"] = { "BOTTOM", 0, 250 },
 }
 group(healer, "party", 4, { "BOTTOM", -371, 270 }, { "LEFT", 95, 0, "RIGHT" })
 group(healer, "arena", 3, { "TOPRIGHT", -200, -200 }, { "RIGHT", 0, -160, "RIGHT" })

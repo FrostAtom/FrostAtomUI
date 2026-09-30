@@ -46,6 +46,7 @@ local CATEGORY_NAMES = {
 	defensive = L["Defensive"],
 	offensive = L["Burst"],
 	interrupt = L["Interrupt"],
+	trinket = L["Trinket"],
 	cc = L["Control"],
 	mobility = L["Mobility"],
 	utility = L["Utility"],
@@ -56,6 +57,7 @@ local CATEGORY_COLORS = {
 	defensive = { 0.35, 0.9, 0.35 },
 	offensive = { 1, 0.35, 0.3 },
 	interrupt = { 0.4, 0.7, 1 },
+	trinket = { 1, 0.82, 0 },
 	cc = { 0.85, 0.5, 1 },
 	mobility = { 0.4, 0.95, 0.9 },
 	utility = { 0.75, 0.75, 0.75 },
@@ -63,12 +65,29 @@ local CATEGORY_COLORS = {
 GroupCooldowns.CATEGORY_COLORS = CATEGORY_COLORS
 
 local SIDES = {
-	friendly = { units = { "party1", "party2", "party3", "party4" }, label = "Ally cooldowns" },
-	enemy = { units = { "arena1", "arena2", "arena3", "arena4", "arena5" }, label = "Enemy cooldowns" },
+	friendly = {
+		units = { "party1", "party2", "party3", "party4" },
+		label = "Ally cooldowns",
+		interruptLabel = "Ally interrupts",
+		frames = "party",
+		frameLabel = "Party",
+		frameSide = "RIGHT",
+	},
+	enemy = {
+		units = { "arena1", "arena2", "arena3", "arena4", "arena5" },
+		label = "Enemy cooldowns",
+		interruptLabel = "Enemy interrupts",
+		frames = "arena",
+		frameLabel = "Arena",
+		frameSide = "LEFT",
+	},
 }
 
-local panels = {}
+local PREVIEW_COUNTS = { friendly = 2, enemy = 3 }
+
+local sides = {}
 local previewing = false
+local framesReady = false
 
 function GroupCooldowns.IsSpellShown(id)
 	local override = ns.Config.groupCooldowns.spells[id]
@@ -77,6 +96,10 @@ function GroupCooldowns.IsSpellShown(id)
 	end
 	local info = CooldownTracker:GetInfo(id)
 	return not (info and info.hidden)
+end
+
+local function usesFrames(side)
+	return ns.Config.groupCooldowns[side .. "Layout"] == "frames" and #sides[side].frames > 0
 end
 
 local function categoryOf(id)
@@ -182,7 +205,19 @@ local function setIconState(icon, owner, id, start, duration, active)
 	icon:Show()
 end
 
-local function collectSpells(owner, categories)
+local function accepts(panel, config, category)
+	if not config[panel.side .. "Categories"][category] then
+		return false
+	elseif panel.kind == "interrupts" then
+		return category == "interrupt"
+	end
+	if category == "trinket" then
+		return not config[panel.side .. "SeparateTrinket"]
+	end
+	return category ~= "interrupt" or not config[panel.side .. "SeparateInterrupts"]
+end
+
+local function collectSpells(owner, panel, config)
 	local byCategory = owner.byCategory
 	for _, list in pairs(byCategory) do
 		wipe(list)
@@ -191,7 +226,7 @@ local function collectSpells(owner, categories)
 	for i = 1, tracked and #tracked or 0 do
 		local id = tracked[i]
 		local category = categoryOf(id)
-		if categories[category] and GroupCooldowns.IsSpellShown(id) then
+		if accepts(panel, config, category) and GroupCooldowns.IsSpellShown(id) then
 			local list = byCategory[category]
 			if not list then
 				list = {}
@@ -232,37 +267,59 @@ local function anchorFor(panel)
 	return panel.growth == "LEFT" and "TOPRIGHT" or "TOPLEFT", panel.growth == "LEFT" and -1 or 1
 end
 
+local function placeLabel(panel, config, category, count, y, direction)
+	local label = panel.labels[category]
+	if count > 0 and config.labels then
+		label = acquireLabel(panel, category)
+		label:ClearAllPoints()
+		if direction == 1 then
+			label:SetPoint("RIGHT", panel, "TOPLEFT", -LABEL_GAP, y)
+		else
+			label:SetPoint("LEFT", panel, "TOPRIGHT", LABEL_GAP, y)
+		end
+		label:Show()
+	elseif label then
+		label:Hide()
+	end
+end
+
+local function isPlaced(panel)
+	return panel.kind ~= "frame" or previewing or panel.frame:IsVisible()
+end
+
 function refresh(panel)
 	local config = ns.Config.groupCooldowns
 	local size, spacing = config.size, config.spacing
-	local rowSpacing, perRow = config.rowSpacing, config.perRow
-	local categories = config[panel.side .. "Categories"]
+	local step, rowStep = size + spacing, size + config.rowSpacing
+	local perRow = panel.kind == "frame" and config.framePerRow or config.perRow
+	local grouped = panel.kind == "group"
 	local anchor, direction = anchorFor(panel)
 	local owners = panel.owners
 
 	for i = 1, #owners do
-		collectSpells(owners[i], categories)
+		collectSpells(owners[i], panel, config)
 	end
 
-	local used, rows, width = 0, 0, 0
+	local used, rows, count, width = 0, 0, 0, 0
 	local nextExpiry = huge
 	local now = GetTime()
 	for c = 1, #CATEGORIES do
 		local category = CATEGORIES[c]
-		local count = 0
-		local y = -rows * (size + rowSpacing)
+		if grouped then
+			count = 0
+		end
 		for i = 1, #owners do
 			local owner = owners[i]
 			local list = owner.byCategory[category]
 			for j = 1, list and #list or 0 do
 				local id = list[j]
-				local x = count % perRow * (size + spacing)
+				local x = count % perRow * step
 				local line = rows + floor(count / perRow)
 				count = count + 1
 				used = used + 1
 				local icon = acquireIcon(panel, used)
 				icon:ClearAllPoints()
-				icon:SetPoint(anchor, panel, anchor, direction * x, -line * (size + rowSpacing))
+				icon:SetPoint(anchor, panel, anchor, direction * x, -line * rowStep)
 				local start, duration, active = spellState(owner, id)
 				if start and start + duration <= now then
 					start, duration = nil, nil
@@ -273,25 +330,17 @@ function refresh(panel)
 				end
 			end
 		end
-		local label = panel.labels[category]
-		if count > 0 then
-			width = max(width, min(count, perRow) * (size + spacing) - spacing)
-			if config.labels then
-				label = acquireLabel(panel, category)
-				label:ClearAllPoints()
-				if direction == 1 then
-					label:SetPoint("RIGHT", panel, "TOPLEFT", -LABEL_GAP, y - size / 2)
-				else
-					label:SetPoint("LEFT", panel, "TOPRIGHT", LABEL_GAP, y - size / 2)
-				end
-				label:Show()
-			elseif label then
-				label:Hide()
+		if grouped then
+			placeLabel(panel, config, category, count, -rows * rowStep - size / 2, direction)
+			if count > 0 then
+				width = max(width, min(count, perRow) * step - spacing)
+				rows = rows + ceil(count / perRow)
 			end
-			rows = rows + ceil(count / perRow)
-		elseif label then
-			label:Hide()
 		end
+	end
+	if not grouped and count > 0 then
+		width = min(count, perRow) * step - spacing
+		rows = ceil(count / perRow)
 	end
 
 	for i = used + 1, #panel.icons do
@@ -300,8 +349,8 @@ function refresh(panel)
 		icon.owner = nil
 	end
 
-	panel:SetSize(max(width, size), max(rows * (size + rowSpacing) - rowSpacing, size))
-	ns.SetShown(panel, panel.enabled and used > 0)
+	panel:SetSize(max(width, size), max(rows * rowStep - config.rowSpacing, size))
+	ns.SetShown(panel, panel.active and used > 0 and isPlaced(panel))
 
 	panel.nextExpiry = nextExpiry
 	panel.untilCheck = CHECK_INTERVAL
@@ -331,11 +380,9 @@ local function readUnit(owner, unit)
 	return owner.class ~= nil
 end
 
-local function collectOwners(panel)
-	local owners = panel.owners
-	wipe(owners)
-	local slots = panel.slots
-	local units = SIDES[panel.side].units
+local function readSlots(state)
+	local slots = state.slots
+	local units = SIDES[state.side].units
 	for i = 1, #units do
 		local unit = units[i]
 		local slot = slots[i]
@@ -344,17 +391,19 @@ local function collectOwners(panel)
 			slots[i] = slot
 		end
 		slot.spells, slot.preview = nil, nil
-		if panel.side == "friendly" then
+		if state.side == "friendly" then
 			if not (UnitExists(unit) and readUnit(slot, unit)) then
 				slot.guid = nil
 			end
 		else
 			readUnit(slot, unit)
 		end
-		if slot.guid and slot.class then
-			owners[#owners + 1] = slot
-		end
 	end
+end
+
+local function validSlot(state, index)
+	local slot = state.slots[index]
+	return slot and slot.guid and slot.class and slot or nil
 end
 
 local function randomPreviewOwner(slot)
@@ -382,34 +431,48 @@ local function randomPreviewOwner(slot)
 	slot.spells, slot.preview = spells, preview
 end
 
-local PREVIEW_COUNTS = { friendly = 2, enemy = 3 }
-
-local function collectPreview(panel)
-	local owners = panel.owners
-	wipe(owners)
-	for i = 1, PREVIEW_COUNTS[panel.side] do
-		local slot = panel.previewSlots[i]
-		if not slot then
-			slot = newOwner()
-			panel.previewSlots[i] = slot
-			randomPreviewOwner(slot)
-		end
-		owners[#owners + 1] = slot
+local function previewSlot(state, index)
+	local slot = state.previewSlots[index]
+	if not slot then
+		slot = newOwner()
+		state.previewSlots[index] = slot
+		randomPreviewOwner(slot)
 	end
+	return slot
 end
 
-local function update(panel)
+local function update(state)
+	local owners = state.owners
+	wipe(owners)
 	if previewing then
-		collectPreview(panel)
+		for i = 1, PREVIEW_COUNTS[state.side] do
+			owners[#owners + 1] = previewSlot(state, i)
+		end
 	else
-		collectOwners(panel)
+		readSlots(state)
+		for i = 1, #state.slots do
+			owners[#owners + 1] = validSlot(state, i)
+		end
 	end
-	refresh(panel)
+	refresh(state.group)
+	refresh(state.interrupts)
+	local frames = state.frames
+	for i = 1, #frames do
+		local panel = frames[i]
+		local owner
+		if previewing then
+			owner = previewSlot(state, panel.index)
+		else
+			owner = validSlot(state, panel.index)
+		end
+		panel.owners[1] = owner
+		refresh(panel)
+	end
 end
 
 local function updateAll()
-	for _, panel in pairs(panels) do
-		update(panel)
+	for _, state in pairs(sides) do
+		update(state)
 	end
 end
 
@@ -423,21 +486,29 @@ local function ownsGUID(panel, guid)
 	return false
 end
 
+local function refreshOwning(panel, guid)
+	if guid == nil or ownsGUID(panel, guid) then
+		refresh(panel)
+	end
+end
+
 local function onCooldownUpdated(_, guid)
 	if previewing then
 		return
 	end
-	for _, panel in pairs(panels) do
-		if guid == nil or ownsGUID(panel, guid) then
-			refresh(panel)
+	for _, state in pairs(sides) do
+		refreshOwning(state.group, guid)
+		refreshOwning(state.interrupts, guid)
+		for i = 1, #state.frames do
+			refreshOwning(state.frames[i], guid)
 		end
 	end
 end
 
 local function clearEnemies()
-	local panel = panels.enemy
-	for i = 1, #panel.slots do
-		panel.slots[i].guid = nil
+	local slots = sides.enemy.slots
+	for i = 1, #slots do
+		slots[i].guid = nil
 	end
 end
 
@@ -448,18 +519,18 @@ end
 
 function GroupCooldowns:ARENA_OPPONENT_UPDATE(unit, kind)
 	local index = tonumber(unit and unit:match("^arena(%d)$"))
-	local slot = index and panels.enemy.slots[index]
+	local slot = index and sides.enemy.slots[index]
 	if slot and kind == "cleared" then
 		slot.guid = nil
 	end
 	if not previewing then
-		update(panels.enemy)
+		update(sides.enemy)
 	end
 end
 
 function GroupCooldowns:PARTY_MEMBERS_CHANGED()
 	if not previewing then
-		update(panels.friendly)
+		update(sides.friendly)
 	end
 end
 
@@ -473,7 +544,7 @@ end
 local function onNameUpdate(_, unit)
 	local side = UNIT_SIDES[unit]
 	if side and not previewing then
-		update(panels[side])
+		update(sides[side])
 	end
 end
 
@@ -483,8 +554,8 @@ function GroupCooldowns.SetPreview(enabled)
 		return
 	end
 	previewing = enabled
-	for _, panel in pairs(panels) do
-		wipe(panel.previewSlots)
+	for _, state in pairs(sides) do
+		wipe(state.previewSlots)
 	end
 	updateAll()
 end
@@ -493,38 +564,66 @@ function GroupCooldowns.IsPreviewing()
 	return previewing
 end
 
-local function applyConfig()
-	local config = ns.Config.groupCooldowns
-	for side, panel in pairs(panels) do
-		panel.enabled = config.enabled and config[side]
-		panel.growth = config[side .. "Growth"]
-		ns.ApplyPoint(panel, "groupCooldowns." .. side .. "Point")
-		for i = 1, #panel.icons do
-			local icon = panel.icons[i]
-			setIconSize(icon, config.size)
-			icon:EnableMouse(not config.clickThrough)
-			icon.owner = nil
-		end
-		update(panel)
+local function applyIcons(panel, config)
+	for i = 1, #panel.icons do
+		local icon = panel.icons[i]
+		setIconSize(icon, config.size)
+		icon:EnableMouse(not config.clickThrough)
+		icon.owner = nil
 	end
 end
 
-local function createPanel(self, side)
+local function applyConfig()
+	local config = ns.Config.groupCooldowns
+	for side, state in pairs(sides) do
+		local enabled = config.enabled and config[side]
+		local byFrames = usesFrames(side)
+		local growth = config[side .. "Growth"]
+
+		state.group.active = enabled and not byFrames
+		state.group.growth = growth
+		ns.ApplyPoint(state.group, "groupCooldowns." .. side .. "Point")
+		applyIcons(state.group, config)
+
+		state.interrupts.active = enabled and config[side .. "SeparateInterrupts"]
+		state.interrupts.growth = growth
+		ns.ApplyPoint(state.interrupts, "groupCooldowns." .. side .. "InterruptPoint")
+		applyIcons(state.interrupts, config)
+
+		for i = 1, #state.frames do
+			local panel = state.frames[i]
+			panel.active = enabled and byFrames
+			panel.growth = SIDES[side].frameSide
+			ns.ApplyPoint(panel, panel.pointPath)
+			applyIcons(panel, config)
+		end
+		update(state)
+	end
+end
+
+local function newPanel(side, kind)
 	local panel = CreateFrame("Frame", nil, UIParent)
 	panel:SetFrameStrata("LOW")
 	panel:Hide()
 	panel.side = side
+	panel.kind = kind
 	panel.icons = {}
 	panel.labels = {}
-	panel.owners = {}
-	panel.slots = {}
-	panel.previewSlots = {}
 	panel.untilCheck = 0
 	panel.nextExpiry = huge
-	panels[side] = panel
+	return panel
+end
+
+local function createGroupPanel(self, state)
+	local side = state.side
+	local panel = newPanel(side, "group")
+	panel.owners = state.owners
 	self:RegisterMover(panel, "groupCooldowns." .. side .. "Point", SIDES[side].label, {
-		enabledPath = "groupCooldowns." .. side,
+		enabledPath = { "groupCooldowns." .. side, "groupCooldowns." .. side .. "Layout" },
 		context = side == "enemy" and "arena" or nil,
+		visible = function()
+			return not usesFrames(side)
+		end,
 		insets = function()
 			local width = 0
 			for _, label in pairs(panel.labels) do
@@ -541,9 +640,71 @@ local function createPanel(self, side)
 	return panel
 end
 
+local function createInterruptPanel(self, state)
+	local side = state.side
+	local panel = newPanel(side, "interrupts")
+	panel.owners = state.owners
+	self:RegisterMover(panel, "groupCooldowns." .. side .. "InterruptPoint", SIDES[side].interruptLabel, {
+		enabledPath = { "groupCooldowns." .. side, "groupCooldowns." .. side .. "SeparateInterrupts" },
+		context = side == "enemy" and "arena" or nil,
+	})
+	return panel
+end
+
+local function createFramePanels()
+	for side, state in pairs(sides) do
+		local info = SIDES[side]
+		local frames = UF.groupFrames and UF.groupFrames[info.frames]
+		for i = 1, frames and #frames or 0 do
+			local panel = newPanel(side, "frame")
+			panel.frame = frames[i]
+			panel.index = i
+			panel.owners = {}
+			panel.pointPath = "groupCooldowns." .. info.frames .. i .. "Point"
+			state.frames[i] = panel
+			GroupCooldowns:RegisterMover(panel, panel.pointPath, info.frameLabel .. " " .. i .. " cooldowns", {
+				enabledPath = {
+					"groupCooldowns." .. side,
+					"groupCooldowns." .. side .. "Layout",
+					"unitFrames.show" .. info.frameLabel,
+				},
+				context = side == "enemy" and "arena" or nil,
+				visible = function()
+					return usesFrames(side)
+				end,
+			})
+			local function onFrameShown()
+				if panel.active then
+					refresh(panel)
+				end
+			end
+			frames[i]:HookScript("OnShow", onFrameShown)
+			frames[i]:HookScript("OnHide", onFrameShown)
+		end
+	end
+end
+
+local initialized = false
+
+UF:OnInitialize(function()
+	framesReady = true
+	if initialized then
+		createFramePanels()
+		applyConfig()
+	end
+end)
+
 function GroupCooldowns:Initialize()
-	createPanel(self, "friendly")
-	createPanel(self, "enemy")
+	for side in pairs(SIDES) do
+		local state = { side = side, owners = {}, slots = {}, previewSlots = {}, frames = {} }
+		sides[side] = state
+		state.group = createGroupPanel(self, state)
+		state.interrupts = createInterruptPanel(self, state)
+	end
+	initialized = true
+	if framesReady then
+		createFramePanels()
+	end
 	applyConfig()
 	self:WatchConfig("groupCooldowns", applyConfig)
 

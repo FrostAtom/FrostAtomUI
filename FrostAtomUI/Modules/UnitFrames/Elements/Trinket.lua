@@ -26,12 +26,20 @@ for spellId, cooldown in pairs(TRINKET_SPELLS) do
 	end
 end
 
+function UF.IsTrinketSeparate(side)
+	local config = ns.Config.groupCooldowns
+	return config.enabled
+			and config[side]
+			and config[side .. "SeparateTrinket"]
+			and config[side .. "Categories"].trinket
+		or false
+end
+
 local function isShown(frame)
-	local config = ns.Config.arenaTrinket
 	if not frame.trinket.arenaOnly then
-		return config.enabled
+		return UF.IsTrinketSeparate("enemy")
 	end
-	return config.party and (frame.test ~= nil or select(2, IsInInstance()) == "arena")
+	return UF.IsTrinketSeparate("friendly") and (frame.test ~= nil or select(2, IsInInstance()) == "arena")
 end
 
 local function update(frame)
