@@ -25,9 +25,11 @@ local FRAME_NAME = "FrostAtomUIDeathRecap"
 local LINK_PREFIX = "farecap:"
 local CHAT_LINE = "%s |cffff4d4d|H" .. LINK_PREFIX .. "%d|h[%s]|h|r"
 local NAME_COLOR = "|cff%02x%02x%02x%s|r"
+local BURST_TEXT = "%s  |cffff3333%s|r"
 local RECAPS_KEPT = 30
 local BUFFER_SIZE = 20
 local RECAP_WINDOW = 10
+local BURST_WINDOW = 1.5
 local WIDTH = 340
 local PADDING = 12
 local HEADER_HEIGHT = 26
@@ -253,6 +255,20 @@ local function resolveNameAndIcon(entry)
 	entry.icon = icon or ns.Media.questionMark
 end
 
+local function burstDamage(buffer, lastHit)
+	local total = 0
+	local index = buffer.head
+	for _ = 1, BUFFER_SIZE do
+		local entry = buffer[index]
+		if not entry or not entry.time or lastHit - entry.time > BURST_WINDOW then
+			break
+		end
+		total = total + entry.amount
+		index = (index - 2) % BUFFER_SIZE + 1
+	end
+	return total
+end
+
 local function freezeRecap(guid, name)
 	local buffer = buffers[guid]
 	if not buffer then
@@ -275,10 +291,11 @@ local function freezeRecap(guid, name)
 		entries[#entries + 1] = target
 		index = (index - 2) % BUFFER_SIZE + 1
 	end
+	local burst = entries[1] and burstDamage(buffer, entries[1].time)
 	for i = 1, #buffer do
 		buffer[i].time = nil
 	end
-	if #entries == 0 then
+	if not burst then
 		return
 	end
 
@@ -295,7 +312,7 @@ local function freezeRecap(guid, name)
 	end
 
 	lastRecapId = lastRecapId + 1
-	recaps[lastRecapId] = { name = name, entries = entries, deathTime = entries[1].time }
+	recaps[lastRecapId] = { name = name, entries = entries, deathTime = entries[1].time, burst = burst }
 	recaps[lastRecapId - RECAPS_KEPT] = nil
 	return lastRecapId
 end
@@ -453,11 +470,14 @@ local function refresh()
 	local entries = recap and recap.entries
 	local count = entries and #entries or 0
 	deathTime = recap and recap.deathTime or 0
+	local title = L["Death recap"]
 	if recap and recap.name then
-		frame.title:SetText(format("%s: %s", L["Death recap"], recap.name))
-	else
-		frame.title:SetText(L["Death recap"])
+		title = format("%s: %s", title, recap.name)
 	end
+	if recap and recap.burst > 0 then
+		title = format(BURST_TEXT, title, format(L["-%d in %.1fs"], recap.burst, BURST_WINDOW))
+	end
+	frame.title:SetText(title)
 	local rows = frame.rows
 	for i = 1, count do
 		local row = rows[i] or createRow(i)
