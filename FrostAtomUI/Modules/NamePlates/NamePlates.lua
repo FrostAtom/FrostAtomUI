@@ -612,6 +612,7 @@ function CastbarMixin:StartCast()
 		if self.casting then
 			self:StopCast()
 		end
+		self:Hide()
 		return
 	end
 
@@ -623,6 +624,7 @@ function CastbarMixin:StartCast()
 	end
 	if not name then
 		self:StopCast()
+		self:Hide()
 		return
 	end
 
@@ -815,7 +817,11 @@ end
 NamePlates.SetIconShown = setIconShown
 
 onPlateShow[#onPlateShow + 1] = function(plate)
-	plate.castbar.result:Hide()
+	local castbar = plate.castbar
+	castbar.result:Hide()
+	if castbar:IsShown() then
+		castbar:OnShow()
+	end
 end
 
 local function styleHolder(holder)

@@ -591,7 +591,7 @@ ns.Defaults = {
 		spreadPlates = false,
 		hoverHighlight = true,
 		showHealers = true,
-		healerIconSize = 16,
+		healerCrossSize = 28,
 		healerThreshold = 2,
 		healerClasses = { PRIEST = true, PALADIN = true, SHAMAN = true, DRUID = true },
 	},

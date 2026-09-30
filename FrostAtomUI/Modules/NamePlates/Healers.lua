@@ -8,32 +8,64 @@ local GetBattlefieldScore = GetBattlefieldScore
 local UnitFactionGroup = UnitFactionGroup
 local match = string.match
 
-local HEALER_ICON = "Interface\\Icons\\Spell_Holy_FlashHeal"
 local POLL_INTERVAL = 10
-local ICON_GAP = 2
+local CROSS_TEXTURE = "Interface\\LFGFrame\\UI-LFG-ICON-ROLES"
+local CROSS_GAP = 2
+local floor = math.floor
 local config = ns.Config.namePlates
 
 local plates = NamePlates.plates
 local healers = {}
-local plateIcons = setmetatable({}, { __mode = "k" })
+local plateCrosses = setmetatable({}, { __mode = "k" })
 
-local function updateIcon(icon, name)
-	if config.showHealers and healers[name] then
-		icon:SetSize(config.healerIconSize, config.healerIconSize)
-		icon:Show()
-		icon.border:Show()
+local function createCross(plate)
+	local cross = plate.overlay:CreateTexture(nil, "ARTWORK")
+	cross:SetTexture(CROSS_TEXTURE)
+	cross:SetTexCoord(GetTexCoordsForRole("HEALER"))
+	cross:Hide()
+	return cross
+end
+
+local function sizeCross(cross)
+	local size = floor(config.healerCrossSize + 0.5)
+	cross:SetSize(size, size)
+end
+
+local function placeCross(plate)
+	local cross = plateCrosses[plate]
+	if not cross then
+		return
+	end
+	local row = plate.auraRow
+	cross:ClearAllPoints()
+	if row and row:IsShown() then
+		cross:SetPoint("BOTTOM", row, "TOP", 0, CROSS_GAP)
 	else
-		icon:Hide()
-		icon.border:Hide()
+		cross:SetPoint("BOTTOM", plate.holder, "TOP", 0, CROSS_GAP)
+	end
+end
+NamePlates.PlaceHealerCross = placeCross
+
+local function updateCross(plate, name)
+	local cross = plateCrosses[plate]
+	if config.showHealers and healers[name] then
+		if not cross then
+			cross = createCross(plate)
+			plateCrosses[plate] = cross
+		end
+		sizeCross(cross)
+		placeCross(plate)
+		cross:Show()
+	elseif cross then
+		cross:Hide()
 	end
 end
 
-local function refreshIcons()
+local function refreshCrosses()
 	for i = 1, #plates do
 		local plate = plates[i]
-		local icon = plateIcons[plate]
-		if icon and plate:IsShown() then
-			updateIcon(icon, plate.blizzardName:GetText())
+		if plate:IsShown() then
+			updateCross(plate, plate.blizzardName:GetText())
 		end
 	end
 end
@@ -50,20 +82,10 @@ local function updateHealers()
 			healers[match(name, "^[^%-]+")] = true
 		end
 	end
-	refreshIcons()
+	refreshCrosses()
 end
 
-NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = function(plate, name)
-	local icon = plateIcons[plate]
-	if not icon then
-		icon = plate.overlay:CreateTexture(nil, "BORDER")
-		icon:SetPoint("LEFT", plate.holder, "RIGHT", ICON_GAP, 0)
-		icon:SetTexture(HEALER_ICON)
-		NamePlates.SkinIcon(plate.overlay, icon)
-		plateIcons[plate] = icon
-	end
-	updateIcon(icon, name)
-end
+NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = updateCross
 
 local poller = CreateFrame("Frame")
 poller:Hide()
