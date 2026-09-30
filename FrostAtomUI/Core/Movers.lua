@@ -1081,6 +1081,13 @@ function Movers.Detach(path)
 	end
 end
 
+function Movers.SavePosition(path)
+	local mover = byPath[path]
+	if mover then
+		placeOnScreen(mover)
+	end
+end
+
 local function anchorDepth(path)
 	local depth, point = 0, defaultPoint(path)
 	while point and point[4] and depth <= #movers do

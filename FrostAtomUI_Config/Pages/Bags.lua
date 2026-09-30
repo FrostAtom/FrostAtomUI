@@ -60,6 +60,13 @@ ns.RegisterPage({
 			desc = L["Open the inventory when a merchant, mailbox, auction house, trade or bank window opens."],
 		},
 		{
+			path = "bags.movable",
+			new = "1.4.1",
+			label = L["Movable"],
+			type = "toggle",
+			desc = L["Drag the inventory and bank windows by their free space; the position is saved."],
+		},
+		{
 			path = "bags.playSounds",
 			advanced = true,
 			label = L["Open / close sounds"],

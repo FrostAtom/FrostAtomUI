@@ -397,7 +397,6 @@ ns.Defaults = {
 		showFocusTarget = true,
 		showPartyTarget = false,
 		showArenaTarget = false,
-		showLoseControl = true,
 		rightClick = "menu",
 		middleClick = "focus",
 		hoverHighlight = true,
@@ -691,6 +690,12 @@ ns.Defaults = {
 				auraIcon("8178", true), -- Grounding Totem Effect
 			}),
 		},
+	},
+
+	loseControl = {
+		enabled = true,
+		frames = { target = true, focus = true, party = true, arena = true },
+		spells = {},
 	},
 
 	lossOfControl = {
@@ -1199,6 +1204,7 @@ ns.Defaults = {
 		questItemColor = { 1, 0.8, 0 },
 		autoOpen = true,
 		playSounds = true,
+		movable = true,
 		searchFadeAlpha = 0.25,
 		tintUnusable = true,
 		showBagFreeSlots = true,
@@ -2069,6 +2075,20 @@ local function migrateGroupCooldownInterruptGrowth(profile)
 	end
 end
 
+local function migrateLoseControl(profile)
+	local unitFrames = profile.unitFrames
+	local shown = unitFrames and unitFrames.showLoseControl
+	if shown == nil then
+		return
+	end
+	unitFrames.showLoseControl = nil
+	local config = profile.loseControl or {}
+	setIfChanged(config, ns.Defaults.loseControl, "enabled", shown)
+	if next(config) then
+		profile.loseControl = config
+	end
+end
+
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
@@ -2079,6 +2099,7 @@ function migrate(profile)
 	migrateNamePlateCategories(profile)
 	migrateUnitFrameCategories(profile)
 	migrateGroupCooldownLayout(profile)
+	migrateLoseControl(profile)
 end
 
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
