@@ -36,29 +36,24 @@ local function showCutaway(health, from, to, max)
 	cutaway:Show()
 end
 
-local function setEmpty(health, setValue, text, ...)
+local function setPlaceholder(health, setValue, fill, text)
 	health:SetMinMaxValues(0, 1)
-	setValue(health, 0)
+	setValue(health, fill)
 	health.colorClass = nil
-	health.bg:SetVertexColor(...)
 	health.text:SetText(text)
 	health.lastCurrent = nil
 	Prediction.SetValues(health, 0, 0, false)
 end
 
 local function setDead(health, setValue)
-	setEmpty(health, setValue, L["RIP"], DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
+	setPlaceholder(health, setValue, 0, L["RIP"])
+	health.bg:SetVertexColor(DEAD_BG_R, DEAD_BG_G, DEAD_BG_B)
 end
 
 local function setOffline(health, setValue)
-	health:SetMinMaxValues(0, 1)
-	setValue(health, 1)
-	health.colorClass = nil
+	setPlaceholder(health, setValue, 1, L["offline"])
 	setColor(health, OFFLINE_R, OFFLINE_G, OFFLINE_B)
-	health.text:SetText(L["offline"])
-	health.lastCurrent = nil
 	health.cutaway:Hide()
-	Prediction.SetValues(health, 0, 0, false)
 end
 
 local function setAlive(health, setValue, current, max, class)

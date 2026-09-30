@@ -21,8 +21,15 @@ local BACKDROP = ns.CreateBackdrop(10, 2)
 local RANGE_INTERVAL = 0.25
 local RANGE_TICKER = "raidFramesRange"
 local MANA = 0
-local GROUP_ORDER = "1,2,3,4,5,6,7,8"
-local CLASS_ORDER = "PRIEST,PALADIN,DRUID,SHAMAN,WARRIOR,DEATHKNIGHT,ROGUE,HUNTER,MAGE,WARLOCK"
+local SORT_ATTRIBUTES = {
+	class = {
+		groupBy = "CLASS",
+		groupingOrder = "PRIEST,PALADIN,DRUID,SHAMAN,WARRIOR,DEATHKNIGHT,ROGUE,HUNTER,MAGE,WARLOCK",
+		sortMethod = "NAME",
+	},
+	name = { sortMethod = "NAME" },
+	group = { groupBy = "GROUP", groupingOrder = "1,2,3,4,5,6,7,8", sortMethod = "INDEX" },
+}
 local RIGHT_CLICK_ACTIONS = { menu = "menu", focus = "focus" }
 local HEALER_TREES = {
 	PRIEST = { true, true, false },
@@ -54,8 +61,7 @@ local function powerWanted(frame)
 	else
 		local unit = frame.unit
 		powerType = UnitPowerType(unit)
-		local _, unitClass = UnitClass(unit)
-		class = unitClass
+		class = select(2, UnitClass(unit))
 		if mode == "healers" and Talents then
 			local guid = UnitGUID(unit)
 			spec = guid and Talents:GetSpec(guid)
@@ -257,20 +263,10 @@ local function footprint()
 end
 
 local function setSort()
-	local sort = config.sort
-	if sort == "class" then
-		header:SetAttribute("groupBy", "CLASS")
-		header:SetAttribute("groupingOrder", CLASS_ORDER)
-		header:SetAttribute("sortMethod", "NAME")
-	elseif sort == "name" then
-		header:SetAttribute("groupBy", nil)
-		header:SetAttribute("groupingOrder", nil)
-		header:SetAttribute("sortMethod", "NAME")
-	else
-		header:SetAttribute("groupBy", "GROUP")
-		header:SetAttribute("groupingOrder", GROUP_ORDER)
-		header:SetAttribute("sortMethod", "INDEX")
-	end
+	local sort = SORT_ATTRIBUTES[config.sort] or SORT_ATTRIBUTES.group
+	header:SetAttribute("groupBy", sort.groupBy)
+	header:SetAttribute("groupingOrder", sort.groupingOrder)
+	header:SetAttribute("sortMethod", sort.sortMethod)
 end
 
 local function setLayout()
