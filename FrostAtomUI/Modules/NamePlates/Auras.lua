@@ -308,9 +308,18 @@ local function setIconShown(icon, shown)
 	end
 end
 
+local function placeHealerCross(row)
+	local place = NamePlates.PlaceHealerCross
+	if place then
+		place(row.plate)
+	end
+end
+
 local function createRow(plate)
 	local row = CreateFrame("Frame", nil, plate.overlay)
 	row:Hide()
+	row:SetScript("OnShow", placeHealerCross)
+	row:SetScript("OnHide", placeHealerCross)
 	row.icons = {}
 	row.count = 0
 	row.plate = plate
