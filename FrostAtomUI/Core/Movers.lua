@@ -128,7 +128,7 @@ local function isListPath(path)
 	return path:find("%.%d+%.") ~= nil or path:find("%.%d+$") ~= nil
 end
 
-local function defaultPoint(path)
+local function defaultValue(path)
 	local node = ns.Defaults
 	for key in path:gmatch("[^.]+") do
 		if type(node) ~= "table" then
@@ -136,6 +136,11 @@ local function defaultPoint(path)
 		end
 		node = node[tonumber(key) or key]
 	end
+	return node
+end
+
+local function defaultPoint(path)
+	local node = defaultValue(path)
 	return type(node) == "table" and node[1] ~= nil and node or nil
 end
 
@@ -156,12 +161,16 @@ local function isEnabledAlong(path)
 	return true
 end
 
+local singlePath, noPaths = {}, {}
+
+-- Returns a shared table: callers iterate it right away and never keep it.
 local function enabledPaths(mover)
 	local paths = mover.enabledPath
 	if type(paths) == "string" then
-		return { paths }
+		singlePath[1] = paths
+		return singlePath
 	end
-	return paths or {}
+	return paths or noPaths
 end
 
 local function watchesPath(mover, path)
@@ -469,6 +478,14 @@ local dragging
 local dragFrame = CreateFrame("Frame")
 dragFrame:Hide()
 
+-- Reused every drag frame; resolveSnaps reads them within the same frame only.
+local snapRecordX, snapRecordY, draggedPoint = {}, {}, {}
+
+local function snapRecord(record, line, part, offset)
+	record.line, record.part, record.distance = line, part, abs(offset)
+	return record
+end
+
 local function updateDrag()
 	local mover = dragging
 	local cursorX, cursorY = cursorPosition()
@@ -482,10 +499,10 @@ local function updateDrag()
 		dx, dy = dx + offsetX, dy + offsetY
 		mover.lineX, mover.lineY = lineX, lineY
 		if lineX and lineX.mover then
-			mover.snapX = { line = lineX, part = partX, distance = abs(offsetX) }
+			mover.snapX = snapRecord(snapRecordX, lineX, partX, offsetX)
 		end
 		if lineY and lineY.mover then
-			mover.snapY = { line = lineY, part = partY, distance = abs(offsetY) }
+			mover.snapY = snapRecord(snapRecordY, lineY, partY, offsetY)
 		end
 	end
 
@@ -498,7 +515,10 @@ local function updateDrag()
 	if x ~= mover.lastX or y ~= mover.lastY then
 		mover.lastX, mover.lastY = x, y
 		local point, _, _, anchorPath, anchorPoint = unpackPoint(ns:GetConfig(mover.path))
-		ns:SetConfig(mover.path, { point, x, y, anchorPath, anchorPoint })
+		-- SetConfig copies the value, so one scratch table serves every drag step.
+		draggedPoint[1], draggedPoint[2], draggedPoint[3], draggedPoint[4], draggedPoint[5] =
+			point, x, y, anchorPath, anchorPoint
+		ns:SetConfig(mover.path, draggedPoint)
 		showTooltip(mover.overlay)
 	end
 end
@@ -713,7 +733,7 @@ local function onDragStart(overlay)
 	detach(mover)
 	local _, startX, startY = unpack(ns:GetConfig(mover.path))
 	mover.startX, mover.startY = startX, startY
-	mover.lastX, mover.lastY = mover.startX, mover.startY
+	mover.lastX, mover.lastY = startX, startY
 	collectSnapLines(mover)
 	dragging = mover
 	dragFrame:Show()
@@ -1097,14 +1117,10 @@ local function anchorDepth(path)
 	return depth
 end
 
-local function positionPaths()
-	local paths, depths = {}, {}
-	for i = 1, #movers do
-		local path = movers[i].path
-		if isStorable(path) then
-			paths[#paths + 1] = path
-			depths[path] = anchorDepth(path)
-		end
+local function sortByAnchorDepth(paths)
+	local depths = {}
+	for i = 1, #paths do
+		depths[paths[i]] = anchorDepth(paths[i])
 	end
 	sort(paths, function(a, b)
 		if depths[a] ~= depths[b] then
@@ -1113,6 +1129,17 @@ local function positionPaths()
 		return a < b
 	end)
 	return paths
+end
+
+local function positionPaths()
+	local paths = {}
+	for i = 1, #movers do
+		local path = movers[i].path
+		if isStorable(path) then
+			paths[#paths + 1] = path
+		end
+	end
+	return sortByAnchorDepth(paths)
 end
 
 local function canMove()
@@ -1207,17 +1234,6 @@ for _, path in ipairs(ns.LayoutSettings) do
 	layoutSettings[path] = true
 end
 
-local function defaultValue(path)
-	local node = ns.Defaults
-	for key in path:gmatch("[^.]+") do
-		if type(node) ~= "table" then
-			return nil
-		end
-		node = node[key]
-	end
-	return node
-end
-
 local function sanitizeSettings(settings)
 	if type(settings) ~= "table" then
 		return nil
@@ -1251,17 +1267,7 @@ end
 
 local function pointPaths()
 	if not allPointPaths then
-		allPointPaths = collectPointPaths(ns.Defaults, nil, {})
-		local depths = {}
-		for i = 1, #allPointPaths do
-			depths[allPointPaths[i]] = anchorDepth(allPointPaths[i])
-		end
-		sort(allPointPaths, function(a, b)
-			if depths[a] ~= depths[b] then
-				return depths[a] < depths[b]
-			end
-			return a < b
-		end)
+		allPointPaths = sortByAnchorDepth(collectPointPaths(ns.Defaults, nil, {}))
 	end
 	return allPointPaths
 end
@@ -1367,12 +1373,12 @@ local function compactLayout(preset)
 	return compact.merged.points, compact.merged.settings
 end
 
-function Movers.IsCompactScreen()
+local function isCompactScreen()
 	return UIParent:GetHeight() < ns.COMPACT_SCREEN_HEIGHT
 end
 
 local function presetLayout(preset)
-	if Movers.IsCompactScreen() and preset.compact then
+	if isCompactScreen() and preset.compact then
 		return compactLayout(preset)
 	end
 	return preset.points, preset.settings
@@ -1401,11 +1407,6 @@ function Movers.ApplyPreset(key)
 	local points, settings = presetLayout(preset)
 	applyLayout(points, settings, true)
 	return true
-end
-
-function Movers.IsPresetActive(key)
-	local preset = presetByKey(key)
-	return preset and presetMatches(preset) or false
 end
 
 function Movers.GetActivePreset()
@@ -1471,7 +1472,7 @@ function Movers.LoadLayout(name)
 	return true
 end
 
-function Movers.IsLayoutActive(name)
+local function isLayoutActive(name)
 	local stored, storedSettings = storedLayout(name)
 	local points = sanitizeLayout(stored)
 	if not points then
@@ -1671,7 +1672,7 @@ local function activeLayoutValue()
 		return PRESET_PREFIX .. preset
 	end
 	for _, name in ipairs(Movers.GetLayoutNames()) do
-		if Movers.IsLayoutActive(name) then
+		if isLayoutActive(name) then
 			return SAVED_PREFIX .. name
 		end
 	end
@@ -2010,10 +2011,6 @@ function Movers.Refresh()
 		end
 	end
 	updateConflicts()
-end
-
-function Movers.GetConflicts()
-	return conflictPairs, offScreenMovers
 end
 
 Movers:RegisterEvent("PLAYER_REGEN_DISABLED", Movers.Lock)

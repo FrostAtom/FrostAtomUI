@@ -6,7 +6,6 @@ local tinsert = tinsert
 local DIALOG_BORDER = "Interface\\DialogFrame\\UI-DialogBox-Border"
 local DIALOG_HEADER = "Interface\\DialogFrame\\UI-DialogBox-Header"
 local DIALOG_CORNER = "Interface\\DialogFrame\\UI-DialogBox-Corner"
-local DIALOG_DIVIDER = "Interface\\DialogFrame\\UI-DialogBox-Divider"
 local TOOLTIP_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border"
 local TOOLTIP_BACKGROUND = "Interface\\Tooltips\\UI-Tooltip-Background"
 local CLOSE_UP = "Interface\\Buttons\\UI-Panel-MinimizeButton-Up"
@@ -38,21 +37,15 @@ local TAB_TEMPLATES = {
 	tall = "TabButtonTemplate",
 }
 local TAB_OVERLAP = { bottom = -15, top = -16, tall = 0 }
+local TAB_HIGHLIGHT_PADDING = { top = 30, tall = 31 }
 
 local INSET_STYLES = {
 	box = { border = { 0.4, 0.4, 0.4, 1 } },
 	panel = { border = { 0.6, 0.6, 0.6, 1 } },
-	list = { border = { 0.6, 0.6, 0.6, 1 } },
-	dark = { border = { 1, 1, 1, 0.5 }, background = { 0.09, 0.09, 0.19, 1 } },
 	tooltip = { border = { 1, 1, 1, 1 }, background = { 0, 0, 0, 0.6 } },
 }
 
-local HIGHLIGHTS = {
-	list = { "Interface\\QuestFrame\\UI-QuestTitleHighlight" },
-	category = { "Interface\\QuestFrame\\UI-QuestLogTitleHighlight", 0.196, 0.388, 0.8 },
-	listbox = { "Interface\\Buttons\\UI-Listbox-Highlight2", 0.11, 0.325, 0.48 },
-	square = { "Interface\\Buttons\\ButtonHilight-Square" },
-}
+local LIST_HIGHLIGHT = "Interface\\QuestFrame\\UI-QuestTitleHighlight"
 
 local SLOT_BACKGROUNDS = {
 	empty = { "Interface\\Buttons\\UI-EmptySlot-Disabled", 45 / 36, 0, -1, 0.140625, 0.84375, 0.140625, 0.84375 },
@@ -245,9 +238,8 @@ function ns.CreateInset(parent, style, title)
 		inset:SetBackdropColor(unpack(config.background))
 	end
 	if title then
-		local label =
-			inset:CreateFontString(nil, "BACKGROUND", style == "dark" and "GameFontNormal" or "GameFontHighlightSmall")
-		label:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 5, style == "dark" and 2 or 0)
+		local label = inset:CreateFontString(nil, "BACKGROUND", "GameFontHighlightSmall")
+		label:SetPoint("BOTTOMLEFT", inset, "TOPLEFT", 5, 0)
 		label:SetText(title)
 		inset.title = label
 	end
@@ -288,16 +280,6 @@ function ns.CreateCheckButton(parent, text, name, small)
 	check:SetScript("PostClick", playCheckSound)
 	setCheckLabel(check, text)
 	return check
-end
-
-function ns.CreateRadioButton(parent, text, name)
-	local radio = CreateFrame("CheckButton", widgetName(name), parent, "UIRadioButtonTemplate")
-	local label = _G[radio:GetName() .. "Text"]
-	label:SetFontObject(GameFontHighlightSmall)
-	radio.text = label
-	radio.SetLabel = setCheckLabel
-	setCheckLabel(radio, text)
-	return radio
 end
 
 local function updatePlaceholder(box)
@@ -459,33 +441,15 @@ function ns.SkinScrollBar(scroll)
 	middle:SetPoint("BOTTOMLEFT", bottom, "BOTTOMLEFT")
 
 	local function clampTop()
-		local height = bar:GetHeight() + 32 + 7
-		top:SetHeight(math.min(256, height))
-		top:SetTexCoord(0, 0.484375, 0, math.min(256, height) / 256)
+		local height = math.min(256, bar:GetHeight() + 32 + 7)
+		top:SetHeight(height)
+		top:SetTexCoord(0, 0.484375, 0, height / 256)
 	end
 	bar:HookScript("OnSizeChanged", clampTop)
 	clampTop()
 
 	bar.track = { top = top, middle = middle, bottom = bottom }
 	return bar
-end
-
-local function fitScrollChild(scroll, width)
-	scroll.child:SetWidth(width)
-end
-
-function ns.CreateScrollFrame(parent, name, track)
-	local scroll = CreateFrame("ScrollFrame", widgetName(name), parent, "UIPanelScrollFrameTemplate")
-	local child = CreateFrame("Frame", nil, scroll)
-	child:SetSize(1, 1)
-	scroll:SetScrollChild(child)
-	scroll.child = child
-	scroll.scrollBar = _G[scroll:GetName() .. "ScrollBar"]
-	scroll:SetScript("OnSizeChanged", fitScrollChild)
-	if track then
-		ns.SkinScrollBar(scroll)
-	end
-	return scroll, child
 end
 
 function ns.CreateFauxScrollFrame(parent, name, track)
@@ -497,74 +461,14 @@ function ns.CreateFauxScrollFrame(parent, name, track)
 	return scroll
 end
 
-ns.SCROLLBAR_WIDTH = 24
 ns.SCROLLBAR_TRACK_WIDTH = 30
 
-function ns.CreateDivider(parent, width)
-	local divider = parent:CreateTexture(nil, "ARTWORK")
-	divider:SetTexture(DIALOG_DIVIDER)
-	divider:SetTexCoord(0, 0.75390625, 0, 0.5)
-	divider:SetHeight(16)
-	if width then
-		divider:SetWidth(width)
-	end
-	return divider
-end
-
-function ns.CreateHeader(parent, text, template)
-	local header = CreateFrame("Frame", nil, parent)
-	header:SetHeight(20)
-
-	local label = header:CreateFontString(nil, "ARTWORK", template or "GameFontNormal")
-	label:SetPoint("LEFT")
-	label:SetJustifyH("LEFT")
-	label:SetText(text or "")
-	header.text = label
-
-	local line = header:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(TOOLTIP_BACKGROUND)
-	line:SetVertexColor(1, 0.82, 0, 0.35)
-	line:SetHeight(1)
-	line:SetPoint("LEFT", label, "RIGHT", 8, 0)
-	line:SetPoint("RIGHT")
-	header.line = line
-	return header
-end
-
-function ns.AddHighlight(button, style)
-	local config = HIGHLIGHTS[style or "list"]
-	button:SetHighlightTexture(config[1])
+-- Every caller uses the "list" style; the style argument is accepted and ignored.
+function ns.AddHighlight(button)
+	button:SetHighlightTexture(LIST_HIGHLIGHT)
 	local highlight = button:GetHighlightTexture()
 	highlight:SetBlendMode("ADD")
-	if config[2] then
-		highlight:SetVertexColor(config[2], config[3], config[4])
-	end
 	return highlight
-end
-
-local function setSelected(button, selected)
-	button.selected = selected and true or nil
-	if selected then
-		button:LockHighlight()
-	else
-		button:UnlockHighlight()
-	end
-end
-
-function ns.CreateListButton(parent, height, style, template)
-	local button = CreateFrame("Button", nil, parent)
-	button:SetHeight(height or 16)
-	local text = button:CreateFontString(nil, "ARTWORK", template or "GameFontNormalLeft")
-	text:SetPoint("LEFT", 4, 0)
-	text:SetPoint("RIGHT", -4, 0)
-	button:SetFontString(text)
-	button:SetNormalFontObject(_G[template or "GameFontNormalLeft"])
-	button:SetHighlightFontObject(GameFontHighlightLeft)
-	button:SetDisabledFontObject(GameFontDisableLeft)
-	button.text = text
-	button.SetSelected = setSelected
-	ns.AddHighlight(button, style)
-	return button
 end
 
 function ns.SkinIconButton(button, background)
@@ -626,23 +530,14 @@ end
 
 local function resizeTab(tab)
 	PanelTemplates_TabResize(tab, tab.padding)
-	if tab.style == "top" then
-		_G[tab:GetName() .. "HighlightTexture"]:SetWidth(tab:GetTextWidth() + 30)
-	elseif tab.style == "tall" then
-		_G[tab:GetName() .. "HighlightTexture"]:SetWidth(tab:GetTextWidth() + 31)
+	local highlightPadding = TAB_HIGHLIGHT_PADDING[tab.style]
+	if highlightPadding then
+		_G[tab:GetName() .. "HighlightTexture"]:SetWidth(tab:GetTextWidth() + highlightPadding)
 	end
 end
 
 function ns.SelectTab(owner, index)
 	PanelTemplates_SetTab(owner, index)
-end
-
-function ns.SetTabEnabled(owner, index, enabled)
-	if enabled then
-		PanelTemplates_EnableTab(owner, index)
-	else
-		PanelTemplates_DisableTab(owner, index)
-	end
 end
 
 function ns.CreateTabs(owner, labels, options)

@@ -1,6 +1,7 @@
 local ADDON_NAME, ns = ...
 
 local UnitGUID, GetSpellInfo = UnitGUID, GetSpellInfo
+local PlaySound, PlaySoundFile, GetCVar = PlaySound, PlaySoundFile, GetCVar
 local tremove = table.remove
 local floor, modf, min, abs = math.floor, math.modf, math.min, math.abs
 
@@ -448,8 +449,6 @@ function ns.GridPoint(point, i, perRow, size)
 	local ySign = point:find("BOTTOM") and 1 or -1
 	return point, xSign * column * size, ySign * row * size
 end
-
-local PlaySound, PlaySoundFile, GetCVar = PlaySound, PlaySoundFile, GetCVar
 
 local SOUND_FILES = {
 	RaidWarning = "Sound\\interface\\RaidWarning.wav",

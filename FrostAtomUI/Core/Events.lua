@@ -50,15 +50,6 @@ local function findRecord(list, owner, handler)
 	end
 end
 
-local function findRecordForOwner(list, owner)
-	for i = 1, #list do
-		local record = list[i]
-		if record.owner == owner and not record.removed then
-			return record
-		end
-	end
-end
-
 local function compact(list)
 	local n = 0
 	for i = 1, #list do
@@ -208,22 +199,6 @@ function EventMixin:UnregisterAllEvents()
 	for event, byUnit in pairs(unitCallbacks) do
 		release(event, removeOwnerFromUnits(byUnit, self))
 	end
-end
-
-function EventMixin:IsEventRegistered(event)
-	local list = callbacks[event]
-	if list and findRecordForOwner(list, self) then
-		return true
-	end
-	local byUnit = unitCallbacks[event]
-	if byUnit then
-		for _, unitList in pairs(byUnit) do
-			if findRecordForOwner(unitList, self) then
-				return true
-			end
-		end
-	end
-	return false
 end
 
 function ns:Fire(event, ...)

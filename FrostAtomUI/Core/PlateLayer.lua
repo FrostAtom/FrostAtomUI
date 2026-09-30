@@ -3,7 +3,7 @@ local _, ns = ...
 local UnitExists, UnitName, UnitGUID = UnitExists, UnitName, UnitGUID
 local GetTime = GetTime
 local GetCVarBool = GetCVarBool
-local floor, tonumber = math.floor, tonumber
+local floor = math.floor
 local byte = string.byte
 
 local PlateLayer = {}
@@ -58,7 +58,6 @@ local handlers = {}
 local active = false
 local targetExists = false
 local targetSerial = 0
-PlateLayer.plates = plates
 
 local function fire(event, plate, info, arg)
 	for i = 1, #handlers do
@@ -269,31 +268,6 @@ function PlateLayer.SetHealthColor(info, r, g, b)
 	end
 	info.healthbar:SetStatusBarColor(rb / 255, gb / 255, bb / 255)
 	info.painted = true
-end
-
-function PlateLayer.GetLevel(info)
-	if info.levelText:IsShown() then
-		return tonumber(info.levelText:GetText())
-	elseif info.bossIcon:IsShown() then
-		return -1
-	end
-end
-
-function PlateLayer.IsElite(info)
-	return info.eliteIcon:IsShown() == 1
-end
-
-function PlateLayer.GetRaidIcon(info)
-	local icon = info.raidIcon
-	if not icon:IsShown() then
-		return
-	end
-	local left, top = icon:GetTexCoord()
-	return floor(top * 4 + 0.5) * 4 + floor(left * 4 + 0.5) + 1
-end
-
-function PlateLayer.IsCastInterruptible(info)
-	return info.castbar:IsShown() == 1 and not info.castShield:IsShown()
 end
 
 function PlateLayer.IsPlayerGUID(guid)
