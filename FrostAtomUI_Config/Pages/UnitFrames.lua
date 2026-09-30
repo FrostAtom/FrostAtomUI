@@ -281,14 +281,15 @@ local AURA_PLACEMENT_LABELS = {
 
 local function auraPlacement(key, kind, shownPath)
 	local labels = AURA_PLACEMENT_LABELS[kind]
-	return new({
+	local position = new({
 		path = uf(key .. kind .. "Position"),
 		label = labels[1],
 		type = "select",
 		values = AURA_POSITION_VALUES,
 		enabledBy = shownPath,
 		desc = L["Side of the frame the icons are attached to. On the left or right the rows go down from the top of the frame."],
-	}), new({
+	})
+	local growth = new({
 		path = uf(key .. kind .. "Growth"),
 		label = labels[2],
 		type = "select",
@@ -296,10 +297,12 @@ local function auraPlacement(key, kind, shownPath)
 		enabledBy = shownPath,
 		desc = L["Direction the icons fill a row in."],
 	})
+	return position, growth
 end
 
 local function targetAuras(key)
-	local debuffs, buffs = uf("show" .. capitalize(key) .. "Debuffs"), uf("show" .. capitalize(key) .. "Buffs")
+	local name = capitalize(key)
+	local debuffs, buffs = uf("show" .. name .. "Debuffs"), uf("show" .. name .. "Buffs")
 	local either = { debuffs, buffs }
 	local debuffPosition, debuffGrowth = auraPlacement(key, "Debuff", debuffs)
 	local buffPosition, buffGrowth = auraPlacement(key, "Buff", buffs)
@@ -846,15 +849,10 @@ registerElement({
 	tab = "target",
 	name = L["Target"],
 	glyph = "bullseye",
-	schema = concat(
-		frameLayout("target"),
-		targetAuras("target"),
-		{
-			{ header = L["Castbar"], glyph = "bars-progress" },
-			{ path = castbarShownPath("target"), label = L["Castbar"], type = "toggle" },
-		},
-		comboPoints()
-	),
+	schema = concat(frameLayout("target"), targetAuras("target"), {
+		{ header = L["Castbar"], glyph = "bars-progress" },
+		{ path = castbarShownPath("target"), label = L["Castbar"], type = "toggle" },
+	}, comboPoints()),
 })
 
 registerElement({
@@ -871,14 +869,10 @@ registerElement({
 	tab = "focus",
 	name = L["Focus"],
 	glyph = "eye",
-	schema = concat(
-		frameLayout("focus"),
-		targetAuras("focus"),
-		{
-			{ header = L["Castbar"], glyph = "bars-progress" },
-			{ path = castbarShownPath("focus"), label = L["Castbar"], type = "toggle" },
-		}
-	),
+	schema = concat(frameLayout("focus"), targetAuras("focus"), {
+		{ header = L["Castbar"], glyph = "bars-progress" },
+		{ path = castbarShownPath("focus"), label = L["Castbar"], type = "toggle" },
+	}),
 })
 
 registerElement({
@@ -921,33 +915,18 @@ for _, info in ipairs(SINGLE_SQUARES) do
 	})
 end
 
-local function partySchema()
-	return concat(
-		frameLayout("party", "unitFrames.showParty", L["Show"]),
-		{
-			{
-				description = L["Each frame moves on its own; by default it is attached to the previous one, so dragging the first frame moves the whole group."],
-			},
-		},
-		groupAuras("party", "unitFrames.showParty")
-	)
-end
+local GROUP_CASTBAR_DESC = L["Shared by all frames of the group."]
 
-local function arenaSchema()
-	return concat(
-		frameLayout("arena", "unitFrames.showArena", L["Show"]),
+local function groupSchema(prefix, shownPath)
+	return concat(frameLayout(prefix, shownPath, L["Show"]), {
 		{
-			{
-				description = L["Each frame moves on its own; by default it is attached to the previous one, so dragging the first frame moves the whole group."],
-			},
+			description = L["Each frame moves on its own; by default it is attached to the previous one, so dragging the first frame moves the whole group."],
 		},
-		groupAuras("arena", "unitFrames.showArena")
-	)
+	}, groupAuras(prefix, shownPath))
 end
 
 local function registerGroup(group)
 	local enabledBy = { "unitFrames.enabled", group.shownPath }
-	local castbarDesc = group.castbarSizeDesc
 	for i = 1, group.count do
 		local first = i == 1
 		local label = group.label .. " " .. i
@@ -958,7 +937,7 @@ local function registerGroup(group)
 			glyph = group.glyph,
 			hidden = not first,
 			enabledBy = enabledBy,
-			schema = group.schema(),
+			schema = groupSchema(group.prefix, group.shownPath),
 		})
 		registerElement({
 			path = uf(group.prefix .. i .. "Castbar"),
@@ -968,7 +947,7 @@ local function registerGroup(group)
 			glyph = "bars-progress",
 			hidden = not first,
 			enabledBy = enabledBy,
-			schema = castbarPanel(group.prefix, 60, castbarDesc),
+			schema = castbarPanel(group.prefix, 60, GROUP_CASTBAR_DESC),
 		})
 		for _, kind in ipairs({ "Pet", "Target" }) do
 			local key = group.prefix .. kind
@@ -993,7 +972,7 @@ local function registerGroup(group)
 				glyph = "bars-progress",
 				hidden = not first,
 				enabledBy = { "unitFrames.enabled", group.shownPath, square.shownPath },
-				schema = castbarPanel(key, 60, castbarDesc, true),
+				schema = castbarPanel(key, 60, GROUP_CASTBAR_DESC, true),
 			})
 		end
 	end
@@ -1007,8 +986,6 @@ registerGroup({
 	castbarsName = L["Party castbars"],
 	glyph = "users",
 	shownPath = "unitFrames.showParty",
-	castbarSizeDesc = L["Shared by all frames of the group."],
-	schema = partySchema,
 	Pet = { frames = L["Party pets"], castbars = L["Party pet castbars"] },
 	Target = { frames = L["Party member targets"], castbars = L["Party target castbars"] },
 })
@@ -1021,8 +998,6 @@ registerGroup({
 	castbarsName = L["Arena castbars"],
 	glyph = "crosshairs",
 	shownPath = "unitFrames.showArena",
-	castbarSizeDesc = L["Shared by all frames of the group."],
-	schema = arenaSchema,
 	Pet = { frames = L["Arena pets"], castbars = L["Arena pet castbars"] },
 	Target = { frames = L["Arena opponent targets"], castbars = L["Arena target castbars"] },
 })
@@ -1399,7 +1374,7 @@ end
 
 local bossCopy = { Width = "unitFrames.bossWidth", Height = "unitFrames.bossHeight" }
 
-local raid = {}
+local raidTab, raidIndicatorsTab
 do
 	local ENABLED = "raidFrames.enabled"
 
@@ -1577,7 +1552,7 @@ do
 		schema = layout(),
 	})
 
-	raid.tab = {
+	raidTab = {
 		key = "raid",
 		name = L["Raid"],
 		glyph = "people-group",
@@ -1591,7 +1566,7 @@ do
 			},
 		}, framesSection(), general(), layout(), bars()),
 	}
-	raid.indicators = {
+	raidIndicatorsTab = {
 		key = "raidIndicators",
 		parent = "raid",
 		name = L["Raid indicators"],
@@ -1675,14 +1650,14 @@ ns.RegisterPage({
 			schema = concat(
 				framesSection(),
 				frameLayout("party", "unitFrames.showParty", L["Party frames"]),
-				castbarSection("party", 60, 400, L["Shared by all frames of the group."], "unitFrames.showParty"),
+				castbarSection("party", 60, 400, GROUP_CASTBAR_DESC, "unitFrames.showParty"),
 				groupAuras("party", "unitFrames.showParty")
 			),
 		},
 		squareTabEntry("partyPet", "party", L["Party pets"], "paw"),
 		squareTabEntry("partyTarget", "party", L["Party targets"], "bullseye"),
-		raid.tab,
-		raid.indicators,
+		raidTab,
+		raidIndicatorsTab,
 		{
 			key = "arena",
 			name = L["Arena"],
@@ -1691,7 +1666,7 @@ ns.RegisterPage({
 			schema = concat(
 				framesSection(),
 				frameLayout("arena", "unitFrames.showArena", L["Arena frames"]),
-				castbarSection("arena", 60, 400, L["Shared by all frames of the group."], "unitFrames.showArena"),
+				castbarSection("arena", 60, 400, GROUP_CASTBAR_DESC, "unitFrames.showArena"),
 				groupAuras("arena", "unitFrames.showArena"),
 				arenaUnseen()
 			),

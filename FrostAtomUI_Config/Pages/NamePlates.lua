@@ -43,7 +43,7 @@ local NEW = "1.4.1"
 
 local COPY_FIELDS = { "width", "height", "showName", "healthText", "showCastbar", "castbarHeight", "showAuras" }
 
-local function arenaIconSchema(prefix, owner)
+local function arenaIconEntries(prefix, owner)
 	if owner then
 		return {
 			path = prefix .. "arenaIconSize",
@@ -181,8 +181,8 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc, aren
 		},
 		{ header = L["Arena"], glyph = "trophy" },
 	}
-	for _, row in ipairs({ arenaIconSchema(prefix, arenaIconOwner) }) do
-		schema[#schema + 1] = row
+	for _, entry in ipairs({ arenaIconEntries(prefix, arenaIconOwner) }) do
+		schema[#schema + 1] = entry
 	end
 
 	return {
@@ -617,7 +617,7 @@ local function addHiddenName(name)
 	ui:SetConfig(HIDDEN_PATH, list)
 end
 
-local function removeHiddenName(index)
+local function hiddenNameRemover(index)
 	return function()
 		local list = CopyTable(hiddenNames())
 		table.remove(list, index)
@@ -640,7 +640,7 @@ local function hiddenNameRow(index)
 			text:SetWordWrap(false)
 			local remove = ns.CreateButton(row, L["Remove"], NAME_BUTTON_WIDTH, true, NAME_BUTTON_HEIGHT)
 			remove:SetPoint("RIGHT", -4, 0)
-			remove:SetScript("OnClick", removeHiddenName(index))
+			remove:SetScript("OnClick", hiddenNameRemover(index))
 			row.text, row.remove = text, remove
 		end,
 		refresh = function(row)

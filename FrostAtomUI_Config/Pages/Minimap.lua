@@ -173,7 +173,13 @@ Section(schema, L["World map"], "worldMap", {
 		type = "toggle",
 		desc = L["Cursor and player coordinates."],
 	},
-	{ path = "coordFont", label = L["Coordinates font"], type = "font", enabledBy = "worldMap.showCoords", advanced = true },
+	{
+		path = "coordFont",
+		label = L["Coordinates font"],
+		type = "font",
+		enabledBy = "worldMap.showCoords",
+		advanced = true,
+	},
 	{
 		path = "fadeWhenMoving",
 		new = "1.4.1",

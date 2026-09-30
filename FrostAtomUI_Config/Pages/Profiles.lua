@@ -68,7 +68,7 @@ local function prepareWindow(heading)
 	window.heading:SetText(heading)
 end
 
-local function showText(heading, text)
+local function showTextWindow(heading, text)
 	prepareWindow(heading)
 	window.action:Hide()
 	window.box:SetText(text)
@@ -88,11 +88,11 @@ local function showImportWindow(heading, onImport)
 	window.box:SetFocus()
 end
 
-ns.ShowTextWindow = showText
+ns.ShowTextWindow = showTextWindow
 ns.ShowImportWindow = showImportWindow
 
 local function showExport()
-	showText(L["Export profile: %s"]:format(ui:GetActiveProfile()), ui:ExportProfile())
+	showTextWindow(L["Export profile: %s"]:format(ui:GetActiveProfile()), ui:ExportProfile())
 end
 
 local function showImport()

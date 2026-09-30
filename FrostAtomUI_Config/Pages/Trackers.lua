@@ -466,9 +466,10 @@ local function buildIconEntries(schema, groupIndex, iconIndex, icon)
 
 	schema[#schema + 1] = { header = L["Icon %d"]:format(iconIndex), glyph = "pen-to-square" }
 	local prefix = iconPath(groupIndex, iconIndex)
+	local enabledBy = { "trackers.enabled", groupPath(groupIndex) .. ".enabled" }
 	local function entry(spec)
 		spec.path = prefix .. "." .. spec.path
-		spec.enabledBy = { "trackers.enabled", groupPath(groupIndex) .. ".enabled" }
+		spec.enabledBy = enabledBy
 		schema[#schema + 1] = spec
 	end
 	entry({

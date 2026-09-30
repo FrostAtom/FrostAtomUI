@@ -44,10 +44,8 @@ local function classValues()
 	return values
 end
 
-local function notFrames(side)
-	return function()
-		return ui:GetConfig("groupCooldowns." .. side .. "Layout") == "frames"
-	end
+local function isFramesLayout(side)
+	return ui:GetConfig("groupCooldowns." .. side .. "Layout") == "frames"
 end
 
 local function sidePanel(side, name, interruptName)
@@ -58,7 +56,9 @@ local function sidePanel(side, name, interruptName)
 		tab = side,
 		name = name,
 		enabledBy = { "groupCooldowns.enabled", prefix },
-		disabled = notFrames(side),
+		disabled = function()
+			return isFramesLayout(side)
+		end,
 		schema = {},
 	})
 	ns.RegisterElement({
@@ -76,6 +76,9 @@ sidePanel("enemy", L["Enemy cooldowns"], L["Enemy interrupts"])
 
 local function framePanels(side, prefix, label, count, name)
 	local enabledBy = { "groupCooldowns.enabled", "groupCooldowns." .. side }
+	local function isBlockLayout()
+		return not isFramesLayout(side)
+	end
 	for i = 1, count do
 		ns.RegisterElement({
 			path = "groupCooldowns." .. prefix .. i .. "Point",
@@ -84,9 +87,7 @@ local function framePanels(side, prefix, label, count, name)
 			name = i == 1 and name or L[label .. " " .. i .. " cooldowns"],
 			hidden = i ~= 1,
 			enabledBy = enabledBy,
-			disabled = function()
-				return ui:GetConfig("groupCooldowns." .. side .. "Layout") ~= "frames"
-			end,
+			disabled = isBlockLayout,
 			schema = Requires(enabledBy, {
 				{
 					description = L["The row of every frame moves on its own; by default it hangs under the frame's corner."],
@@ -119,7 +120,15 @@ local function layoutEntries(schema, prefix, enabledBy, framed)
 			desc = L["Side the rows grow toward; category labels sit on the other side."],
 		},
 		{ path = prefix .. "Size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
-		{ path = prefix .. "Spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
+		{
+			path = prefix .. "Spacing",
+			label = L["Spacing"],
+			type = "number",
+			min = 0,
+			max = 10,
+			step = 1,
+			advanced = true,
+		},
 		{
 			path = prefix .. "PerRow",
 			label = L["Icons per row"],
@@ -169,7 +178,13 @@ local function sideTab(side, name, glyph, toggleLabel, toggleDesc, framesDesc, t
 	local prefix = "groupCooldowns." .. side
 	local enabledBy = { "groupCooldowns.enabled", prefix }
 	local schema = {
-		{ path = prefix, label = toggleLabel, type = "toggle", enabledBy = "groupCooldowns.enabled", desc = toggleDesc },
+		{
+			path = prefix,
+			label = toggleLabel,
+			type = "toggle",
+			enabledBy = "groupCooldowns.enabled",
+			desc = toggleDesc,
+		},
 		{
 			path = prefix .. "Layout",
 			label = L["Display"],
@@ -202,10 +217,17 @@ local function sideTab(side, name, glyph, toggleLabel, toggleDesc, framesDesc, t
 		name = name,
 		glyph = glyph,
 		schema = schema,
-		copy = copyPaths(
-			prefix,
-			{ "growth", "size", "spacing", "perRow", "framePerRow", "rowSpacing", "layout", "categories", "separateTrinket" }
-		),
+		copy = copyPaths(prefix, {
+			"growth",
+			"size",
+			"spacing",
+			"perRow",
+			"framePerRow",
+			"rowSpacing",
+			"layout",
+			"categories",
+			"separateTrinket",
+		}),
 	}
 end
 
@@ -240,11 +262,8 @@ local function interruptTab(side, name, glyph)
 	}
 end
 
-local function spellPath(id)
-	return "groupCooldowns.spells." .. id
-end
-
 local function spellToggle(id)
+	local path = "groupCooldowns.spells." .. id
 	local info = ui:GetModule("CooldownTracker"):GetInfo(id)
 	local name, _, icon = GetSpellInfo(id)
 	return {
@@ -256,16 +275,16 @@ local function spellToggle(id)
 		end,
 		set = function(value)
 			if value == not info.hidden then
-				ui:ResetConfig(spellPath(id))
+				ui:ResetConfig(path)
 			else
-				ui:SetConfig(spellPath(id), value)
+				ui:SetConfig(path, value)
 			end
 		end,
 		isDefault = function()
 			return GroupCooldowns.IsSpellShown(id) == not info.hidden
 		end,
 		reset = function()
-			ui:ResetConfig(spellPath(id))
+			ui:ResetConfig(path)
 		end,
 		defaultText = info.hidden and L["Off"] or L["On"],
 	}
@@ -276,8 +295,12 @@ local function spellEntries(schema)
 	for _, entry in ipairs(Data.SPELLS[selectedClass]) do
 		local id = entry[1]
 		local category = entry.cat or "utility"
-		byCategory[category] = byCategory[category] or {}
-		tinsert(byCategory[category], id)
+		local ids = byCategory[category]
+		if not ids then
+			ids = {}
+			byCategory[category] = ids
+		end
+		ids[#ids + 1] = id
 	end
 	for _, category in ipairs(Data.CATEGORIES) do
 		local ids = byCategory[category]
@@ -379,8 +402,8 @@ local function buildGeneralSchema()
 end
 
 local function setPreview(shown)
-	local UF = ui:GetModule("UnitFrames")
-	GroupCooldowns.SetPreview(shown or UF.testing)
+	local UnitFrames = ui:GetModule("UnitFrames")
+	GroupCooldowns.SetPreview(shown or UnitFrames.testing)
 end
 
 local generalTabSchema = generalSchema()
@@ -437,4 +460,3 @@ ns.RegisterPage({
 		setPreview(false)
 	end,
 })
-

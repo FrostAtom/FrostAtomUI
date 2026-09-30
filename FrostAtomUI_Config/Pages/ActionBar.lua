@@ -196,6 +196,34 @@ ns.RegisterElement({
 	},
 })
 
+local function menuVisibility(prefix, mouseoverDesc)
+	local mouseoverPath, combatPath = prefix .. "Mouseover", prefix .. "Combat"
+	return { header = L["Visibility"], glyph = "eye" }, {
+		path = mouseoverPath,
+		label = L["Show on mouseover"],
+		type = "toggle",
+		desc = mouseoverDesc,
+	}, {
+		path = combatPath,
+		new = "1.4.1",
+		label = L["Visible"],
+		type = "select",
+		values = ns.COMBAT_VISIBILITY_VALUES,
+		desc = COMBAT_DESC,
+	}, {
+		path = "actionBar.menuFadeAlpha",
+		advanced = true,
+		label = L["Faded alpha (micro menu, bag button)"],
+		type = "number",
+		min = 0,
+		max = 1,
+		step = 0.05,
+		percent = true,
+		disabled = fadeDisabled(mouseoverPath, combatPath),
+		disabledDesc = FADE_DISABLED_DESC,
+	}
+end
+
 ns.RegisterElement({
 	path = "actionBar.microMenu",
 	page = PAGE,
@@ -213,33 +241,7 @@ ns.RegisterElement({
 			step = 0.05,
 			percent = true,
 		},
-		{ header = L["Visibility"], glyph = "eye" },
-		{
-			path = "actionBar.microMenuMouseover",
-			label = L["Show on mouseover"],
-			type = "toggle",
-			desc = L["Keep the micro menu faded until the cursor is over it."],
-		},
-		{
-			path = "actionBar.microMenuCombat",
-			new = "1.4.1",
-			label = L["Visible"],
-			type = "select",
-			values = ns.COMBAT_VISIBILITY_VALUES,
-			desc = COMBAT_DESC,
-		},
-		{
-			path = "actionBar.menuFadeAlpha",
-			advanced = true,
-			label = L["Faded alpha (micro menu, bag button)"],
-			type = "number",
-			min = 0,
-			max = 1,
-			step = 0.05,
-			percent = true,
-			disabled = fadeDisabled("actionBar.microMenuMouseover", "actionBar.microMenuCombat"),
-			disabledDesc = FADE_DISABLED_DESC,
-		},
+		menuVisibility("actionBar.microMenu", L["Keep the micro menu faded until the cursor is over it."]),
 	},
 })
 
@@ -250,33 +252,7 @@ ns.RegisterElement({
 	name = L["Bag button"],
 	enabledBy = ENABLE,
 	schema = {
-		{ header = L["Visibility"], glyph = "eye" },
-		{
-			path = "actionBar.bagButtonMouseover",
-			label = L["Show on mouseover"],
-			type = "toggle",
-			desc = L["Keep the bag button faded until the cursor is over it."],
-		},
-		{
-			path = "actionBar.bagButtonCombat",
-			new = "1.4.1",
-			label = L["Visible"],
-			type = "select",
-			values = ns.COMBAT_VISIBILITY_VALUES,
-			desc = COMBAT_DESC,
-		},
-		{
-			path = "actionBar.menuFadeAlpha",
-			advanced = true,
-			label = L["Faded alpha (micro menu, bag button)"],
-			type = "number",
-			min = 0,
-			max = 1,
-			step = 0.05,
-			percent = true,
-			disabled = fadeDisabled("actionBar.bagButtonMouseover", "actionBar.bagButtonCombat"),
-			disabledDesc = FADE_DISABLED_DESC,
-		},
+		menuVisibility("actionBar.bagButton", L["Keep the bag button faded until the cursor is over it."]),
 	},
 })
 
@@ -304,10 +280,6 @@ local CLASS_PAGE_SPELLS = {
 	},
 }
 
-local function extraBars()
-	return ui.Config.actionBar.extraBars
-end
-
 local function extraBarName(page)
 	return L["Bar %d"]:format(page)
 end
@@ -334,10 +306,14 @@ ns.RegisterElement({
 	end,
 })
 
+local function isPageUsed(page)
+	return ui.Config.actionBar.extraBars["bar" .. page]
+end
+
 local function freePageValues()
 	local values = {}
 	for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
-		if not extraBars()["bar" .. page] then
+		if not isPageUsed(page) then
 			local owner = pageOwner(page)
 			values[#values + 1] = {
 				page,
@@ -403,7 +379,12 @@ local addBarEntry = {
 	placeholder = L["Choose a page..."],
 	desc = L["Another bar on a spare action page (7 - 10). A page of your stances or forms shows the actions of that stance or form."],
 	disabled = function()
-		return #freePageValues() == 0
+		for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
+			if not isPageUsed(page) then
+				return false
+			end
+		end
+		return true
 	end,
 	disabledDesc = L["All spare action pages are in use."],
 	get = function() end,
@@ -585,17 +566,10 @@ local schema = {
 }
 
 local function buildSchema()
-	local result = {}
-	for _, entry in ipairs(barsSchema) do
-		result[#result + 1] = entry
-		if entry.path == EXTRA_BARS then
-			result[#result + 1] = { header = L["Extra bars"], glyph = "plus" }
-			result[#result + 1] = addBarEntry
-			for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
-				if extraBars()["bar" .. page] then
-					addExtraBar(result, page)
-				end
-			end
+	local result = { barsSchema[1], barsSchema[2], { header = L["Extra bars"], glyph = "plus" }, addBarEntry }
+	for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
+		if isPageUsed(page) then
+			addExtraBar(result, page)
 		end
 	end
 	return result
@@ -604,7 +578,7 @@ end
 local function signature()
 	local keys = {}
 	for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
-		if extraBars()["bar" .. page] then
+		if isPageUsed(page) then
 			keys[#keys + 1] = page
 		end
 	end
