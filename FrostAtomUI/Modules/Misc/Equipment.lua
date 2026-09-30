@@ -45,6 +45,7 @@ local function itemLevelColor(difference)
 	end
 	return ColorGradient(pi / -difference, 1, 0.1, 0.1, 1, 1, 0.1, 0.1, 1, 0.1)
 end
+ns.ItemLevelDifferenceColor = itemLevelColor
 
 local QUALITY_TIERS = { { "legendary", 5 }, { "epic", 4 }, { "rare", 3 }, { "uncommon", 2 } }
 
@@ -313,9 +314,9 @@ local warned = false
 local function lowestDurability()
 	local lowest = 1
 	for i = 1, #DURABILITY_SLOTS do
-		local current, max = GetInventoryItemDurability(DURABILITY_SLOTS[i])
-		if current and max and max > 0 then
-			lowest = min(lowest, current / max)
+		local current, maximum = GetInventoryItemDurability(DURABILITY_SLOTS[i])
+		if current and maximum and maximum > 0 then
+			lowest = min(lowest, current / maximum)
 		end
 	end
 	return lowest

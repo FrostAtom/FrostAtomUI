@@ -83,6 +83,7 @@ local RED = { 1, 0.25, 0.25 }
 local YELLOW = { 1, 0.82, 0 }
 local GREEN = { 0.25, 1, 0.25 }
 local GUILD_COLOR = { 0.25, 1, 0.25 }
+local INACTIVE_BONUS_COLOR = { 0.5, 0.5, 0.5 }
 
 local ARENA_SIZES = { 2, 3, 5 }
 local CASTER_CLASSES = { MAGE = true, WARLOCK = true, PRIEST = true }
@@ -223,6 +224,10 @@ local talentView = { inspect = true, pet = false, group = 1, readOnly = true }
 local state = {}
 local gearRetries = 0
 local gearToken = 0
+
+local function isOpen()
+	return frame ~= nil and frame:IsShown()
+end
 
 local function hex(color)
 	return ("|cff%02x%02x%02x"):format(color[1] * 255, color[2] * 255, color[3] * 255)
@@ -465,13 +470,6 @@ local function updateHeader()
 	frame.refresh:SetEnabled(unitValid())
 end
 
-local function itemLevelColor(difference)
-	if difference >= 0 then
-		return 0.1, 1, 0.1
-	end
-	return ns.ColorGradient(math.pi / -difference, 1, 0.1, 0.1, 1, 1, 0.1, 0.1, 1, 0.1)
-end
-
 local function showItemTooltip(self)
 	local row = self.row
 	local item = state.gear and state.gear.slots[row.slot]
@@ -516,6 +514,15 @@ local function onGemClick(self)
 	end
 end
 
+local function createRowText(row, template, anchor, x, y, width, justify)
+	local text = row:CreateFontString(nil, "ARTWORK", template)
+	text:SetPoint(anchor, x, y)
+	text:SetWidth(width)
+	text:SetHeight(12)
+	text:SetJustifyH(justify)
+	return text
+end
+
 local function createItemRow(parent, slot, side, textWidth)
 	local row = CreateFrame("Frame", nil, parent)
 	row:SetSize(ICON_SIZE + ROW_GAP + textWidth, ICON_SIZE)
@@ -553,19 +560,8 @@ local function createItemRow(parent, slot, side, textWidth)
 	local anchor = side == "right" and "TOPRIGHT" or "TOPLEFT"
 	local x = side == "right" and -(ICON_SIZE + ROW_GAP) or ICON_SIZE + ROW_GAP
 
-	local name = row:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-	name:SetPoint(anchor, x, -1)
-	name:SetWidth(textWidth)
-	name:SetHeight(12)
-	name:SetJustifyH(justify)
-	row.name = name
-
-	local enchant = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	enchant:SetPoint(anchor, x, -13)
-	enchant:SetWidth(textWidth)
-	enchant:SetHeight(12)
-	enchant:SetJustifyH(justify)
-	row.enchant = enchant
+	row.name = createRowText(row, "GameFontNormalSmall", anchor, x, -1, textWidth, justify)
+	row.enchant = createRowText(row, "GameFontHighlightSmall", anchor, x, -13, textWidth, justify)
 
 	row.gems = {}
 	for i = 1, 4 do
@@ -588,10 +584,12 @@ local function createItemRow(parent, slot, side, textWidth)
 	end
 
 	local note = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	note:SetPoint(side == "right" and "RIGHT" or "LEFT", row.gems[1], side == "right" and "LEFT" or "RIGHT", 0, 0)
+	note:SetPoint(justify, row.gems[1], side == "right" and "LEFT" or "RIGHT", 0, 0)
 	row.note = note
 	return row
 end
+
+local noteParts = {}
 
 local function setRowGems(row, item)
 	local shown = 0
@@ -615,28 +613,23 @@ local function setRowGems(row, item)
 		end
 	end
 	local anchor = row.gems[max(shown, 1)]
-	local side = row.side
+	local right = row.side == "right"
+	local point = right and "RIGHT" or "LEFT"
 	row.note:ClearAllPoints()
 	if shown > 0 then
-		row.note:SetPoint(
-			side == "right" and "RIGHT" or "LEFT",
-			anchor,
-			side == "right" and "LEFT" or "RIGHT",
-			side == "right" and -4 or 4,
-			0
-		)
+		row.note:SetPoint(point, anchor, right and "LEFT" or "RIGHT", right and -4 or 4, 0)
 	else
-		row.note:SetPoint(side == "right" and "RIGHT" or "LEFT", anchor, side == "right" and "RIGHT" or "LEFT", 0, 0)
+		row.note:SetPoint(point, anchor, point, 0, 0)
 	end
-	local notes = {}
+	wipe(noteParts)
 	if item and item.missingBuckle then
-		notes[#notes + 1] = hex(RED) .. L["No belt buckle"] .. "|r"
+		noteParts[#noteParts + 1] = hex(RED) .. L["No belt buckle"] .. "|r"
 	end
 	if item and item.socketBonus and not item.emptySockets then
-		local color = item.socketBonusActive and GREEN or { 0.5, 0.5, 0.5 }
-		notes[#notes + 1] = hex(color) .. item.socketBonus .. "|r"
+		local color = item.socketBonusActive and GREEN or INACTIVE_BONUS_COLOR
+		noteParts[#noteParts + 1] = hex(color) .. item.socketBonus .. "|r"
 	end
-	row.note:SetText(table.concat(notes, " "))
+	row.note:SetText(table.concat(noteParts, " "))
 end
 
 local function updateRow(row)
@@ -655,7 +648,7 @@ local function updateRow(row)
 		end
 		if item.itemLevel and ns.Config.equipment.showItemLevels then
 			row.level:SetText(item.itemLevel)
-			row.level:SetTextColor(itemLevelColor(item.itemLevel - (gear.average or 0)))
+			row.level:SetTextColor(ns.ItemLevelDifferenceColor(item.itemLevel - (gear.average or 0)))
 		else
 			row.level:SetText("")
 		end
@@ -868,16 +861,8 @@ local function updateFormButtons(list, current)
 			local selected = form == current
 			button.icon:SetDesaturated(not selected)
 			button:SetAlpha(selected and 1 or 0.55)
-			if selected then
-				button.border:Show()
-			else
-				button.border:Hide()
-			end
-			if form.id == state.detectedForm then
-				button.detected:Show()
-			else
-				button.detected:Hide()
-			end
+			ns.SetShown(button.border, selected)
+			ns.SetShown(button.detected, form.id == state.detectedForm)
 			button:Show()
 		else
 			button:Hide()
@@ -885,7 +870,10 @@ local function updateFormButtons(list, current)
 	end
 end
 
-local statByKey
+local statByKey = {}
+for _, stat in ipairs(Gear.STATS) do
+	statByKey[stat.key] = stat
+end
 
 local function offenseTitle(caster)
 	if caster == nil then
@@ -897,12 +885,6 @@ local function offenseTitle(caster)
 end
 
 local function updateStats()
-	if not statByKey then
-		statByKey = {}
-		for _, stat in ipairs(Gear.STATS) do
-			statByKey[stat.key] = stat
-		end
-	end
 	local gear = state.gear
 	local totals, caster
 	state.totals = nil
@@ -1188,20 +1170,16 @@ end
 
 local function updateHonor()
 	local rows = frame.honorRows
+	local today, yesterday, lifetime
 	if state.honorReady then
 		local todayHK, todayHonor, yesterdayHK, yesterdayHonor, lifetimeHK = honorData()
-		setPair(rows[1], L["Kills / honor today"], ("%d %s/|r %d"):format(todayHK or 0, GREY, todayHonor or 0))
-		setPair(
-			rows[2],
-			L["Kills / honor yesterday"],
-			("%d %s/|r %d"):format(yesterdayHK or 0, GREY, yesterdayHonor or 0)
-		)
-		setPair(rows[3], L["Lifetime kills"], formatNumber(lifetimeHK or 0))
-	else
-		setPair(rows[1], L["Kills / honor today"], nil)
-		setPair(rows[2], L["Kills / honor yesterday"], nil)
-		setPair(rows[3], L["Lifetime kills"], nil)
+		today = ("%d %s/|r %d"):format(todayHK or 0, GREY, todayHonor or 0)
+		yesterday = ("%d %s/|r %d"):format(yesterdayHK or 0, GREY, yesterdayHonor or 0)
+		lifetime = formatNumber(lifetimeHK or 0)
 	end
+	setPair(rows[1], L["Kills / honor today"], today)
+	setPair(rows[2], L["Kills / honor yesterday"], yesterday)
+	setPair(rows[3], L["Lifetime kills"], lifetime)
 	setPair(rows[4], L["Killing blows"], statistic(STAT_KILLING_BLOWS))
 	local bgWon, bgPlayed = statisticNumber(STAT_BG_WON), statisticNumber(STAT_BG_PLAYED)
 	setPair(
@@ -1365,7 +1343,6 @@ local function createHeader()
 	ring:SetTexture("Interface\\CharacterFrame\\TotemBorder")
 	ring:SetSize(77, 77)
 	ring:SetPoint("CENTER", portrait)
-	frame.ring = ring
 
 	local name = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	name:SetPoint("TOPLEFT", 62, -13)
@@ -1452,11 +1429,16 @@ local function createInsetList(parent, x, width, title)
 	return inset
 end
 
-local function createGearPage()
+local function createPage(index)
 	local page = CreateFrame("Frame", nil, frame)
 	page:SetPoint("TOPLEFT", INSET.left, -CONTENT_TOP)
 	page:SetSize(CONTENT_WIDTH, PAGE_HEIGHT)
-	pages[1] = page
+	pages[index] = page
+	return page
+end
+
+local function createGearPage()
+	local page = createPage(1)
 
 	frame.itemRows = {}
 	for i, slot in ipairs(Gear.LAYOUT.left) do
@@ -1560,11 +1542,8 @@ local function showSpecTooltip(self)
 end
 
 local function createTalentPage()
-	local page = CreateFrame("Frame", nil, frame)
-	page:SetPoint("TOPLEFT", INSET.left, -CONTENT_TOP)
-	page:SetSize(CONTENT_WIDTH, PAGE_HEIGHT)
+	local page = createPage(2)
 	page:Hide()
-	pages[2] = page
 
 	for i = 1, 3 do
 		local pane = Tree.CreatePane(page, talentView)
@@ -1646,11 +1625,8 @@ local function createTeamCard(parent, index)
 end
 
 local function createPvPPage()
-	local page = CreateFrame("Frame", nil, frame)
-	page:SetPoint("TOPLEFT", INSET.left, -CONTENT_TOP)
-	page:SetSize(CONTENT_WIDTH, PAGE_HEIGHT)
+	local page = createPage(3)
 	page:Hide()
-	pages[3] = page
 
 	frame.teamCards = {}
 	for i = 1, #ARENA_SIZES do
@@ -1881,7 +1857,7 @@ local function open(unit, follow)
 end
 
 local function onTalentsReady(_, guid)
-	if not frame or not frame:IsShown() or guid ~= state.guid then
+	if not isOpen() or guid ~= state.guid then
 		return
 	end
 	readSpecs()
@@ -1895,7 +1871,7 @@ local function onTalentsReady(_, guid)
 end
 
 local function onGearReady(_, guid, unit)
-	if not frame or not frame:IsShown() or guid ~= state.guid then
+	if not isOpen() or guid ~= state.guid then
 		return
 	end
 	if unit then
@@ -1914,7 +1890,7 @@ function InspectFrame:Initialize()
 	self:RegisterEvent(ns.INSPECT_TALENTS_READY, onTalentsReady)
 	self:RegisterEvent(ns.INSPECT_GEAR_READY, onGearReady)
 	self:RegisterEvent("INSPECT_HONOR_UPDATE", function()
-		if frame and frame:IsShown() and state.specs and HasInspectHonorData() then
+		if isOpen() and state.specs and HasInspectHonorData() then
 			state.honorReady = true
 			updatePvP()
 		end
@@ -1932,13 +1908,13 @@ function InspectFrame:Initialize()
 		end)
 	end)
 	self:RegisterEvent("INSPECT_ACHIEVEMENT_READY", function()
-		if frame and frame:IsShown() and state.comparing then
+		if isOpen() and state.comparing then
 			state.achievementsReady = true
 			updatePvP()
 		end
 	end)
 	self:RegisterEvent("UNIT_INVENTORY_CHANGED", function(_, unit)
-		if frame and frame:IsShown() and unit == state.unit and unitValid() and state.gear then
+		if isOpen() and unit == state.unit and unitValid() and state.gear then
 			state.dirtyAt = GetTime() + REFRESH_DELAY
 		end
 	end)
@@ -1950,44 +1926,44 @@ function InspectFrame:Initialize()
 		end
 	end
 	self:RegisterEvent("UNIT_AURA", function(_, unit)
-		if frame and frame:IsShown() and unit == state.unit and state.gear and unitValid() then
+		if isOpen() and unit == state.unit and state.gear and unitValid() then
 			onFormChanged()
 		end
 	end)
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", function()
-		if frame and frame:IsShown() and state.isSelf and state.gear then
+		if isOpen() and state.isSelf and state.gear then
 			onFormChanged()
 		end
 	end)
 	self:RegisterEvent("PLAYER_TALENT_UPDATE", function()
-		if frame and frame:IsShown() and state.isSelf then
+		if isOpen() and state.isSelf then
 			loadSelf()
 		end
 	end)
 	self:RegisterEvent("UNIT_MODEL_CHANGED", function(_, unit)
-		if frame and frame:IsShown() and unit == state.unit and unitValid() then
+		if isOpen() and unit == state.unit and unitValid() then
 			frame.model:RefreshUnit()
 		end
 	end)
 	self:RegisterEvent("UNIT_PORTRAIT_UPDATE", function(_, unit)
-		if frame and frame:IsShown() and unit == state.unit and unitValid() then
+		if isOpen() and unit == state.unit and unitValid() then
 			SetPortraitTexture(frame.portrait, unit)
 		end
 	end)
 	local function onUnitsChanged()
-		if frame and frame:IsShown() then
+		if isOpen() then
 			resolveUnit()
 			frame.refresh:SetEnabled(unitValid())
 		end
 	end
 	self:RegisterEvent("PLAYER_TARGET_CHANGED", function()
-		if frame and frame:IsShown() and state.followTarget and UnitGUID("target") ~= state.guid then
+		if isOpen() and state.followTarget and UnitGUID("target") ~= state.guid then
 			open("target", true)
 		end
 		onUnitsChanged()
 	end)
 	local function onScaleChanged()
-		if frame and frame:IsShown() then
+		if isOpen() then
 			frame:FitScale()
 		end
 	end

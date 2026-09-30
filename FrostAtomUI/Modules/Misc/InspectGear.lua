@@ -68,6 +68,20 @@ for _, key in ipairs(SOCKET_KEYS) do
 	end
 end
 
+-- Combat rating needed for 1% (or 1 point of expertise/defense) at level 80.
+local RATING = {
+	crit = 45.905987,
+	hit = 32.78999,
+	spellHit = 26.231993,
+	haste = 32.78999,
+	expertise = 8.197496,
+	arp = 13.99575,
+	defense = 4.918498,
+	dodge = 45.250187,
+	parry = 45.250187,
+	block = 16.394995,
+}
+
 local STATS = {
 	{ key = "ITEM_MOD_STAMINA_SHORT" },
 	{ key = "ITEM_MOD_RESILIENCE_RATING_SHORT", rating = 94.271225, resilience = true },
@@ -77,41 +91,48 @@ local STATS = {
 	{ key = "ITEM_MOD_SPIRIT_SHORT" },
 	{ key = "ITEM_MOD_ATTACK_POWER_SHORT" },
 	{ key = "ITEM_MOD_SPELL_POWER_SHORT" },
-	{ key = "ITEM_MOD_CRIT_RATING_SHORT", rating = 45.905987 },
-	{ key = "ITEM_MOD_HASTE_RATING_SHORT", rating = 32.78999 },
-	{ key = "ITEM_MOD_HIT_RATING_SHORT", rating = 32.78999, spellRating = 26.231993 },
-	{ key = "ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT", rating = 13.99575 },
-	{ key = "ITEM_MOD_EXPERTISE_RATING_SHORT", rating = 8.197496, points = true },
+	{ key = "ITEM_MOD_CRIT_RATING_SHORT", rating = RATING.crit },
+	{ key = "ITEM_MOD_HASTE_RATING_SHORT", rating = RATING.haste },
+	{ key = "ITEM_MOD_HIT_RATING_SHORT", rating = RATING.hit },
+	{ key = "ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT", rating = RATING.arp },
+	{ key = "ITEM_MOD_EXPERTISE_RATING_SHORT", rating = RATING.expertise, points = true },
 	{ key = "ITEM_MOD_SPELL_PENETRATION_SHORT" },
 	{ key = "ITEM_MOD_POWER_REGEN0_SHORT" },
-	{ key = "ITEM_MOD_DEFENSE_SKILL_RATING_SHORT", rating = 4.918498, points = true },
-	{ key = "ITEM_MOD_DODGE_RATING_SHORT", rating = 45.250187 },
-	{ key = "ITEM_MOD_PARRY_RATING_SHORT", rating = 45.250187 },
-	{ key = "ITEM_MOD_BLOCK_RATING_SHORT", rating = 16.394995 },
+	{ key = "ITEM_MOD_DEFENSE_SKILL_RATING_SHORT", rating = RATING.defense, points = true },
+	{ key = "ITEM_MOD_DODGE_RATING_SHORT", rating = RATING.dodge },
+	{ key = "ITEM_MOD_PARRY_RATING_SHORT", rating = RATING.parry },
+	{ key = "ITEM_MOD_BLOCK_RATING_SHORT", rating = RATING.block },
 	{ key = "ITEM_MOD_BLOCK_VALUE_SHORT" },
 	{ key = "RESISTANCE0_NAME" },
 }
 InspectGear.STATS = STATS
 InspectGear.MAX_LEVEL = MAX_LEVEL
 
-local ALL_STATS = {
-	"ITEM_MOD_STRENGTH_SHORT",
+-- Indexed like the talent/stat data: 0 = Strength .. 4 = Spirit.
+local STAT_KEYS = {
+	[0] = "ITEM_MOD_STRENGTH_SHORT",
 	"ITEM_MOD_AGILITY_SHORT",
 	"ITEM_MOD_STAMINA_SHORT",
 	"ITEM_MOD_INTELLECT_SHORT",
 	"ITEM_MOD_SPIRIT_SHORT",
 }
-local SKIP_WORDS = { ["Ðº"] = true, ["ÐºÐ¾"] = true, your = true, ["Ð²Ð°ÑˆÐµÐ¹"] = true, ["Ð²Ð°Ñˆ"] = true }
+local SKIP_WORDS =
+	{ ["Ðº"] = true, ["ÐºÐ¾"] = true, your = true, ["Ð²Ð°ÑˆÐµÐ¹"] = true, ["Ð²Ð°Ñˆ"] = true }
 local BY_WORD = { ruRU = "Ð½Ð°" }
+
+-- string.lower only handles ASCII; fold UTF-8 Cyrillic capitals (А-П, Р-Я, Ё) by hand.
+local function lowerCyrillicLow(c)
+	return "\208" .. string.char(c:byte() + 32)
+end
+
+local function lowerCyrillicHigh(c)
+	return "\209" .. string.char(c:byte() - 32)
+end
 
 local function lower(text)
 	text = text:lower()
-	text = text:gsub("\208([\144-\159])", function(c)
-		return "\208" .. string.char(c:byte() + 32)
-	end)
-	text = text:gsub("\208([\160-\175])", function(c)
-		return "\209" .. string.char(c:byte() - 32)
-	end)
+	text = text:gsub("\208([\144-\159])", lowerCyrillicLow)
+	text = text:gsub("\208([\160-\175])", lowerCyrillicHigh)
 	return (text:gsub("\208\129", "\209\145"))
 end
 
@@ -184,8 +205,8 @@ end
 
 local function addStat(into, key, value)
 	if key == "ALL" then
-		for i = 1, #ALL_STATS do
-			into[ALL_STATS[i]] = (into[ALL_STATS[i]] or 0) + value
+		for i = 0, 4 do
+			into[STAT_KEYS[i]] = (into[STAT_KEYS[i]] or 0) + value
 		end
 	elseif key then
 		into[key] = (into[key] or 0) + value
@@ -452,13 +473,13 @@ local function scanItem(unit, slot, link, item, result, loaded, sets)
 					parseStats(item.socketBonus, result.stats)
 				end
 			else
-				local setName, _, max = text:match(SET_NAME_PATTERN)
+				local setName, _, setSize = text:match(SET_NAME_PATTERN)
 				if setName and not text:find("|c") then
 					item.set = setName
 					if sets[setName] then
 						set = nil
 					else
-						set = { name = setName, count = 0, max = tonumber(max), bonuses = {} }
+						set = { name = setName, count = 0, max = tonumber(setSize), bonuses = {} }
 						sets[setName] = set
 						result.sets[#result.sets + 1] = set
 					end
@@ -504,6 +525,34 @@ local GEM_COLORS = {
 }
 local GEM_CLASS = 10
 
+local function atLeast(a, b)
+	return a >= b
+end
+local function lessThan(a, b)
+	return a < b
+end
+local function greaterThan(a, b)
+	return a > b
+end
+local function equal(a, b)
+	return a == b
+end
+local function notEqual(a, b)
+	return a ~= b
+end
+
+-- Meta gem requirement formats; "value" compares a color count with a number, "compare" two color counts.
+local CONDITION_TESTS = {
+	{ "ENCHANT_CONDITION_MORE_VALUE", atLeast },
+	{ "ENCHANT_CONDITION_LESS_VALUE", lessThan },
+	{ "ENCHANT_CONDITION_EQUAL_VALUE", equal },
+	{ "ENCHANT_CONDITION_NOT_EQUAL_VALUE", notEqual },
+	{ "ENCHANT_CONDITION_MORE_COMPARE", greaterThan },
+	{ "ENCHANT_CONDITION_MORE_EQUAL_COMPARE", atLeast },
+	{ "ENCHANT_CONDITION_EQUAL_COMPARE", equal },
+	{ "ENCHANT_CONDITION_NOT_EQUAL_COMPARE", notEqual },
+}
+
 local gemSubTypes, conditions
 
 local function toPattern(format)
@@ -521,35 +570,12 @@ local function buildConditions()
 		end
 	end
 	conditions = {}
-	local function compare(format, test)
+	for _, entry in ipairs(CONDITION_TESTS) do
+		local format = _G[entry[1]]
 		if format then
-			conditions[#conditions + 1] = { pattern = toPattern(format), test = test }
+			conditions[#conditions + 1] = { pattern = toPattern(format), test = entry[2] }
 		end
 	end
-	compare(ENCHANT_CONDITION_MORE_VALUE, function(a, n)
-		return a >= n
-	end)
-	compare(ENCHANT_CONDITION_LESS_VALUE, function(a, n)
-		return a < n
-	end)
-	compare(ENCHANT_CONDITION_EQUAL_VALUE, function(a, n)
-		return a == n
-	end)
-	compare(ENCHANT_CONDITION_NOT_EQUAL_VALUE, function(a, n)
-		return a ~= n
-	end)
-	compare(ENCHANT_CONDITION_MORE_COMPARE, function(a, b)
-		return a > b
-	end)
-	compare(ENCHANT_CONDITION_MORE_EQUAL_COMPARE, function(a, b)
-		return a >= b
-	end)
-	compare(ENCHANT_CONDITION_EQUAL_COMPARE, function(a, b)
-		return a == b
-	end)
-	compare(ENCHANT_CONDITION_NOT_EQUAL_COMPARE, function(a, b)
-		return a ~= b
-	end)
 end
 
 local colorNames
@@ -718,51 +744,37 @@ function InspectGear.Scan(unit, loaded, class, level)
 	return result
 end
 
-local STAT_KEYS = {
-	[0] = "ITEM_MOD_STRENGTH_SHORT",
-	"ITEM_MOD_AGILITY_SHORT",
-	"ITEM_MOD_STAMINA_SHORT",
-	"ITEM_MOD_INTELLECT_SHORT",
-	"ITEM_MOD_SPIRIT_SHORT",
-}
 local AP_KEY, SP_KEY = "ITEM_MOD_ATTACK_POWER_SHORT", "ITEM_MOD_SPELL_POWER_SHORT"
 local ARMOR_KEY, BLOCK_VALUE_KEY = "RESISTANCE0_NAME", "ITEM_MOD_BLOCK_VALUE_SHORT"
-local PERCENT_KEYS = {
-	crit = "ITEM_MOD_CRIT_RATING_SHORT",
-	spellCrit = "ITEM_MOD_CRIT_RATING_SHORT",
-	allCrit = "ITEM_MOD_CRIT_RATING_SHORT",
-	hit = "ITEM_MOD_HIT_RATING_SHORT",
-	spellHit = "ITEM_MOD_HIT_RATING_SHORT",
-	haste = "ITEM_MOD_HASTE_RATING_SHORT",
-	spellHaste = "ITEM_MOD_HASTE_RATING_SHORT",
-	expertise = "ITEM_MOD_EXPERTISE_RATING_SHORT",
-	arp = "ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT",
-	dodge = "ITEM_MOD_DODGE_RATING_SHORT",
-	parry = "ITEM_MOD_PARRY_RATING_SHORT",
-	block = "ITEM_MOD_BLOCK_RATING_SHORT",
-}
-local CRIT_KEY, HIT_KEY, HASTE_KEY = "ITEM_MOD_CRIT_RATING_SHORT", "ITEM_MOD_HIT_RATING_SHORT", "ITEM_MOD_HASTE_RATING_SHORT"
+local CRIT_KEY, HIT_KEY, HASTE_KEY =
+	"ITEM_MOD_CRIT_RATING_SHORT", "ITEM_MOD_HIT_RATING_SHORT", "ITEM_MOD_HASTE_RATING_SHORT"
 local EXPERTISE_KEY, ARP_KEY = "ITEM_MOD_EXPERTISE_RATING_SHORT", "ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT"
 local DEFENSE_KEY, DODGE_KEY = "ITEM_MOD_DEFENSE_SKILL_RATING_SHORT", "ITEM_MOD_DODGE_RATING_SHORT"
 local PARRY_KEY, BLOCK_KEY = "ITEM_MOD_PARRY_RATING_SHORT", "ITEM_MOD_BLOCK_RATING_SHORT"
-local RATING = {
-	crit = 45.905987,
-	hit = 32.78999,
-	spellHit = 26.231993,
-	haste = 32.78999,
-	expertise = 8.197496,
-	arp = 13.99575,
-	defense = 4.918498,
-	dodge = 45.250187,
-	parry = 45.250187,
-	block = 16.394995,
+local PERCENT_KEYS = {
+	crit = CRIT_KEY,
+	spellCrit = CRIT_KEY,
+	allCrit = CRIT_KEY,
+	hit = HIT_KEY,
+	spellHit = HIT_KEY,
+	haste = HASTE_KEY,
+	spellHaste = HASTE_KEY,
+	expertise = EXPERTISE_KEY,
+	arp = ARP_KEY,
+	dodge = DODGE_KEY,
+	parry = PARRY_KEY,
+	block = BLOCK_KEY,
 }
-local FERAL_WEAPONS = { INVTYPE_WEAPON = true, INVTYPE_2HWEAPON = true, INVTYPE_WEAPONMAINHAND = true, INVTYPE_WEAPONOFFHAND = true }
+-- Talent kinds that multiply a single stat by (1 + value%).
+local MULTIPLIER_KEYS = { armor = ARMOR_KEY, blockValue = BLOCK_VALUE_KEY, ap = AP_KEY }
+local FERAL_WEAPONS =
+	{ INVTYPE_WEAPON = true, INVTYPE_2HWEAPON = true, INVTYPE_WEAPONMAINHAND = true, INVTYPE_WEAPONOFFHAND = true }
 local MINOR_STAT = 20
 local NO_PARRY = { PRIEST = true, MAGE = true, WARLOCK = true, DRUID = true, SHAMAN = true }
 local NO_MANA = { WARRIOR = true, ROGUE = true, DEATHKNIGHT = true }
 local MP5_KEY = "ITEM_MOD_POWER_REGEN0_SHORT"
-local STAT_NAMES = { [0] = "SPELL_STAT1_NAME", "SPELL_STAT2_NAME", "SPELL_STAT3_NAME", "SPELL_STAT4_NAME", "SPELL_STAT5_NAME" }
+local STAT_NAMES =
+	{ [0] = "SPELL_STAT1_NAME", "SPELL_STAT2_NAME", "SPELL_STAT3_NAME", "SPELL_STAT4_NAME", "SPELL_STAT5_NAME" }
 local STAT_ICONS = {
 	[0] = "Interface\\Icons\\Spell_Nature_Strength",
 	"Interface\\Icons\\Spell_Holy_BlessingOfAgility",
@@ -950,7 +962,7 @@ function InspectGear.Compute(gear, talents, info)
 	end
 
 	local statMult, conversions = {}, {}
-	local armorMult, blockMult, apMult = 1, 1, 1
+	local multipliers = { armor = 1, blockValue = 1, ap = 1 }
 	local apFlat, apLevel, apWeapon, spFromAp, healFromAp, apSources = 0, 0, 0, 0, 0, {}
 	local bonus, schoolCrit, hasteMult, spellHasteMult = {}, {}, 1, 1
 	local hunter = class == "HUNTER"
@@ -962,15 +974,9 @@ function InspectGear.Compute(gear, talents, info)
 				statMult[stat] = (statMult[stat] or 1) * (1 + value / 100)
 				source(STAT_KEYS[stat], name, ("+%d%%"):format(value), icon)
 			end
-		elseif kind == "armor" then
-			armorMult = armorMult * (1 + value / 100)
-			source(ARMOR_KEY, name, ("+%d%%"):format(value), icon)
-		elseif kind == "blockValue" then
-			blockMult = blockMult * (1 + value / 100)
-			source(BLOCK_VALUE_KEY, name, ("+%d%%"):format(value), icon)
-		elseif kind == "ap" then
-			apMult = apMult * (1 + value / 100)
-			source(AP_KEY, name, ("+%d%%"):format(value), icon)
+		elseif MULTIPLIER_KEYS[kind] then
+			multipliers[kind] = multipliers[kind] * (1 + value / 100)
+			source(MULTIPLIER_KEYS[kind], name, ("+%d%%"):format(value), icon)
 		elseif kind == "apFlat" then
 			apFlat = apFlat + value
 			source(AP_KEY, name, ("+%d"):format(value), icon)
@@ -1032,6 +1038,7 @@ function InspectGear.Compute(gear, talents, info)
 		end
 	end
 	local str, agi, int = stat[0], stat[1], stat[3]
+	local armorMult, blockMult, apMult = multipliers.armor, multipliers.blockValue, multipliers.ap
 
 	local baseArmor, extraArmor = splitArmor(gear, gearValue(ARMOR_KEY))
 	local armor = floor(baseArmor * armorMult + extraArmor + (full and agi * 2 or 0) + 0.0001)

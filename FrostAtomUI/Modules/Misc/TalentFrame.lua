@@ -768,9 +768,11 @@ local function updateGlyphSocket(button, editable)
 			button.glyph:Hide()
 		end
 	end
-	for _, region in ipairs({ button.setting, button.background, button.glyph, button.ring }) do
-		region:SetDesaturated(not editable)
-	end
+	local desaturated = not editable
+	button.setting:SetDesaturated(desaturated)
+	button.background:SetDesaturated(desaturated)
+	button.glyph:SetDesaturated(desaturated)
+	button.ring:SetDesaturated(desaturated)
 
 	local name = button.nameText
 	if not enabled then
@@ -1187,6 +1189,18 @@ local function showButtonTooltip(self)
 	GameTooltip:SetText(self.tooltip)
 end
 
+local function createFooterButton(parent, text, tooltip, onClick, fit)
+	local button = ns.CreateButton(parent, text, 80, 22)
+	if fit then
+		ns.FitButton(button, 24, 80)
+	end
+	button.tooltip = tooltip
+	button:SetScript("OnEnter", showButtonTooltip)
+	button:SetScript("OnLeave", GameTooltip_Hide)
+	button:SetScript("OnClick", onClick)
+	return button
+end
+
 local function createStatus()
 	local status = CreateFrame("Frame", nil, frame)
 	status:SetSize(264, 20)
@@ -1231,25 +1245,27 @@ local function createFooter()
 	frame.unspent = unspent
 	frame.pointsBar = pointsBar
 
-	local copy = ns.CreateButton(pointsBar, L["Copy code"], 80, 22)
-	ns.FitButton(copy, 24, 80)
+	local copy = createFooterButton(
+		pointsBar,
+		L["Copy code"],
+		L["Talent code for the Wowhead talent calculator"],
+		function()
+			showCode(talentCode(false, view.pet, view.group, GetCVarBool("previewTalents")))
+		end,
+		true
+	)
 	copy:SetPoint("LEFT", 4, 0)
-	copy.tooltip = L["Talent code for the Wowhead talent calculator"]
-	copy:SetScript("OnEnter", showButtonTooltip)
-	copy:SetScript("OnLeave", GameTooltip_Hide)
-	copy:SetScript("OnClick", function()
-		showCode(talentCode(false, view.pet, view.group, GetCVarBool("previewTalents")))
-	end)
 
-	local paste = ns.CreateButton(pointsBar, L["Paste code"], 80, 22)
-	ns.FitButton(paste, 24, 80)
+	local paste = createFooterButton(
+		pointsBar,
+		L["Paste code"],
+		L["Places the talents of a Wowhead talent code as a preview, Learn learns them"],
+		function()
+			StaticPopup_Show("FROSTATOMUI_TALENT_IMPORT")
+		end,
+		true
+	)
 	paste:SetPoint("LEFT", copy, "RIGHT")
-	paste.tooltip = L["Places the talents of a Wowhead talent code as a preview, Learn learns them"]
-	paste:SetScript("OnEnter", showButtonTooltip)
-	paste:SetScript("OnLeave", GameTooltip_Hide)
-	paste:SetScript("OnClick", function()
-		StaticPopup_Show("FROSTATOMUI_TALENT_IMPORT")
-	end)
 	frame.paste = paste
 
 	local previewBar = CreateFrame("Frame", nil, frame)
@@ -1261,24 +1277,16 @@ local function createFooter()
 	border:SetAllPoints()
 	frame.previewBar = previewBar
 
-	local reset = ns.CreateButton(previewBar, RESET, 80, 22)
-	reset:SetPoint("RIGHT", -4, 0)
-	reset.tooltip = TALENT_TOOLTIP_RESETTALENTGROUP
-	reset:SetScript("OnEnter", showButtonTooltip)
-	reset:SetScript("OnLeave", GameTooltip_Hide)
-	reset:SetScript("OnClick", function()
+	local reset = createFooterButton(previewBar, RESET, TALENT_TOOLTIP_RESETTALENTGROUP, function()
 		ResetGroupPreviewTalentPoints(view.pet, view.group)
 	end)
+	reset:SetPoint("RIGHT", -4, 0)
 	frame.reset = reset
 
-	local learn = ns.CreateButton(previewBar, LEARN, 80, 22)
-	learn:SetPoint("RIGHT", reset, "LEFT")
-	learn.tooltip = TALENT_TOOLTIP_LEARNTALENTGROUP
-	learn:SetScript("OnEnter", showButtonTooltip)
-	learn:SetScript("OnLeave", GameTooltip_Hide)
-	learn:SetScript("OnClick", function()
+	local learn = createFooterButton(previewBar, LEARN, TALENT_TOOLTIP_LEARNTALENTGROUP, function()
 		StaticPopup_Show("FROSTATOMUI_LEARN_PREVIEW_TALENTS")
 	end)
+	learn:SetPoint("RIGHT", reset, "LEFT")
 	frame.learn = learn
 end
 
