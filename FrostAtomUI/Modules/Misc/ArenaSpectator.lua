@@ -6,7 +6,7 @@ end
 
 local UnitName = UnitName
 local SelectGossipOption = SelectGossipOption
-local ipairs, pairs = ipairs, pairs
+local ipairs, pairs, tonumber, wipe = ipairs, pairs, tonumber, wipe
 local tinsert, tsort = table.insert, table.sort
 
 local UF = ns:GetModule("UnitFrames")
@@ -82,6 +82,13 @@ local SPEC_ALIASES = {
 	HUNTER = { bm = 1, mm = 2, sv = 3 },
 }
 
+local HEALER_SPECS = {
+	DRUID = { [3] = true },
+	PALADIN = { [1] = true },
+	PRIEST = { [1] = true, [2] = true },
+	SHAMAN = { [3] = true },
+}
+
 local suffixes = {}
 for suffix in pairs(CLASS_SUFFIXES) do
 	tinsert(suffixes, suffix)
@@ -110,9 +117,29 @@ local function parsePlayer(token)
 	for _, suffix in ipairs(suffixes) do
 		if #lower > #suffix and lower:sub(-#suffix) == suffix or lower == suffix then
 			local class = CLASS_SUFFIXES[suffix]
-			return { class = class, spec = parseSpec(class, lower:sub(1, -#suffix - 1)) }
+			local spec = parseSpec(class, lower:sub(1, -#suffix - 1))
+			local healers = HEALER_SPECS[class]
+			return {
+				class = class,
+				spec = spec,
+				specName = spec and SPEC_NAMES[class][spec],
+				healer = spec and healers and healers[spec] or false,
+			}
 		end
 	end
+end
+
+local function comparePlayers(a, b)
+	if a.healer ~= b.healer then
+		return b.healer
+	end
+	if a.class ~= b.class then
+		return a.class < b.class
+	end
+	if not a.specName or not b.specName then
+		return a.specName ~= nil and b.specName == nil
+	end
+	return a.specName < b.specName
 end
 
 local function parseTeam(text)
@@ -124,7 +151,11 @@ local function parseTeam(text)
 		end
 		tinsert(team, player)
 	end
-	return #team > 0 and team or nil
+	if #team == 0 then
+		return nil
+	end
+	tsort(team, comparePlayers)
+	return team
 end
 
 local function parseMatch(text)
@@ -134,8 +165,22 @@ local function parseMatch(text)
 	end
 	local team1, team2 = parseTeam(players1), parseTeam(players2)
 	if team1 and team2 then
+		rating1, rating2 = tonumber(rating1), tonumber(rating2)
+		if rating2 > rating1 then
+			return team2, rating2, team1, rating1
+		end
 		return team1, rating1, team2, rating2
 	end
+end
+
+local function compareMatches(a, b)
+	if a.spectatorRating ~= b.spectatorRating then
+		return a.spectatorRating > b.spectatorRating
+	end
+	if a.spectatorRatingLow ~= b.spectatorRatingLow then
+		return a.spectatorRatingLow > b.spectatorRatingLow
+	end
+	return a:GetID() < b:GetID()
 end
 
 local function onCardClick(card)
@@ -315,6 +360,7 @@ local function layoutNavButtons()
 end
 
 local applied
+local rows, matchRows, matchSlots = {}, {}, {}
 
 local function restore()
 	applied = false
@@ -347,7 +393,9 @@ local function update()
 		nav:Hide()
 	end
 
-	local previous
+	wipe(rows)
+	wipe(matchRows)
+	wipe(matchSlots)
 	for i = 1, NUMGOSSIPBUTTONS do
 		local button = _G["GossipTitleButton" .. i]
 		resetButton(button)
@@ -359,6 +407,7 @@ local function update()
 				nav:Show()
 				button:Hide()
 			else
+				tinsert(rows, button)
 				local bracket, count = text:match(BRACKET_PATTERN)
 				if bracket then
 					showBracket(button, bracket, count)
@@ -366,17 +415,30 @@ local function update()
 					local team1, rating1, team2, rating2 = parseMatch(text)
 					if team1 then
 						showMatch(button, team1, rating1, team2, rating2)
+						button.spectatorRating = rating1
+						button.spectatorRatingLow = rating2
+						tinsert(matchRows, button)
+						tinsert(matchSlots, #rows)
 					end
 				end
-				button:ClearAllPoints()
-				if previous then
-					button:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -3)
-				else
-					button:SetPoint("TOPLEFT", GossipGreetingScrollChildFrame, "TOPLEFT", 0, -LIST_TOP)
-				end
-				previous = button
 			end
 		end
+	end
+
+	tsort(matchRows, compareMatches)
+	for i, slot in ipairs(matchSlots) do
+		rows[slot] = matchRows[i]
+	end
+
+	local previous
+	for _, button in ipairs(rows) do
+		button:ClearAllPoints()
+		if previous then
+			button:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -3)
+		else
+			button:SetPoint("TOPLEFT", GossipGreetingScrollChildFrame, "TOPLEFT", 0, -LIST_TOP)
+		end
+		previous = button
 	end
 
 	layoutNavButtons()

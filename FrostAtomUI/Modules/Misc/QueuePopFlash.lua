@@ -12,8 +12,9 @@ local SOLID_TEXTURE = "Interface\\Buttons\\WHITE8X8"
 local VIGNETTE_TEXTURE = "Interface\\FullScreenTextures\\LowHealth"
 local RING_TEXTURE = "Interface\\Cooldown\\ping4"
 local BURST_TEXTURE = "Interface\\Cooldown\\starburst"
+local FADE_IN_TIME = 5
+local FADE_IN_ALPHA = 0.1
 local RAMP_TIME = 15
-local RAMP_START = 0.6
 local SOLID_SHARE = 0.45
 local FIRST_BEAT_ATTACK = 0.09
 local FIRST_BEAT_RELEASE = 0.22
@@ -51,6 +52,13 @@ local function heartbeat(phase)
 	local first = swell(phase, FIRST_BEAT_ATTACK, FIRST_BEAT_RELEASE)
 	local second = swell(phase - SECOND_BEAT_DELAY, SECOND_BEAT_ATTACK, SECOND_BEAT_RELEASE)
 	return min(first + SECOND_BEAT_STRENGTH * second, 1)
+end
+
+local function rampAlpha(elapsed)
+	if elapsed < FADE_IN_TIME then
+		return FADE_IN_ALPHA * elapsed / FADE_IN_TIME
+	end
+	return FADE_IN_ALPHA + (1 - FADE_IN_ALPHA) * min((elapsed - FADE_IN_TIME) / (RAMP_TIME - FADE_IN_TIME), 1)
 end
 
 local function easeOut(progress)
@@ -170,8 +178,7 @@ flash:SetScript("OnUpdate", function(self, elapsed)
 	end
 
 	local r, g, b = currentColor()
-	local ramp = RAMP_START + (1 - RAMP_START) * min(self.elapsed / RAMP_TIME, 1)
-	local beat = intensity * ramp * pulse.value
+	local beat = intensity * rampAlpha(self.elapsed) * pulse.value
 	local intro = max(1 - self.elapsed / INTRO_FLASH_TIME, 0)
 	intro = intensity * intro * intro
 
