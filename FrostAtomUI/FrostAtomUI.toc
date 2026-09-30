@@ -42,6 +42,7 @@ Modules\Inspect.lua
 Modules\Talents.lua
 Modules\CooldownTracker.lua
 Modules\DRData.lua
+Modules\LoseControlData.lua
 Modules\ProcData.lua
 Modules\TotemData.lua
 Modules\InternalCooldowns.lua

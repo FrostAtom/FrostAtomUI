@@ -1246,12 +1246,6 @@ local function generalSchema()
 			advanced = true,
 			enabledBy = "unitFrames.showRaidIcon",
 		},
-		{
-			path = "unitFrames.showLoseControl",
-			label = L["Crowd control icon"],
-			type = "toggle",
-			desc = L["Icon and timer of the longest crowd control effect over the class icon of target, focus, party and arena frames."],
-		},
 		{ header = L["Text"], glyph = "font", advanced = true },
 		{
 			path = "unitFrames.textFont",

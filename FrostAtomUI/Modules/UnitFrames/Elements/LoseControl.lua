@@ -3,47 +3,37 @@ local UF = ns:GetModule("UnitFrames")
 
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
-local random = math.random
+local random, huge = math.random, math.huge
 
 local Auras = ns.Auras
+local Data = ns.LoseControlData
 local CooldownTimer = ns:GetModule("CooldownTimer")
-local config = ns.Config.unitFrames
+local config = ns.Config.loseControl
+local unitConfig = ns.Config.unitFrames
 
--- stylua: ignore
-local CC_SPELL_IDS = {
-	47481, 51209, 47476, 5211, 33786, 2637, 22570, 9005,
-	339, 19675, 60210, 3355, 24394, 1513, 19503, 19386,
-	34490, 53359, 19306, 19185, 50519, 50541, 50245, 50518,
-	54706, 4167, 44572, 31661, 12355, 118, 18469, 64346,
-	33395, 122, 11071, 55080, 853, 2812, 20066, 20170,
-	10326, 63529, 605, 64044, 8122, 9484, 15487, 2094,
-	1833, 1776, 408, 6770, 1330, 18425, 51722, 39796,
-	51514, 64695, 63685, 710, 6789, 5782, 5484, 6358,
-	30283, 24259, 7922, 12809, 20253, 5246, 12798, 46968,
-	18498, 676, 58373, 23694, 30217, 67769, 30216, 20549,
-	25046, 39965, 55536, 13099, 28169, 28059, 28084, 27819,
-	63024, 63018, 62589, 63276, 66770, 48792,
-	53148, 58861, 60995, 22703, 13181, 35474, 31367, 46567,
-	71988, 56350, 30461, 19821, 30501,
-}
-
+local BY_ID = Data.BY_ID
+local PRIORITY = Data.PRIORITY
+local FILTERS = { "HARMFUL", "HELPFUL" }
 local TIMER_FONT_SIZE = 10
 local CENTER_SIZE = 0.6
 
-local CC_SPELL_NAMES = {}
-for i = 1, #CC_SPELL_IDS do
-	local name = GetSpellInfo(CC_SPELL_IDS[i])
-	if name then
-		CC_SPELL_NAMES[name] = true
-	end
+UF.ccSpellNames = Data.CONTROL_NAMES
+
+local widgets = {}
+
+local function isShown(spell)
+	return config.spells[spell[1]] ~= false
 end
-UF.ccSpellNames = CC_SPELL_NAMES
+
+local function isActive(loseControl)
+	return config.enabled and config.frames[loseControl.kind]
+end
 
 local function layout(loseControl)
 	local frame = loseControl:GetParent()
 	local icon = frame.classicon
 	loseControl:ClearAllPoints()
-	local inside = icon and config.showClassIcon
+	local inside = icon and unitConfig.showClassIcon
 	if inside then
 		loseControl:SetAllPoints(icon)
 	else
@@ -73,18 +63,29 @@ end
 
 local function update(frame)
 	local loseControl = frame.losecontrol
-	local auras, count = Auras.Get(frame.unit, "HARMFUL")
+	if not isActive(loseControl) then
+		hide(loseControl)
+		return
+	end
 
-	local longest
-	for i = 1, count do
-		local aura = auras[i]
-		if CC_SPELL_NAMES[aura.name] and (not longest or aura.expires > longest.expires) then
-			longest = aura
+	local best, bestPriority, bestExpires
+	for f = 1, #FILTERS do
+		local auras, count = Auras.Get(frame.unit, FILTERS[f])
+		for i = 1, count do
+			local aura = auras[i]
+			local spell = BY_ID[aura.spellId]
+			if spell and isShown(spell) then
+				local priority = PRIORITY[spell.category]
+				local expires = aura.expires == 0 and huge or aura.expires
+				if not best or priority > bestPriority or priority == bestPriority and expires > bestExpires then
+					best, bestPriority, bestExpires = aura, priority, expires
+				end
+			end
 		end
 	end
 
-	if longest and config.showLoseControl then
-		show(loseControl, longest.icon, longest.expires - longest.duration, longest.duration)
+	if best then
+		show(loseControl, best.icon, best.expires - best.duration, best.duration)
 	else
 		hide(loseControl)
 	end
@@ -92,11 +93,23 @@ end
 
 local function test(frame)
 	local loseControl = frame.losecontrol
-	if not config.showLoseControl or random(3) ~= 1 then
+	if not isActive(loseControl) or random(3) ~= 1 then
 		hide(loseControl)
 		return
 	end
-	local _, _, texture = GetSpellInfo(CC_SPELL_IDS[random(#CC_SPELL_IDS)])
+	local shown = {}
+	for _, spells in pairs(Data.SPELLS) do
+		for _, spell in ipairs(spells) do
+			if isShown(spell) then
+				shown[#shown + 1] = spell[1]
+			end
+		end
+	end
+	if #shown == 0 then
+		hide(loseControl)
+		return
+	end
+	local _, _, texture = GetSpellInfo(shown[random(#shown)])
 	local duration = random(4, 10)
 	show(loseControl, texture, GetTime() - random(0, duration - 2), duration)
 end
@@ -104,12 +117,14 @@ end
 local function create(frame)
 	local loseControl = CreateFrame("Cooldown", nil, frame)
 	loseControl:SetReverse(true)
+	loseControl.kind = frame.baseUnit:match("^%a+")
 	CooldownTimer:Attach(loseControl, TIMER_FONT_SIZE)
 
 	loseControl.texture = loseControl:CreateTexture(nil, "BORDER")
 	UF.SkinIcon(loseControl, loseControl.texture)
 
 	loseControl:SetFrameLevel((frame.classicon or frame):GetFrameLevel() + 3)
+	widgets[#widgets + 1] = loseControl
 
 	frame:RegisterUnitEvent("UNIT_AURA", update)
 
@@ -117,3 +132,16 @@ local function create(frame)
 end
 
 UF:RegisterElement("losecontrol", create, update, test)
+
+UF:OnInitialize(function(self)
+	self:WatchConfig("loseControl", function()
+		for i = 1, #widgets do
+			local frame = widgets[i]:GetParent()
+			if frame.test then
+				test(frame)
+			elseif frame:IsShown() then
+				update(frame)
+			end
+		end
+	end)
+end)

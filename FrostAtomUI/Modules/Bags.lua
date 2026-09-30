@@ -52,6 +52,7 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 local config = ns.Config.bags
 local ROW_GAP = 6
 local HEADER_HEIGHT = 20
+local HEADER_MARGIN = 4
 local BAG_BUTTON_SIZE = 20
 local FOOTER_HEIGHT = BAG_BUTTON_SIZE
 
@@ -112,10 +113,15 @@ local function frameWidth(columns)
 	return columns * (config.buttonSize + config.spacing) - config.spacing + config.padding * 2
 end
 
+local function headerMargin()
+	return config.movable and HEADER_MARGIN or 0
+end
+
 local function frameHeight(rows)
 	return rows * (config.buttonSize + config.spacing)
 		- config.spacing
 		+ HEADER_HEIGHT
+		+ headerMargin() * 2
 		+ FOOTER_HEIGHT
 		+ ROW_GAP * 2
 		+ config.padding * 2
@@ -840,8 +846,14 @@ end
 
 function ContainerMixin:LayoutChrome()
 	local padding = config.padding
+	local margin = headerMargin()
+	if config.movable then
+		self:RegisterForDrag("LeftButton")
+	else
+		self:RegisterForDrag()
+	end
 	self.close:ClearAllPoints()
-	self.close:SetPoint("TOPRIGHT", -padding, -padding - (HEADER_HEIGHT - GLYPH_SIZE) / 2)
+	self.close:SetPoint("TOPRIGHT", -padding, -padding - margin - (HEADER_HEIGHT - GLYPH_SIZE) / 2)
 	local searchAnchor = self.sortButton
 	if self.bankButton then
 		ns.SetShown(self.bankButton, config.offlineBank)
@@ -850,10 +862,10 @@ function ContainerMixin:LayoutChrome()
 		end
 	end
 	self.search:ClearAllPoints()
-	self.search:SetPoint("TOPLEFT", padding, -padding)
+	self.search:SetPoint("TOPLEFT", padding, -padding - margin)
 	self.search:SetPoint("RIGHT", searchAnchor, "LEFT", -ROW_GAP, 0)
 	self.itemArea:ClearAllPoints()
-	self.itemArea:SetPoint("TOPLEFT", padding, -(padding + HEADER_HEIGHT + ROW_GAP))
+	self.itemArea:SetPoint("TOPLEFT", padding, -(padding + margin * 2 + HEADER_HEIGHT + ROW_GAP))
 	self.moneyText:ClearAllPoints()
 	self.moneyText:SetPoint("RIGHT", self, "BOTTOMRIGHT", -padding - MONEY_ICON_OVERHANG, padding + FOOTER_HEIGHT / 2)
 	local bagButtons = self.bagButtons
@@ -960,6 +972,21 @@ function ContainerMixin:Toggle()
 	end
 end
 
+local function onDragStart(self)
+	self.moving = true
+	self:StartMoving()
+end
+
+local function onDragStop(self)
+	if not self.moving then
+		return
+	end
+	self.moving = nil
+	self:StopMovingOrSizing()
+	self:SetUserPlaced(false)
+	ns.Movers.SavePosition(self.positionPath)
+end
+
 local function onShow(self)
 	if config.playSounds then
 		PlaySound("igBackPackOpen")
@@ -975,6 +1002,7 @@ local function onShow(self)
 end
 
 local function onHide(self)
+	onDragStop(self)
 	if config.playSounds then
 		PlaySound("igBackPackClose")
 	end
@@ -1186,12 +1214,14 @@ local function createContainer(key, title, bags, columnsKey)
 	frame.bags = bags
 	frame.title = title
 	frame.columnsKey = columnsKey
+	frame.positionPath = "bags." .. key
 	frame.buttons = {}
 	frame.bagButtons = {}
 	frame:Hide()
 
 	frame:SetFrameStrata("HIGH")
 	frame:EnableMouse(true)
+	frame:SetMovable(true)
 	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
 	frame:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
 
@@ -1221,6 +1251,8 @@ local function createContainer(key, title, bags, columnsKey)
 	})
 	frame:SetScript("OnShow", onShow)
 	frame:SetScript("OnHide", onHide)
+	frame:SetScript("OnDragStart", onDragStart)
+	frame:SetScript("OnDragStop", onDragStop)
 	tinsert(UISpecialFrames, frame:GetName())
 
 	local close = createGlyphButton(frame, "xmark", nil, onCloseClick)

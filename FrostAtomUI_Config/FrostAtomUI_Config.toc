@@ -14,6 +14,7 @@ Pages\General.lua
 Pages\Layouts.lua
 Pages\ActionBar.lua
 Pages\UnitFrames.lua
+Pages\LoseControl.lua
 Pages\NamePlates.lua
 Pages\Chat.lua
 Pages\Minimap.lua
