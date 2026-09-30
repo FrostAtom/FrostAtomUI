@@ -36,32 +36,68 @@ for _, icons in pairs(SPEC_ICONS) do
 	end
 end
 
-local classCoords = {}
-for class, coords in pairs(CLASS_ICON_TCOORDS) do
-	local l, r, t, b = unpack(coords)
-	local w, h = (r - l) * TRIM, (b - t) * TRIM
-	classCoords[class] = { l + w, r - w, t + h, b - h }
+local CLASS_TRIM = 0.1
+local SPELL_TRIM = 0.08
+local PORTRAIT_TRIM = 0.15
+local BADGE_SIZE = 0.45
+
+local function trimCoords(trim)
+	local result = {}
+	for class, coords in pairs(CLASS_ICON_TCOORDS) do
+		local l, r, t, b = unpack(coords)
+		local w, h = (r - l) * trim, (b - t) * trim
+		result[class] = { l + w, r - w, t + h, b - h }
+	end
+	return result
 end
+
+local classCoords = trimCoords(TRIM)
+local innerClassCoords = trimCoords(CLASS_TRIM)
 
 UF.CLASS_ICONS = CLASS_ICONS
 UF.ICON_TRIM = TRIM
+UF.SPELL_TRIM = SPELL_TRIM
 UF.classCoords = classCoords
 UF.specIcons = SPEC_ICONS
 
 function UF.SetClassTexture(texture, class, spec)
-	local coords = class and classCoords[class]
+	local coords = class and innerClassCoords[class]
 	if not coords then
 		return false
 	end
 	local specIcon = spec and SPEC_ICONS[class] and SPEC_ICONS[class][spec]
 	if specIcon then
 		texture:SetTexture(specIcon)
-		texture:SetTexCoord(0, 1, 0, 1)
+		texture:SetTexCoord(SPELL_TRIM, 1 - SPELL_TRIM, SPELL_TRIM, 1 - SPELL_TRIM)
 	else
 		texture:SetTexture(CLASS_ICONS)
 		texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
 	end
 	return true
+end
+
+function UF.SetSpecBadge(icon, class, spec)
+	local specIcon = class and spec and SPEC_ICONS[class] and SPEC_ICONS[class][spec]
+	local badge = icon.badge
+	if not specIcon then
+		if badge then
+			badge:Hide()
+		end
+		return
+	end
+	if not badge then
+		badge = CreateFrame("Frame", nil, icon)
+		badge:SetFrameLevel(icon:GetFrameLevel() + 2)
+		badge:SetPoint("BOTTOMRIGHT")
+		badge.texture = badge:CreateTexture(nil, "BORDER")
+		UF.SkinIcon(badge, badge.texture)
+		badge.texture:SetTexCoord(TRIM, 1 - TRIM, TRIM, 1 - TRIM)
+		icon.badge = badge
+	end
+	local size = icon:GetWidth() * BADGE_SIZE
+	badge:SetSize(size, size)
+	badge.texture:SetTexture(specIcon)
+	badge:Show()
 end
 
 local function applyModel(model)
@@ -96,11 +132,6 @@ local function createModel(icon)
 	model:SetScript("OnUpdate", onModelUpdate)
 	model.background = background
 
-	local overlay = CreateFrame("Frame", nil, icon)
-	overlay:SetAllPoints()
-	overlay:SetFrameLevel(model:GetFrameLevel() + 1)
-	icon.border:SetParent(overlay)
-
 	icon.model = model
 	return model
 end
@@ -131,7 +162,7 @@ local function setIcon(frame, icon, unit, class, spec)
 	local style = config.classIconStyle
 	local model = shown and style == "model" and UnitIsVisible(unit)
 	ns.SetShown(icon.texture, shown and not model)
-	ns.SetShown(icon.border, shown)
+	UF.SetSpecBadge(icon, shown and style == "badge" and class, spec)
 	if not model then
 		hideModel(icon)
 	end
@@ -142,9 +173,9 @@ local function setIcon(frame, icon, unit, class, spec)
 
 	if model then
 		setModel(icon, unit)
-	elseif style == "portrait" or not UF.SetClassTexture(icon.texture, class, style ~= "class" and spec) then
+	elseif style == "portrait" or not UF.SetClassTexture(icon.texture, class, style == "spec" and spec) then
 		SetPortraitTexture(icon.texture, unit)
-		icon.texture:SetTexCoord(0, 1, 0, 1)
+		icon.texture:SetTexCoord(PORTRAIT_TRIM, 1 - PORTRAIT_TRIM, PORTRAIT_TRIM, 1 - PORTRAIT_TRIM)
 	end
 
 	frame:SetContentInset(UF.ClassIconInset(icon:GetWidth()))
@@ -180,7 +211,7 @@ local function create(frame, size)
 	icon:SetSize(size, size)
 
 	icon.texture = icon:CreateTexture(nil, "BORDER")
-	UF.SkinIcon(icon, icon.texture)
+	icon.texture:SetAllPoints()
 
 	frame:RegisterEvent(ns.TALENTS_UPDATED, onTalentsUpdated)
 	frame:RegisterUnitEvent("UNIT_PORTRAIT_UPDATE", update)

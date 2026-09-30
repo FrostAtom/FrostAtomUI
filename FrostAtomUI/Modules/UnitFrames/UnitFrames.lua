@@ -11,7 +11,7 @@ UF.configKey = "unitFrames"
 
 local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
 local BORDER_INSET = 4
-local CLASS_ICON_INSET = 2
+local CLASS_ICON_INSET = BORDER_INSET
 local CLASS_ICON_GAP = 2
 local CASTBAR_GAP = 4
 local CASTBAR_ICON_GAP = 2
@@ -506,6 +506,15 @@ local function onLeave(frame)
 	UnitFrame_OnLeave(frame)
 end
 
+local function setMiddleClick(frame, action)
+	if action == "focus" and frame.unit == "focus" then
+		frame:SetAttribute("*type3", "macro")
+		frame:SetAttribute("macrotext", "/clearfocus")
+	else
+		frame:SetAttribute("*type3", action)
+	end
+end
+
 function UF:CreateBase(unit, parent)
 	local frame = CreateFrame("Button", FRAME_NAME:format(capitalize(unit)), parent or UIParent, "SecureUnitButtonTemplate")
 	ns.Mixin(frame, ns.EventMixin, UnitFrameMixin)
@@ -524,12 +533,7 @@ function UF:CreateBase(unit, parent)
 		frame:SetAttribute("*type2", "focus")
 	else
 		frame:SetAttribute("*type2", RIGHT_CLICK_ACTIONS[config.rightClick])
-		if unit == "focus" then
-			frame:SetAttribute("*type3", "macro")
-			frame:SetAttribute("macrotext", "/clearfocus")
-		else
-			frame:SetAttribute("*type3", "focus")
-		end
+		setMiddleClick(frame, RIGHT_CLICK_ACTIONS[config.middleClick])
 	end
 
 	local hover = CreateFrame("Frame", nil, frame)
@@ -602,10 +606,12 @@ end
 
 function UF:ApplyClicks()
 	local action = RIGHT_CLICK_ACTIONS[config.rightClick]
+	local middleAction = RIGHT_CLICK_ACTIONS[config.middleClick]
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
 		if not isArenaUnit(frame.unit) then
 			frame:SetAttribute("*type2", action)
+			setMiddleClick(frame, middleAction)
 		end
 	end
 end

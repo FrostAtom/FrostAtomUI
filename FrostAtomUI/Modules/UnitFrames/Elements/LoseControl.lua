@@ -43,13 +43,17 @@ local function layout(loseControl)
 	local frame = loseControl:GetParent()
 	local icon = frame.classicon
 	loseControl:ClearAllPoints()
-	if icon and config.showClassIcon then
+	local inside = icon and config.showClassIcon
+	if inside then
 		loseControl:SetAllPoints(icon)
 	else
 		local size = frame:GetHeight() * CENTER_SIZE
 		loseControl:SetSize(size, size)
 		loseControl:SetPoint("CENTER", frame)
 	end
+	local trim = inside and UF.SPELL_TRIM or 0
+	loseControl.texture:SetTexCoord(trim, 1 - trim, trim, 1 - trim)
+	ns.SetShown(loseControl.border, not inside)
 end
 
 local function show(loseControl, texture, start, duration)

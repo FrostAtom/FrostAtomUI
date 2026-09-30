@@ -183,7 +183,7 @@ local function setupButton(frame)
 	frame:RegisterForClicks("AnyDown")
 	frame:SetAttribute("*type1", "target")
 	frame:SetAttribute("*type2", RIGHT_CLICK_ACTIONS[ufConfig.rightClick])
-	frame:SetAttribute("*type3", "focus")
+	frame:SetAttribute("*type3", RIGHT_CLICK_ACTIONS[ufConfig.middleClick])
 	frame:SetBackdrop(BACKDROP)
 
 	local hover = CreateFrame("Frame", nil, frame)
@@ -300,10 +300,13 @@ local function setLayout()
 end
 
 local function visibilityDrivers()
-	if testing then
-		return "show", "show"
-	end
 	local _, instanceType = IsInInstance()
+	if testing then
+		if instanceType == "pvp" or GetNumRaidMembers() > 5 then
+			return "show", "hide"
+		end
+		return "hide", "show"
+	end
 	local raid
 	if instanceType == "pvp" then
 		raid = config.showInBattleground
@@ -479,8 +482,10 @@ end
 
 local function applyClicks()
 	local action = RIGHT_CLICK_ACTIONS[ufConfig.rightClick]
+	local middleAction = RIGHT_CLICK_ACTIONS[ufConfig.middleClick]
 	for i = 1, #buttons do
 		buttons[i]:SetAttribute("*type2", action)
+		buttons[i]:SetAttribute("*type3", middleAction)
 	end
 end
 
@@ -509,4 +514,5 @@ UF:OnInitialize(function(self)
 	self:WatchConfig("unitFrames", applyColors)
 	self:WatchConfig("dispelHighlightAlpha", applyColors)
 	self:WatchConfig("unitFrames.rightClick", applyClicks, true)
+	self:WatchConfig("unitFrames.middleClick", applyClicks, true)
 end)

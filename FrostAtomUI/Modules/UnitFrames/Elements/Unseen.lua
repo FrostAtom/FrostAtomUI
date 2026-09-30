@@ -31,6 +31,7 @@ local TEST_INFO_KEYS = { "name", "class", "spec", "health", "healthMax", "power"
 local BORDER_INSET = UF.BORDER_INSET
 local CLASS_ICON_INSET = UF.CLASS_ICON_INSET
 local ICON_TRIM = UF.ICON_TRIM
+local SPELL_TRIM = UF.SPELL_TRIM
 local SetContentInset = UF.FrameMixin.SetContentInset
 local setBarColor = UF.SetBarColor
 
@@ -99,9 +100,12 @@ end
 
 local function setClassIcon(ghost, class, spec)
 	local texture = ghost.classicon.texture
-	if not UF.SetClassTexture(texture, class, ns.Config.unitFrames.classIconStyle ~= "class" and spec) then
-		setTrimmedTexture(texture, UNKNOWN_ICON)
+	local style = ns.Config.unitFrames.classIconStyle
+	if not UF.SetClassTexture(texture, class, style ~= "class" and style ~= "badge" and spec) then
+		texture:SetTexture(UNKNOWN_ICON)
+		texture:SetTexCoord(SPELL_TRIM, 1 - SPELL_TRIM, SPELL_TRIM, 1 - SPELL_TRIM)
 	end
+	UF.SetSpecBadge(ghost.classicon, style == "badge" and class, spec)
 end
 
 local function setBarValue(bar, current, max)
@@ -315,7 +319,10 @@ local function create(frame)
 	power.text:SetPoint("RIGHT")
 	ghost.power = power
 
-	ghost.classicon = createIcon(ghost)
+	local classicon = CreateFrame("Frame", nil, ghost)
+	classicon.texture = classicon:CreateTexture(nil, "BORDER")
+	classicon.texture:SetAllPoints()
+	ghost.classicon = classicon
 
 	local name = ghost:CreateFontString(nil, "OVERLAY")
 	name:SetJustifyH("RIGHT")

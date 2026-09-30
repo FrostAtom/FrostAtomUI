@@ -237,7 +237,7 @@ local function anchorContainer(container)
 		container:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", x, y)
 	elseif side == "BOTTOM" then
 		container:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", x, y)
-	elseif arena and frame.trinket and ns.Config.arenaTrinket.enabled then
+	elseif arena and frame.trinket and UF.IsTrinketSeparate("enemy") then
 		container:SetPoint("LEFT", frame.trinket, "RIGHT", x, y)
 	elseif arena then
 		local relative = UF.GroupChainEnd(frame)
@@ -348,6 +348,7 @@ UF:OnInitialize(function(self)
 	applyConfig()
 	self:WatchConfig("diminishingReturns", applyConfig)
 	self:WatchConfig("arenaTrinket", applyConfig)
+	self:WatchConfig("groupCooldowns", applyConfig)
 	self:WatchConfig("unitFrames", function()
 		for i = 1, #containers do
 			anchorContainer(containers[i])

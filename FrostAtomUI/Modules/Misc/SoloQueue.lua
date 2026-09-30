@@ -18,6 +18,7 @@ local UnitName = UnitName
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
 local UnitIsFeignDeath = UnitIsFeignDeath
 local UnitIsConnected = UnitIsConnected
+local UnitBuff = UnitBuff
 local GetNumPartyMembers = GetNumPartyMembers
 local GetBattlefieldWinner = GetBattlefieldWinner
 local GameTooltip = GameTooltip
@@ -43,6 +44,8 @@ local SHINE_ALPHA = 0.18
 local HIGHLIGHT_ALPHA = 0.25
 local GLYPH_SCALE = 0.5
 local QUEUE_ICON = "Interface\\Icons\\Achievement_Arena_2v2_7"
+local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
+local LOCKED_COLOR = { 0.5, 0.5, 0.5 }
 
 local STATES = {
 	join = { icon = QUEUE_ICON, tooltip = "Join solo queue", color = { 1, 0.82, 0 } },
@@ -140,9 +143,16 @@ local function queueLines(index)
 	return waited
 end
 
+local function isPreparing()
+	return ARENA_PREPARATION and UnitBuff("player", ARENA_PREPARATION) ~= nil
+end
+
 local function onEnter(self)
 	GameTooltip:SetOwner(self, "ANCHOR_LEFT")
 	GameTooltip:SetText(STATES[self.state].tooltip)
+	if self.locked then
+		GameTooltip:AddLine(L["Available once the battle begins."], 1, 0.3, 0.25)
+	end
 	self.queueText = nil
 	if self.state == "queued" then
 		local waited, estimate = queueLines(self.queueIndex)
@@ -212,8 +222,9 @@ local function setState(state, queueIndex)
 	end
 
 	local info = STATES[state]
+	button.locked = state == "arena" and isPreparing()
 	applySize()
-	local r, g, b = unpack(info.color)
+	local r, g, b = unpack(button.locked and LOCKED_COLOR or info.color)
 	button.icon:SetTexture(info.icon)
 	ns.SetShown(button.icon, info.icon)
 	button.glyph:SetTextColor(r, g, b)
@@ -278,7 +289,9 @@ button:SetScript("OnLeave", onLeave)
 button:SetScript("OnClick", function(self)
 	GameTooltip:Hide()
 	if self.state == "arena" then
-		LeaveBattlefield()
+		if not self.locked then
+			LeaveBattlefield()
+		end
 	elseif self.state == "enter" then
 		AcceptBattlefieldPort(self.queueIndex, 1)
 	elseif self.state == "queued" then
@@ -310,6 +323,11 @@ Misc:RegisterMover(button, "soloQueue.point", "Solo queue", {
 })
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", update)
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", update)
+Misc:RegisterEvent("UNIT_AURA", function(_, unit)
+	if unit == "player" and button.state == "arena" and button.locked ~= isPreparing() then
+		update()
+	end
+end)
 
 Misc:RegisterEvent(ns.SOLOQ_SEARCHING, function(_, low, high, teamRating)
 	searchRange = ("%d-%d"):format(low, high)

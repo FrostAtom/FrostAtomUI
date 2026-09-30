@@ -14,6 +14,7 @@ local AURA_GROWTH_ANCHORS = { LEFT = "TOPRIGHT", RIGHT = "TOPLEFT" }
 
 local player, castbar, pet, target, focus
 local party, arena, bosses = {}, {}, {}
+UF.groupFrames = { party = party, arena = arena }
 local partyPets, arenaPets = {}, {}
 local partyTargets, arenaTargets = {}, {}
 local squares = {}
@@ -119,8 +120,7 @@ local function sizeBossCastbar(boss, config)
 	UF.SetCastbarSize(boss.castbar, config.bossWidth - height - BOSS_CASTBAR_ICON_GAP, height)
 end
 
-local function applySizes()
-	local config = ns.Config.unitFrames
+local function applyTrinkets()
 	local trinketSize = ns.Config.arenaTrinket.size
 	for _, frames in ipairs({ party, arena }) do
 		for i = 1, #frames do
@@ -129,6 +129,11 @@ local function applySizes()
 			trinket:Refresh()
 		end
 	end
+end
+
+local function applySizes()
+	local config = ns.Config.unitFrames
+	applyTrinkets()
 	sizePlayerCastbar(config)
 	player.buffs:SetShape(config.playerAuraPerRow, growthAnchor(config.playerAuraGrowth))
 	player.debuffs:SetShape(config.playerDebuffPerRow, growthAnchor(config.playerDebuffGrowth))
@@ -733,7 +738,9 @@ function UF:Initialize()
 	self:WatchConfig("unitFrames", applyFrameSizes, true)
 	self:WatchConfig("unitFrames", applyElements)
 	self:WatchConfig("unitFrames.rightClick", self.ApplyClicks, true)
+	self:WatchConfig("unitFrames.middleClick", self.ApplyClicks, true)
 	self:WatchConfig("unitFrames", self.ApplyColors)
 	self:WatchConfig("unitFrames", refreshMovers)
-	self:WatchConfig("arenaTrinket", applySizes)
+	self:WatchConfig("arenaTrinket", applyTrinkets)
+	self:WatchConfig("groupCooldowns", applyTrinkets)
 end
