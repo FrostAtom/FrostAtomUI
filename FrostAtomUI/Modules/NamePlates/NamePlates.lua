@@ -22,7 +22,9 @@ local TEXT_INSET = 3
 local ICON_GAP = 2
 local WHITE = { 1, 1, 1 }
 local SHIELD_TEXTURE = "Interface\\CastingBar\\UI-CastingBar-Small-Shield"
-local SHIELD_TEXCOORD = { 0, 0.16, 0.15, 0.85 }
+local SHIELD_TEXCOORD = { 0, 39 / 256, 10 / 64, 57 / 64 }
+local SHIELD_HOLE = 19
+local SHIELD_INSETS = { 10.5, 11.5, 9.5, 16.5 }
 local CAST_GLOW_SIZE = 4
 local COMPACT_CAST_HEIGHT = 5
 local CAST_FINISH_WINDOW = 0.5
@@ -73,8 +75,6 @@ NamePlates.ICON_GAP = ICON_GAP
 NamePlates.CAST_GLOW_SIZE = CAST_GLOW_SIZE
 NamePlates.CAST_FINISH_WINDOW = CAST_FINISH_WINDOW
 NamePlates.CAST_LATE_INTERRUPT = CAST_LATE_INTERRUPT
-NamePlates.SHIELD_TEXTURE = SHIELD_TEXTURE
-NamePlates.SHIELD_TEXCOORD = SHIELD_TEXCOORD
 
 local targetName
 local spreadActive = false
@@ -496,10 +496,38 @@ function NamePlates.LayoutCastbar(bar)
 	bar:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", BORDER_INSET, -offset)
 	bar:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", -BORDER_INSET, -offset)
 	bar:SetHeight(height)
-	bar.icon:SetSize(config.castbarIconSize, config.castbarIconSize)
+	local size = config.castbarIconSize
+	local icon = bar.icon
+	icon:SetSize(size, size)
+	local scale = size / SHIELD_HOLE
+	local shield = bar.shieldIcon
+	shield:ClearAllPoints()
+	shield:SetPoint("TOPLEFT", icon, -SHIELD_INSETS[1] * scale, SHIELD_INSETS[2] * scale)
+	shield:SetPoint("BOTTOMRIGHT", icon, SHIELD_INSETS[3] * scale, -SHIELD_INSETS[4] * scale)
 	ns.SetShown(bar.spellText, not compact)
 	ns.SetShown(bar.targetText, not compact)
 	bar.compact = compact
+end
+
+function NamePlates.CreateShield(bar)
+	local shield = bar:CreateTexture(nil, "OVERLAY", nil, -1)
+	shield:SetTexture(SHIELD_TEXTURE)
+	shield:SetTexCoord(unpack(SHIELD_TEXCOORD))
+	shield:Hide()
+	bar.shieldIcon = shield
+end
+
+function NamePlates.ApplyShield(bar, locked)
+	local shielded = locked and config.castbarShield and not bar.compact
+	local icon = bar.icon
+	icon:SetDesaturated(locked and not shielded and 1 or nil)
+	setIconShown(icon, not bar.compact)
+	if shielded then
+		icon.border:Hide()
+		bar.shieldIcon:Show()
+	else
+		bar.shieldIcon:Hide()
+	end
 end
 
 local CastbarMixin = {}
@@ -514,15 +542,7 @@ function CastbarMixin:UpdateLock()
 	if locked ~= self.locked then
 		self.locked = locked
 		self.barR = nil
-		local shielded = locked and config.castbarShield
-		local icon = self.icon
-		icon:SetDesaturated(locked and not shielded and 1 or nil)
-		setIconShown(icon, not shielded and not self.compact)
-		if shielded and not self.compact then
-			self.shieldIcon:Show()
-		else
-			self.shieldIcon:Hide()
-		end
+		NamePlates.ApplyShield(self, locked)
 	end
 
 	local r, g, b, a = self:GetStatusBarColor()
@@ -950,12 +970,7 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	castbar.blizzardIcon = blizzardIcon
 	blizzardIcon:SetParent(trash)
 
-	local shieldIcon = castbar:CreateTexture(nil, "BORDER")
-	shieldIcon:SetAllPoints(icon)
-	shieldIcon:SetTexture(SHIELD_TEXTURE)
-	shieldIcon:SetTexCoord(unpack(SHIELD_TEXCOORD))
-	shieldIcon:Hide()
-	castbar.shieldIcon = shieldIcon
+	NamePlates.CreateShield(castbar)
 
 	createCastTexts(castbar)
 
