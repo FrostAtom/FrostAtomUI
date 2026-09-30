@@ -807,7 +807,6 @@ local function pollAuras(frame)
 end
 
 registerAuraElement("buffs", "HELPFUL", false, TEST_BUFFS)
--- Only debuffs poll: pollAuras refreshes both grids of a frame after a single Auras.Invalidate.
 registerAuraElement("debuffs", "HARMFUL", true, TEST_DEBUFFS, pollAuras)
 
 local function queueAllCatchers()

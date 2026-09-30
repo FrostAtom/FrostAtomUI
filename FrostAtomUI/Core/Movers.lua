@@ -163,16 +163,12 @@ local function isEnabledAlong(path)
 	return true
 end
 
-local singlePath, noPaths = {}, {}
-
--- Returns a shared table: callers iterate it right away and never keep it.
 local function enabledPaths(mover)
 	local paths = mover.enabledPath
 	if type(paths) == "string" then
-		singlePath[1] = paths
-		return singlePath
+		return { paths }
 	end
-	return paths or noPaths
+	return paths or {}
 end
 
 local function watchesPath(mover, path)
@@ -480,14 +476,6 @@ local dragging
 local dragFrame = CreateFrame("Frame")
 dragFrame:Hide()
 
--- Reused every drag frame; resolveSnaps reads them within the same frame only.
-local snapRecordX, snapRecordY, draggedPoint = {}, {}, {}
-
-local function snapRecord(record, line, part, offset)
-	record.line, record.part, record.distance = line, part, abs(offset)
-	return record
-end
-
 local function updateDrag()
 	local mover = dragging
 	local cursorX, cursorY = cursorPosition()
@@ -501,10 +489,10 @@ local function updateDrag()
 		dx, dy = dx + offsetX, dy + offsetY
 		mover.lineX, mover.lineY = lineX, lineY
 		if lineX and lineX.mover then
-			mover.snapX = snapRecord(snapRecordX, lineX, partX, offsetX)
+			mover.snapX = { line = lineX, part = partX, distance = abs(offsetX) }
 		end
 		if lineY and lineY.mover then
-			mover.snapY = snapRecord(snapRecordY, lineY, partY, offsetY)
+			mover.snapY = { line = lineY, part = partY, distance = abs(offsetY) }
 		end
 	end
 
@@ -517,10 +505,7 @@ local function updateDrag()
 	if x ~= mover.lastX or y ~= mover.lastY then
 		mover.lastX, mover.lastY = x, y
 		local point, _, _, anchorPath, anchorPoint = unpackPoint(ns:GetConfig(mover.path))
-		-- SetConfig copies the value, so one scratch table serves every drag step.
-		draggedPoint[1], draggedPoint[2], draggedPoint[3], draggedPoint[4], draggedPoint[5] =
-			point, x, y, anchorPath, anchorPoint
-		ns:SetConfig(mover.path, draggedPoint)
+		ns:SetConfig(mover.path, { point, x, y, anchorPath, anchorPoint })
 		showTooltip(mover.overlay)
 	end
 end
@@ -1744,6 +1729,43 @@ local function selectLayout(value)
 	end
 end
 
+local conflictPairs, offScreenMovers = {}, {}
+
+local function showStatusTooltip(status)
+	GameTooltip:SetOwner(status, "ANCHOR_BOTTOM")
+	if #conflictPairs == 0 and #offScreenMovers == 0 then
+		GameTooltip:SetText(L["No frames overlap"], unpack(COLOR.STATUS_OK))
+		GameTooltip:AddLine(L["Turn on test unit frames to check party and arena frames too."], 0.8, 0.8, 0.8, true)
+		GameTooltip:Show()
+		return
+	end
+	GameTooltip:SetText(L["Frames to fix"], 1, 1, 1)
+	local lines = 0
+	for _, pair in ipairs(conflictPairs) do
+		if lines < MAX_STATUS_LINES then
+			GameTooltip:AddLine(("%s - %s"):format(L[pair[1].label], L[pair[2].label]), 1, 0.6, 0.55)
+		end
+		lines = lines + 1
+	end
+	for _, mover in ipairs(offScreenMovers) do
+		if lines < MAX_STATUS_LINES then
+			GameTooltip:AddLine(L["%s: partly off screen"]:format(L[mover.label]), 1, 0.6, 0.55)
+		end
+		lines = lines + 1
+	end
+	if lines > MAX_STATUS_LINES then
+		GameTooltip:AddLine(L["and %d more"]:format(lines - MAX_STATUS_LINES), 0.6, 0.6, 0.6)
+	end
+	GameTooltip:AddLine(
+		L["Such frames are outlined in red. A smaller UI scale or a layout preset leaves more room."],
+		0.8,
+		0.8,
+		0.8,
+		true
+	)
+	GameTooltip:Show()
+end
+
 local function createPanel()
 	panel = CreateFrame("Frame", "FrostAtomUIMovers", UIParent)
 	panel:SetPoint("TOP", 0, -60)
@@ -1879,8 +1901,6 @@ function Movers.IsUnlocked()
 	return unlocked
 end
 
-local conflictPairs, offScreenMovers = {}, {}
-
 local function conflictRect(mover)
 	if mover.floating or not mover.overlay or not mover.overlay:IsShown() then
 		return nil
@@ -1966,41 +1986,6 @@ function updateConflicts()
 		end
 	end
 	updateStatus()
-end
-
-local function showStatusTooltip(status)
-	GameTooltip:SetOwner(status, "ANCHOR_BOTTOM")
-	if #conflictPairs == 0 and #offScreenMovers == 0 then
-		GameTooltip:SetText(L["No frames overlap"], unpack(COLOR.STATUS_OK))
-		GameTooltip:AddLine(L["Turn on test unit frames to check party and arena frames too."], 0.8, 0.8, 0.8, true)
-		GameTooltip:Show()
-		return
-	end
-	GameTooltip:SetText(L["Frames to fix"], 1, 1, 1)
-	local lines = 0
-	for _, pair in ipairs(conflictPairs) do
-		if lines < MAX_STATUS_LINES then
-			GameTooltip:AddLine(("%s - %s"):format(L[pair[1].label], L[pair[2].label]), 1, 0.6, 0.55)
-		end
-		lines = lines + 1
-	end
-	for _, mover in ipairs(offScreenMovers) do
-		if lines < MAX_STATUS_LINES then
-			GameTooltip:AddLine(L["%s: partly off screen"]:format(L[mover.label]), 1, 0.6, 0.55)
-		end
-		lines = lines + 1
-	end
-	if lines > MAX_STATUS_LINES then
-		GameTooltip:AddLine(L["and %d more"]:format(lines - MAX_STATUS_LINES), 0.6, 0.6, 0.6)
-	end
-	GameTooltip:AddLine(
-		L["Such frames are outlined in red. A smaller UI scale or a layout preset leaves more room."],
-		0.8,
-		0.8,
-		0.8,
-		true
-	)
-	GameTooltip:Show()
 end
 
 function Movers.Refresh()

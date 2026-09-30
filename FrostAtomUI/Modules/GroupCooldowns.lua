@@ -466,7 +466,13 @@ local function update(state)
 	local frames = state.frames
 	for i = 1, #frames do
 		local panel = frames[i]
-		panel.owners[1] = previewing and previewSlot(state, panel.index) or validSlot(state, panel.index)
+		local owner
+		if previewing then
+			owner = previewSlot(state, panel.index)
+		else
+			owner = validSlot(state, panel.index)
+		end
+		panel.owners[1] = owner
 		refresh(panel)
 	end
 end

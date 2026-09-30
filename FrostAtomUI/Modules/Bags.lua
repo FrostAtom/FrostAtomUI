@@ -1223,7 +1223,6 @@ local function createContainer(key, title, bags, columnsKey)
 	frame.positionPath = "bags." .. key
 	frame.buttons = {}
 	frame.bagButtons = {}
-	-- buttons[bagOffsets[bag] + slot] is the button of that slot since the last Layout
 	frame.bagOffsets = {}
 	frame:Hide()
 

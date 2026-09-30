@@ -43,7 +43,6 @@ for _, spellId in ipairs(DRData.TEST_SPELLS) do
 	end
 end
 
--- Memoized string.lower for aura/spell/totem names and icon paths matched on every UNIT_AURA/CLEU pass.
 local lowered = setmetatable({}, {
 	__index = function(cache, text)
 		local value = text:lower()
@@ -372,7 +371,8 @@ function evaluators.aura(icon, data)
 			and aura.count >= minStacks
 		then
 			local duration = aura.duration or 0
-			return true, aura.icon, duration > 0 and aura.expires - duration or nil, duration, aura.count
+			local count = aura.count > 1 and aura.count or nil
+			return true, aura.icon, duration > 0 and aura.expires - duration or nil, duration, count
 		end
 	end
 	return false, texture
@@ -754,7 +754,7 @@ local function updateIcon(icon)
 
 	icon.wakeAt = setCooldown(icon, start, duration, kind == "aura" or kind == "totem")
 	icon.cooldown.timer:SetAlpha(field(groupData, "timer", GROUP_DEFAULTS) and 1 or 0)
-	if count and count > 1 then
+	if count then
 		icon.count:SetText(count)
 	else
 		icon.count:SetText("")

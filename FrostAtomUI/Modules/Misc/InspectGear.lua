@@ -68,7 +68,6 @@ for _, key in ipairs(SOCKET_KEYS) do
 	end
 end
 
--- Combat rating needed for 1% (or 1 point of expertise/defense) at level 80.
 local RATING = {
 	crit = 45.905987,
 	hit = 32.78999,
@@ -108,7 +107,6 @@ local STATS = {
 InspectGear.STATS = STATS
 InspectGear.MAX_LEVEL = MAX_LEVEL
 
--- Indexed like the talent/stat data: 0 = Strength .. 4 = Spirit.
 local STAT_KEYS = {
 	[0] = "ITEM_MOD_STRENGTH_SHORT",
 	"ITEM_MOD_AGILITY_SHORT",
@@ -116,11 +114,9 @@ local STAT_KEYS = {
 	"ITEM_MOD_INTELLECT_SHORT",
 	"ITEM_MOD_SPIRIT_SHORT",
 }
-local SKIP_WORDS =
-	{ ["Ðº"] = true, ["ÐºÐ¾"] = true, your = true, ["Ð²Ð°ÑˆÐµÐ¹"] = true, ["Ð²Ð°Ñˆ"] = true }
-local BY_WORD = { ruRU = "Ð½Ð°" }
+local SKIP_WORDS = { ["к"] = true, ["ко"] = true, your = true, ["вашей"] = true, ["ваш"] = true }
+local BY_WORD = { ruRU = "на" }
 
--- string.lower only handles ASCII; fold UTF-8 Cyrillic capitals (А-П, Р-Я, Ё) by hand.
 local function lowerCyrillicLow(c)
 	return "\208" .. string.char(c:byte() + 32)
 end
@@ -541,7 +537,6 @@ local function notEqual(a, b)
 	return a ~= b
 end
 
--- Meta gem requirement formats; "value" compares a color count with a number, "compare" two color counts.
 local CONDITION_TESTS = {
 	{ "ENCHANT_CONDITION_MORE_VALUE", atLeast },
 	{ "ENCHANT_CONDITION_LESS_VALUE", lessThan },
@@ -765,7 +760,6 @@ local PERCENT_KEYS = {
 	parry = PARRY_KEY,
 	block = BLOCK_KEY,
 }
--- Talent kinds that multiply a single stat by (1 + value%).
 local MULTIPLIER_KEYS = { armor = ARMOR_KEY, blockValue = BLOCK_VALUE_KEY, ap = AP_KEY }
 local FERAL_WEAPONS =
 	{ INVTYPE_WEAPON = true, INVTYPE_2HWEAPON = true, INVTYPE_WEAPONMAINHAND = true, INVTYPE_WEAPONOFFHAND = true }

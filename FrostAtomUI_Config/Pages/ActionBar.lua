@@ -379,12 +379,7 @@ local addBarEntry = {
 	placeholder = L["Choose a page..."],
 	desc = L["Another bar on a spare action page (7 - 10). A page of your stances or forms shows the actions of that stance or form."],
 	disabled = function()
-		for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
-			if not isPageUsed(page) then
-				return false
-			end
-		end
-		return true
+		return #freePageValues() == 0
 	end,
 	disabledDesc = L["All spare action pages are in use."],
 	get = function() end,
@@ -566,10 +561,17 @@ local schema = {
 }
 
 local function buildSchema()
-	local result = { barsSchema[1], barsSchema[2], { header = L["Extra bars"], glyph = "plus" }, addBarEntry }
-	for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
-		if isPageUsed(page) then
-			addExtraBar(result, page)
+	local result = {}
+	for _, entry in ipairs(barsSchema) do
+		result[#result + 1] = entry
+		if entry.path == EXTRA_BARS then
+			result[#result + 1] = { header = L["Extra bars"], glyph = "plus" }
+			result[#result + 1] = addBarEntry
+			for page = ActionBar.FIRST_EXTRA_PAGE, ActionBar.LAST_EXTRA_PAGE do
+				if isPageUsed(page) then
+					addExtraBar(result, page)
+				end
+			end
 		end
 	end
 	return result

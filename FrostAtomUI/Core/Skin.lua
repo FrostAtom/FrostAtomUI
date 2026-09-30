@@ -463,7 +463,6 @@ end
 
 ns.SCROLLBAR_TRACK_WIDTH = 30
 
--- Every caller uses the "list" style; the style argument is accepted and ignored.
 function ns.AddHighlight(button)
 	button:SetHighlightTexture(LIST_HIGHLIGHT)
 	local highlight = button:GetHighlightTexture()

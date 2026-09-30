@@ -25,7 +25,6 @@ local TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
 
 local C_NamePlate = _G.C_NamePlate
--- nameplateN tokens only exist on backported clients; stock 3.3.5 falls back to name/health matching.
 local hasNamePlateTokens = C_NamePlate and C_NamePlate.GetNamePlateForUnit and true or false
 
 local ARENA_UNITS, ARENA_PET_UNITS = {}, {}

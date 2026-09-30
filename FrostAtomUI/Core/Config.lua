@@ -1252,7 +1252,6 @@ end
 
 local merge
 
--- Lists are replaced as a whole; keyed tables are merged key by key.
 local function mergeValue(target, key, value)
 	local current = target[key]
 	if type(value) == "table" and type(current) == "table" then
@@ -2134,7 +2133,6 @@ local function seedUnitFrameCategories(profile)
 	migrateUnitFrameCategories(profile, true)
 end
 
--- Run once per saved-variables file, before the regular migrate(); order matters.
 local ONE_TIME_MIGRATIONS = {
 	{ "castbarLayoutMigrated", migrateCastbarLayout },
 	{ "squareFramesMigrated", migrateSquareFrames },

@@ -124,7 +124,6 @@ local function applyGradients()
 	end
 end
 
--- Only registered as a config watcher while the skin is enabled.
 local function repaint()
 	for tooltip in pairs(states) do
 		paint(tooltip)
