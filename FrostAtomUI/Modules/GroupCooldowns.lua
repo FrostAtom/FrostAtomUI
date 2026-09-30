@@ -62,7 +62,6 @@ local CATEGORY_COLORS = {
 	mobility = { 0.4, 0.95, 0.9 },
 	utility = { 0.75, 0.75, 0.75 },
 }
-GroupCooldowns.CATEGORY_COLORS = CATEGORY_COLORS
 
 local SIDES = {
 	friendly = {
@@ -467,13 +466,7 @@ local function update(state)
 	local frames = state.frames
 	for i = 1, #frames do
 		local panel = frames[i]
-		local owner
-		if previewing then
-			owner = previewSlot(state, panel.index)
-		else
-			owner = validSlot(state, panel.index)
-		end
-		panel.owners[1] = owner
+		panel.owners[1] = previewing and previewSlot(state, panel.index) or validSlot(state, panel.index)
 		refresh(panel)
 	end
 end
@@ -568,10 +561,6 @@ function GroupCooldowns.SetPreview(enabled)
 	updateAll()
 end
 
-function GroupCooldowns.IsPreviewing()
-	return previewing
-end
-
 local function applyIcons(panel, config)
 	local size = layoutOf(panel, config)
 	for i = 1, #panel.icons do
@@ -610,6 +599,10 @@ local function applyConfig()
 	end
 end
 
+local function moverContext(side)
+	return side == "enemy" and "arena" or nil
+end
+
 local function newPanel(side, kind)
 	local panel = CreateFrame("Frame", nil, UIParent)
 	panel:SetFrameStrata("LOW")
@@ -629,7 +622,7 @@ local function createGroupPanel(self, state)
 	panel.owners = state.owners
 	self:RegisterMover(panel, "groupCooldowns." .. side .. "Point", SIDES[side].label, {
 		enabledPath = { "groupCooldowns." .. side, "groupCooldowns." .. side .. "Layout" },
-		context = side == "enemy" and "arena" or nil,
+		context = moverContext(side),
 		visible = function()
 			return not usesFrames(side)
 		end,
@@ -640,7 +633,7 @@ local function createGroupPanel(self, state)
 					width = max(width, label:GetStringWidth() + LABEL_GAP)
 				end
 			end
-			if select(2, anchorFor(panel)) == 1 then
+			if panel.growth ~= "LEFT" then
 				return width, 0, 0, 0
 			end
 			return 0, width, 0, 0
@@ -655,7 +648,7 @@ local function createInterruptPanel(self, state)
 	panel.owners = state.owners
 	self:RegisterMover(panel, "groupCooldowns." .. side .. "InterruptPoint", SIDES[side].interruptLabel, {
 		enabledPath = { "groupCooldowns." .. side, "groupCooldowns." .. side .. "SeparateInterrupts" },
-		context = side == "enemy" and "arena" or nil,
+		context = moverContext(side),
 	})
 	return panel
 end
@@ -677,7 +670,7 @@ local function createFramePanels()
 					"groupCooldowns." .. side .. "Layout",
 					"unitFrames.show" .. info.frameLabel,
 				},
-				context = side == "enemy" and "arena" or nil,
+				context = moverContext(side),
 				visible = function()
 					return usesFrames(side)
 				end,

@@ -198,20 +198,10 @@ function TemporaryEnchant:Update()
 		showStandalone()
 	end
 
-	if enchantCount > 0 then
-		ticker:Show()
-	else
-		ticker:Hide()
-	end
+	ns.SetShown(ticker, enchantCount > 0)
 end
 
-function TemporaryEnchant:UNIT_INVENTORY_CHANGED(unit)
-	if unit == "player" then
-		self:Update()
-	end
-end
-
-function TemporaryEnchant:OnVehicleChanged(unit)
+function TemporaryEnchant:OnPlayerUnitEvent(unit)
 	if unit == "player" then
 		self:Update()
 	end
@@ -251,8 +241,8 @@ function TemporaryEnchant:Initialize()
 	applyConfig()
 	self:WatchConfig("temporaryEnchant", applyConfig)
 
-	self:RegisterEvent("UNIT_INVENTORY_CHANGED")
-	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "OnVehicleChanged")
-	self:RegisterEvent("UNIT_EXITED_VEHICLE", "OnVehicleChanged")
+	self:RegisterEvent("UNIT_INVENTORY_CHANGED", "OnPlayerUnitEvent")
+	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "OnPlayerUnitEvent")
+	self:RegisterEvent("UNIT_EXITED_VEHICLE", "OnPlayerUnitEvent")
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 end

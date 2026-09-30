@@ -393,11 +393,7 @@ local function setUp(animate)
 	elseif not introTime then
 		cooldown.intro = true
 		setLineWidth(LINE_WIDTH)
-		if bestDuration > 0 then
-			cooldown:Show()
-		else
-			cooldown:Hide()
-		end
+		ns.SetShown(cooldown, bestDuration > 0)
 	end
 
 	frame:Show()
@@ -467,7 +463,7 @@ end
 
 local function measureLockout()
 	local interruptedAt, maxDuration = lockout.interruptedAt, lockout.maxDuration
-	local bestStart, bestDuration, bestEnd
+	local foundStart, foundDuration, foundEnd
 	local slot = 1
 	while GetSpellName(slot, BOOKTYPE_SPELL) do
 		local start, duration, enabled = GetSpellCooldown(slot, BOOKTYPE_SPELL)
@@ -476,16 +472,16 @@ local function measureLockout()
 			and duration > 0
 			and duration <= maxDuration + LOCKOUT_TOLERANCE
 			and abs(start - interruptedAt) <= LOCKOUT_TOLERANCE
-			and (not bestEnd or start + duration > bestEnd)
+			and (not foundEnd or start + duration > foundEnd)
 		then
-			bestStart, bestDuration, bestEnd = start, duration, start + duration
+			foundStart, foundDuration, foundEnd = start, duration, start + duration
 		end
 		slot = slot + 1
 	end
-	if not bestEnd then
+	if not foundEnd then
 		return false
 	end
-	lockout.start, lockout.duration, lockout.expires = bestStart, bestDuration, bestEnd
+	lockout.start, lockout.duration, lockout.expires = foundStart, foundDuration, foundEnd
 	return true
 end
 
@@ -586,11 +582,7 @@ local function applyConfig()
 	frame:SetScale(config.scale)
 	for _, list in ipairs({ shadows, lines }) do
 		for i = 1, #list do
-			if config.background then
-				list[i]:Show()
-			else
-				list[i]:Hide()
-			end
+			ns.SetShown(list[i], config.background)
 		end
 	end
 	if config.enabled then

@@ -76,11 +76,10 @@ for _, spells in pairs(Data.SPELLS) do
 		end
 	end
 end
-for _, row in pairs(Data.CDMOD) do
-	registerRow(row)
-end
-for _, row in pairs(Data.CDMOD_MULT) do
-	registerRow(row)
+for _, modifiers in ipairs({ Data.CDMOD, Data.CDMOD_MULT }) do
+	for _, row in pairs(modifiers) do
+		registerRow(row)
+	end
 end
 
 local data = {}
@@ -212,11 +211,11 @@ local function weigh(guess)
 	end
 	local sum = 0
 	for tree = 1, NUM_TREES do
-		local points = proven[tree]
+		local depth = proven[tree]
 		if proven[tree % 3 + 1] > cap[tree] or proven[(tree + 1) % 3 + 1] > cap[tree] then
 			main[tree] = 0
-		elseif points > 0 then
-			main[tree] = DEPTH_ODDS[min(floor((points - 1) / POINTS_PER_TIER) + 1, #DEPTH_ODDS)]
+		elseif depth > 0 then
+			main[tree] = DEPTH_ODDS[min(floor((depth - 1) / POINTS_PER_TIER) + 1, #DEPTH_ODDS)]
 		else
 			main[tree] = 1
 		end

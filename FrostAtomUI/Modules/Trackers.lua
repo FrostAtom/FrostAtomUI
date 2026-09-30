@@ -35,6 +35,23 @@ local DR_TEXT = { "½", "¼", "×" }
 local DR_COLOR_KEYS = { "halfColor", "quarterColor", "immuneColor" }
 local DEFAULT_ICD = 45
 
+local drIconSpells = {}
+for _, spellId in ipairs(DRData.TEST_SPELLS) do
+	local category = DRData.SPELLS[spellId]
+	if category and not drIconSpells[category] then
+		drIconSpells[category] = spellId
+	end
+end
+
+-- Memoized string.lower for aura/spell/totem names and icon paths matched on every UNIT_AURA/CLEU pass.
+local lowered = setmetatable({}, {
+	__index = function(cache, text)
+		local value = text:lower()
+		cache[text] = value
+		return value
+	end,
+})
+
 local icdBySpell, icdByName = {}, {}
 for id, proc in pairs(PROC_DATA) do
 	local cooldown = proc.cd or 0
@@ -326,12 +343,12 @@ local function auraMatches(list, aura)
 	if list.ids[aura.spellId] then
 		return true
 	end
-	local name = aura.name:lower()
+	local name = lowered[aura.name]
 	if list.loose[name] then
 		return true
 	end
 	local icons = list.icons[name]
-	return icons ~= nil and aura.icon ~= nil and icons[aura.icon:lower()] == true
+	return icons ~= nil and aura.icon ~= nil and icons[lowered[aura.icon]] == true
 end
 
 local evaluators = {}
@@ -451,7 +468,7 @@ function evaluators.totem(icon, data)
 	for slot = 1, 4 do
 		local haveTotem, name, start, duration, totemIcon = GetTotemInfo(slot)
 		if haveTotem and name and name ~= "" then
-			local lower = name:lower()
+			local lower = lowered[name]
 			local matched = list.names[lower]
 			if not matched then
 				for wanted in pairs(list.names) do
@@ -496,23 +513,23 @@ function evaluators.icd(icon, data)
 	local duration = icdDuration(data)
 	local start = icdStarts[data.spells]
 	local onCooldown = start and GetTime() < start + duration
-	if onCooldown then
-		return activeForShowMode(data, onCooldown), texture, start, duration
+	if not onCooldown then
+		start, duration = nil, nil
 	end
-	return activeForShowMode(data, onCooldown), texture
+	return activeForShowMode(data, onCooldown), texture, start, duration
 end
 
 local function trackedId(unit, entry)
 	if entry.id then
 		return entry.id
 	end
-	local wanted = entry.name:lower()
+	local wanted = lowered[entry.name]
 	local tracked = CooldownTracker:GetTracked(unit)
 	if tracked then
 		for i = 1, #tracked do
 			local id = tracked[i]
 			local name = GetSpellInfo(id)
-			if name and name:lower() == wanted then
+			if name and lowered[name] == wanted then
 				return id
 			end
 		end
@@ -562,27 +579,23 @@ end
 function evaluators.dr(icon, data)
 	local category = field(data, "category", ICON_DEFAULTS)
 	local unit = field(data, "unit", ICON_DEFAULTS)
+	local iconSpell = drIconSpells[category]
 	local texture = QUESTION_MARK
-	local testSpells = DRData.TEST_SPELLS
-	for i = 1, #testSpells do
-		local spellId = testSpells[i]
-		if DRData.SPELLS[spellId] == category then
-			texture = ns.SpellTexture(spellId)
-			break
-		end
+	if iconSpell then
+		texture = ns.SpellTexture(iconSpell)
 	end
 	local state = DR:Get(UnitGUID(unit))
 	local entry = state and state[category]
 	if not entry or entry.stacks == 0 then
 		return false, texture
 	end
-	local tint = ns.Config.diminishingReturns[DR_COLOR_KEYS[entry.stacks]]
+	local borderColor = ns.Config.diminishingReturns[DR_COLOR_KEYS[entry.stacks]]
 	texture = ns.SpellTexture(entry.spellId) or texture
 	if DR:IsAuraActive(entry, GetTime()) then
-		return true, texture, nil, nil, DR_TEXT[entry.stacks], nil, tint
+		return true, texture, nil, nil, DR_TEXT[entry.stacks], nil, borderColor
 	end
 	local reset = DRData.RESET_TIME
-	return true, texture, entry.expires - reset, reset, DR_TEXT[entry.stacks], nil, tint
+	return true, texture, entry.expires - reset, reset, DR_TEXT[entry.stacks], nil, borderColor
 end
 
 local groups = {}
@@ -780,11 +793,7 @@ local function needsTicker()
 end
 
 local function refreshTicker()
-	if needsTicker() then
-		ticker:Show()
-	else
-		ticker:Hide()
-	end
+	ns.SetShown(ticker, needsTicker())
 end
 
 local function updateAll()
@@ -882,11 +891,7 @@ local function applyGroup(group, data, index)
 	end
 	layoutGroup(group)
 
-	if groupVisible(data) then
-		group:Show()
-	else
-		group:Hide()
-	end
+	ns.SetShown(group, groupVisible(data))
 	local class = field(data, "class", GROUP_DEFAULTS)
 	if class == "" or class == ns.PLAYER_CLASS then
 		ns.Movers.Register(group, path, field(data, "name", GROUP_DEFAULTS))
@@ -940,11 +945,7 @@ local function updateVisibility()
 			local visible = groupVisible(group.data)
 			if visible ~= (group:IsShown() and true or false) then
 				changed = true
-				if visible then
-					group:Show()
-				else
-					group:Hide()
-				end
+				ns.SetShown(group, visible)
 			end
 		end
 	end
@@ -993,6 +994,8 @@ end
 local isItem, isTotem, isDR = iconType("item"), iconType("totem"), iconType("dr")
 local isUnitCooldown, isICD = iconType("unitcd"), iconType("icd")
 
+local playerGUID
+
 local ICD_EVENTS = {
 	SPELL_AURA_APPLIED = true,
 	SPELL_AURA_REFRESH = true,
@@ -1006,8 +1009,8 @@ local function onCombatLog(_, _, event, sourceGUID, _, _, destGUID, _, _, spellI
 	if not ICD_EVENTS[event] then
 		return
 	end
-	local player = UnitGUID("player")
-	if sourceGUID ~= player and destGUID ~= player then
+	playerGUID = playerGUID or UnitGUID("player")
+	if sourceGUID ~= playerGUID and destGUID ~= playerGUID then
 		return
 	end
 	local now = GetTime()
@@ -1016,7 +1019,7 @@ local function onCombatLog(_, _, event, sourceGUID, _, _, destGUID, _, _, spellI
 		local data = allIcons[i].data
 		if field(data, "type", ICON_DEFAULTS) == "icd" then
 			local list = parseList(data.spells)
-			if list.ids[spellId] or spellName and list.names[spellName:lower()] then
+			if list.ids[spellId] or spellName and list.names[lowered[spellName]] then
 				local start = icdStarts[data.spells]
 				if not start or now >= start + icdDuration(data) then
 					icdStarts[data.spells] = now

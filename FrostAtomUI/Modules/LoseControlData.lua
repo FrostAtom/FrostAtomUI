@@ -41,7 +41,7 @@ Data.PRIORITY = {
 	root = 1,
 }
 
-Data.IMMUNITIES = { immune = true, magicImmune = true, physicalImmune = true }
+local IMMUNITIES = { immune = true, magicImmune = true, physicalImmune = true }
 
 Data.SPELLS = {
 	immune = {
@@ -193,7 +193,7 @@ for category, spells in pairs(Data.SPELLS) do
 		for i = 1, #spell do
 			byId[spell[i]] = spell
 		end
-		local name = not Data.IMMUNITIES[category] and GetSpellInfo(spell[1])
+		local name = not IMMUNITIES[category] and GetSpellInfo(spell[1])
 		if name then
 			controlNames[name] = true
 		end

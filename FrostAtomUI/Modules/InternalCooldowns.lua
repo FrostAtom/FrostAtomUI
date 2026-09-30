@@ -370,7 +370,6 @@ local function onAuraRemoved(guid, spellId)
 end
 
 local function onCombatLogEvent(_, _, event, sourceGUID, _, sourceFlags, destGUID, _, _, spellId)
-	local types = EVENT_TYPES[event]
 	local proc = procs[spellId]
 	if not proc or not sourceGUID then
 		return
@@ -381,6 +380,7 @@ local function onCombatLogEvent(_, _, event, sourceGUID, _, sourceFlags, destGUI
 		end
 		return
 	end
+	local types = EVENT_TYPES[event]
 	if not types or not types[proc.event] or band(sourceFlags or 0, COMBATLOG_OBJECT_TYPE_PLAYER) == 0 then
 		return
 	end
@@ -492,10 +492,6 @@ function InternalCooldowns:Collect(guid, list, unknownTrinkets)
 		end
 	end
 	return list
-end
-
-function InternalCooldowns:HasGear(guid)
-	return guid ~= nil and gear[guid] ~= nil
 end
 
 function InternalCooldowns:GetSource(key)
