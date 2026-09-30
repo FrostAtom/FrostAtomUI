@@ -132,10 +132,18 @@ local function setIconSize(icon, size)
 	icon.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
 end
 
+local function layoutOf(panel, config)
+	local prefix = panel.kind == "interrupts" and panel.side .. "Interrupt" or panel.side
+	local perRow = config[prefix .. (panel.kind == "frame" and "FramePerRow" or "PerRow")]
+	return config[prefix .. "Size"], config[prefix .. "Spacing"], perRow, config[prefix .. "RowSpacing"]
+end
+
 local function createIcon(panel)
+	local config = ns.Config.groupCooldowns
+	local size = layoutOf(panel, config)
 	local icon = CreateFrame("Frame", nil, panel)
 	icon:SetFrameLevel(panel:GetFrameLevel() + 1)
-	icon:EnableMouse(not ns.Config.groupCooldowns.clickThrough)
+	icon:EnableMouse(not config.clickThrough)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
 
@@ -145,8 +153,8 @@ local function createIcon(panel)
 
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
 	icon.cooldown:SetAllPoints()
-	CooldownTimer:Attach(icon.cooldown, ns.Config.groupCooldowns.size * FONT_SCALE, icon)
-	CooldownTimer:AttachFlash(icon.cooldown, icon.texture, ns.Config.groupCooldowns, "readyFlash")
+	CooldownTimer:Attach(icon.cooldown, size * FONT_SCALE, icon)
+	CooldownTimer:AttachFlash(icon.cooldown, icon.texture, config, "readyFlash")
 
 	icon.glow = icon:CreateTexture(nil, "OVERLAY")
 	icon.glow:SetPoint("CENTER")
@@ -154,7 +162,7 @@ local function createIcon(panel)
 	icon.glow:SetBlendMode("ADD")
 	icon.glow:Hide()
 
-	setIconSize(icon, ns.Config.groupCooldowns.size)
+	setIconSize(icon, size)
 	return icon
 end
 
@@ -289,9 +297,8 @@ end
 
 function refresh(panel)
 	local config = ns.Config.groupCooldowns
-	local size, spacing = config.size, config.spacing
-	local step, rowStep = size + spacing, size + config.rowSpacing
-	local perRow = panel.kind == "frame" and config.framePerRow or config.perRow
+	local size, spacing, perRow, rowSpacing = layoutOf(panel, config)
+	local step, rowStep = size + spacing, size + rowSpacing
 	local grouped = panel.kind == "group"
 	local anchor, direction = anchorFor(panel)
 	local owners = panel.owners
@@ -300,7 +307,7 @@ function refresh(panel)
 		collectSpells(owners[i], panel, config)
 	end
 
-	local used, rows, count, width = 0, 0, 0, 0
+	local used, rows, count = 0, 0, 0
 	local nextExpiry = huge
 	local now = GetTime()
 	for c = 1, #CATEGORIES do
@@ -332,14 +339,10 @@ function refresh(panel)
 		end
 		if grouped then
 			placeLabel(panel, config, category, count, -rows * rowStep - size / 2, direction)
-			if count > 0 then
-				width = max(width, min(count, perRow) * step - spacing)
-				rows = rows + ceil(count / perRow)
-			end
+			rows = rows + ceil(count / perRow)
 		end
 	end
-	if not grouped and count > 0 then
-		width = min(count, perRow) * step - spacing
+	if not grouped then
 		rows = ceil(count / perRow)
 	end
 
@@ -349,7 +352,7 @@ function refresh(panel)
 		icon.owner = nil
 	end
 
-	panel:SetSize(max(width, size), max(rows * rowStep - config.rowSpacing, size))
+	panel:SetSize(perRow * step - spacing, max(rows, 1) * rowStep - rowSpacing)
 	ns.SetShown(panel, panel.active and used > 0 and isPlaced(panel))
 
 	panel.nextExpiry = nextExpiry
@@ -565,9 +568,10 @@ function GroupCooldowns.IsPreviewing()
 end
 
 local function applyIcons(panel, config)
+	local size = layoutOf(panel, config)
 	for i = 1, #panel.icons do
 		local icon = panel.icons[i]
-		setIconSize(icon, config.size)
+		setIconSize(icon, size)
 		icon:EnableMouse(not config.clickThrough)
 		icon.owner = nil
 	end
@@ -586,7 +590,7 @@ local function applyConfig()
 		applyIcons(state.group, config)
 
 		state.interrupts.active = enabled and config[side .. "SeparateInterrupts"]
-		state.interrupts.growth = growth
+		state.interrupts.growth = config[side .. "InterruptGrowth"]
 		ns.ApplyPoint(state.interrupts, "groupCooldowns." .. side .. "InterruptPoint")
 		applyIcons(state.interrupts, config)
 

@@ -52,36 +52,22 @@ end
 
 local function sidePanel(side, name, interruptName)
 	local prefix = "groupCooldowns." .. side
-	local function growth()
-		return {
-			path = prefix .. "Growth",
-			label = L["Row direction"],
-			type = "select",
-			values = GROWTH_VALUES,
-			advanced = true,
-			desc = L["Side the rows grow toward; category labels sit on the other side."],
-		}
-	end
 	ns.RegisterElement({
 		path = prefix .. "Point",
 		page = "cooldowns",
+		tab = side,
 		name = name,
 		enabledBy = { "groupCooldowns.enabled", prefix },
 		disabled = notFrames(side),
-		schema = Requires({ "groupCooldowns.enabled", prefix }, {
-			{ header = L["Layout"], glyph = "up-down-left-right" },
-			growth(),
-		}),
+		schema = {},
 	})
 	ns.RegisterElement({
 		path = prefix .. "InterruptPoint",
 		page = "cooldowns",
+		tab = side .. "Interrupts",
 		name = interruptName,
 		enabledBy = { "groupCooldowns.enabled", prefix, prefix .. "SeparateInterrupts" },
-		schema = Requires({ "groupCooldowns.enabled", prefix, prefix .. "SeparateInterrupts" }, {
-			{ header = L["Layout"], glyph = "up-down-left-right" },
-			growth(),
-		}),
+		schema = {},
 	})
 end
 
@@ -94,6 +80,7 @@ local function framePanels(side, prefix, label, count, name)
 		ns.RegisterElement({
 			path = "groupCooldowns." .. prefix .. i .. "Point",
 			page = "cooldowns",
+			tab = side,
 			name = i == 1 and name or L[label .. " " .. i .. " cooldowns"],
 			hidden = i ~= 1,
 			enabledBy = enabledBy,
@@ -120,41 +107,137 @@ local function categoryValues()
 	return values
 end
 
-local function sideSection(schema, side, header, toggleLabel, toggleDesc, framesDesc, trinketDesc)
-	local prefix = "groupCooldowns." .. side
-	Section(schema, header, "groupCooldowns", {
-		{ path = side, label = toggleLabel, type = "toggle", desc = toggleDesc },
+local function layoutEntries(schema, prefix, enabledBy, framed)
+	local entries = {
+		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{
-			path = side .. "Layout",
+			path = prefix .. "Growth",
+			label = L["Row direction"],
+			type = "select",
+			values = GROWTH_VALUES,
+			advanced = true,
+			desc = L["Side the rows grow toward; category labels sit on the other side."],
+		},
+		{ path = prefix .. "Size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
+		{ path = prefix .. "Spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
+		{
+			path = prefix .. "PerRow",
+			label = L["Icons per row"],
+			type = "number",
+			min = 1,
+			max = 12,
+			step = 1,
+			desc = framed and L["A category with more icons continues on the next row down."]
+				or L["Icons per row; further icons continue on the next row."],
+		},
+	}
+	if framed then
+		entries[#entries + 1] = {
+			path = prefix .. "FramePerRow",
+			label = L["Icons per row next to frames"],
+			type = "number",
+			min = 1,
+			max = 20,
+			step = 1,
+			desc = L["Icons in a row next to a unit frame; further icons continue on the next row."],
+		}
+	end
+	entries[#entries + 1] = {
+		path = prefix .. "RowSpacing",
+		label = L["Row spacing"],
+		type = "number",
+		min = 0,
+		max = 20,
+		step = 1,
+		advanced = true,
+		desc = L["Space between the rows of icons."],
+	}
+	for _, entry in ipairs(Requires(enabledBy, entries)) do
+		schema[#schema + 1] = entry
+	end
+end
+
+local function copyPaths(prefix, keys)
+	local copy = {}
+	for _, key in ipairs(keys) do
+		copy[key] = prefix .. key:sub(1, 1):upper() .. key:sub(2)
+	end
+	return copy
+end
+
+local function sideTab(side, name, glyph, toggleLabel, toggleDesc, framesDesc, trinketDesc)
+	local prefix = "groupCooldowns." .. side
+	local enabledBy = { "groupCooldowns.enabled", prefix }
+	local schema = {
+		{ path = prefix, label = toggleLabel, type = "toggle", enabledBy = "groupCooldowns.enabled", desc = toggleDesc },
+		{
+			path = prefix .. "Layout",
 			label = L["Display"],
 			type = "select",
 			values = LAYOUT_VALUES,
-			enabledBy = prefix,
+			enabledBy = enabledBy,
 			desc = framesDesc,
 		},
 		{
-			path = side .. "Categories",
+			path = prefix .. "Categories",
 			label = L["Categories"],
 			type = "multiselect",
 			values = categoryValues(),
-			enabledBy = prefix,
+			enabledBy = enabledBy,
 			desc = L["Ability types to show. The PvP trinket always comes first, then interrupts."],
 		},
 		{
-			path = side .. "SeparateInterrupts",
-			label = L["Interrupts in a separate panel"],
-			type = "toggle",
-			enabledBy = { prefix, prefix .. "Categories.interrupt" },
-			desc = L["Interrupts and silences of every player leave the main icons and gather in one panel of their own, moved separately."],
-		},
-		{
-			path = side .. "SeparateTrinket",
+			path = prefix .. "SeparateTrinket",
 			label = L["Trinket separately"],
 			type = "toggle",
-			enabledBy = { prefix, prefix .. "Categories.trinket" },
+			enabledBy = { enabledBy, prefix .. "Categories.trinket" },
 			desc = trinketDesc,
 		},
-	}, nil, nil, side == "friendly" and "user-group" or "users")
+	}
+	layoutEntries(schema, prefix, enabledBy, true)
+	schema[#schema + 1] = { header = L["Frames"], glyph = "arrows-up-down-left-right" }
+	schema[#schema + 1] = { type = "elements" }
+	return {
+		key = side,
+		name = name,
+		glyph = glyph,
+		schema = schema,
+		copy = copyPaths(
+			prefix,
+			{ "growth", "size", "spacing", "perRow", "framePerRow", "rowSpacing", "layout", "categories", "separateTrinket" }
+		),
+	}
+end
+
+local function interruptTab(side, name, glyph)
+	local prefix = "groupCooldowns." .. side
+	local separate = prefix .. "SeparateInterrupts"
+	local schema = {
+		{
+			path = separate,
+			label = L["Interrupts in a separate panel"],
+			type = "toggle",
+			enabledBy = { "groupCooldowns.enabled", prefix, prefix .. "Categories.interrupt" },
+			desc = L["Interrupts and silences of every player leave the main icons and gather in one panel of their own, moved separately."],
+		},
+	}
+	layoutEntries(schema, prefix .. "Interrupt", { "groupCooldowns.enabled", prefix, separate })
+	schema[#schema + 1] = { header = L["Frames"], glyph = "arrows-up-down-left-right" }
+	schema[#schema + 1] = { type = "elements" }
+	return {
+		key = side .. "Interrupts",
+		name = name,
+		glyph = glyph,
+		schema = schema,
+		copy = copyPaths(prefix, {
+			"interruptGrowth",
+			"interruptSize",
+			"interruptSpacing",
+			"interruptPerRow",
+			"interruptRowSpacing",
+			"separateInterrupts",
+		}),
+	}
 end
 
 local function spellPath(id)
@@ -213,35 +296,12 @@ local function spellEntries(schema)
 	end
 end
 
-local function buildSchema()
+local function generalSchema()
 	local schema = {
-		{ path = "groupCooldowns.enabled", label = L["Enable"], type = "toggle" },
 		{
 			description = L["Cooldowns of party members and arena opponents, set up separately for allies and enemies: one block with rows grouped by ability type, or a row next to each unit frame. Every tracked ability is always shown: bright when ready, dark with a timer on cooldown, glowing while its effect is up. The PvP trinket comes first, then interrupts; the border shows the class."],
 		},
-		{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
-		{ type = "elements" },
 	}
-
-	sideSection(
-		schema,
-		"friendly",
-		L["Ally cooldowns"],
-		L["Party cooldowns"],
-		L["Cooldowns of your party members."],
-		L["One block: every ally's icons in one panel, rows grouped by ability type. Next to unit frames: each ally's icons in a row under the right corner of their party frame, moved on its own."],
-		L["The PvP trinket leaves the cooldown icons and gets an icon of its own left of each party pet, only inside arenas."]
-	)
-	sideSection(
-		schema,
-		"enemy",
-		L["Enemy cooldowns"],
-		L["Arena opponent cooldowns"],
-		L["Cooldowns of arena opponents."],
-		L["One block: every opponent's icons in one panel, rows grouped by ability type. Next to unit frames: each opponent's icons in a row under the left corner of their arena frame, moved on its own."],
-		L["The PvP trinket leaves the cooldown icons and gets an icon of its own right of each arena frame."]
-	)
-
 	Section(schema, L["General"], "groupCooldowns", {
 		{
 			path = "labels",
@@ -273,39 +333,6 @@ local function buildSchema()
 		},
 		ns.ClickThrough("clickThrough"),
 	}, nil, nil, "sliders")
-
-	Section(schema, L["Layout"], "groupCooldowns", {
-		{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
-		{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
-		{
-			path = "perRow",
-			label = L["Icons per row"],
-			type = "number",
-			min = 1,
-			max = 12,
-			step = 1,
-			desc = L["A category with more icons continues on the next row down."],
-		},
-		{
-			path = "framePerRow",
-			label = L["Icons per row next to frames"],
-			type = "number",
-			min = 1,
-			max = 20,
-			step = 1,
-			desc = L["Icons in a row next to a unit frame; further icons continue on the next row."],
-		},
-		{
-			path = "rowSpacing",
-			label = L["Row spacing"],
-			type = "number",
-			min = 0,
-			max = 20,
-			step = 1,
-			advanced = true,
-			desc = L["Space between the rows of icons."],
-		},
-	}, nil, nil, "up-down-left-right")
 	schema[#schema + 1] = {
 		path = "arenaTrinket.size",
 		label = L["Separate trinket size"],
@@ -317,7 +344,11 @@ local function buildSchema()
 		enabledByAny = { "groupCooldowns.friendlySeparateTrinket", "groupCooldowns.enemySeparateTrinket" },
 		desc = L["Size of the trinket icon next to the party and arena frames."],
 	}
+	return schema
+end
 
+local function buildGeneralSchema()
+	local schema = generalSchema()
 	schema[#schema + 1] = { header = L["Spells"], glyph = "book" }
 	schema[#schema + 1] = {
 		label = L["Class"],
@@ -352,6 +383,9 @@ local function setPreview(shown)
 	GroupCooldowns.SetPreview(shown or UF.testing)
 end
 
+local generalTabSchema = generalSchema()
+generalTabSchema[#generalTabSchema + 1] = { path = "groupCooldowns.spells", hidden = true }
+
 ns.RegisterPage({
 	key = "cooldowns",
 	name = L["Cooldowns"],
@@ -360,11 +394,42 @@ ns.RegisterPage({
 	group = "pvp",
 	new = "1.4.1",
 	enable = "groupCooldowns.enabled",
-	schema = { { path = "groupCooldowns", hidden = true } },
-	buildSchema = buildSchema,
-	signature = function()
-		return selectedClass
-	end,
+	schema = {
+		{ path = "groupCooldowns.enabled", label = L["Enable"], type = "toggle" },
+		{ path = "groupCooldowns", hidden = true },
+	},
+	tabs = {
+		{
+			key = "general",
+			name = L["General"],
+			glyph = "gear",
+			schema = generalTabSchema,
+			buildSchema = buildGeneralSchema,
+			signature = function()
+				return selectedClass
+			end,
+		},
+		sideTab(
+			"friendly",
+			L["Allies"],
+			"user-group",
+			L["Party cooldowns"],
+			L["Cooldowns of your party members."],
+			L["One block: every ally's icons in one panel, rows grouped by ability type. Next to unit frames: each ally's icons in a row under the right corner of their party frame, moved on its own."],
+			L["The PvP trinket leaves the cooldown icons and gets an icon of its own left of each party pet, only inside arenas."]
+		),
+		sideTab(
+			"enemy",
+			L["Enemies"],
+			"user-ninja",
+			L["Arena opponent cooldowns"],
+			L["Cooldowns of arena opponents."],
+			L["One block: every opponent's icons in one panel, rows grouped by ability type. Next to unit frames: each opponent's icons in a row under the left corner of their arena frame, moved on its own."],
+			L["The PvP trinket leaves the cooldown icons and gets an icon of its own right of each arena frame."]
+		),
+		interruptTab("friendly", L["Ally interrupts"], "hand"),
+		interruptTab("enemy", L["Enemy interrupts"], "hand-fist"),
+	},
 	onShow = function()
 		setPreview(true)
 	end,
@@ -372,3 +437,4 @@ ns.RegisterPage({
 		setPreview(false)
 	end,
 })
+

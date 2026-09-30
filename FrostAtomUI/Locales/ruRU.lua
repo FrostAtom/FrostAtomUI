@@ -1675,6 +1675,8 @@ ns.SetLocale("ruRU", {
 	["Cooldowns of your party members."] = "Восстановления участников группы.",
 	["Cooldowns of arena opponents."] = "Восстановления противников на арене.",
 	["Ally interrupts"] = "Прерывания союзников",
+	["Allies"] = "Союзники",
+	["Enemies"] = "Противники",
 	["Enemy interrupts"] = "Прерывания противников",
 	["One block"] = "Одним блоком",
 	["Next to unit frames"] = "Возле рамок игроков",
