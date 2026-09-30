@@ -12,8 +12,13 @@ local EDGE = 16
 local LIST_X, LIST_TOP, LIST_WIDTH = 22, -64, 175
 local PANEL_X, PANEL_TOP, PANEL_RIGHT = 213, -40, -22
 local FOOTER_TOP = 50
-local SCROLL_LEFT, SCROLL_TOP, SCROLL_RIGHT, SCROLL_BOTTOM = 8, -40, -27, 6
-local CONTENT_WIDTH = WIDTH - PANEL_X + PANEL_RIGHT - SCROLL_LEFT + SCROLL_RIGHT
+local SCROLL = {
+	LEFT = 8,
+	TOP = -40,
+	RIGHT = -27,
+	BOTTOM = 6,
+}
+local CONTENT_WIDTH = WIDTH - PANEL_X + PANEL_RIGHT - SCROLL.LEFT + SCROLL.RIGHT
 local NAV_BUTTON_HEIGHT = 18
 local NAV_GROUP_GAP = 8
 local FOOTER_BUTTON_WIDTH = 96
@@ -31,20 +36,24 @@ local SLIDER_WIDTH = 180
 local FONT_SLIDER_WIDTH = 80
 local VALUE_BOX_WIDTH = 44
 local REVERT_SECONDS = 8
-local ELEMENT_WIDTH = EDGE * 2 + SCROLL_LEFT - SCROLL_RIGHT + CONTENT_WIDTH
-local ELEMENT_TOP = -30
-local ELEMENT_BOTTOM = 46
-local ELEMENT_GAP = 8
-local ELEMENT_MIN_HEIGHT = 140
-local ELEMENT_MAX_HEIGHT = 560
-local ELEMENT_STRATA = "FULLSCREEN"
+local ELEMENT = {
+	WIDTH = EDGE * 2 + SCROLL.LEFT - SCROLL.RIGHT + CONTENT_WIDTH,
+	TOP = -30,
+	BOTTOM = 46,
+	GAP = 8,
+	MIN_HEIGHT = 140,
+	MAX_HEIGHT = 560,
+	STRATA = "FULLSCREEN",
+}
 local POPUP_STRATA = "FULLSCREEN_DIALOG"
 local FONT_SIZE_MIN, FONT_SIZE_MAX = 6, 32
-local HIGHLIGHT_TEXTURE = "Interface\\QuestFrame\\UI-QuestLogTitleHighlight"
+local TEXTURE = {
+	HIGHLIGHT = "Interface\\QuestFrame\\UI-QuestLogTitleHighlight",
+	SPACER = "Interface\\OptionsFrame\\UI-OptionsFrame-Spacer",
+	LIST_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border",
+	SWATCH = "Interface\\ChatFrame\\ChatFrameColorSwatch",
+}
 local HIGHLIGHT_COLOR = { 0.196, 0.388, 0.8 }
-local SPACER_TEXTURE = "Interface\\OptionsFrame\\UI-OptionsFrame-Spacer"
-local LIST_BORDER = "Interface\\Tooltips\\UI-Tooltip-Border"
-local SWATCH_TEXTURE = "Interface\\ChatFrame\\ChatFrameColorSwatch"
 local GLYPH_SIZE = 12
 local GLYPH_BOX = GLYPH_SIZE + 4
 local GLYPH_GAP = 4
@@ -342,7 +351,7 @@ end
 
 local function createHighlight(parent, alpha)
 	local highlight = parent:CreateTexture(nil, "BACKGROUND")
-	highlight:SetTexture(HIGHLIGHT_TEXTURE)
+	highlight:SetTexture(TEXTURE.HIGHLIGHT)
 	highlight:SetBlendMode("ADD")
 	highlight:SetVertexColor(HIGHLIGHT_COLOR[1], HIGHLIGHT_COLOR[2], HIGHLIGHT_COLOR[3], alpha)
 	highlight:SetAllPoints()
@@ -351,7 +360,7 @@ end
 
 local function createSpacerLine(parent)
 	local line = parent:CreateTexture(nil, "ARTWORK")
-	line:SetTexture(SPACER_TEXTURE)
+	line:SetTexture(TEXTURE.SPACER)
 	line:SetVertexColor(0.6, 0.6, 0.6)
 	line:SetHeight(16)
 	return line
@@ -1408,7 +1417,7 @@ function creators.color(parent, entry)
 	local swatch = CreateFrame("Button", nil, row)
 	swatch:SetSize(16, 16)
 	swatch:SetPoint("LEFT", CONTROL_X + 2, 0)
-	swatch:SetNormalTexture(SWATCH_TEXTURE)
+	swatch:SetNormalTexture(TEXTURE.SWATCH)
 	local fill = swatch:GetNormalTexture()
 	local background = addSquare(swatch, "BACKGROUND", 14, "CENTER", 0, 0, 1, 1, 1)
 	if entry.alpha then
@@ -2082,8 +2091,8 @@ local function isExpanded(section)
 end
 
 local function fitElementFrame(view)
-	local height = -ELEMENT_TOP + SCROLL_LEFT + view.content:GetHeight() + SCROLL_BOTTOM + ELEMENT_BOTTOM
-	elementFrame:SetHeight(max(ELEMENT_MIN_HEIGHT, min(ELEMENT_MAX_HEIGHT, height)))
+	local height = -ELEMENT.TOP + SCROLL.LEFT + view.content:GetHeight() + SCROLL.BOTTOM + ELEMENT.BOTTOM
+	elementFrame:SetHeight(max(ELEMENT.MIN_HEIGHT, min(ELEMENT.MAX_HEIGHT, height)))
 end
 
 local function layoutPage(page)
@@ -2357,13 +2366,13 @@ do
 	end
 
 	function placeScroll(offset)
-		frame.scroll:SetPoint("TOPLEFT", SCROLL_LEFT, SCROLL_TOP - offset)
+		frame.scroll:SetPoint("TOPLEFT", SCROLL.LEFT, SCROLL.TOP - offset)
 	end
 
 	local function placeTabs(page)
 		local head = page.head
 		local height = #head.items > 0 and head.content:GetHeight() - CONTENT_BOTTOM or 0
-		page.tabBar:SetPoint("TOPLEFT", frame.panel, "TOPLEFT", SCROLL_LEFT, SCROLL_TOP - height)
+		page.tabBar:SetPoint("TOPLEFT", frame.panel, "TOPLEFT", SCROLL.LEFT, SCROLL.TOP - height)
 		if currentPage == page then
 			placeScroll(height + page.tabBar:GetHeight())
 		end
@@ -2662,7 +2671,7 @@ do
 				end,
 			}
 			buildPage(page.head)
-			page.head.content:SetPoint("TOPLEFT", SCROLL_LEFT, SCROLL_TOP)
+			page.head.content:SetPoint("TOPLEFT", SCROLL.LEFT, SCROLL.TOP)
 		end
 		page.head.content:Show()
 		page.tabBar:Show()
@@ -3025,13 +3034,13 @@ local function listTexture(list, file, left)
 end
 
 local function listEdge(list, left, top, bottom)
-	local edge = listTexture(list, LIST_BORDER, left)
+	local edge = listTexture(list, TEXTURE.LIST_BORDER, left)
 	edge:SetPoint("TOPLEFT", top, "BOTTOMLEFT")
 	edge:SetPoint("BOTTOMRIGHT", bottom, "TOPRIGHT")
 end
 
 local function listSpacer(list, point, from, fromPoint, y, to, toPoint)
-	local spacer = listTexture(list, SPACER_TEXTURE)
+	local spacer = listTexture(list, TEXTURE.SPACER)
 	spacer:SetHeight(16)
 	spacer:SetPoint(point .. "LEFT", from, fromPoint, 0, y)
 	spacer:SetPoint(point .. "RIGHT", to, toPoint)
@@ -3045,7 +3054,7 @@ local function createCategoryList()
 
 	local corners = {}
 	for point, left in pairs(LIST_CORNERS) do
-		local corner = listTexture(list, LIST_BORDER, left)
+		local corner = listTexture(list, TEXTURE.LIST_BORDER, left)
 		corner:SetSize(16, 16)
 		corner:SetPoint(point)
 		corners[point] = corner
@@ -3150,8 +3159,8 @@ end
 
 local function createPanelScroll(parent, name)
 	local scroll = CreateFrame("ScrollFrame", name, parent, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", SCROLL_LEFT, SCROLL_TOP)
-	scroll:SetPoint("BOTTOMRIGHT", SCROLL_RIGHT, SCROLL_BOTTOM)
+	scroll:SetPoint("TOPLEFT", SCROLL.LEFT, SCROLL.TOP)
+	scroll:SetPoint("BOTTOMRIGHT", SCROLL.RIGHT, SCROLL.BOTTOM)
 	scroll.scrollBarHideable = true
 	scroll:SetScript("OnSizeChanged", function(self)
 		self:UpdateScrollChildRect()
@@ -3262,10 +3271,10 @@ local function placeElementFrame(anchor)
 	local screenWidth = UIParent:GetWidth() * UIParent:GetEffectiveScale() / elementFrame:GetEffectiveScale()
 	local width = elementFrame:GetWidth()
 	local x
-	if right * scale + ELEMENT_GAP + width <= screenWidth then
-		x = right * scale + ELEMENT_GAP
-	elseif left * scale - ELEMENT_GAP - width >= 0 then
-		x = left * scale - ELEMENT_GAP - width
+	if right * scale + ELEMENT.GAP + width <= screenWidth then
+		x = right * scale + ELEMENT.GAP
+	elseif left * scale - ELEMENT.GAP - width >= 0 then
+		x = left * scale - ELEMENT.GAP - width
 	else
 		x = (screenWidth - width) / 2
 	end
@@ -3275,10 +3284,10 @@ end
 local function createElementFrame()
 	initSeen()
 	elementFrame = createWindow(FRAME_NAME .. "Element", {
-		width = ELEMENT_WIDTH,
+		width = ELEMENT.WIDTH,
 		height = 200,
 		header = true,
-		strata = ELEMENT_STRATA,
+		strata = ELEMENT.STRATA,
 	})
 	elementFrame:SetScript("OnDragStart", function(self)
 		self.userPlaced = true
@@ -3295,8 +3304,8 @@ local function createElementFrame()
 	elementFrame.titleGlyph = titleGlyph
 
 	local panel = ui.CreateInset(elementFrame, "panel")
-	panel:SetPoint("TOPLEFT", EDGE, ELEMENT_TOP)
-	panel:SetPoint("BOTTOMRIGHT", -EDGE, ELEMENT_BOTTOM)
+	panel:SetPoint("TOPLEFT", EDGE, ELEMENT.TOP)
+	panel:SetPoint("BOTTOMRIGHT", -EDGE, ELEMENT.BOTTOM)
 
 	local resetPosition = createButton(elementFrame, L["Reset position"], 120, true, nil, "location-crosshairs")
 	resetPosition:SetPoint("BOTTOMLEFT", EDGE, EDGE)
@@ -3325,7 +3334,7 @@ local function createElementFrame()
 	elementFrame.more = more
 
 	local scroll = createPanelScroll(panel, FRAME_NAME .. "ElementScroll")
-	scroll:SetPoint("TOPLEFT", SCROLL_LEFT, -SCROLL_LEFT)
+	scroll:SetPoint("TOPLEFT", SCROLL.LEFT, -SCROLL.LEFT)
 	elementFrame.scroll = scroll
 end
 

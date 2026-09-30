@@ -30,18 +30,35 @@ local LIST_ROWS = 3
 local COLUMN_WIDTH = 51
 local ROW_HEIGHT = 46
 local BUTTON_HEIGHT = 22
-local EDITOR_WIDTH, EDITOR_HEIGHT = 500, 225
-local ISSUE_ROWS = 14
-local ISSUE_ROW_HEIGHT = 14
-local EDITOR_INSET = 2
-local GUTTER_WIDTH = 32
-local GUTTER_CACHE_LIMIT = 500
-local PICKER_COLUMNS = 5
-local PICKER_ROWS = 4
-local PICKER_ROW_HEIGHT = 36
-local MENU_BUTTON_HEIGHT = 16
-local MENU_HIDE_DELAY = 2
-local BYTE_PIPE, BYTE_C, BYTE_R = strbyte("|"), strbyte("c"), strbyte("r")
+local EDITOR = {
+	WIDTH = 500,
+	HEIGHT = 225,
+	INSET = 2,
+}
+local ISSUE = {
+	ROWS = 14,
+	ROW_HEIGHT = 14,
+	GLYPH_SIZE = 10,
+	TEXT_INSET = 16,
+}
+local GUTTER = {
+	WIDTH = 32,
+	CACHE_LIMIT = 500,
+}
+local PICKER = {
+	COLUMNS = 5,
+	ROWS = 4,
+	ROW_HEIGHT = 36,
+}
+local MENU = {
+	BUTTON_HEIGHT = 16,
+	HIDE_DELAY = 2,
+}
+local BYTE = {
+	PIPE = strbyte("|"),
+	C = strbyte("c"),
+	R = strbyte("r"),
+}
 
 local TOOLTIP_BACKDROP = {
 	bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
@@ -78,8 +95,10 @@ local POPUP_ART = {
 	{ "Interface\\MacroFrame\\MacroPopup-BotRight", 64, 64, 256, -256 },
 }
 
-local HORIZONTAL_BAR = "Interface\\ClassTrainerFrame\\UI-ClassTrainer-HorizontalBar"
-local FILTER_BORDER = "Interface\\ClassTrainerFrame\\UI-ClassTrainer-FilterBorder"
+local TEXTURE = {
+	HORIZONTAL_BAR = "Interface\\ClassTrainerFrame\\UI-ClassTrainer-HorizontalBar",
+	FILTER_BORDER = "Interface\\ClassTrainerFrame\\UI-ClassTrainer-FilterBorder",
+}
 local FILTER_BORDER_PARTS = { { 0, 0.09375, 12 }, { 0.09375, 0.90625, 175 }, { 0.90625, 1, 12 } }
 
 local LEVEL_COLORS = {
@@ -92,8 +111,6 @@ local LEVEL_GLYPHS = {
 	[Parser.WARNING] = "triangle-exclamation",
 	[Parser.INFO] = "circle-info",
 }
-local ISSUE_GLYPH_SIZE = 10
-local ISSUE_TEXT_INSET = 16
 
 local IGNORED_KEYS = {
 	LSHIFT = true,
@@ -350,11 +367,11 @@ end
 local function showIssues()
 	local issues = analysis.issues
 	local rows = frame.issueRows
-	local shown = min(#issues, ISSUE_ROWS)
-	if #issues > ISSUE_ROWS then
-		shown = ISSUE_ROWS - 1
+	local shown = min(#issues, ISSUE.ROWS)
+	if #issues > ISSUE.ROWS then
+		shown = ISSUE.ROWS - 1
 	end
-	for i = 1, ISSUE_ROWS do
+	for i = 1, ISSUE.ROWS do
 		local row = rows[i]
 		local item = issues[i]
 		if i <= shown then
@@ -417,7 +434,7 @@ local function wrappedRows(line)
 	end
 	local rows = gutter.cache[line]
 	if not rows then
-		if gutter.cacheSize >= GUTTER_CACHE_LIMIT then
+		if gutter.cacheSize >= GUTTER.CACHE_LIMIT then
 			wipe(gutter.cache)
 			gutter.cacheSize = 0
 		end
@@ -468,13 +485,13 @@ end
 local function isCodeRun(value, from, to)
 	local position = from
 	while position <= to do
-		if strbyte(value, position) ~= BYTE_PIPE then
+		if strbyte(value, position) ~= BYTE.PIPE then
 			return false
 		end
 		local nextByte = strbyte(value, position + 1)
-		if nextByte == BYTE_R then
+		if nextByte == BYTE.R then
 			position = position + 2
-		elseif nextByte == BYTE_C and strfind(value, "^%x%x%x%x%x%x%x%x", position + 2) then
+		elseif nextByte == BYTE.C and strfind(value, "^%x%x%x%x%x%x%x%x", position + 2) then
 			position = position + 10
 		else
 			return false
@@ -487,7 +504,7 @@ local function charLength(value, position)
 	local byte = strbyte(value, position)
 	if not byte then
 		return 0
-	elseif byte == BYTE_PIPE then
+	elseif byte == BYTE.PIPE then
 		return 2
 	elseif byte >= 0xF0 then
 		return 4
@@ -502,12 +519,12 @@ end
 local function skipCodesForward(value, position)
 	while true do
 		local nextByte = strbyte(value, position + 2)
-		if strbyte(value, position + 1) ~= BYTE_PIPE then
+		if strbyte(value, position + 1) ~= BYTE.PIPE then
 			return position
 		end
-		if nextByte == BYTE_R then
+		if nextByte == BYTE.R then
 			position = position + 2
-		elseif nextByte == BYTE_C and strfind(value, "^%x%x%x%x%x%x%x%x", position + 3) then
+		elseif nextByte == BYTE.C and strfind(value, "^%x%x%x%x%x%x%x%x", position + 3) then
 			position = position + 10
 		else
 			return position
@@ -524,7 +541,7 @@ local function previousCharStart(value, position)
 			return nil
 		end
 	until byte < 0x80 or byte >= 0xC0
-	if start > 1 and strbyte(value, start) == BYTE_PIPE and strbyte(value, start - 1) == BYTE_PIPE then
+	if start > 1 and strbyte(value, start) == BYTE.PIPE and strbyte(value, start - 1) == BYTE.PIPE then
 		start = start - 1
 	end
 	return start
@@ -1196,7 +1213,7 @@ function refreshPicker()
 	local offset = FauxScrollFrame_GetOffset(picker.scroll)
 	for i = 1, #picker.cells do
 		local cell = picker.cells[i]
-		local texture = picker.filtered[offset * PICKER_COLUMNS + i]
+		local texture = picker.filtered[offset * PICKER.COLUMNS + i]
 		if texture ~= nil then
 			cell.texture = texture
 			cell.icon:SetTexture(texture or ns.Media.questionMark)
@@ -1207,7 +1224,7 @@ function refreshPicker()
 			cell:Hide()
 		end
 	end
-	FauxScrollFrame_Update(picker.scroll, ceil(#picker.filtered / PICKER_COLUMNS), PICKER_ROWS, PICKER_ROW_HEIGHT)
+	FauxScrollFrame_Update(picker.scroll, ceil(#picker.filtered / PICKER.COLUMNS), PICKER.ROWS, PICKER.ROW_HEIGHT)
 end
 
 local function applyPicker()
@@ -1250,7 +1267,7 @@ local function createPickerName(picker)
 	for i = 1, #FILTER_BORDER_PARTS do
 		local part = FILTER_BORDER_PARTS[i]
 		local texture = name:CreateTexture(nil, "BACKGROUND")
-		texture:SetTexture(FILTER_BORDER)
+		texture:SetTexture(TEXTURE.FILTER_BORDER)
 		texture:SetTexCoord(part[1], part[2], 0, 1)
 		texture:SetSize(part[3], 29)
 		if previous then
@@ -1316,14 +1333,14 @@ local function createPicker()
 	scroll:SetPoint("TOPRIGHT", -39, -67)
 	scroll.scrollBar = _G[scroll:GetName() .. "ScrollBar"]
 	scroll:SetScript("OnVerticalScroll", function(self, offset)
-		FauxScrollFrame_OnVerticalScroll(self, offset, PICKER_ROW_HEIGHT, refreshPicker)
+		FauxScrollFrame_OnVerticalScroll(self, offset, PICKER.ROW_HEIGHT, refreshPicker)
 	end)
 	picker.scroll = scroll
 
 	picker.cells = {}
-	for i = 1, PICKER_COLUMNS * PICKER_ROWS do
+	for i = 1, PICKER.COLUMNS * PICKER.ROWS do
 		local cell = CreateFrame("CheckButton", FRAME_NAME .. "Icon" .. i, picker, "SimplePopupButtonTemplate")
-		local column, row = (i - 1) % PICKER_COLUMNS, floor((i - 1) / PICKER_COLUMNS)
+		local column, row = (i - 1) % PICKER.COLUMNS, floor((i - 1) / PICKER.COLUMNS)
 		cell:SetPoint("TOPLEFT", 24 + column * 46, -85 - row * 44)
 		cell:SetNormalTexture(ns.Media.questionMark)
 		cell.icon = cell:GetNormalTexture()
@@ -1405,7 +1422,7 @@ end
 local function createEditor()
 	local holder = CreateFrame("Frame", nil, frame)
 	holder:SetPoint("TOPLEFT", 18, -305)
-	holder:SetSize(EDITOR_WIDTH, EDITOR_HEIGHT)
+	holder:SetSize(EDITOR.WIDTH, EDITOR.HEIGHT)
 	holder:SetBackdrop(TOOLTIP_BACKDROP)
 	applyTooltipColors(holder)
 
@@ -1418,17 +1435,17 @@ local function createEditor()
 	edit:SetAutoFocus(false)
 	edit:SetMaxLetters(0)
 	edit:SetMaxBytes(0)
-	edit:SetWidth(EDITOR_WIDTH - 39)
-	edit:SetHeight(EDITOR_HEIGHT - 12)
+	edit:SetWidth(EDITOR.WIDTH - 39)
+	edit:SetHeight(EDITOR.HEIGHT - 12)
 	edit:SetFontObject(GameFontHighlightSmall)
-	edit:SetTextInsets(GUTTER_WIDTH + EDITOR_INSET, EDITOR_INSET, EDITOR_INSET, EDITOR_INSET)
+	edit:SetTextInsets(GUTTER.WIDTH + EDITOR.INSET, EDITOR.INSET, EDITOR.INSET, EDITOR.INSET)
 	edit.cursorOffset, edit.cursorHeight = 0, 0
 	scroll:SetScrollChild(edit)
 
 	local gutterBg = holder:CreateTexture(nil, "BACKGROUND", nil, 1)
 	gutterBg:SetPoint("TOPLEFT", 5, -5)
 	gutterBg:SetPoint("BOTTOMLEFT", 5, 5)
-	gutterBg:SetWidth(GUTTER_WIDTH + 2)
+	gutterBg:SetWidth(GUTTER.WIDTH + 2)
 	gutterBg:SetTexture(0, 0, 0, 0.25)
 
 	local separator = holder:CreateTexture(nil, "BACKGROUND", nil, 2)
@@ -1440,11 +1457,11 @@ local function createEditor()
 	local numbers = edit:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
 	numbers:SetJustifyH("RIGHT")
 	numbers:SetJustifyV("TOP")
-	numbers:SetPoint("TOPLEFT", 0, -EDITOR_INSET)
-	numbers:SetWidth(GUTTER_WIDTH - 6)
+	numbers:SetPoint("TOPLEFT", 0, -EDITOR.INSET)
+	numbers:SetWidth(GUTTER.WIDTH - 6)
 
 	local measure = holder:CreateFontString(nil, "BACKGROUND", "GameFontHighlightSmall")
-	measure:SetWidth(edit:GetWidth() - GUTTER_WIDTH - EDITOR_INSET * 2)
+	measure:SetWidth(edit:GetWidth() - GUTTER.WIDTH - EDITOR.INSET * 2)
 	measure:SetJustifyH("LEFT")
 	measure:SetPoint("TOPLEFT")
 	measure:SetAlpha(0)
@@ -1504,18 +1521,18 @@ end
 local function createIssues()
 	local panel = ns.CreateInset(frame, "tooltip", L["Problems"])
 	panel:SetPoint("TOPLEFT", 526, -305)
-	panel:SetSize(256, EDITOR_HEIGHT)
+	panel:SetSize(256, EDITOR.HEIGHT)
 
 	local rows = {}
-	for i = 1, ISSUE_ROWS do
+	for i = 1, ISSUE.ROWS do
 		local row = CreateFrame("Button", nil, panel)
-		row:SetSize(240, ISSUE_ROW_HEIGHT)
-		row:SetPoint("TOPLEFT", 8, -8 - (i - 1) * ISSUE_ROW_HEIGHT)
+		row:SetSize(240, ISSUE.ROW_HEIGHT)
+		row:SetPoint("TOPLEFT", 8, -8 - (i - 1) * ISSUE.ROW_HEIGHT)
 		ns.AddHighlight(row, "list")
-		row.icon = ns.CreateGlyph(row, nil, ISSUE_GLYPH_SIZE, "ARTWORK")
-		row.icon:SetPoint("CENTER", row, "LEFT", 2 + ISSUE_GLYPH_SIZE / 2, 0)
+		row.icon = ns.CreateGlyph(row, nil, ISSUE.GLYPH_SIZE, "ARTWORK")
+		row.icon:SetPoint("CENTER", row, "LEFT", 2 + ISSUE.GLYPH_SIZE / 2, 0)
 		row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmallLeft")
-		row.text:SetPoint("LEFT", ISSUE_TEXT_INSET, 0)
+		row.text:SetPoint("LEFT", ISSUE.TEXT_INSET, 0)
 		row.text:SetPoint("RIGHT", -2, 0)
 		row:SetScript("OnClick", function(self)
 			jumpToLine(self.line)
@@ -1527,13 +1544,13 @@ local function createIssues()
 	end
 	frame.issueRows = rows
 
-	local noneIcon = ns.CreateGlyph(panel, "circle-check", ISSUE_GLYPH_SIZE, "ARTWORK")
+	local noneIcon = ns.CreateGlyph(panel, "circle-check", ISSUE.GLYPH_SIZE, "ARTWORK")
 	noneIcon:SetTextColor(GREEN_FONT_COLOR.r, GREEN_FONT_COLOR.g, GREEN_FONT_COLOR.b)
-	noneIcon:SetPoint("CENTER", panel, "TOPLEFT", 10 + ISSUE_GLYPH_SIZE / 2, -8 - ISSUE_ROW_HEIGHT / 2)
+	noneIcon:SetPoint("CENTER", panel, "TOPLEFT", 10 + ISSUE.GLYPH_SIZE / 2, -8 - ISSUE.ROW_HEIGHT / 2)
 	frame.noIssuesIcon = noneIcon
 
 	local none = panel:CreateFontString(nil, "ARTWORK", "GameFontGreenSmall")
-	none:SetPoint("LEFT", noneIcon, "CENTER", ISSUE_TEXT_INSET - 2 - ISSUE_GLYPH_SIZE / 2, 0)
+	none:SetPoint("LEFT", noneIcon, "CENTER", ISSUE.TEXT_INSET - 2 - ISSUE.GLYPH_SIZE / 2, 0)
 	none:SetText(L["No problems found"])
 	frame.noIssues = none
 
@@ -1622,17 +1639,17 @@ end
 
 local function createDetail()
 	local barLeft = frame:CreateTexture(nil, "ARTWORK")
-	barLeft:SetTexture(HORIZONTAL_BAR)
+	barLeft:SetTexture(TEXTURE.HORIZONTAL_BAR)
 	barLeft:SetTexCoord(0, 1, 0, 0.25)
 	barLeft:SetSize(256, 16)
 	barLeft:SetPoint("TOPLEFT", 11, -220)
 	local barRight = frame:CreateTexture(nil, "ARTWORK")
-	barRight:SetTexture(HORIZONTAL_BAR)
+	barRight:SetTexture(TEXTURE.HORIZONTAL_BAR)
 	barRight:SetTexCoord(0, 0.29296875, 0.25, 0.5)
 	barRight:SetSize(75, 16)
 	barRight:SetPoint("TOPRIGHT", -11, -220)
 	local barMiddle = frame:CreateTexture(nil, "ARTWORK")
-	barMiddle:SetTexture(HORIZONTAL_BAR)
+	barMiddle:SetTexture(TEXTURE.HORIZONTAL_BAR)
 	barMiddle:SetTexCoord(0.3, 0.7, 0, 0.25)
 	barMiddle:SetHeight(16)
 	barMiddle:SetPoint("LEFT", barLeft, "RIGHT")
@@ -1912,7 +1929,7 @@ local function onMenuUpdate(menu, elapsed)
 		return
 	end
 	menu.idle = (menu.idle or 0) + elapsed
-	if menu.idle > MENU_HIDE_DELAY then
+	if menu.idle > MENU.HIDE_DELAY then
 		menu:Hide()
 	end
 end
@@ -1945,8 +1962,8 @@ local function menuButton(menu, index)
 		return button
 	end
 	button = CreateFrame("Button", nil, menu)
-	button:SetHeight(MENU_BUTTON_HEIGHT)
-	button:SetPoint("TOPLEFT", 15, -15 - (index - 1) * MENU_BUTTON_HEIGHT)
+	button:SetHeight(MENU.BUTTON_HEIGHT)
+	button:SetPoint("TOPLEFT", 15, -15 - (index - 1) * MENU.BUTTON_HEIGHT)
 	ns.AddHighlight(button, "list")
 	local text = button:CreateFontString(nil, "ARTWORK")
 	text:SetPoint("LEFT")
@@ -1980,7 +1997,7 @@ local function openMenu(menu, items, owner, point, relativeTo, relativePoint, x,
 	for i = 1, #items do
 		menu.buttons[i]:SetWidth(width + 20)
 	end
-	menu:SetSize(width + 45, #items * MENU_BUTTON_HEIGHT + 30)
+	menu:SetSize(width + 45, #items * MENU.BUTTON_HEIGHT + 30)
 	menu:ClearAllPoints()
 	menu:SetPoint(point, relativeTo, relativePoint, x, y)
 	menu.owner = owner

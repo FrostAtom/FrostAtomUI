@@ -8,25 +8,27 @@ local floor, abs, max, min = math.floor, math.abs, math.max, math.min
 local tconcat, sort = table.concat, table.sort
 local StaticPopup_Show = StaticPopup_Show
 
-local BACKDROP_COLOR = { 0.2, 0.6, 1, 0.35 }
-local BORDER_COLOR = { 0.5, 0.8, 1 }
-local HOVER_COLOR = { 0.3, 0.8, 1, 0.5 }
-local TEXT_COLOR = { 1, 1, 1 }
-local ANCHORED_BACKDROP_COLOR = { 0.16, 0.34, 0.5, 0.18 }
-local ANCHORED_BORDER_COLOR = { 0.3, 0.45, 0.55 }
-local ANCHORED_HOVER_COLOR = { 0.22, 0.5, 0.65, 0.35 }
-local ANCHORED_TEXT_COLOR = { 0.6, 0.65, 0.7 }
-local GRIP_COLOR = { 0.8, 0.95, 1, 0.8 }
-local GRID_COLOR = { 1, 1, 1, 0.12 }
-local GRID_CENTER_COLOR = { 1, 0.4, 0.4, 0.4 }
-local SELECTED_BORDER_COLOR = { 1, 0.82, 0 }
-local CONFLICT_BORDER_COLOR = { 1, 0.25, 0.2 }
-local STATUS_OK_COLOR = { 0.45, 0.85, 0.45 }
-local STATUS_WARN_COLOR = { 1, 0.35, 0.3 }
-local SNAP_LINE_COLOR = { 1, 0.82, 0, 0.9 }
-local ATTACH_LINE_COLOR = { 0.4, 1, 0.5, 0.9 }
-local GRID_BUTTON_ON_COLOR = { 0.5, 0.8, 1 }
-local GRID_BUTTON_OFF_COLOR = { 0.45, 0.45, 0.45 }
+local COLOR = {
+	BACKDROP = { 0.2, 0.6, 1, 0.35 },
+	BORDER = { 0.5, 0.8, 1 },
+	HOVER = { 0.3, 0.8, 1, 0.5 },
+	TEXT = { 1, 1, 1 },
+	ANCHORED_BACKDROP = { 0.16, 0.34, 0.5, 0.18 },
+	ANCHORED_BORDER = { 0.3, 0.45, 0.55 },
+	ANCHORED_HOVER = { 0.22, 0.5, 0.65, 0.35 },
+	ANCHORED_TEXT = { 0.6, 0.65, 0.7 },
+	GRIP = { 0.8, 0.95, 1, 0.8 },
+	GRID = { 1, 1, 1, 0.12 },
+	GRID_CENTER = { 1, 0.4, 0.4, 0.4 },
+	SELECTED_BORDER = { 1, 0.82, 0 },
+	CONFLICT_BORDER = { 1, 0.25, 0.2 },
+	STATUS_OK = { 0.45, 0.85, 0.45 },
+	STATUS_WARN = { 1, 0.35, 0.3 },
+	SNAP_LINE = { 1, 0.82, 0, 0.9 },
+	ATTACH_LINE = { 0.4, 1, 0.5, 0.9 },
+	GRID_BUTTON_ON = { 0.5, 0.8, 1 },
+	GRID_BUTTON_OFF = { 0.45, 0.45, 0.45 },
+}
 local MIN_WIDTH, MIN_HEIGHT = 96, 26
 local LINK_SIZE, LINK_GAP = 9, 3
 local PANEL_BUTTON_WIDTH = 120
@@ -467,7 +469,7 @@ local function showSnapLine(axis, value, attached)
 		line:SetPoint("BOTTOMLEFT", snapLineFrame, "BOTTOMLEFT", 0, y)
 		line:SetPoint("BOTTOMRIGHT", snapLineFrame, "BOTTOMRIGHT", 0, y)
 	end
-	line:SetVertexColor(unpack(attached and ATTACH_LINE_COLOR or SNAP_LINE_COLOR))
+	line:SetVertexColor(unpack(attached and COLOR.ATTACH_LINE or COLOR.SNAP_LINE))
 	line:Show()
 end
 
@@ -824,7 +826,7 @@ local function createGrip(overlay)
 	for i = 1, 3 do
 		local line = grip:CreateTexture(nil, "OVERLAY")
 		line:SetTexture(ns.Media.blank)
-		line:SetVertexColor(unpack(GRIP_COLOR))
+		line:SetVertexColor(unpack(COLOR.GRIP))
 		line:SetSize(GRIP_SIZE - (i - 1) * 4, 2)
 		line:SetPoint("BOTTOMRIGHT", 0, (i - 1) * 4)
 	end
@@ -846,18 +848,18 @@ local function updateColors(mover, hover)
 	local overlay = mover.overlay
 	local anchored = ns:GetConfig(mover.path)[4] ~= nil
 	if hover then
-		overlay:SetBackdropColor(unpack(anchored and ANCHORED_HOVER_COLOR or HOVER_COLOR))
+		overlay:SetBackdropColor(unpack(anchored and COLOR.ANCHORED_HOVER or COLOR.HOVER))
 	else
-		overlay:SetBackdropColor(unpack(anchored and ANCHORED_BACKDROP_COLOR or BACKDROP_COLOR))
+		overlay:SetBackdropColor(unpack(anchored and COLOR.ANCHORED_BACKDROP or COLOR.BACKDROP))
 	end
 	if mover == selected then
-		overlay:SetBackdropBorderColor(unpack(SELECTED_BORDER_COLOR))
+		overlay:SetBackdropBorderColor(unpack(COLOR.SELECTED_BORDER))
 	elseif mover.conflicts or mover.offScreen then
-		overlay:SetBackdropBorderColor(unpack(CONFLICT_BORDER_COLOR))
+		overlay:SetBackdropBorderColor(unpack(COLOR.CONFLICT_BORDER))
 	else
-		overlay:SetBackdropBorderColor(unpack(anchored and ANCHORED_BORDER_COLOR or BORDER_COLOR))
+		overlay:SetBackdropBorderColor(unpack(anchored and COLOR.ANCHORED_BORDER or COLOR.BORDER))
 	end
-	overlay.text:SetTextColor(unpack(anchored and ANCHORED_TEXT_COLOR or TEXT_COLOR))
+	overlay.text:SetTextColor(unpack(anchored and COLOR.ANCHORED_TEXT or COLOR.TEXT))
 	if anchored ~= (overlay.link:IsShown() and true or false) then
 		ns.SetShown(overlay.link, anchored)
 		placeLabel(overlay)
@@ -885,7 +887,7 @@ local function createOverlay(mover)
 	overlay:RegisterForDrag("LeftButton")
 	overlay:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	overlay:SetBackdrop(ns.CreateBackdrop(8, 2))
-	overlay:SetBackdropColor(unpack(BACKDROP_COLOR))
+	overlay:SetBackdropColor(unpack(COLOR.BACKDROP))
 	overlay:SetScript("OnMouseDown", onMouseDown)
 	overlay:SetScript("OnDragStart", onDragStart)
 	overlay:SetScript("OnDragStop", onDragStop)
@@ -900,7 +902,7 @@ local function createOverlay(mover)
 	overlay.text = text
 
 	local link = ns.CreateGlyph(overlay, "link", LINK_SIZE, "OVERLAY", "OUTLINE")
-	link:SetTextColor(ATTACH_LINE_COLOR[1], ATTACH_LINE_COLOR[2], ATTACH_LINE_COLOR[3])
+	link:SetTextColor(COLOR.ATTACH_LINE[1], COLOR.ATTACH_LINE[2], COLOR.ATTACH_LINE[3])
 	link:SetPoint("RIGHT", text, "LEFT", -LINK_GAP, 0)
 	link:Hide()
 	overlay.link = link
@@ -1571,7 +1573,7 @@ end
 local function paintGridButton()
 	local button = panel and panel.gridButton
 	if button then
-		button.color = ns.Config.general.showGrid and GRID_BUTTON_ON_COLOR or GRID_BUTTON_OFF_COLOR
+		button.color = ns.Config.general.showGrid and COLOR.GRID_BUTTON_ON or COLOR.GRID_BUTTON_OFF
 		button:Paint()
 	end
 end
@@ -1592,16 +1594,16 @@ local function updateGrid()
 	if ns.Config.general.showGrid then
 		for offset = -floor(centerX / size) * size, centerX, size do
 			index = index + 1
-			drawGridLine(index, GRID_COLOR, true, offset)
+			drawGridLine(index, COLOR.GRID, true, offset)
 		end
 		for offset = -floor(centerY / size) * size, centerY, size do
 			index = index + 1
-			drawGridLine(index, GRID_COLOR, false, offset)
+			drawGridLine(index, COLOR.GRID, false, offset)
 		end
 	end
 
-	drawGridLine(index + 1, GRID_CENTER_COLOR, true, 0)
-	drawGridLine(index + 2, GRID_CENTER_COLOR, false, 0)
+	drawGridLine(index + 1, COLOR.GRID_CENTER, true, 0)
+	drawGridLine(index + 2, COLOR.GRID_CENTER, false, 0)
 	index = index + 2
 
 	for i = index + 1, #grid.lines do
@@ -1913,9 +1915,9 @@ local function updateStatus()
 	end
 	if #conflictPairs == 0 and #offScreenMovers == 0 then
 		status.text:SetText(L["No frames overlap"])
-		status.text:SetTextColor(unpack(STATUS_OK_COLOR))
+		status.text:SetTextColor(unpack(COLOR.STATUS_OK))
 		ns.SetGlyph(status.icon, "circle-check")
-		status.icon:SetTextColor(unpack(STATUS_OK_COLOR))
+		status.icon:SetTextColor(unpack(COLOR.STATUS_OK))
 	else
 		local parts = {}
 		if #conflictPairs > 0 then
@@ -1925,9 +1927,9 @@ local function updateStatus()
 			parts[#parts + 1] = L["Off screen: %d"]:format(#offScreenMovers)
 		end
 		status.text:SetText(tconcat(parts, ", "))
-		status.text:SetTextColor(unpack(STATUS_WARN_COLOR))
+		status.text:SetTextColor(unpack(COLOR.STATUS_WARN))
 		ns.SetGlyph(status.icon, "triangle-exclamation")
-		status.icon:SetTextColor(unpack(STATUS_WARN_COLOR))
+		status.icon:SetTextColor(unpack(COLOR.STATUS_WARN))
 	end
 	status:SetWidth(status.text:GetStringWidth() + status.icon:GetStringWidth() + 5)
 end
@@ -1969,7 +1971,7 @@ end
 local function showStatusTooltip(status)
 	GameTooltip:SetOwner(status, "ANCHOR_BOTTOM")
 	if #conflictPairs == 0 and #offScreenMovers == 0 then
-		GameTooltip:SetText(L["No frames overlap"], unpack(STATUS_OK_COLOR))
+		GameTooltip:SetText(L["No frames overlap"], unpack(COLOR.STATUS_OK))
 		GameTooltip:AddLine(L["Turn on test unit frames to check party and arena frames too."], 0.8, 0.8, 0.8, true)
 		GameTooltip:Show()
 		return

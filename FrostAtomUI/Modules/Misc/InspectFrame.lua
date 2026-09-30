@@ -58,9 +58,11 @@ local TEAM_HEIGHT = 128
 local STATS_TOP = TEAM_HEIGHT + 22
 local STATS_HEIGHT = 150
 local ACHIEVEMENTS_TOP = STATS_TOP + STATS_HEIGHT + 22
-local ACHIEVEMENT_SIZE = 30
-local ACHIEVEMENT_GAP = 5
-local ACHIEVEMENT_LABEL_WIDTH = 90
+local ACHIEVEMENT = {
+	SIZE = 30,
+	GAP = 5,
+	LABEL_WIDTH = 90,
+}
 
 local RETRY_INTERVAL = 2.5
 local MAX_ATTEMPTS = 8
@@ -74,16 +76,20 @@ local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 1.7
 local UNDERLAY_ALPHA = 0.75
 local TINY_SHIELD = "|TInterface\\AchievementFrame\\UI-Achievement-TinyShield:16:16:0:0:32:32:0:20:0:20|t"
-local BANNER = "Interface\\PVPFrame\\PVP-Banner-%d"
-local BANNER_BORDER = "Interface\\PVPFrame\\PVP-Banner-%d-Border-%d"
-local BANNER_EMBLEM = "Interface\\PVPFrame\\Icons\\PVP-Banner-Emblem-%d"
+local BANNER_TEXTURE = {
+	BACKGROUND = "Interface\\PVPFrame\\PVP-Banner-%d",
+	BORDER = "Interface\\PVPFrame\\PVP-Banner-%d-Border-%d",
+	EMBLEM = "Interface\\PVPFrame\\Icons\\PVP-Banner-Emblem-%d",
+}
 local DEFAULT_SPEC_ICON = "Interface\\Icons\\Ability_Marksmanship"
 local GREY = "|cff999999"
-local RED = { 1, 0.25, 0.25 }
-local YELLOW = { 1, 0.82, 0 }
-local GREEN = { 0.25, 1, 0.25 }
-local GUILD_COLOR = { 0.25, 1, 0.25 }
-local INACTIVE_BONUS_COLOR = { 0.5, 0.5, 0.5 }
+local COLOR = {
+	RED = { 1, 0.25, 0.25 },
+	YELLOW = { 1, 0.82, 0 },
+	GREEN = { 0.25, 1, 0.25 },
+	GUILD = { 0.25, 1, 0.25 },
+	INACTIVE_BONUS = { 0.5, 0.5, 0.5 },
+}
 
 local ARENA_SIZES = { 2, 3, 5 }
 local CASTER_CLASSES = { MAGE = true, WARLOCK = true, PRIEST = true }
@@ -160,10 +166,14 @@ local ARENA_STATISTICS = {
 	{ label = "Highest personal rating", ids = { 370, 595, 596 } },
 	{ label = "Highest team rating", ids = { 374, 590, 589 } },
 }
-local STAT_BG_PLAYED, STAT_BG_WON = 839, 840
-local STAT_KILLING_BLOWS = 1487
-local STAT_DUELS_WON, STAT_DUELS_LOST = 319, 320
-local STAT_PLAYER_DEATHS = 1501
+local STATISTIC = {
+	BG_PLAYED = 839,
+	BG_WON = 840,
+	KILLING_BLOWS = 1487,
+	DUELS_WON = 319,
+	DUELS_LOST = 320,
+	PLAYER_DEATHS = 1501,
+}
 
 local ACHIEVEMENT_ROWS = {
 	{
@@ -423,7 +433,7 @@ local function updateHeader()
 	local level = state.level and state.level > 0 and state.level or "??"
 	local info = PLAYER_LEVEL:format(level, state.race or "", color .. (state.className or "") .. "|r")
 	if state.guild then
-		info = ("%s  %s<%s>|r %s%s|r"):format(info, hex(GUILD_COLOR), state.guild, GREY, state.guildRank or "")
+		info = ("%s  %s<%s>|r %s%s|r"):format(info, hex(COLOR.GUILD), state.guild, GREY, state.guildRank or "")
 	end
 	frame.infoText:SetText(info)
 
@@ -502,7 +512,7 @@ local function showGemTooltip(self)
 	else
 		GameTooltip:SetText(gem.name or gem.text or EMPTY, 1, 1, 1)
 		if gem.empty then
-			GameTooltip:AddLine(L["Empty socket"], RED[1], RED[2], RED[3])
+			GameTooltip:AddLine(L["Empty socket"], COLOR.RED[1], COLOR.RED[2], COLOR.RED[3])
 		end
 	end
 	GameTooltip:Show()
@@ -623,10 +633,10 @@ local function setRowGems(row, item)
 	end
 	wipe(noteParts)
 	if item and item.missingBuckle then
-		noteParts[#noteParts + 1] = hex(RED) .. L["No belt buckle"] .. "|r"
+		noteParts[#noteParts + 1] = hex(COLOR.RED) .. L["No belt buckle"] .. "|r"
 	end
 	if item and item.socketBonus and not item.emptySockets then
-		local color = item.socketBonusActive and GREEN or INACTIVE_BONUS_COLOR
+		local color = item.socketBonusActive and COLOR.GREEN or COLOR.INACTIVE_BONUS
 		noteParts[#noteParts + 1] = hex(color) .. item.socketBonus .. "|r"
 	end
 	row.note:SetText(table.concat(noteParts, " "))
@@ -655,10 +665,10 @@ local function updateRow(row)
 		row.name:SetText((quality and quality.hex or "|cffffffff") .. (item.name or "") .. "|r")
 		if item.enchant then
 			row.enchant:SetText(item.enchant)
-			row.enchant:SetTextColor(GREEN[1], GREEN[2], GREEN[3])
+			row.enchant:SetTextColor(COLOR.GREEN[1], COLOR.GREEN[2], COLOR.GREEN[3])
 		elseif item.missingEnchant then
 			row.enchant:SetText(L["No enchant"])
-			row.enchant:SetTextColor(RED[1], RED[2], RED[3])
+			row.enchant:SetTextColor(COLOR.RED[1], COLOR.RED[2], COLOR.RED[3])
 		else
 			row.enchant:SetText("")
 		end
@@ -725,9 +735,9 @@ local function showStatTooltip(self)
 					1,
 					1,
 					1,
-					GREEN[1],
-					GREEN[2],
-					GREEN[3]
+					COLOR.GREEN[1],
+					COLOR.GREEN[2],
+					COLOR.GREEN[3]
 				)
 			end
 		end
@@ -759,9 +769,9 @@ local function showStatTooltip(self)
 				1,
 				1,
 				1,
-				GREEN[1],
-				GREEN[2],
-				GREEN[3]
+				COLOR.GREEN[1],
+				COLOR.GREEN[2],
+				COLOR.GREEN[3]
 			)
 		end
 	end
@@ -947,7 +957,7 @@ local function showFormTooltip(self)
 		GameTooltip:SetText(formName(self.form), 1, 1, 1)
 	end
 	if self.form.id == state.detectedForm then
-		GameTooltip:AddLine(L["Current form of the player"], GREEN[1], GREEN[2], GREEN[3])
+		GameTooltip:AddLine(L["Current form of the player"], COLOR.GREEN[1], COLOR.GREEN[2], COLOR.GREEN[3])
 	end
 	GameTooltip:AddLine(L["Click to show the stats in this form."], 0.6, 0.6, 0.6, true)
 	GameTooltip:Show()
@@ -969,10 +979,10 @@ local function showIssuesTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
 	GameTooltip:SetText(L["Gear check"], 1, 1, 1)
 	if #issues == 0 then
-		GameTooltip:AddLine(L["Fully enchanted and gemmed"], GREEN[1], GREEN[2], GREEN[3])
+		GameTooltip:AddLine(L["Fully enchanted and gemmed"], COLOR.GREEN[1], COLOR.GREEN[2], COLOR.GREEN[3])
 	end
 	for _, issue in ipairs(issues) do
-		local color = issue.severity == "error" and RED or YELLOW
+		local color = issue.severity == "error" and COLOR.RED or COLOR.YELLOW
 		GameTooltip:AddLine(issue.text, color[1], color[2], color[3])
 	end
 	GameTooltip:Show()
@@ -992,7 +1002,7 @@ local function updateIssues()
 		end
 	end
 	local count = #gear.issues
-	local color = errors > 0 and RED or count > 0 and YELLOW or GREEN
+	local color = errors > 0 and COLOR.RED or count > 0 and COLOR.YELLOW or COLOR.GREEN
 	ns.SetGlyph(button.glyph, count > 0 and "triangle-exclamation" or "circle-check")
 	button.glyph:SetTextColor(color[1], color[2], color[3])
 	button.text:SetText(count > 0 and count or "")
@@ -1110,7 +1120,7 @@ local function updateTeam(card, size)
 			index = i
 		end
 	end
-	card.banner:SetTexture(BANNER:format(size))
+	card.banner:SetTexture(BANNER_TEXTURE.BACKGROUND:format(size))
 	if not index or not state.honorReady then
 		card:SetAlpha(0.5)
 		card.banner:SetVertexColor(0.3, 0.3, 0.3)
@@ -1128,14 +1138,14 @@ local function updateTeam(card, size)
 	card:SetAlpha(1)
 	card.banner:SetVertexColor(bgR, bgG, bgB)
 	if border and border ~= -1 then
-		card.border:SetTexture(BANNER_BORDER:format(size, border))
+		card.border:SetTexture(BANNER_TEXTURE.BORDER:format(size, border))
 		card.border:SetVertexColor(bR, bG, bB)
 		card.border:Show()
 	else
 		card.border:Hide()
 	end
 	if emblem and emblem ~= -1 then
-		card.emblem:SetTexture(BANNER_EMBLEM:format(emblem))
+		card.emblem:SetTexture(BANNER_TEXTURE.EMBLEM:format(emblem))
 		card.emblem:SetVertexColor(emR, emG, emB)
 		card.emblem:Show()
 	else
@@ -1180,20 +1190,20 @@ local function updateHonor()
 	setPair(rows[1], L["Kills / honor today"], today)
 	setPair(rows[2], L["Kills / honor yesterday"], yesterday)
 	setPair(rows[3], L["Lifetime kills"], lifetime)
-	setPair(rows[4], L["Killing blows"], statistic(STAT_KILLING_BLOWS))
-	local bgWon, bgPlayed = statisticNumber(STAT_BG_WON), statisticNumber(STAT_BG_PLAYED)
+	setPair(rows[4], L["Killing blows"], statistic(STATISTIC.KILLING_BLOWS))
+	local bgWon, bgPlayed = statisticNumber(STATISTIC.BG_WON), statisticNumber(STATISTIC.BG_PLAYED)
 	setPair(
 		rows[5],
 		L["Battlegrounds won"],
 		bgPlayed and ("%d / %d %s(%s)|r"):format(bgWon or 0, bgPlayed, GREY, rateText(bgWon, bgPlayed)) or nil
 	)
-	local duelsWon, duelsLost = statisticNumber(STAT_DUELS_WON), statisticNumber(STAT_DUELS_LOST)
+	local duelsWon, duelsLost = statisticNumber(STATISTIC.DUELS_WON), statisticNumber(STATISTIC.DUELS_LOST)
 	setPair(
 		rows[6],
 		L["Duels won / lost"],
 		(duelsWon or duelsLost) and ("%d / %d"):format(duelsWon or 0, duelsLost or 0) or nil
 	)
-	setPair(rows[7], L["Deaths from players"], statistic(STAT_PLAYER_DEATHS))
+	setPair(rows[7], L["Deaths from players"], statistic(STATISTIC.PLAYER_DEATHS))
 end
 
 local function updateArenaStats()
@@ -1239,12 +1249,12 @@ local function showAchievementTooltip(self)
 	elseif self.completed then
 		GameTooltip:AddLine(
 			L["Completed %s"]:format(SHORTDATE:format(self.day, self.month, self.year)),
-			GREEN[1],
-			GREEN[2],
-			GREEN[3]
+			COLOR.GREEN[1],
+			COLOR.GREEN[2],
+			COLOR.GREEN[3]
 		)
 	else
-		GameTooltip:AddLine(INCOMPLETE, RED[1], RED[2], RED[3])
+		GameTooltip:AddLine(INCOMPLETE, COLOR.RED[1], COLOR.RED[2], COLOR.RED[3])
 	end
 	if points and points > 0 then
 		GameTooltip:AddLine(TINY_SHIELD .. " " .. points, 1, 1, 1)
@@ -1375,7 +1385,7 @@ local function createHeader()
 	local spec3 = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	spec3:SetPoint("LEFT", spec2, "RIGHT", 6, 0)
 	spec3:SetJustifyH("LEFT")
-	spec3:SetTextColor(RED[1], RED[2], RED[3])
+	spec3:SetTextColor(COLOR.RED[1], COLOR.RED[2], COLOR.RED[3])
 	frame.specText3 = spec3
 
 	local status = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
@@ -1680,8 +1690,8 @@ local function createPvPPage()
 	frame.achievementRows = {}
 	for r, def in ipairs(ACHIEVEMENT_ROWS) do
 		local row = CreateFrame("Frame", nil, achievements)
-		row:SetPoint("TOPLEFT", 8, -8 - (r - 1) * (ACHIEVEMENT_SIZE + 8))
-		row:SetSize(CONTENT_WIDTH - 16, ACHIEVEMENT_SIZE)
+		row:SetPoint("TOPLEFT", 8, -8 - (r - 1) * (ACHIEVEMENT.SIZE + 8))
+		row:SetSize(CONTENT_WIDTH - 16, ACHIEVEMENT.SIZE)
 		local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
 		label:SetPoint("TOPLEFT", 0, -2)
 		label:SetText(L[def.label])
@@ -1691,8 +1701,8 @@ local function createPvPPage()
 		row.buttons = {}
 		for i = 1, #def.ids do
 			local button = CreateFrame("Button", nil, row)
-			button:SetSize(ACHIEVEMENT_SIZE, ACHIEVEMENT_SIZE)
-			button:SetPoint("LEFT", ACHIEVEMENT_LABEL_WIDTH + (i - 1) * (ACHIEVEMENT_SIZE + ACHIEVEMENT_GAP), 0)
+			button:SetSize(ACHIEVEMENT.SIZE, ACHIEVEMENT.SIZE)
+			button:SetPoint("LEFT", ACHIEVEMENT.LABEL_WIDTH + (i - 1) * (ACHIEVEMENT.SIZE + ACHIEVEMENT.GAP), 0)
 			ns.SkinIconButton(button, false)
 			button.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 			button:SetScript("OnEnter", showAchievementTooltip)
