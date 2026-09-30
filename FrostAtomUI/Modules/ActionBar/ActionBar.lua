@@ -11,6 +11,7 @@ local max, min, ceil, floor = math.max, math.min, math.ceil, math.floor
 local Media = ns.Media
 local ActionBar = ns:NewModule("ActionBar")
 ActionBar.configKey = "actionBar"
+ns.ActionBar = ActionBar
 
 local config = ns.Config.actionBar
 local BUTTONS_PER_BAR = 12
