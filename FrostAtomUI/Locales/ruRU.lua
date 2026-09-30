@@ -820,6 +820,7 @@ ns.SetLocale("ruRU", {
 	["%s by %s"] = "%s (%s)",
 	["Killing blow at %d%% health"] = "Смертельный удар при %d%% здоровья",
 	["%.1fs before death at %d%% health"] = "За %.1f с до смерти, здоровье %d%%",
+	["-%d in %.1fs"] = "-%d за %.1f с",
 	["Solo queue"] = "Соло-очередь",
 	["Join, leave and enter the solo queue from a button next to the queue eye."] = "Вставать, выходить и заходить в соло-очередь кнопкой рядом со значком очереди.",
 	["Button size in queue"] = "Размер кнопки в очереди",
