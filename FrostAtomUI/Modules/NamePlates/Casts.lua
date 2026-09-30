@@ -169,15 +169,7 @@ local function onBarUpdate(bar, elapsed)
 end
 
 local function applyLock(bar, locked)
-	local shielded = locked and config.castbarShield
-	local icon = bar.icon
-	icon:SetDesaturated(locked and not shielded and 1 or nil)
-	NamePlates.SetIconShown(icon, not shielded and not bar.compact)
-	if shielded and not bar.compact then
-		bar.shieldIcon:Show()
-	else
-		bar.shieldIcon:Hide()
-	end
+	NamePlates.ApplyShield(bar, locked)
 	local color = locked and config.castbarLockedColor or config.castbarColor
 	bar:SetStatusBarColor(color[1], color[2], color[3])
 end
@@ -199,12 +191,7 @@ local function createBar(plate)
 	NamePlates.SkinIcon(bar, icon)
 	bar.icon = icon
 
-	local shieldIcon = bar:CreateTexture(nil, "BORDER")
-	shieldIcon:SetAllPoints(icon)
-	shieldIcon:SetTexture(NamePlates.SHIELD_TEXTURE)
-	shieldIcon:SetTexCoord(unpack(NamePlates.SHIELD_TEXCOORD))
-	shieldIcon:Hide()
-	bar.shieldIcon = shieldIcon
+	NamePlates.CreateShield(bar)
 
 	NamePlates.CreateCastTexts(bar)
 
