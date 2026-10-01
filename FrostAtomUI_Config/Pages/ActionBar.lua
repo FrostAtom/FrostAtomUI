@@ -275,9 +275,6 @@ local CLASS_PAGE_SPELLS = {
 		[7] = 1784, -- Stealth
 		[8] = 51713, -- Shadow Dance
 	},
-	PRIEST = {
-		[7] = 15473, -- Shadowform
-	},
 }
 
 local function extraBarName(page)
