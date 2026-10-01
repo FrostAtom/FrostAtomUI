@@ -194,7 +194,7 @@ local function onTooltipSetSpell(tooltip)
 	end
 
 	local title = leftLine(tooltip)
-	if title and not Skin.ShowIcon(tooltip, texture) then
+	if title and texture and not Skin.ShowIcon(tooltip, texture) then
 		title:SetFormattedText(TITLE_ICON, texture, title:GetText())
 	end
 
@@ -223,7 +223,7 @@ local function onTooltipSetItem(tooltip)
 		local title = leftLine(tooltip, i)
 		local text = title and title:GetText()
 		if text and text:find(itemName, 1, true) then
-			if not sideIcon then
+			if texture and not sideIcon then
 				title:SetFormattedText(TITLE_ICON, texture, text)
 			end
 			if config.showItemLevel and equipLoc ~= "" and itemLevel then
