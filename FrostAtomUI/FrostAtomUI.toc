@@ -137,6 +137,7 @@ Modules\Misc\Tweaks.lua
 Modules\Misc\Popups.lua
 Modules\Misc\Version.lua
 Modules\Misc\Conflicts.lua
+Modules\Misc\AddonList.lua
 Modules\Misc\TooltipSkin.lua
 Modules\Misc\Tooltips.lua
 Modules\Misc\WheelPaging.lua
