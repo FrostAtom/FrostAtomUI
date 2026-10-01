@@ -157,6 +157,7 @@ local CLASS_PAGE_CONDITIONS = {
 	WARRIOR = "[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9;",
 	DRUID = "[bonusbar:1,stealth] 8; [bonusbar:1] 7; [bonusbar:3] 9; [bonusbar:4] 10;",
 	ROGUE = "[bonusbar:1] 7; [bonusbar:2] 8;",
+	PRIEST = "[bonusbar:1] 7;",
 }
 
 local classPageCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
