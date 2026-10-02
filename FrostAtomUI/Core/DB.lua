@@ -16,7 +16,9 @@ DB:RegisterEvent("ADDON_LOADED", function(self, addonName)
 	_G[DB_NAME] = ns.db
 
 	ns.ApplyLocale(ns.db.locale)
-	ns:Fire(ns.DB_LOADED, ns.db)
+	xpcall(function()
+		ns:Fire(ns.DB_LOADED, ns.db)
+	end, geterrorhandler())
 	ns.InitializeModules()
 end)
 

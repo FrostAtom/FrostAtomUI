@@ -1360,19 +1360,24 @@ function ns.GetTargetUiScale()
 	return clamp(scale, MIN_UI_SCALE, MAX_UI_SCALE)
 end
 
+local settingScaleCVars = false
+
 local function applyUiScale()
-	if InCombatLockdown() then
+	if settingScaleCVars or InCombatLockdown() then
 		return
 	end
 	local scale = ns.GetTargetUiScale()
 	if scale then
 		local cvarScale = clamp(scale, CVAR_MIN_SCALE, CVAR_MAX_SCALE)
-		if GetCVar("useUiScale") ~= "1" then
+		local useUiScale, uiScale = GetCVar("useUiScale"), tonumber(GetCVar("uiScale"))
+		settingScaleCVars = true
+		if useUiScale and useUiScale ~= "1" then
 			SetCVar("useUiScale", 1)
 		end
-		if math.abs((tonumber(GetCVar("uiScale")) or 0) - cvarScale) > 0.001 then
+		if uiScale and math.abs(uiScale - cvarScale) > 0.001 then
 			SetCVar("uiScale", cvarScale)
 		end
+		settingScaleCVars = false
 		if math.abs(UIParent:GetScale() - scale) > 0.001 then
 			UIParent:SetScale(scale)
 		end
