@@ -551,17 +551,15 @@ local function createFrame()
 	list:SetPoint("TOPRIGHT", -PADDING, -(PADDING + HEADER_HEIGHT))
 	frame.list = list
 
-	local scroll = ns.CreateFauxScrollFrame(list, FRAME_NAME .. "Scroll")
+	local scroll = ns.CreateFauxScrollFrame(list, FRAME_NAME .. "Scroll", true)
 	scroll:SetAllPoints()
 	scroll:SetScript("OnVerticalScroll", function(self, offset)
 		FauxScrollFrame_OnVerticalScroll(self, offset, ROW_HEIGHT, refreshRows)
 	end)
 	local scrollBar = scroll.scrollBar
-	local barName = scrollBar:GetName()
 	scrollBar:ClearAllPoints()
 	scrollBar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", SCROLL_WIDTH - 16, -16)
 	scrollBar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", SCROLL_WIDTH - 16, 16)
-	ns.SkinSlimScrollBar(scrollBar, _G[barName .. "ScrollUpButton"], _G[barName .. "ScrollDownButton"])
 	frame.scroll = scroll
 
 	local empty = frame:CreateFontString(nil, "OVERLAY")
