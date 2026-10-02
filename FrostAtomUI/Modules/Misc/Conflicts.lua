@@ -25,6 +25,7 @@ local WHOLE_UI = { "most modules" }
 local REGISTRY = {
 	{ "Bartender4", ACTION_BARS },
 	{ "Dominos", ACTION_BARS },
+	{ "SnowfallKeyPress", ACTION_BARS },
 	{ "ShadowedUnitFrames", UNIT_FRAMES },
 	{ "PitBull4", UNIT_FRAMES },
 	{ "XPerl", UNIT_FRAMES },
