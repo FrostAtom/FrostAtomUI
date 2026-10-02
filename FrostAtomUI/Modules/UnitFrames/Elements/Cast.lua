@@ -423,14 +423,10 @@ local function stopCast(castbar, hold, fadeSpeed)
 end
 
 local function finishCast(castbar)
-	if config.castbarFinishFlash then
-		stopCast(castbar, FLASH_TIME, FINISH_FADE_SPEED)
-		castbar.flash:SetAlpha(FLASH_ALPHA)
-		castbar.flash:Show()
-		castbar.flashing = true
-	else
-		stopCast(castbar)
-	end
+	stopCast(castbar, FLASH_TIME, FINISH_FADE_SPEED)
+	castbar.flash:SetAlpha(FLASH_ALPHA)
+	castbar.flash:Show()
+	castbar.flashing = true
 end
 
 local function showInterrupted(castbar, text)

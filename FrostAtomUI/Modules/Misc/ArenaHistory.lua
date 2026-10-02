@@ -63,6 +63,12 @@ local STRIP_COLORS = {
 	left = { 0.6, 0.3, 0 },
 	none = { 0.3, 0.3, 0.3 },
 }
+local RESULT_COLORS = {
+	win = { 0.1, 1, 0.1 },
+	loss = { 1, 0.1, 0.1 },
+	left = { 1, 0.5, 0 },
+}
+local LEFT_COLOR_CODE = "|cffff7f00"
 
 local CLASS_ICONS = UF.CLASS_ICONS
 local ICON_TRIM = UF.ICON_TRIM
@@ -581,14 +587,13 @@ local function played(record)
 end
 
 local function resultColor(record, win)
-	local config = ns.Config.arenaHistory
 	if record.left then
-		return unpack(win and config.winColor or config.leftColor)
+		return unpack(win and RESULT_COLORS.win or RESULT_COLORS.left)
 	end
 	if not played(record) then
 		return GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b
 	end
-	return unpack(win and config.winColor or config.lossColor)
+	return unpack(win and RESULT_COLORS.win or RESULT_COLORS.loss)
 end
 
 local function stripColor(record, win)
@@ -970,8 +975,7 @@ local function refreshStats()
 	local losses = total - wins
 	local leftText = ""
 	if left > 0 then
-		local r, g, b = unpack(ns.Config.arenaHistory.leftColor)
-		leftText = format("   |cff%02x%02x%02x%s|r", r * 255, g * 255, b * 255, format(L["%d left"], left))
+		leftText = format("   %s%s|r", LEFT_COLOR_CODE, format(L["%d left"], left))
 	end
 	if total == 0 then
 		frame.stats:SetText(leftText:sub(4))

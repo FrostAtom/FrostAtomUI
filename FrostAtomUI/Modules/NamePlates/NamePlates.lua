@@ -186,10 +186,10 @@ local function isHiddenName(name)
 end
 
 local WorldChildren = ns.WorldChildren
-local snap = WorldChildren.Snap
+local snap, snapX, snapY = WorldChildren.Snap, WorldChildren.SnapX, WorldChildren.SnapY
 
 function PlateMixin:HitPadding()
-	return config.fitClickArea and WorldChildren.Pixel() * HIT_PADDING or 0
+	return WorldChildren.Pixel() * HIT_PADDING
 end
 
 function PlateMixin:SnapHolder()
@@ -198,8 +198,8 @@ function PlateMixin:SnapHolder()
 	if not left then
 		return
 	end
-	local x = snap(left + (self:GetWidth() - holder:GetWidth()) / 2) - left
-	local y = snap(top - self:HitPadding()) - top
+	local x = snapX(left + (self:GetWidth() - holder:GetWidth()) / 2) - left
+	local y = snapY(top - self:HitPadding()) - top
 	if x ~= self.snapX or y ~= self.snapY then
 		self.snapX, self.snapY = x, y
 		holder:SetPoint("TOPLEFT", self, "TOPLEFT", x, y)
@@ -501,7 +501,7 @@ function NamePlates.CreateShield(bar)
 end
 
 function NamePlates.ApplyShield(bar, locked)
-	local shielded = locked and config.castbarShield and not bar.compact
+	local shielded = locked and not bar.compact
 	local icon = bar.icon
 	icon:SetDesaturated(locked and not shielded and 1 or nil)
 	setIconShown(icon, not bar.compact)
@@ -588,14 +588,14 @@ function CastbarMixin:UpdateTarget()
 	if not self.casting then
 		return
 	end
-	local name = config.castbarTargetName and not UnitIsUnit("targettarget", "target") and UnitName("targettarget")
+	local name = frameConfig.castbarTargetName and not UnitIsUnit("targettarget", "target") and UnitName("targettarget")
 	if name then
 		UF.SetCastTargetText(self.targetText, "targettarget", name)
 	else
 		self.targetText:SetText("")
 	end
 	self:SetTargetingYou(
-		config.castbarTargetingYou and UnitIsUnit("targettarget", "player") and UnitCanAttack("player", "target")
+		frameConfig.castbarTargetingYou and UnitIsUnit("targettarget", "player") and UnitCanAttack("player", "target")
 	)
 end
 
@@ -639,7 +639,7 @@ function CastbarMixin:StartCast()
 	self.endTime = endTime / 1e3
 	self.guid = UnitGUID("target")
 	self.immune = ns.HasCastImmunity and ns.HasCastImmunity("target") or false
-	self.important = config.castbarImportant and UF.importantCasts[name] or false
+	self.important = frameConfig.castbarImportant and UF.importantCasts[name] or false
 	if self.important then
 		if not self.glow:IsShown() then
 			UF.StartCastGlow(self.glow, frameConfig.castbarImportantColor)
@@ -729,14 +729,14 @@ end
 
 local function onTargetCastStop()
 	local castbar = stopActiveCast()
-	if castbar and config.castbarFinishFlash and GetTime() >= castbar.endTime - CAST_FINISH_WINDOW then
+	if castbar and GetTime() >= castbar.endTime - CAST_FINISH_WINDOW then
 		castbar:ShowResult()
 	end
 end
 
 local function onTargetCastInterrupted()
 	local castbar = stopActiveCast()
-	if castbar and config.castbarInterrupter then
+	if castbar and frameConfig.castbarInterrupter then
 		local text = UF.RecentSilence(castbar.guid)
 		if text then
 			castbar:ShowResult(text)
@@ -748,7 +748,7 @@ end
 
 local function onCastSilenced(_, guid, text)
 	local castbar = activeCastbar
-	if not (config.castbarInterrupter and castbar and castbar.guid == guid) or castbar.casting then
+	if not (frameConfig.castbarInterrupter and castbar and castbar.guid == guid) or castbar.casting then
 		return
 	end
 	local result = castbar.result
@@ -759,7 +759,7 @@ end
 
 local function onCastInterrupter(_, guid, text)
 	local castbar = activeCastbar
-	if not (config.castbarInterrupter and castbar and castbar.guid == guid) then
+	if not (frameConfig.castbarInterrupter and castbar and castbar.guid == guid) then
 		return
 	end
 	local result = castbar.result
@@ -1237,10 +1237,12 @@ function NamePlates:Initialize()
 	updateTargetName()
 	updateHiddenNames()
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
-	self:RegisterEvent("DISPLAY_SIZE_CHANGED", function()
+	local function onPixelChanged()
 		WorldChildren.UpdatePixel()
 		applyStyle()
-	end)
+	end
+	self:RegisterEvent("DISPLAY_SIZE_CHANGED", onPixelChanged)
+	self:RegisterEvent(ns.PIXEL_CHANGED, onPixelChanged)
 	self:RegisterEvent("PLAYER_TARGET_CHANGED", onTargetChanged)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", updateTargetName)
 	self:RegisterUnitEvent("UNIT_NAME_UPDATE", "target", updateTargetName)

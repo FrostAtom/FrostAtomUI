@@ -112,7 +112,7 @@ local function onErrorMessage(_, message)
 	if config.filterCooldownErrors and COOLDOWN_ERRORS[message] then
 		return
 	end
-	local line = config.dedupErrors and findVisibleErrorLine(message)
+	local line = findVisibleErrorLine(message)
 	if not line then
 		UIErrorsFrame:AddMessage(message, 1, 0.1, 0.1, 1)
 		return
@@ -126,17 +126,11 @@ hooksecurefunc(UIErrorsFrame, "AddMessage", recordErrorLine)
 hooksecurefunc(UIErrorsFrame, "Clear", forgetErrorLines)
 
 local function applyErrors()
-	local config = ns.Config.tweaks
-	local takeOver = not config.hideErrors and (config.dedupErrors or config.filterCooldownErrors)
-	if config.hideErrors or takeOver then
-		UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
-	else
-		UIErrorsFrame:RegisterEvent("UI_ERROR_MESSAGE")
-	end
-	if takeOver then
-		Misc:RegisterEvent("UI_ERROR_MESSAGE", onErrorMessage)
-	else
+	UIErrorsFrame:UnregisterEvent("UI_ERROR_MESSAGE")
+	if ns.Config.tweaks.hideErrors then
 		Misc:UnregisterEvent("UI_ERROR_MESSAGE", onErrorMessage)
+	else
+		Misc:RegisterEvent("UI_ERROR_MESSAGE", onErrorMessage)
 	end
 end
 
@@ -342,9 +336,7 @@ Misc:OnInitialize(function(self)
 	self:WatchConfig("tweaks.scriptErrors", applyScriptErrors)
 	self:WatchConfig("tweaks.hideGroundClutter", applyGroundClutter)
 	self:WatchConfig("tweaks.cameraDistanceMax", applyCameraDistance)
-	for _, key in ipairs({ "hideErrors", "dedupErrors", "filterCooldownErrors" }) do
-		self:WatchConfig("tweaks." .. key, applyErrors)
-	end
+	self:WatchConfig("tweaks.hideErrors", applyErrors)
 
 	for key in pairs(CVAR_TOGGLES) do
 		applyCVarToggle(key)

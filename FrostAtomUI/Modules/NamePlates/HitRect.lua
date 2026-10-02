@@ -58,7 +58,7 @@ local markers = {}
 local wrapped = {}
 local pending = {}
 local counter = 1
-local defaultWidth, defaultHeight
+local defaultWidth
 
 local function createMarker()
 	local marker = CreateFrame("Frame", nil, markerParent, "SecureFrameTemplate")
@@ -120,10 +120,8 @@ end
 local function targetSize(plate)
 	if plate.hitHidden then
 		return defaultWidth, 0
-	elseif config.fitClickArea then
-		return plate.hitWidth, plate.hitHeight
 	end
-	return defaultWidth, defaultHeight
+	return plate.hitWidth, plate.hitHeight
 end
 
 local function write(plate)
@@ -166,7 +164,7 @@ end
 
 function HitRect.Update(plate, width, height, hidden)
 	if not defaultWidth then
-		defaultWidth, defaultHeight = plate:GetSize()
+		defaultWidth = plate:GetWidth()
 	end
 	if not plate.hitIndex then
 		plate.hitIndex = plateIndex(plate)

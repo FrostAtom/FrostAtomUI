@@ -194,7 +194,17 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc, aren
 	}
 end
 
-local generalSchema = {
+local function concat(...)
+	local list = {}
+	for i = 1, select("#", ...) do
+		for _, entry in ipairs((select(i, ...))) do
+			list[#list + 1] = entry
+		end
+	end
+	return list
+end
+
+local generalEntries = {
 	{ header = L["General"], glyph = "gear" },
 	{
 		path = "namePlates.spreadPlates",
@@ -210,14 +220,6 @@ local generalSchema = {
 		label = L["Highlight on mouseover"],
 		type = "toggle",
 		desc = L["Light wash over the health bar of the nameplate under the cursor."],
-	},
-	{
-		path = "namePlates.fitClickArea",
-		advanced = true,
-		new = NEW,
-		label = L["Click area fits the nameplate"],
-		type = "toggle",
-		desc = L["Nameplates react to clicks and mouseover only over the visible health bar or icon, not over the larger area of the Blizzard nameplate. Works in combat too."],
 	},
 	{
 		path = "namePlates.targetBorder",
@@ -287,15 +289,6 @@ local generalSchema = {
 		max = 48,
 		step = 1,
 		enabledBy = "namePlates.totemIcons",
-	},
-	{
-		path = "namePlates.totemFullAlpha",
-		advanced = true,
-		new = NEW,
-		label = L["Opaque totems"],
-		type = "toggle",
-		enabledBy = "namePlates.totemIcons",
-		desc = L["Totem icons stay fully opaque when another unit is targeted instead of fading with the other nameplates."],
 	},
 	{ header = L["Text"], glyph = "font" },
 	{
@@ -380,52 +373,9 @@ local generalSchema = {
 		type = "toggle",
 		desc = L["Name of the spell being cast on the left of the castbar."],
 	},
-	{
-		path = "namePlates.castbarTargetName",
-		advanced = true,
-		new = "1.4.0",
-		label = L["Show cast target"],
-		type = "toggle",
-		desc = L["Class-colored name of the caster's target on the right of the castbar."],
-	},
-	{
-		path = "namePlates.castbarTargetingYou",
-		new = "1.4.0",
-		label = L["Highlight casts on you"],
-		type = "toggle",
-		desc = L["Colored castbar border while an enemy casts at you."],
-	},
-	{
-		path = "namePlates.castbarImportant",
-		new = "1.4.0",
-		label = L["Pulse important casts"],
-		type = "toggle",
-		desc = L["Pulsing glow around the castbar for crowd control and heals."],
-	},
-	{
-		path = "namePlates.castbarInterrupter",
-		advanced = true,
-		new = "1.4.0",
-		label = L["Show who interrupted"],
-		type = "toggle",
-		desc = L["Keep an interrupted castbar red for a second with the interrupter's name."],
-	},
-	{
-		path = "namePlates.castbarFinishFlash",
-		advanced = true,
-		new = "1.4.0",
-		label = L["Flash on finished cast"],
-		type = "toggle",
-		desc = L["Short white flash when a cast completes."],
-	},
-	{
-		path = "namePlates.castbarShield",
-		advanced = true,
-		new = "1.4.0",
-		label = L["Shield on uninterruptible casts"],
-		type = "toggle",
-		desc = L["Shield in place of the spell icon when the cast cannot be interrupted."],
-	},
+}
+
+local auraEntries = {
 	{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 	{
 		path = "namePlates.aurasAllPlates",
@@ -533,21 +483,6 @@ local generalSchema = {
 		desc = L["Large healer role icon above the nameplate of enemy healers in battlegrounds."],
 	},
 	{
-		path = "namePlates.healerClasses",
-		advanced = true,
-		label = L["Healer classes"],
-		type = "multiselect",
-		values = {
-			{ "PRIEST", L["Priest"] },
-			{ "PALADIN", L["Paladin"] },
-			{ "SHAMAN", L["Shaman"] },
-			{ "DRUID", L["Druid"] },
-		},
-		desc = L["Only these classes can be marked as healers."],
-		enabledBy = "namePlates.showHealers",
-		indent = false,
-	},
-	{
 		path = "namePlates.healerCrossSize",
 		advanced = true,
 		label = L["Healer cross size"],
@@ -591,6 +526,8 @@ local generalSchema = {
 		indent = false,
 	},
 }
+
+local generalSchema = concat(generalEntries, ns.CastbarIndicators(), auraEntries)
 
 local HIDDEN_PATH = "namePlates.hiddenNames"
 local HIDE_ENABLE = "namePlates.hideByName"

@@ -55,6 +55,7 @@ local HEADER_HEIGHT = 20
 local HEADER_MARGIN = 4
 local BAG_BUTTON_SIZE = 20
 local FOOTER_HEIGHT = BAG_BUTTON_SIZE
+local SEARCH_FADE_ALPHA = 0.25
 
 local ITEM_BUTTON_NAME = ADDON_NAME .. "BagItem%d"
 local BACKPACK_ICON = "Interface\\Buttons\\Button-Backpack-Up"
@@ -326,7 +327,7 @@ local ItemMixin = {}
 
 function ItemMixin:UpdateSearch()
 	local itemId = self.itemId
-	self:SetAlpha((not searchQuery or (itemId and itemMatchesSearch(itemId))) and 1 or config.searchFadeAlpha)
+	self:SetAlpha((not searchQuery or (itemId and itemMatchesSearch(itemId))) and 1 or SEARCH_FADE_ALPHA)
 end
 
 function ItemMixin:UpdateHighlight()

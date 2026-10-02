@@ -31,6 +31,10 @@ local Misc = ns:GetModule("Misc")
 
 local JOIN_COMMAND = ".soloq join"
 local RANGE_OFFSET = 8
+local RANGE_FONT_SIZE = 12
+local TEAM_SEARCH_COLOR = { 1, 1, 1 }
+local OPPONENT_SEARCH_COLOR = { 1, 0.85, 0.3 }
+local GLOW_COLOR = { 0.3, 1, 0.3 }
 local PULSE_PERIOD = 1.6
 local PULSE_MIN_ALPHA = 0.35
 local TOOLTIP_REFRESH_INTERVAL = 0.1
@@ -193,9 +197,8 @@ end
 
 local function refreshRange()
 	if button.state == "queued" and searchRange then
-		local config = ns.Config.soloQueue
 		range:SetText(searchRange)
-		range:SetTextColor(unpack(opponentSearch and config.opponentSearchColor or config.teamSearchColor))
+		range:SetTextColor(unpack(opponentSearch and OPPONENT_SEARCH_COLOR or TEAM_SEARCH_COLOR))
 		range:Show()
 	else
 		range:Hide()
@@ -303,12 +306,10 @@ button:SetScript("OnClick", function(self)
 end)
 
 local function applyConfig()
-	local config = ns.Config.soloQueue
-	local font = config.rangeFont
-	ns.SetFont(range, font.size, font.outline, true)
+	ns.SetFont(range, RANGE_FONT_SIZE, "OUTLINE", true)
 	ns.ApplyPoint(button, "soloQueue.point")
-	button.glow:SetVertexColor(unpack(config.glowColor))
-	fader:Configure(config.mouseover, 0)
+	button.glow:SetVertexColor(unpack(GLOW_COLOR))
+	fader:Configure(ns.Config.soloQueue.mouseover, 0)
 	range:ClearAllPoints()
 	range:SetPoint("TOP", button, "BOTTOM", 0, -RANGE_OFFSET)
 	update()

@@ -122,7 +122,7 @@ local function updateHealthText(frame, current, max)
 end
 
 local function onEnter(frame)
-	ns.SetShown(frame.hover, ufConfig.hoverHighlight)
+	ns.SetShown(frame.hover, ufConfig.hoverAlpha > 0)
 	if not frame.test then
 		UnitFrame_OnEnter(frame)
 	end

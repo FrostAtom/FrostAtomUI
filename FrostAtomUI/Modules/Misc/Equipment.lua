@@ -47,14 +47,13 @@ local function itemLevelColor(difference)
 end
 ns.ItemLevelDifferenceColor = itemLevelColor
 
-local QUALITY_TIERS = { { "legendary", 5 }, { "epic", 4 }, { "rare", 3 }, { "uncommon", 2 } }
+local QUALITY_TIERS = { { 264, 5 }, { 245, 4 }, { 220, 3 }, { 200, 2 } }
 
 local function averageQualityColor(average)
-	local thresholds = ns.Config.equipment.qualityThresholds
 	local quality = 1
 	for i = 1, #QUALITY_TIERS do
 		local tier = QUALITY_TIERS[i]
-		if average >= thresholds[tier[1]] then
+		if average >= tier[1] then
 			quality = tier[2]
 			break
 		end
@@ -325,7 +324,7 @@ end
 local function checkDurability()
 	local config = ns.Config.equipment
 	local lowest = lowestDurability()
-	if config.enabled and config.durabilityWarning and lowest < config.durabilityThreshold then
+	if config.enabled and lowest < config.durabilityThreshold then
 		if not warned then
 			warned = true
 			ns.Print(L["|cffff0000durability %d%%|r - repair soon"], lowest * 100)

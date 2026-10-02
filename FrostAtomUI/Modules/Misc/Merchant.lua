@@ -1025,7 +1025,7 @@ Misc:RegisterEvent("MERCHANT_SHOW", function()
 	levelRetries = 0
 	wipe(knownCache)
 	local c = config()
-	if not c.enabled or (c.shiftToSkip and IsShiftKeyDown()) then
+	if not c.enabled or IsShiftKeyDown() then
 		return
 	end
 	if c.sellGreys then

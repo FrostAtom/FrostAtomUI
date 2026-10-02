@@ -5,15 +5,12 @@ local max, ceil = math.max, math.ceil
 local PARTY_HOLDER_NAME = ADDON_NAME .. "PartyFrames"
 local MAX_PARTY_FRAMES = MAX_PARTY_MEMBERS or 4
 local MAX_ARENA_OPPONENTS = 3
-local MAX_BOSS_FRAMES = MAX_BOSS_FRAMES or 4
 
-local BOSS_CASTBAR_SCALE = 0.5
-local BOSS_CASTBAR_ICON_GAP = 2
 local SQUARE_AURA_GAP = 2
 local AURA_GROWTH_ANCHORS = { LEFT = "TOPRIGHT", RIGHT = "TOPLEFT" }
 
 local player, castbar, pet, target, focus
-local party, arena, bosses = {}, {}, {}
+local party, arena = {}, {}
 UF.groupFrames = { party = party, arena = arena }
 local partyPets, arenaPets = {}, {}
 local partyTargets, arenaTargets = {}, {}
@@ -41,7 +38,6 @@ local function setGroupPoints(frames)
 end
 
 local function applyPositions()
-	local config = ns.Config.unitFrames
 	ns.ApplyPoint(player, "unitFrames.player")
 	ns.ApplyPoint(target, "unitFrames.target")
 	ns.ApplyPoint(focus, "unitFrames.focus")
@@ -58,9 +54,6 @@ local function applyPositions()
 	ns.ApplyPoint(focus.targetOfTarget.castbar, "unitFrames.focusTargetCastbar")
 	setGroupPoints(party)
 	setGroupPoints(arena)
-	for i = 1, #bosses do
-		ns.ApplyPoint(bosses[i], "unitFrames.boss", (i - 1) * config.bossSpacing)
-	end
 end
 
 local function gridCapacity(grid)
@@ -113,11 +106,6 @@ end
 
 local function sizePlayerCastbar(config)
 	UF.SetCastbarSize(castbar, config.playerCastbarWidth, config.playerCastbarHeight)
-end
-
-local function sizeBossCastbar(boss, config)
-	local height = config.bossHeight * BOSS_CASTBAR_SCALE
-	UF.SetCastbarSize(boss.castbar, config.bossWidth - height - BOSS_CASTBAR_ICON_GAP, height)
 end
 
 local function applyTrinkets()
@@ -183,11 +171,6 @@ local function applyFrameSizes(self, path)
 			frames[j]:SetFrameSize(width, height)
 		end
 	end
-	for i = 1, #bosses do
-		local boss = bosses[i]
-		boss:SetFrameSize(config.bossWidth, config.bossHeight)
-		sizeBossCastbar(boss, config)
-	end
 end
 
 local function setGroupWatched(frames, watched)
@@ -233,7 +216,6 @@ local function applyVisibility()
 	setGroupWatched(arena, config.showArena)
 	setGroupWatched(arenaPets, config.showArena and config.showArenaPet)
 	setGroupWatched(arenaTargets, config.showArena and config.showArenaTarget)
-	setGroupWatched(bosses, config.showBoss)
 end
 
 local function applyGroupAnchors()
@@ -390,9 +372,6 @@ local function createPlayer(self, config)
 	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
 
 	addRaidIconAbove(self, player)
-
-	local resting = self:AddElement(player, "resting")
-	resting:SetPoint("CENTER", player, "TOPRIGHT", -8, 0)
 
 	addPvp(self, player)
 
@@ -554,24 +533,6 @@ local function createArena(self, config)
 	end
 end
 
-local function createBosses(self, config)
-	local point, x, y = unpack(config.boss)
-
-	for i = 1, MAX_BOSS_FRAMES do
-		local frame = self:CreateRectangle("boss" .. i, config.bossWidth, config.bossHeight)
-		bosses[i] = frame
-		frame:SetPoint(point, x, y - (i - 1) * config.bossSpacing)
-		frame:RegisterEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", "QueueUpdate")
-
-		local raidIcon = self:AddElement(frame, "raidicon")
-		raidIcon:SetPoint("RIGHT", frame, "LEFT", -4, 0)
-
-		local bossCastbar = self:AddElement(frame, "castbar")
-		sizeBossCastbar(frame, config)
-		bossCastbar:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", 0, -2)
-	end
-end
-
 local function castbarResizer(prefix)
 	return frameResize(prefix .. "CastbarWidth", prefix .. "CastbarHeight", 60, 10)
 end
@@ -671,7 +632,6 @@ function UF:Initialize()
 	createTargets(self, config)
 	createParty(self, config)
 	createArena(self, config)
-	createBosses(self, config)
 	applyVisibility()
 
 	self:RegisterMover(player, "unitFrames.player", "Player", {
@@ -717,10 +677,6 @@ function UF:Initialize()
 	})
 	registerGroupMovers(self, party, "party", "Party")
 	registerGroupMovers(self, arena, "arena", "Arena", "arena")
-	self:RegisterMover(bosses[1], "unitFrames.boss", "Boss", {
-		secure = true,
-		resize = frameResize("bossWidth", "bossHeight", 80, 20),
-	})
 	applyPositions()
 	applyGroupAnchors()
 	applyFrameSizes(self)

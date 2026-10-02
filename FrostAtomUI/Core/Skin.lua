@@ -452,6 +452,19 @@ function ns.SkinScrollBar(scroll)
 	return bar
 end
 
+function ns.SkinSlimScrollBar(bar, up, down)
+	local thumb = bar:GetThumbTexture()
+	thumb:SetSize(18, 24)
+	thumb:SetTexCoord(0.2, 0.8, 0.125, 0.875)
+	local track = bar:CreateTexture(nil, "BACKGROUND")
+	track:SetTexture(0, 0, 0, 0.3)
+	track:SetWidth(12)
+	track:SetPoint("TOP", up, "BOTTOM", 0, 2)
+	track:SetPoint("BOTTOM", down, "TOP", 0, -2)
+	bar.track = track
+	return bar
+end
+
 function ns.CreateFauxScrollFrame(parent, name, track)
 	local scroll = CreateFrame("ScrollFrame", widgetName(name), parent, "FauxScrollFrameTemplate")
 	scroll.scrollBar = _G[scroll:GetName() .. "ScrollBar"]

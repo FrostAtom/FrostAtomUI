@@ -122,18 +122,10 @@ local function corner(top, left)
 	return left and "BOTTOMLEFT" or "BOTTOMRIGHT"
 end
 
-local labelHex
-
-local function applyLabelColor()
-	local color = config.labelColor
-	labelHex = ("|cff%02x%02x%02x"):format(color[1] * 255, color[2] * 255, color[3] * 255)
-end
-
-applyLabelColor()
-Misc:WatchConfig("tooltip.labelColor", applyLabelColor)
+local LABEL_HEX = "|cff3366ff"
 
 local function labeled(label, value)
-	return ("%s%s|r: |cffffffff%d|r"):format(labelHex, label, value)
+	return ("%s%s|r: |cffffffff%d|r"):format(LABEL_HEX, label, value)
 end
 
 local function hex(r, g, b, text)
@@ -1056,7 +1048,7 @@ local function onSetUnitAura(tooltip, unit, index, filter)
 		return
 	end
 
-	local idText = config.showIds and labeled(L["ID"], spellId) or labelHex .. L["Cast by"] .. "|r"
+	local idText = config.showIds and labeled(L["ID"], spellId) or LABEL_HEX .. L["Cast by"] .. "|r"
 	if showCaster then
 		local r, g, b = 1, 0.9, 0.8
 		if UnitIsPlayer(caster) then

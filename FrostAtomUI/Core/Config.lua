@@ -112,6 +112,7 @@ ns.Defaults = {
 		expiringColor = { 1, 0, 0 },
 		secondsColor = { 1, 1, 0 },
 		minutesColor = { 1, 1, 1 },
+		readyFlash = true,
 	},
 
 	actionBar = {
@@ -157,7 +158,6 @@ ns.Defaults = {
 		rangeIconTint = true,
 		rangeHotkey = true,
 		lossOfControl = true,
-		interruptLockout = true,
 		lossOfControlColor = { 0.5, 0, 0, 0.6 },
 		desaturateOnCooldown = false,
 	},
@@ -220,13 +220,9 @@ ns.Defaults = {
 		arena1TargetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena1Target", "TOPRIGHT" },
 		arena2TargetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena2Target", "TOPRIGHT" },
 		arena3TargetCastbar = { "BOTTOMRIGHT", 0, 2, "unitFrames.arena3Target", "TOPRIGHT" },
-		boss = { "RIGHT", -150, 300 },
-		bossSpacing = 60,
 		outOfRangeAlpha = 0.75,
-		cooldownReadyFlash = true,
 		showParty = true,
 		showArena = true,
-		showBoss = true,
 		playerWidth = 200,
 		playerHeight = 45,
 		targetWidth = 200,
@@ -237,8 +233,6 @@ ns.Defaults = {
 		partyHeight = 45,
 		arenaWidth = 200,
 		arenaHeight = 45,
-		bossWidth = 180,
-		bossHeight = 40,
 		playerCastbarWidth = 240,
 		playerCastbarHeight = 28,
 		targetCastbarWidth = 173,
@@ -387,7 +381,6 @@ ns.Defaults = {
 		castbarImportant = true,
 		castbarImportantColor = { 1, 0.85, 0.3 },
 		castbarInterrupter = true,
-		castbarFinishFlash = true,
 		textFont = { size = 10, outline = "OUTLINE" },
 		castbarFont = { size = 12, outline = "OUTLINE" },
 		healthTexts = {
@@ -414,7 +407,6 @@ ns.Defaults = {
 		arenaIconSide = "RIGHT",
 		showLeaderIcon = true,
 		showCombatIcon = true,
-		showRestingIcon = true,
 		showPvpIcon = true,
 		showRaidIcon = true,
 		showPet = true,
@@ -426,7 +418,6 @@ ns.Defaults = {
 		showArenaTarget = false,
 		rightClick = "menu",
 		middleClick = "focus",
-		hoverHighlight = true,
 		hoverAlpha = 0.08,
 		healthCutaway = true,
 		healthCutawayColor = { 1, 0.9, 0.8, 0.6 },
@@ -530,7 +521,6 @@ ns.Defaults = {
 		classColorNames = true,
 		filterSystemSpam = true,
 		filterArenaSpam = true,
-		filterAutoReplies = true,
 		batchBattlegroundJoins = true,
 		editBoxPosition = "below",
 		scrollToBottomButton = true,
@@ -549,14 +539,10 @@ ns.Defaults = {
 		height = 153,
 		mouseover = false,
 		fadeAlpha = 0.1,
-		fadeMessages = true,
 		fadeTime = 30,
 		backgroundAlpha = 0.6,
-		copyWindowWidth = 520,
-		copyWindowHeight = 380,
 		bubbleFont = { size = 12, outline = "" },
 		bubbleMaxWidth = 300,
-		bubblePadding = 4,
 		bubbleShowSender = true,
 		bubbleTypeBorder = false,
 		whisperBlock = {
@@ -575,7 +561,6 @@ ns.Defaults = {
 		castbarIconSize = 18,
 		totemIcons = true,
 		totemIconSize = 24,
-		totemFullAlpha = true,
 		nonTargetAlpha = 0.85,
 		totemTimer = true,
 		totemPulse = true,
@@ -584,7 +569,6 @@ ns.Defaults = {
 		raidIconSize = 22,
 		showRaidIcon = true,
 		targetBorder = true,
-		fitClickArea = true,
 		hideByName = true,
 		hiddenNames = HIDDEN_NAMES[ns.CLIENT_LOCALE] or HIDDEN_NAMES.enUS,
 		castbarGap = 3,
@@ -593,12 +577,6 @@ ns.Defaults = {
 		castbarColor = { 0.75, 0.4, 0 },
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
 		castbarSpellName = true,
-		castbarTargetName = true,
-		castbarTargetingYou = true,
-		castbarImportant = true,
-		castbarInterrupter = true,
-		castbarFinishFlash = true,
-		castbarShield = true,
 		showAuraTimer = true,
 		showAuraCount = true,
 		ownDebuffs = true,
@@ -620,7 +598,6 @@ ns.Defaults = {
 		showHealers = true,
 		healerCrossSize = 28,
 		healerThreshold = 2,
-		healerClasses = { PRIEST = true, PALADIN = true, SHAMAN = true, DRUID = true },
 		comboPoints = true,
 		comboPointSize = 8,
 	},
@@ -761,14 +738,12 @@ ns.Defaults = {
 	lowHealthFlash = {
 		enabled = true,
 		threshold = 0.33,
-		pulseSpeed = 1.2,
 	},
 
 	queuePopFlash = {
 		enabled = true,
 		color = { 0.1, 1, 0.2 },
 		intensity = 0.7,
-		pulseSpeed = 1.5,
 	},
 
 	soundAlerts = {
@@ -789,7 +764,7 @@ ns.Defaults = {
 	},
 
 	cursorTrail = {
-		enabled = true,
+		enabled = false,
 		hideInCombat = false,
 		scale = 1,
 		trailAlpha = 0.6,
@@ -802,7 +777,6 @@ ns.Defaults = {
 		interruptMessage = "Interrupted %s's %s",
 		auraMastery = true,
 		auraMasteryMessage = "<<< AURA MASTERY >>>",
-		arenaResult = true,
 		arenaResultToParty = true,
 	},
 
@@ -811,11 +785,9 @@ ns.Defaults = {
 	equipment = {
 		enabled = true,
 		showItemLevels = true,
-		durabilityWarning = true,
 		durabilityThreshold = 0.2,
 		slotFont = { size = 11, outline = "OUTLINE" },
 		averageFont = { size = 14, outline = "OUTLINE" },
-		qualityThresholds = { uncommon = 200, rare = 220, epic = 245, legendary = 264 },
 	},
 
 	merchant = {
@@ -823,7 +795,6 @@ ns.Defaults = {
 		sellGreys = true,
 		autoRepair = true,
 		guildRepair = false,
-		shiftToSkip = true,
 		showItemLevel = true,
 		searchBox = true,
 		filterMenu = true,
@@ -842,8 +813,6 @@ ns.Defaults = {
 
 	modelControls = {
 		enabled = true,
-		rotateSpeed = 0.01,
-		zoomStep = 0.15,
 	},
 
 	macros = {
@@ -871,7 +840,6 @@ ns.Defaults = {
 	tweaks = {
 		enabled = true,
 		hideErrors = true,
-		dedupErrors = true,
 		filterCooldownErrors = true,
 		scriptErrors = true,
 		hideGroundClutter = true,
@@ -977,7 +945,6 @@ ns.Defaults = {
 		enemyInterruptRowSpacing = 3,
 		labels = true,
 		desaturate = true,
-		readyFlash = true,
 		glowColor = { 1, 0.85, 0.3 },
 		clickThrough = true,
 		friendlyCategories = {
@@ -1072,8 +1039,6 @@ ns.Defaults = {
 	queueInvite = {
 		enabled = true,
 		style = true,
-		countdown = true,
-		font = { size = 20, outline = "OUTLINE" },
 		sound = true,
 	},
 
@@ -1083,10 +1048,6 @@ ns.Defaults = {
 		buttonSize = 26,
 		queuedSize = 34,
 		mouseover = true,
-		glowColor = { 0.3, 1, 0.3 },
-		rangeFont = { size = 12, outline = "OUTLINE" },
-		teamSearchColor = { 1, 1, 1 },
-		opponentSearchColor = { 1, 0.85, 0.3 },
 	},
 
 	worldMap = {
@@ -1094,9 +1055,6 @@ ns.Defaults = {
 		screenFraction = 0.8,
 		showCoords = true,
 		coordFont = { size = 12, outline = "OUTLINE" },
-		arrowSize = 36,
-		zoomStep = 0.2,
-		maxZoom = 4,
 		fadeWhenMoving = false,
 		movingAlpha = 0.5,
 	},
@@ -1117,9 +1075,6 @@ ns.Defaults = {
 	arenaHistory = {
 		enabled = true,
 		maxGames = 1000,
-		winColor = { 0.1, 1, 0.1 },
-		lossColor = { 1, 0.1, 0.1 },
-		leftColor = { 1, 0.5, 0 },
 	},
 
 	deathRecap = {
@@ -1135,8 +1090,6 @@ ns.Defaults = {
 		enabled = true,
 		point = { "CENTER", 0, 150 },
 		font = { size = 22, outline = "OUTLINE" },
-		duration = 1,
-		fadeTime = 0.5,
 		enterText = "+ combat",
 		leaveText = "- combat",
 		enterColor = { 1, 0.3, 0.3 },
@@ -1150,12 +1103,6 @@ ns.Defaults = {
 		showLatency = true,
 		valueFont = { size = 16, outline = "OUTLINE" },
 		unitFont = { size = 11, outline = "OUTLINE" },
-		fpsRed = 50,
-		fpsOrange = 60,
-		fpsYellow = 90,
-		latencyYellow = 50,
-		latencyOrange = 100,
-		latencyRed = 200,
 	},
 
 	tooltip = {
@@ -1178,7 +1125,6 @@ ns.Defaults = {
 		showRaidIcon = true,
 		showClassIcon = false,
 		hidePvPLines = true,
-		labelColor = { 0.2, 0.4, 1 },
 		anchorCursor = false,
 		cursorOffsetX = 0,
 		cursorOffsetY = 0,
@@ -1236,7 +1182,6 @@ ns.Defaults = {
 		autoOpen = true,
 		playSounds = true,
 		movable = true,
-		searchFadeAlpha = 0.25,
 		tintUnusable = true,
 		showBagFreeSlots = true,
 		offlineBank = true,
@@ -1416,19 +1361,24 @@ function ns.GetTargetUiScale()
 end
 
 local function applyUiScale()
-	local scale = ns.GetTargetUiScale()
-	if not scale or InCombatLockdown() then
+	if InCombatLockdown() then
 		return
 	end
-	local cvarScale = clamp(scale, CVAR_MIN_SCALE, CVAR_MAX_SCALE)
-	if GetCVar("useUiScale") ~= "1" then
-		SetCVar("useUiScale", 1)
+	local scale = ns.GetTargetUiScale()
+	if scale then
+		local cvarScale = clamp(scale, CVAR_MIN_SCALE, CVAR_MAX_SCALE)
+		if GetCVar("useUiScale") ~= "1" then
+			SetCVar("useUiScale", 1)
+		end
+		if math.abs((tonumber(GetCVar("uiScale")) or 0) - cvarScale) > 0.001 then
+			SetCVar("uiScale", cvarScale)
+		end
+		if math.abs(UIParent:GetScale() - scale) > 0.001 then
+			UIParent:SetScale(scale)
+		end
 	end
-	if math.abs((tonumber(GetCVar("uiScale")) or 0) - cvarScale) > 0.001 then
-		SetCVar("uiScale", cvarScale)
-	end
-	if math.abs(UIParent:GetScale() - scale) > 0.001 then
-		UIParent:SetScale(scale)
+	if ns.Pixel.AlignUIParent() then
+		ns:Fire(ns.PIXEL_CHANGED)
 	end
 end
 
@@ -1437,12 +1387,13 @@ local function applyGeneral()
 	applyUiScale()
 end
 
-local scaleWatcher = CreateFrame("Frame")
-scaleWatcher:RegisterEvent("UI_SCALE_CHANGED")
-scaleWatcher:RegisterEvent("DISPLAY_SIZE_CHANGED")
-scaleWatcher:RegisterEvent("PLAYER_REGEN_ENABLED")
-scaleWatcher:RegisterEvent("PLAYER_ENTERING_WORLD")
-scaleWatcher:SetScript("OnEvent", applyUiScale)
+local scaleWatcher = ns.Mixin({}, ns.EventMixin)
+scaleWatcher:RegisterEvent("UI_SCALE_CHANGED", applyUiScale)
+scaleWatcher:RegisterEvent("DISPLAY_SIZE_CHANGED", applyUiScale)
+scaleWatcher:RegisterEvent("UPDATE_FLOATING_CHAT_WINDOWS", applyUiScale)
+scaleWatcher:RegisterEvent("PLAYER_REGEN_ENABLED", applyUiScale)
+scaleWatcher:RegisterEvent("PLAYER_ENTERING_WORLD", applyUiScale)
+scaleWatcher:RegisterEvent(ns.PIXEL_CHANGED, applyUiScale)
 
 local function isSection(value, default)
 	return type(value) == "table"
@@ -2159,6 +2110,30 @@ local function migrateUnitFrameTexts(profile)
 	end
 end
 
+local MERGED_TOGGLES = {
+	{ "unitFrames", "cooldownReadyFlash", "cooldownTimer", "readyFlash", false },
+	{ "groupCooldowns", "readyFlash", "cooldownTimer", "readyFlash", false },
+	{ "unitFrames", "hoverHighlight", "unitFrames", "hoverAlpha", 0 },
+	{ "equipment", "durabilityWarning", "equipment", "durabilityThreshold", 0 },
+	{ "chat", "fadeMessages", "chat", "fadeTime", 0 },
+	{ "announce", "arenaResult", "announce", "arenaResultToParty", false },
+}
+
+local function migrateMergedToggles(profile)
+	for _, entry in ipairs(MERGED_TOGGLES) do
+		local source = profile[entry[1]]
+		local value = source and source[entry[2]]
+		if source then
+			source[entry[2]] = nil
+		end
+		if value == false then
+			local target = profile[entry[3]] or {}
+			target[entry[4]] = entry[5]
+			profile[entry[3]] = target
+		end
+	end
+end
+
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
@@ -2171,6 +2146,7 @@ function migrate(profile)
 	migrateGroupCooldownLayout(profile)
 	migrateLoseControl(profile)
 	migrateUnitFrameTexts(profile)
+	migrateMergedToggles(profile)
 end
 
 local function seedUnitFrameCategories(profile)

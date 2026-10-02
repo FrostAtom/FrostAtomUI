@@ -58,7 +58,9 @@ Misc:OnInitialize(function()
 
 	local LAYOUT_WIDTH, LAYOUT_HEIGHT = 1024, 768
 	local MAP_WIDTH, MAP_HEIGHT = 1002, 668
-	local MIN_ZOOM = 1
+	local MIN_ZOOM, MAX_ZOOM = 1, 4
+	local ZOOM_STEP = 0.2
+	local ARROW_SIZE = 36
 	local UNIT_ICON_DEFAULT = "Interface\\WorldMap\\WorldMapPartyIcon"
 	local COORD_FORMAT = "%s: %.1f, %.1f"
 	local FADE_INTERVAL = 0.1
@@ -263,12 +265,9 @@ Misc:OnInitialize(function()
 		ns.SetFont(cursorText, font.size, font.outline)
 		ns.SetFont(playerText, font.size, font.outline)
 		ns.SetShown(coords, config.showCoords)
-		WorldMapPlayer:SetSize(config.arrowSize, config.arrowSize)
+		WorldMapPlayer:SetSize(ARROW_SIZE, ARROW_SIZE)
 		if WorldMapFrame:IsShown() then
 			layout()
-			if zoom > config.maxZoom then
-				resetZoom()
-			end
 		end
 	end
 
@@ -621,9 +620,8 @@ Misc:OnInitialize(function()
 	WorldMapButton:SetScript("OnUpdate", onUpdate)
 
 	scroll:SetScript("OnMouseWheel", function(self, delta)
-		local config = ns.Config.worldMap
 		local oldZoom = zoom
-		local newZoom = min(max(oldZoom * (1 + delta * config.zoomStep), MIN_ZOOM), config.maxZoom)
+		local newZoom = min(max(oldZoom * (1 + delta * ZOOM_STEP), MIN_ZOOM), MAX_ZOOM)
 		if newZoom == oldZoom then
 			return
 		end

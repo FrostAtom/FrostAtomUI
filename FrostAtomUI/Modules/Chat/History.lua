@@ -8,6 +8,7 @@ local Chat = ns:GetModule("Chat")
 local config = ns.Config.chat
 
 local COPY_FRAME_NAME = "FrostAtomUICopyChat"
+local COPY_WIDTH, COPY_HEIGHT = 520, 380
 local COPY_TEXT_MARGIN = 40
 local COPY_GLYPH = "copy"
 local COPY_GLYPH_SIZE = 11
@@ -123,15 +124,9 @@ end
 
 local copyFrame
 
-local function applyCopySize()
-	if copyFrame then
-		copyFrame:SetSize(config.copyWindowWidth, config.copyWindowHeight)
-		copyFrame.editBox:SetWidth(config.copyWindowWidth - COPY_TEXT_MARGIN)
-	end
-end
-
 local function createCopyFrame()
 	local frame = CreateFrame("Frame", COPY_FRAME_NAME, UIParent)
+	frame:SetSize(COPY_WIDTH, COPY_HEIGHT)
 	frame:SetPoint("CENTER")
 	frame:SetFrameStrata("DIALOG")
 	frame:SetBackdrop(ns.CreateBackdrop(14, 3))
@@ -151,6 +146,7 @@ local function createCopyFrame()
 	end)
 
 	local editBox = CreateFrame("EditBox", nil, scroll)
+	editBox:SetWidth(COPY_WIDTH - COPY_TEXT_MARGIN)
 	editBox:SetMultiLine(true)
 	editBox:SetAutoFocus(false)
 	editBox:SetFontObject(ChatFontNormal)
@@ -166,7 +162,6 @@ local function createCopyFrame()
 	frame.scroll = scroll
 	frame.editBox = editBox
 	copyFrame = frame
-	applyCopySize()
 end
 
 local function copyChatFrame(chatFrame)
@@ -210,7 +205,6 @@ end
 Chat:OnInitialize(function(self)
 	restoreHistory(ns.db)
 	self:RegisterEvent("PLAYER_LOGOUT", saveHistory)
-	self:WatchConfig("chat", applyCopySize)
 	hooksecurefunc(ChatFrame1EditBox, "AddHistoryLine", onHistoryLine)
 
 	for i = 1, NUM_CHAT_WINDOWS do

@@ -1130,20 +1130,7 @@ local function createSliderBox(row, entry, sliderWidth)
 	bindRow(box, row)
 
 	local function commit(value)
-		value = round(max(entry.min, min(entry.max, value)), entry.step)
-		local limited = value
-		if entry.atLeast then
-			limited = max(limited, ui:GetConfig(entry.atLeast))
-		end
-		if entry.atMost then
-			limited = min(limited, ui:GetConfig(entry.atMost))
-		end
-		set(entry, limited)
-		if limited ~= value then
-			refreshing = true
-			row.Refresh()
-			refreshing = false
-		end
+		set(entry, round(max(entry.min, min(entry.max, value)), entry.step))
 	end
 
 	slider:SetScript("OnValueChanged", function(_, value)

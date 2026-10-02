@@ -2,6 +2,9 @@ local _, ns = ...
 
 local Misc = ns:GetModule("Misc")
 
+local HOLD_TIME = 1
+local FADE_TIME = 0.5
+
 local alert = CreateFrame("Frame", nil, UIParent)
 alert:SetSize(200, 30)
 Misc:AnchorToConfig(alert, "combatAlert.point", "Combat alert", { floating = true })
@@ -17,7 +20,7 @@ alert:SetScript("OnUpdate", function(self, elapsed)
 		return
 	end
 
-	local alpha = self:GetAlpha() - elapsed / ns.Config.combatAlert.fadeTime
+	local alpha = self:GetAlpha() - elapsed / FADE_TIME
 	if alpha > 0 then
 		self:SetAlpha(alpha)
 	else
@@ -32,7 +35,7 @@ local function showAlert(message, color)
 	end
 	text:SetText(message)
 	text:SetTextColor(unpack(color))
-	alert.hold = config.duration
+	alert.hold = HOLD_TIME
 	alert:SetAlpha(1)
 	alert:Show()
 end

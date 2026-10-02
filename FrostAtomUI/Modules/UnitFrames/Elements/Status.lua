@@ -1,7 +1,6 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local IsResting = IsResting
 local UnitIsPVP = UnitIsPVP
 local UnitIsPVPFreeForAll = UnitIsPVPFreeForAll
 local UnitFactionGroup = UnitFactionGroup
@@ -11,28 +10,6 @@ local GetTime = GetTime
 local random, floor = math.random, math.floor
 
 local config = ns.Config.unitFrames
-
-local function updateResting(frame)
-	ns.SetShown(frame.resting, config.showRestingIcon and IsResting())
-end
-
-local function testResting(frame)
-	ns.SetShown(frame.resting, config.showRestingIcon and random(2) == 1)
-end
-
-local function createResting(frame)
-	local resting = frame:CreateTexture(nil, "OVERLAY")
-	resting:SetSize(18, 18)
-	resting:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
-	resting:SetTexCoord(0, 0.5, 0, 0.421875)
-	resting:Hide()
-
-	frame:RegisterEvent("PLAYER_UPDATE_RESTING", updateResting)
-
-	return resting
-end
-
-UF:RegisterElement("resting", createResting, updateResting, testResting)
 
 local PVP_TEXTURE = "Interface\\TargetingFrame\\UI-PVP-%s"
 local PVP_VARIANTS = { "Alliance", "Horde", "FFA", false }

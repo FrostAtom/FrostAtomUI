@@ -339,13 +339,5 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Consumables and other non-equippable items only."],
 		},
-		{
-			path = "tooltip.labelColor",
-			advanced = true,
-			label = L["Label color"],
-			type = "color",
-			desc = L["Color of the ID and bag count labels."],
-			enabledByAny = { "tooltip.showIds", "tooltip.showItemCount", "tooltip.showAuraCaster" },
-		},
 	},
 })

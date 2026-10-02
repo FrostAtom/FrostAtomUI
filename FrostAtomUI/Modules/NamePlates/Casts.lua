@@ -121,9 +121,7 @@ local function removeCast(guid, result)
 	lastStop[guid] = GetTime()
 	lastTexture[guid] = entry.texture
 	if result == true then
-		if config.castbarFinishFlash then
-			NamePlates.ShowCastResult(plate, entry.texture, bar.icon:IsShown(), entry.locked)
-		end
+		NamePlates.ShowCastResult(plate, entry.texture, bar.icon:IsShown(), entry.locked)
 	elseif result == CANCELLED then
 		NamePlates.ShowCastResult(plate, entry.texture, bar.icon:IsShown(), entry.locked, nil, true)
 	elseif result then
@@ -168,14 +166,17 @@ local layoutBar = NamePlates.LayoutCastbar
 
 local function updateBarTarget(bar, unit)
 	local targetUnit = unit and targetOf[unit]
-	local name = targetUnit and config.castbarTargetName and not UnitIsUnit(targetUnit, unit) and UnitName(targetUnit)
+	local name = targetUnit
+		and frameConfig.castbarTargetName
+		and not UnitIsUnit(targetUnit, unit)
+		and UnitName(targetUnit)
 	if name then
 		UF.SetCastTargetText(bar.targetText, targetUnit, name)
 	else
 		bar.targetText:SetText("")
 	end
 	local targetingYou = targetUnit
-		and config.castbarTargetingYou
+		and frameConfig.castbarTargetingYou
 		and UnitIsUnit(targetUnit, "player")
 		and UnitCanAttack("player", unit)
 	local color = targetingYou and frameConfig.castbarTargetingYouColor or frameConfig.borderColor
@@ -270,7 +271,7 @@ function updatePlate(plate)
 		layoutBar(bar)
 		bar.icon:SetTexture(entry.texture)
 		bar.spellText:SetText(config.castbarSpellName and entry.name or "")
-		bar.important = config.castbarImportant and importantCasts[entry.name] or false
+		bar.important = frameConfig.castbarImportant and importantCasts[entry.name] or false
 		if bar.important then
 			UF.StartCastGlow(bar.glow, frameConfig.castbarImportantColor)
 		else
@@ -307,7 +308,7 @@ end
 local function onCastInterrupted(_, unit, _, _, castId)
 	local guid, entry = unitCast(unit)
 	if entry and (entry.isChannel or entry.fromLog or entry.castId == castId) then
-		removeCast(guid, config.castbarInterrupter and (UF.RecentSilence(guid) or CANCELLED) or nil)
+		removeCast(guid, frameConfig.castbarInterrupter and (UF.RecentSilence(guid) or CANCELLED) or nil)
 	end
 end
 
@@ -339,7 +340,7 @@ local function onUnitAura(_, unit)
 end
 
 local function onInterrupter(_, guid, text)
-	if not config.castbarInterrupter then
+	if not frameConfig.castbarInterrupter then
 		return
 	end
 	local plate = guidPlates[guid]
@@ -359,7 +360,7 @@ local function onInterrupter(_, guid, text)
 end
 
 local function onSilenced(_, guid, text)
-	if not config.castbarInterrupter or casts[guid] then
+	if not frameConfig.castbarInterrupter or casts[guid] then
 		return
 	end
 	local plate = guidPlates[guid]
@@ -448,7 +449,7 @@ local function onLogProcRemoved(_, _, dstGUID, _, spellId)
 end
 
 local function onLogInterrupt(_, _, dstGUID)
-	if casts[dstGUID] and not config.castbarInterrupter then
+	if casts[dstGUID] and not frameConfig.castbarInterrupter then
 		removeCast(dstGUID)
 	end
 end

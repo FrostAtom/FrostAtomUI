@@ -6,6 +6,8 @@ local max, min = math.max, math.min
 
 local Misc = ns:GetModule("Misc")
 
+local ROTATE_SPEED = 0.01
+local ZOOM_STEP = 0.15
 local PAN_SPEED = 0.01
 local PAN_LIMIT = 1.2
 local ZOOM_MIN, ZOOM_MAX = 0.5, 3
@@ -62,7 +64,7 @@ local function onUpdate(model)
 	model.dragX, model.dragY = x, y
 
 	if button == "LeftButton" then
-		model:SetFacing(model:GetFacing() + dx * ns.Config.modelControls.rotateSpeed)
+		model:SetFacing(model:GetFacing() + dx * ROTATE_SPEED)
 	elseif button == "RightButton" then
 		model.panY = model.panY + dx * PAN_SPEED
 		model.panZ = model.panZ + dy * PAN_SPEED
@@ -71,7 +73,7 @@ local function onUpdate(model)
 end
 
 local function onMouseWheel(model, delta)
-	model.zoom = clamp(model.zoom * (1 + ns.Config.modelControls.zoomStep) ^ delta, ZOOM_MIN, ZOOM_MAX)
+	model.zoom = clamp(model.zoom * (1 + ZOOM_STEP) ^ delta, ZOOM_MIN, ZOOM_MAX)
 	apply(model)
 end
 
