@@ -24,7 +24,7 @@ local Parser = ns.MacroParser
 local SecureList = Macros.SecureList
 
 local FRAME_NAME = "FrostAtomUIMacros"
-local WIDTH, HEIGHT = 800, 600
+local WIDTH, HEIGHT = 774, 600
 local COLUMNS = 14
 local LIST_ROWS = 3
 local COLUMN_WIDTH = 51
@@ -1429,6 +1429,7 @@ local function createEditor()
 	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "EditorScroll", holder, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", 9, -6)
 	scroll:SetPoint("BOTTOMRIGHT", -30, 6)
+	ns.SkinSlimScrollBar(_G[scroll:GetName() .. "ScrollBar"])
 
 	local edit = CreateFrame("EditBox", FRAME_NAME .. "Editor", scroll)
 	edit:SetMultiLine(true)
@@ -1521,13 +1522,15 @@ end
 local function createIssues()
 	local panel = ns.CreateInset(frame, "tooltip", L["Problems"])
 	panel:SetPoint("TOPLEFT", 526, -305)
-	panel:SetSize(256, EDITOR.HEIGHT)
+	panel:SetPoint("TOPRIGHT", -18, -305)
+	panel:SetHeight(EDITOR.HEIGHT)
 
 	local rows = {}
 	for i = 1, ISSUE.ROWS do
 		local row = CreateFrame("Button", nil, panel)
-		row:SetSize(240, ISSUE.ROW_HEIGHT)
+		row:SetHeight(ISSUE.ROW_HEIGHT)
 		row:SetPoint("TOPLEFT", 8, -8 - (i - 1) * ISSUE.ROW_HEIGHT)
+		row:SetPoint("TOPRIGHT", -8, -8 - (i - 1) * ISSUE.ROW_HEIGHT)
 		ns.AddHighlight(row)
 		row.icon = ns.CreateGlyph(row, nil, ISSUE.GLYPH_SIZE, "ARTWORK")
 		row.icon:SetPoint("CENTER", row, "LEFT", 2 + ISSUE.GLYPH_SIZE / 2, 0)
@@ -1784,6 +1787,7 @@ local function createTransfer()
 	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "TransferScroll", holder, "UIPanelScrollFrameTemplate")
 	scroll:SetPoint("TOPLEFT", 9, -6)
 	scroll:SetPoint("BOTTOMRIGHT", -30, 6)
+	ns.SkinSlimScrollBar(_G[scroll:GetName() .. "ScrollBar"])
 
 	local box = CreateFrame("EditBox", nil, scroll)
 	box:SetMultiLine(true)
@@ -2143,7 +2147,7 @@ local function createFrame()
 
 	local listScroll = ns.CreateFauxScrollFrame(frame, FRAME_NAME .. "ListScroll", true)
 	listScroll:SetPoint("TOPLEFT", 23, -76)
-	listScroll:SetSize(COLUMNS * COLUMN_WIDTH + 8, 146)
+	listScroll:SetSize(COLUMNS * COLUMN_WIDTH - 6, 146)
 	listScroll:SetScript("OnVerticalScroll", function(self, offset)
 		FauxScrollFrame_OnVerticalScroll(self, offset, ROW_HEIGHT, refreshList)
 	end)

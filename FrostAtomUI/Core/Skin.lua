@@ -453,6 +453,8 @@ function ns.SkinScrollBar(scroll)
 end
 
 function ns.SkinSlimScrollBar(bar, up, down)
+	up = up or _G[bar:GetName() .. "ScrollUpButton"]
+	down = down or _G[bar:GetName() .. "ScrollDownButton"]
 	local thumb = bar:GetThumbTexture()
 	thumb:SetSize(18, 24)
 	thumb:SetTexCoord(0.2, 0.8, 0.125, 0.875)
@@ -465,11 +467,11 @@ function ns.SkinSlimScrollBar(bar, up, down)
 	return bar
 end
 
-function ns.CreateFauxScrollFrame(parent, name, track)
+function ns.CreateFauxScrollFrame(parent, name, slim)
 	local scroll = CreateFrame("ScrollFrame", widgetName(name), parent, "FauxScrollFrameTemplate")
 	scroll.scrollBar = _G[scroll:GetName() .. "ScrollBar"]
-	if track then
-		ns.SkinScrollBar(scroll)
+	if slim then
+		ns.SkinSlimScrollBar(scroll.scrollBar)
 	end
 	return scroll
 end

@@ -30,8 +30,9 @@ local TOOLBAR_HEIGHT = 22
 local SECTION_GAP = 8
 local SEARCH_WIDTH = 160
 local BUTTON_HEIGHT = 22
-local BUTTON_GAP = 4
+local BUTTON_GAP = 1
 local BUTTON_PADDING = 24
+local SCROLLBAR_WIDTH = 26
 local ROW_HEIGHT = 24
 local LIST_ROWS = 17
 local PERFORMANCE_ROWS = 2
@@ -66,7 +67,7 @@ local OWN_PROBLEMS = {
 }
 
 local CONTENT_WIDTH = WIDTH - INSET.left - INSET.right
-local LIST_WIDTH = CONTENT_WIDTH - INSET_PADDING * 2 - ns.SCROLLBAR_TRACK_WIDTH
+local LIST_WIDTH = CONTENT_WIDTH - INSET_PADDING * 2 - SCROLLBAR_WIDTH
 
 local profiling = GetCVar("scriptProfile") == "1"
 local sessionStart = GetTime()
@@ -844,8 +845,7 @@ local function createPerformance(top)
 end
 
 local function createFrame()
-	frame =
-		ns.CreateWindow(FRAME_NAME, { width = WIDTH, title = L["AddOn List"], background = "dark", movable = false })
+	frame = ns.CreateWindow(FRAME_NAME, { width = WIDTH, title = L["AddOn List"], movable = false })
 	frame:SetPoint("CENTER", 0, 24)
 	frame:SetScript("OnShow", onShow)
 	frame:SetScript("OnHide", onHide)
@@ -875,7 +875,7 @@ local function createFrame()
 	end
 
 	local listHeight = rowCount * ROW_HEIGHT
-	local listInset = ns.CreateInset(frame, "box")
+	local listInset = ns.CreateInset(frame, "tooltip")
 	listInset:SetPoint("TOPLEFT", INSET.left, -listTop)
 	listInset:SetSize(CONTENT_WIDTH, listHeight + INSET_PADDING * 2)
 
@@ -883,18 +883,13 @@ local function createFrame()
 	list:SetPoint("TOPLEFT", INSET_PADDING, -INSET_PADDING)
 	list:SetSize(LIST_WIDTH, listHeight)
 
-	local scroll = ns.CreateFauxScrollFrame(list, FRAME_NAME .. "Scroll")
+	local scroll = ns.CreateFauxScrollFrame(list, FRAME_NAME .. "Scroll", true)
 	scroll:SetAllPoints()
 	scroll:SetScript("OnVerticalScroll", function(self, offset)
 		FauxScrollFrame_OnVerticalScroll(self, offset, ROW_HEIGHT, refreshList)
 	end)
-	local scrollBar = scroll.scrollBar
-	scrollBar:ClearAllPoints()
-	scrollBar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", 6, -16)
-	scrollBar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", 6, 16)
-	ns.SkinScrollBar(scroll)
 	frame.scroll = scroll
-	frame.scrollBar = scrollBar
+	frame.scrollBar = scroll.scrollBar
 
 	local rows = {}
 	for i = 1, rowCount do
