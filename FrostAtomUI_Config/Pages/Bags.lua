@@ -143,17 +143,6 @@ ns.RegisterPage({
 			type = "toggle",
 			desc = L["Number of empty slots on each bag button."],
 		},
-		{
-			path = "bags.searchFadeAlpha",
-			advanced = true,
-			label = L["Search fade alpha"],
-			type = "number",
-			min = 0,
-			max = 1,
-			step = 0.05,
-			percent = true,
-			desc = L["Alpha of items that do not match the search text."],
-		},
 		{ header = L["Sorting"], new = "1.4.1", glyph = "arrow-down-short-wide" },
 		{
 			description = L["/sort sorts the bags, /sortbank the bank. Sorting the bank first tops up its stacks from your bags."],

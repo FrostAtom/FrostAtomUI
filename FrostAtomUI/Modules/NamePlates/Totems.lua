@@ -6,7 +6,7 @@ local band = bit.band
 local sub = string.sub
 local max, tonumber = math.max, tonumber
 
-local snap = ns.WorldChildren.Snap
+local snap, snapX, snapY = ns.WorldChildren.Snap, ns.WorldChildren.SnapX, ns.WorldChildren.SnapY
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 
 local config = ns.Config.namePlates
@@ -453,7 +453,7 @@ function Totems.Show(plate, spellId)
 		release(plate)
 		plate.totemSpell = spellId
 	end
-	setDetached(plate, config.totemFullAlpha)
+	setDetached(plate, true)
 	totem:Show()
 	bind(plate)
 end
@@ -470,8 +470,8 @@ local function snapTotem(plate, totem)
 	if not left then
 		return
 	end
-	local x = snap(left + (plate:GetWidth() - totem:GetWidth()) / 2) - left
-	local y = snap(top - plate:HitPadding() + (totem:GetHeight() - totem.baseSize) / 2) - top
+	local x = snapX(left + (plate:GetWidth() - totem:GetWidth()) / 2) - left
+	local y = snapY(top - plate:HitPadding() + (totem:GetHeight() - totem.baseSize) / 2) - top
 	if x ~= totem.snapX or y ~= totem.snapY then
 		totem.snapX, totem.snapY = x, y
 		totem:SetPoint("TOPLEFT", plate, "TOPLEFT", x, y)

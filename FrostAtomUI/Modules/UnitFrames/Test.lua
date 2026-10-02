@@ -103,12 +103,10 @@ function UF:SetTestMode(enabled)
 	self.testing = enabled
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
-		if not frame.baseUnit:find("^boss") then
-			if enabled then
-				startTest(frame)
-			else
-				stopTest(frame)
-			end
+		if enabled then
+			startTest(frame)
+		else
+			stopTest(frame)
 		end
 	end
 	ns.Print(L["unit frame test mode %s"], enabled and L["on"] or L["off"])

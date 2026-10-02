@@ -452,7 +452,7 @@ end
 
 local function showSnapLine(axis, value, attached)
 	local line = snapLine(axis)
-	local thickness = ns.PixelPerfect(2)
+	local thickness = ns.PixelPerfect(2, snapLineFrame)
 	line:ClearAllPoints()
 	if axis == "x" then
 		local x = min(max(value - thickness / 2, 0), UIParent:GetWidth() - thickness)
@@ -1540,14 +1540,15 @@ end
 local function drawGridLine(index, color, vertical, offset)
 	local line = gridLine(index)
 	line:SetTexture(unpack(color))
+	line:ClearAllPoints()
 	if vertical then
-		line:SetWidth(ns.PixelPerfect(1))
-		line:SetPoint("TOP", grid, "TOP", offset, 0)
-		line:SetPoint("BOTTOM", grid, "BOTTOM", offset, 0)
+		line:SetWidth(ns.PixelPerfect(1, grid))
+		line:SetPoint("TOPLEFT", grid, "TOP", offset, 0)
+		line:SetPoint("BOTTOMLEFT", grid, "BOTTOM", offset, 0)
 	else
-		line:SetHeight(ns.PixelPerfect(1))
-		line:SetPoint("LEFT", grid, "LEFT", 0, offset)
-		line:SetPoint("RIGHT", grid, "RIGHT", 0, offset)
+		line:SetHeight(ns.PixelPerfect(1, grid))
+		line:SetPoint("BOTTOMLEFT", grid, "LEFT", 0, offset)
+		line:SetPoint("BOTTOMRIGHT", grid, "RIGHT", 0, offset)
 	end
 end
 
@@ -2011,6 +2012,7 @@ end
 
 Movers:RegisterEvent("UI_SCALE_CHANGED", onScaleChanged)
 Movers:RegisterEvent("DISPLAY_SIZE_CHANGED", onScaleChanged)
+Movers:RegisterEvent(ns.PIXEL_CHANGED, onScaleChanged)
 
 Movers:RegisterEvent(ns.CONFIG_CHANGED, function(_, path)
 	if not unlocked then

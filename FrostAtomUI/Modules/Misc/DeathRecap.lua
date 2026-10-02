@@ -11,9 +11,15 @@ local UnitHealthMax = UnitHealthMax
 local UnitIsFeignDeath = UnitIsFeignDeath
 local IsInInstance = IsInInstance
 local GameTooltip = GameTooltip
+local FauxScrollFrame_Update = FauxScrollFrame_Update
+local FauxScrollFrame_OnVerticalScroll = FauxScrollFrame_OnVerticalScroll
+local FauxScrollFrame_GetOffset = FauxScrollFrame_GetOffset
+local FauxScrollFrame_SetOffset = FauxScrollFrame_SetOffset
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local COMBATLOG_OBJECT_TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local floor = math.floor
+local min = math.min
+local max = math.max
 local band = bit.band
 local concat = table.concat
 local format = string.format
@@ -27,7 +33,7 @@ local CHAT_LINE = "%s |cffff4d4d|H" .. LINK_PREFIX .. "%d|h[%s]|h|r"
 local NAME_COLOR = "|cff%02x%02x%02x%s|r"
 local BURST_TEXT = "%s  |cffff3333%s|r"
 local RECAPS_KEPT = 30
-local BUFFER_SIZE = 20
+local BUFFER_SIZE = 50
 local RECAP_WINDOW = 10
 local BURST_WINDOW = 1.5
 local WIDTH = 340
@@ -37,10 +43,19 @@ local ROW_HEIGHT = 34
 local ICON_SIZE = 26
 local ICON_TRIM = 0.08
 local AMOUNT_WIDTH = 80
+local SCROLL_WIDTH = 20
 local TOMBSTONE_SIZE = 16
 local TOMBSTONE_ICON = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local ENVIRONMENT_ICON = "Interface\\Icons\\Ability_Creature_Cursed_05"
 local MELEE_SPELL = 6603 -- Auto Attack
+local NO_ENTRIES = {}
+
+local FIXED_ICONS = {
+	[MELEE_SPELL] = "Interface\\Icons\\Ability_MeleeDamage",
+	[75] = "Interface\\Icons\\Ability_Marksmanship", -- Auto Shot
+	[5019] = "Interface\\Icons\\Ability_ShootWand", -- Shoot
+}
+
 local DAMAGE_COLOR = { 0.75, 0.1, 0.1 }
 local LARGEST_COLOR = { 1, 0.2, 0.2 }
 local ABSORBED_COLOR = { 0.6, 0.6, 0.6 }
@@ -237,6 +252,15 @@ local function schoolName(school)
 	return name
 end
 
+local function shortAmount(value)
+	if value < 1e3 then
+		return tostring(value)
+	elseif value < 1e6 then
+		return format("%.2fk", value / 1e3)
+	end
+	return format("%.2fm", value / 1e6)
+end
+
 local function resolveNameAndIcon(entry)
 	local environment = entry.environment
 	if environment then
@@ -252,7 +276,7 @@ local function resolveNameAndIcon(entry)
 	else
 		entry.name = entry.spellName or name or UNKNOWN
 	end
-	entry.icon = icon or ns.Media.questionMark
+	entry.icon = FIXED_ICONS[spellId] or icon or ns.Media.questionMark
 end
 
 local function burstDamage(buffer, lastHit)
@@ -275,12 +299,11 @@ local function freezeRecap(guid, name)
 		return
 	end
 	local now = GetTime()
-	local limit = ns.Config.deathRecap.entries
 	local entries = {}
 	local index = buffer.head
 	for _ = 1, BUFFER_SIZE do
 		local entry = buffer[index]
-		if not entry or not entry.time or now - entry.time > RECAP_WINDOW or #entries >= limit then
+		if not entry or not entry.time or now - entry.time > RECAP_WINDOW then
 			break
 		end
 		local target = {}
@@ -315,16 +338,6 @@ local function freezeRecap(guid, name)
 	recaps[lastRecapId] = { name = name, entries = entries, deathTime = entries[1].time, burst = burst }
 	recaps[lastRecapId - RECAPS_KEPT] = nil
 	return lastRecapId
-end
-
-local function onIconEnter(self)
-	local spellId = self.row.entry.spellId
-	if not spellId then
-		return
-	end
-	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-	GameTooltip:SetHyperlink("spell:" .. spellId)
-	GameTooltip:Show()
 end
 
 local function addTooltipLine(text, color)
@@ -371,11 +384,24 @@ local function onRowEnter(self)
 	GameTooltip:Show()
 end
 
+local function onIconEnter(self)
+	local spellId = self.row.entry.spellId
+	if not spellId or FIXED_ICONS[spellId] then
+		onRowEnter(self.row)
+		return
+	end
+	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+	GameTooltip:SetHyperlink("spell:" .. spellId)
+	GameTooltip:Show()
+end
+
 local function createRow(index)
-	local row = CreateFrame("Button", nil, frame)
+	local list = frame.list
+	local top = -(index - 1) * ROW_HEIGHT
+	local row = CreateFrame("Button", nil, list)
 	row:SetHeight(ROW_HEIGHT)
-	row:SetPoint("TOPLEFT", PADDING, -(PADDING + HEADER_HEIGHT + (index - 1) * ROW_HEIGHT))
-	row:SetPoint("RIGHT", -PADDING, 0)
+	row:SetPoint("TOPLEFT", list, "TOPLEFT", 0, top)
+	row:SetPoint("TOPRIGHT", list, "TOPRIGHT", 0, top)
 	row:SetHighlightTexture(ns.Media.blank)
 	row:GetHighlightTexture():SetVertexColor(1, 1, 1, 0.08)
 	row:SetScript("OnEnter", onRowEnter)
@@ -394,19 +420,19 @@ local function createRow(index)
 	iconHover:SetScript("OnEnter", onIconEnter)
 	iconHover:SetScript("OnLeave", GameTooltip_Hide)
 
-	local textWidth = WIDTH - PADDING * 2 - ICON_SIZE - AMOUNT_WIDTH - 20
-
 	local name = row:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(name, 12)
 	name:SetPoint("TOPLEFT", icon, "TOPRIGHT", 8, 0)
-	name:SetSize(textWidth, 14)
+	name:SetPoint("TOPRIGHT", -(AMOUNT_WIDTH + 8), -(ROW_HEIGHT - ICON_SIZE) / 2)
+	name:SetHeight(14)
 	name:SetJustifyH("LEFT")
 	row.name = name
 
 	local caster = row:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(caster, 11)
 	caster:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -1)
-	caster:SetSize(textWidth, 12)
+	caster:SetPoint("TOPRIGHT", name, "BOTTOMRIGHT", 0, -1)
+	caster:SetHeight(12)
 	caster:SetJustifyH("LEFT")
 	caster:SetTextColor(CASTER_COLOR[1], CASTER_COLOR[2], CASTER_COLOR[3])
 	row.caster = caster
@@ -446,7 +472,7 @@ local function fillRow(row, entry, index)
 	other:Hide()
 	text:Show()
 	if entry.amount > 0 then
-		text:SetFormattedText("-%d", entry.amount)
+		text:SetText("-" .. shortAmount(entry.amount))
 	else
 		text:SetText("0")
 		color = ABSORBED_COLOR
@@ -462,33 +488,54 @@ local function fillRow(row, entry, index)
 	end
 end
 
+local function refreshRows()
+	local entries = frame.entries
+	local visible = frame.visibleRows
+	local offset = FauxScrollFrame_GetOffset(frame.scroll)
+	local rows = frame.rows
+	for i = 1, visible do
+		local index = i + offset
+		local entry = entries[index]
+		local row = rows[i] or createRow(i)
+		if entry then
+			fillRow(row, entry, index)
+			row:Show()
+		else
+			row:Hide()
+		end
+	end
+	for i = visible + 1, #rows do
+		rows[i]:Hide()
+	end
+	FauxScrollFrame_Update(frame.scroll, #entries, visible, ROW_HEIGHT)
+end
+
 local function refresh()
 	if not frame or not frame:IsShown() then
 		return
 	end
 	local recap = recaps[shownId]
-	local entries = recap and recap.entries
-	local count = entries and #entries or 0
+	local entries = recap and recap.entries or NO_ENTRIES
+	local count = #entries
+	local visible = min(count, ns.Config.deathRecap.entries)
 	deathTime = recap and recap.deathTime or 0
 	local title = L["Death recap"]
 	if recap and recap.name then
 		title = format("%s: %s", title, recap.name)
 	end
 	if recap and recap.burst > 0 then
-		title = format(BURST_TEXT, title, format(L["-%d in %.1fs"], recap.burst, BURST_WINDOW))
+		title = format(BURST_TEXT, title, format(L["-%s in %.1fs"], shortAmount(recap.burst), BURST_WINDOW))
 	end
 	frame.title:SetText(title)
-	local rows = frame.rows
-	for i = 1, count do
-		local row = rows[i] or createRow(i)
-		fillRow(row, entries[i], i)
-		row:Show()
-	end
-	for i = count + 1, #rows do
-		rows[i]:Hide()
-	end
+	frame.entries = entries
+	frame.visibleRows = visible
+	local height = max(visible, 1) * ROW_HEIGHT
+	local right = count > visible and PADDING + SCROLL_WIDTH or PADDING
+	frame.list:SetPoint("TOPRIGHT", -right, -(PADDING + HEADER_HEIGHT))
+	frame.list:SetHeight(height)
+	refreshRows()
 	ns.SetShown(frame.empty, count == 0)
-	frame:SetHeight(PADDING * 2 + HEADER_HEIGHT + (count > 0 and count or 1) * ROW_HEIGHT)
+	frame:SetHeight(PADDING * 2 + HEADER_HEIGHT + height)
 end
 
 local function createFrame()
@@ -496,6 +543,26 @@ local function createFrame()
 	Misc:AnchorToConfig(frame, "deathRecap.point", "Death recap", { floating = true })
 	frame:SetScript("OnShow", refresh)
 	frame.rows = {}
+	frame.entries = NO_ENTRIES
+	frame.visibleRows = 0
+
+	local list = CreateFrame("Frame", nil, frame)
+	list:SetPoint("TOPLEFT", PADDING, -(PADDING + HEADER_HEIGHT))
+	list:SetPoint("TOPRIGHT", -PADDING, -(PADDING + HEADER_HEIGHT))
+	frame.list = list
+
+	local scroll = ns.CreateFauxScrollFrame(list, FRAME_NAME .. "Scroll")
+	scroll:SetAllPoints()
+	scroll:SetScript("OnVerticalScroll", function(self, offset)
+		FauxScrollFrame_OnVerticalScroll(self, offset, ROW_HEIGHT, refreshRows)
+	end)
+	local scrollBar = scroll.scrollBar
+	local barName = scrollBar:GetName()
+	scrollBar:ClearAllPoints()
+	scrollBar:SetPoint("TOPLEFT", scroll, "TOPRIGHT", SCROLL_WIDTH - 16, -16)
+	scrollBar:SetPoint("BOTTOMLEFT", scroll, "BOTTOMRIGHT", SCROLL_WIDTH - 16, 16)
+	ns.SkinSlimScrollBar(scrollBar, _G[barName .. "ScrollUpButton"], _G[barName .. "ScrollDownButton"])
+	frame.scroll = scroll
 
 	local empty = frame:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(empty, 13)
@@ -510,6 +577,8 @@ local function show(id)
 		createFrame()
 	end
 	shownId = id or lastRecapId
+	FauxScrollFrame_SetOffset(frame.scroll, 0)
+	frame.scroll.scrollBar:SetValue(0)
 	if frame:IsShown() then
 		refresh()
 	else
@@ -596,6 +665,7 @@ local function applyConfig()
 		Misc:UnregisterEvent("PLAYER_ENTERING_WORLD", updateZone)
 	end
 	updateZone()
+	refresh()
 end
 
 Misc:RegisterEvent("PLAYER_LOGIN", function()

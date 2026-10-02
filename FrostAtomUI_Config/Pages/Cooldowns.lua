@@ -341,13 +341,6 @@ local function generalSchema()
 			desc = L["Grey out the icon while the ability is on cooldown."],
 		},
 		{
-			path = "readyFlash",
-			label = L["Cooldown ready flash"],
-			type = "toggle",
-			advanced = true,
-			desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
-		},
-		{
 			path = "glowColor",
 			label = L["Active effect glow"],
 			type = "color",

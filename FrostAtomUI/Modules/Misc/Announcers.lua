@@ -175,15 +175,11 @@ Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", function()
 	ratingReported = true
 
 	local config = ns.Config.announce
-	if not (config.enabled and config.arenaResult) then
+	if not (config.enabled and config.arenaResultToParty and UnitExists("party1")) then
 		return
 	end
 
 	local playerTeam = collectScores() or 0
 	local message = teamSummary(playerTeam, playerTeam) .. " VS " .. teamSummary(1 - playerTeam, playerTeam)
-	if config.arenaResultToParty and UnitExists("party1") then
-		SendChatMessage(message, "PARTY")
-	else
-		ns.Print("%s", message)
-	end
+	SendChatMessage(message, "PARTY")
 end)

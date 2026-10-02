@@ -497,7 +497,7 @@ end
 
 local function setHovered(frame, hovered)
 	frame.hovered = hovered
-	ns.SetShown(frame.hover, hovered and config.hoverHighlight)
+	ns.SetShown(frame.hover, hovered and config.hoverAlpha > 0)
 	if frame.test or frame:IsShown() then
 		UF.UpdateTexts(frame)
 	end
@@ -571,7 +571,7 @@ function UnitFrameMixin:SetWatched(watched)
 		return
 	end
 	self.watched = watched
-	if UF.testing and not self.baseUnit:find("^boss") then
+	if UF.testing then
 		UF.StartTest(self)
 	elseif watched then
 		RegisterUnitWatch(self)

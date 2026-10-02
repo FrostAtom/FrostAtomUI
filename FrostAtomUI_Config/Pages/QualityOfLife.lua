@@ -39,16 +39,6 @@ Section(schema, L["Error messages"], "tweaks", {
 		desc = L['"Not enough mana", "Out of range" and similar messages at the top of the screen.'],
 	},
 	{
-		path = "dedupErrors",
-		advanced = true,
-		new = "1.4.0",
-		label = L["Merge repeated error messages"],
-		type = "toggle",
-		disabled = errorsHidden,
-		disabledDesc = L["All red error messages are hidden."],
-		desc = L["A repeated error flashes the line already on screen instead of adding another one."],
-	},
-	{
 		path = "filterCooldownErrors",
 		new = "1.4.0",
 		label = L["Hide cooldown and resource errors"],
@@ -110,7 +100,7 @@ Section(schema, L["Merchant"], "merchant", {
 		path = "enabled",
 		label = L["Enable"],
 		type = "toggle",
-		desc = L["Automatic actions when a merchant window opens."],
+		desc = L["Automatic actions when a merchant window opens. Hold Shift while opening it to skip them."],
 	},
 	{
 		path = "sellGreys",
@@ -132,13 +122,6 @@ Section(schema, L["Merchant"], "merchant", {
 		type = "toggle",
 		enabledBy = "merchant.autoRepair",
 		desc = L["Repair from the guild bank when your rank allows it and the guild can pay; otherwise from your own money."],
-	},
-	{
-		path = "shiftToSkip",
-		advanced = true,
-		label = L["Hold Shift to skip"],
-		type = "toggle",
-		desc = L["Do nothing when the merchant window is opened with Shift held."],
 	},
 	{
 		path = "showItemLevel",
@@ -170,14 +153,7 @@ Section(schema, L["Merchant"], "merchant", {
 	},
 }, nil, nil, "coins")
 
-local QUALITY_TIERS = {
-	{ "uncommon", L["Average: green from"], L["Average item level colored by quality tier. Grey below this value."] },
-	{ "rare", L["Average: blue from"] },
-	{ "epic", L["Average: purple from"] },
-	{ "legendary", L["Average: orange from"] },
-}
-
-local equipmentEntries = {
+Section(schema, L["Equipment"], "equipment", {
 	{
 		path = "enabled",
 		label = L["Enable"],
@@ -206,43 +182,18 @@ local equipmentEntries = {
 		enabledBy = "equipment.showItemLevels",
 		desc = L["Average item level of the equipped gear on the character and inspect windows."],
 	},
-}
-for i, tier in ipairs(QUALITY_TIERS) do
-	local lower, higher = QUALITY_TIERS[i - 1], QUALITY_TIERS[i + 1]
-	equipmentEntries[#equipmentEntries + 1] = {
-		path = "qualityThresholds." .. tier[1],
-		atLeast = lower and "equipment.qualityThresholds." .. lower[1],
-		atMost = higher and "equipment.qualityThresholds." .. higher[1],
-		label = tier[2],
+	{
+		path = "durabilityThreshold",
+		label = L["Durability warning"],
 		type = "number",
-		min = 1,
-		max = 400,
-		step = 1,
-		advanced = true,
-		enabledBy = "equipment.showItemLevels",
-		desc = tier[3],
-	}
-end
-equipmentEntries[#equipmentEntries + 1] = {
-	path = "durabilityWarning",
-	label = L["Durability warning"],
-	type = "toggle",
-	desc = L["Print a chat warning when gear durability gets low."],
-}
-equipmentEntries[#equipmentEntries + 1] = {
-	path = "durabilityThreshold",
-	advanced = true,
-	label = L["Warn below"],
-	type = "number",
-	min = 0.05,
-	max = 0.9,
-	step = 0.05,
-	percent = true,
-	enabledBy = "equipment.durabilityWarning",
-	desc = L["Warn when any equipped item drops below this durability."],
-}
-
-Section(schema, L["Equipment"], "equipment", equipmentEntries, nil, nil, "shirt")
+		min = 0,
+		max = 0.9,
+		step = 0.05,
+		percent = true,
+		zeroText = L["Off"],
+		desc = L["Print a chat warning when any equipped item drops below this durability."],
+	},
+}, nil, nil, "shirt")
 
 Section(schema, L["Character model"], "modelControls", {
 	{
@@ -251,27 +202,6 @@ Section(schema, L["Character model"], "modelControls", {
 		type = "toggle",
 		reload = true,
 		desc = L["Drag to rotate, right-drag to pan, mouse wheel to zoom and middle-click to reset the character, inspect and dressing room models. Removes the rotate buttons."],
-	},
-	{
-		path = "rotateSpeed",
-		label = L["Rotate speed"],
-		type = "number",
-		min = 0.002,
-		max = 0.05,
-		step = 0.002,
-		advanced = true,
-		desc = L["Radians per pixel of mouse movement."],
-	},
-	{
-		path = "zoomStep",
-		label = L["Zoom step"],
-		type = "number",
-		min = 0.05,
-		max = 0.5,
-		step = 0.05,
-		percent = true,
-		advanced = true,
-		desc = L["Size change per mouse wheel notch, as a fraction of the current zoom."],
 	},
 }, nil, nil, "street-view")
 

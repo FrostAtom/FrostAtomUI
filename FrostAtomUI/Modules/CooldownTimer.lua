@@ -121,7 +121,7 @@ local function onSetCooldown(cooldown, startTime, duration)
 	local flash = cooldown.flash
 	if flash then
 		flash:Hide()
-		cooldown.flashArmed = cooldown.flashConfig[cooldown.flashKey] and duration > FLASH_DURATION
+		cooldown.flashArmed = config.readyFlash and duration > FLASH_DURATION
 	end
 	local maxDuration = cooldown.timerMaxDuration
 	if duration > (cooldown.timerMinDuration or minDuration) and not (maxDuration and duration > maxDuration) then
@@ -153,13 +153,11 @@ function CooldownTimer:Attach(cooldown, fontSize, parent)
 	hooksecurefunc(cooldown, "SetCooldown", onSetCooldown)
 end
 
-function CooldownTimer:AttachFlash(cooldown, icon, config, key)
+function CooldownTimer:AttachFlash(cooldown, icon)
 	local flash = icon:GetParent():CreateTexture(nil, "OVERLAY")
 	flash:SetAllPoints(icon)
 	flash:SetTexture(Media.blank)
 	flash:SetBlendMode("ADD")
 	flash:Hide()
 	cooldown.flash = flash
-	cooldown.flashConfig = config
-	cooldown.flashKey = key
 end

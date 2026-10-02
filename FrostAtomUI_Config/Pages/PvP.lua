@@ -148,36 +148,6 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Hide the button until the cursor is over it. It stays visible in the queue, after the arena match ends and once an ally dies or leaves."],
 		},
-		{ header = L["Text"], glyph = "font" },
-		{
-			path = "soloQueue.rangeFont",
-			label = L["Search range font"],
-			type = "font",
-			advanced = true,
-			desc = L["Rating range shown under the button while searching."],
-		},
-		{ header = L["Colors"], glyph = "palette" },
-		{
-			path = "soloQueue.glowColor",
-			label = L["Ready glow color"],
-			type = "color",
-			advanced = true,
-			desc = L["Glow around the button when the arena is ready to enter."],
-		},
-		{
-			path = "soloQueue.teamSearchColor",
-			label = L["Team search color"],
-			type = "color",
-			advanced = true,
-			desc = L["Range text while the queue is looking for teammates."],
-		},
-		{
-			path = "soloQueue.opponentSearchColor",
-			label = L["Opponent search color"],
-			type = "color",
-			advanced = true,
-			desc = L["Range text once a team is formed and the queue is looking for opponents."],
-		},
 	}),
 })
 
@@ -361,19 +331,6 @@ Section(schema, L["Queue invite"], "queueInvite", {
 		desc = L["Arena art, a large match title and a countdown bar in the Enter Battle dialog."],
 	},
 	{
-		path = "countdown",
-		label = L["Invite countdown"],
-		type = "toggle",
-		desc = L["Seconds left to enter, shown above the invite dialog when it is not styled."],
-	},
-	{
-		path = "font",
-		label = L["Countdown font"],
-		type = "font",
-		advanced = true,
-		enabledBy = "queueInvite.countdown",
-	},
-	{
 		path = "sound",
 		label = L["Invite sound"],
 		type = "toggle",
@@ -381,15 +338,15 @@ Section(schema, L["Queue invite"], "queueInvite", {
 	},
 }, nil, "1.4.0", "bell")
 
-Section(schema, L["Queue pop flash"], "queuePopFlash", {
+for _, entry in ipairs({
 	{
-		path = "enabled",
-		label = L["Enable"],
+		path = "queuePopFlash.enabled",
+		label = L["Screen flash"],
 		type = "toggle",
 		desc = L["Flash the whole screen when an arena, battleground or dungeon invite appears."],
 	},
 	{
-		path = "intensity",
+		path = "queuePopFlash.intensity",
 		label = L["Flash alpha"],
 		type = "number",
 		min = 0.1,
@@ -397,20 +354,20 @@ Section(schema, L["Queue pop flash"], "queuePopFlash", {
 		step = 0.05,
 		percent = true,
 		advanced = true,
+		enabledBy = "queuePopFlash.enabled",
 		desc = L["Peak opacity of the flash; it ramps up to this over the first 15 seconds."],
 	},
 	{
-		path = "pulseSpeed",
-		label = L["Pulse speed"],
-		type = "number",
-		min = 0.2,
-		max = 5,
-		step = 0.1,
+		path = "queuePopFlash.color",
+		label = L["Flash color"],
+		type = "color",
 		advanced = true,
-		desc = L["Flashes per second."],
+		enabledBy = "queuePopFlash.enabled",
 	},
-	{ path = "color", label = L["Flash color"], type = "color", advanced = true },
-}, nil, nil, "bolt")
+}) do
+	ns.AddRequirement(entry, "queueInvite.enabled")
+	schema[#schema + 1] = entry
+end
 
 Section(schema, L["Solo queue"], "soloQueue", {
 	{
@@ -453,7 +410,7 @@ Section(schema, L["Death recap"], "deathRecap", {
 		max = 10,
 		step = 1,
 		advanced = true,
-		desc = L["Last hits from the final 10 seconds kept in the recap."],
+		desc = L["Hits visible in the recap window at once, scroll to see the rest of the final 10 seconds."],
 	},
 	{
 		path = "chatLink",

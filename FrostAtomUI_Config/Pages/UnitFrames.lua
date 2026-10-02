@@ -334,9 +334,7 @@ local function frameLayout(key, shownPath, shownLabel)
 	end
 	list[#list + 1] = size(uf(key .. "Width"), L["Width"], 120, 320, nil, shownPath)
 	list[#list + 1] = size(uf(key .. "Height"), L["Height"], 30, 80, nil, shownPath)
-	if key ~= "boss" then
-		list[#list + 1] = iconSide(key, shownPath)
-	end
+	list[#list + 1] = iconSide(key, shownPath)
 	return list
 end
 
@@ -761,7 +759,6 @@ end
 local function playerIndicators()
 	return {
 		{ header = L["Indicators"], glyph = "icons" },
-		{ path = "unitFrames.showRestingIcon", label = L["Resting icon"], type = "toggle", advanced = true },
 		{
 			path = "unitFrames.pvpTimer",
 			new = "1.4.1",
@@ -912,21 +909,6 @@ local function arenaUnseen()
 			desc = L["Placeholder frames for the expected opponents before the gates open, filled with class, spec and name as soon as an opponent is seen."],
 		},
 	}
-end
-
-local function bossSchema()
-	return concat(frameLayout("boss", "unitFrames.showBoss", L["Boss frames"]), {
-		advanced(
-			size(
-				"unitFrames.bossSpacing",
-				L["Spacing"],
-				40,
-				200,
-				L["Vertical distance between the tops of consecutive boss frames."],
-				"unitFrames.showBoss"
-			)
-		),
-	})
 end
 
 local function registerElement(element)
@@ -1126,14 +1108,38 @@ registerGroup({
 	Target = { frames = L["Arena opponent targets"], castbars = L["Arena target castbars"] },
 })
 
-registerElement({
-	path = "unitFrames.boss",
-	tab = "boss",
-	name = L["Boss"],
-	glyph = "skull",
-	enabledBy = { "unitFrames.enabled", "unitFrames.showBoss" },
-	schema = bossSchema(),
-})
+function ns.CastbarIndicators()
+	return {
+		{
+			path = "unitFrames.castbarTargetName",
+			new = "1.4.0",
+			label = L["Show cast target"],
+			type = "toggle",
+			desc = L["Class-colored name of the caster's target on the right of unit frame and nameplate castbars."],
+		},
+		{
+			path = "unitFrames.castbarTargetingYou",
+			new = "1.4.0",
+			label = L["Highlight casts on you"],
+			type = "toggle",
+			desc = L["Colored border of unit frame and nameplate castbars while an enemy casts at you."],
+		},
+		{
+			path = "unitFrames.castbarImportant",
+			new = "1.4.0",
+			label = L["Pulse important casts"],
+			type = "toggle",
+			desc = L["Pulsing glow around unit frame and nameplate castbars for crowd control and heals."],
+		},
+		{
+			path = "unitFrames.castbarInterrupter",
+			new = "1.4.0",
+			label = L["Show who interrupted"],
+			type = "toggle",
+			desc = L["Keep an interrupted unit frame or nameplate castbar red for a second with the interrupter's name."],
+		},
+	}
+end
 
 local function generalSettings()
 	return {
@@ -1153,22 +1159,16 @@ local function generalSettings()
 			desc = L["Action on middle-clicking a frame. Set focus on the focus frame clears it."],
 		},
 		{
-			path = "unitFrames.hoverHighlight",
-			label = L["Highlight on mouseover"],
-			type = "toggle",
-			advanced = true,
-			desc = L["Light overlay on the frame under the cursor."],
-		},
-		{
 			path = "unitFrames.hoverAlpha",
-			label = L["Mouseover highlight alpha"],
+			label = L["Highlight on mouseover"],
 			type = "number",
-			min = 0.02,
+			min = 0,
 			max = 0.5,
 			step = 0.02,
 			percent = true,
+			zeroText = L["Off"],
 			advanced = true,
-			enabledBy = "unitFrames.hoverHighlight",
+			desc = L["Light overlay on the frame under the cursor."],
 		},
 		{
 			path = "unitFrames.outOfRangeAlpha",
@@ -1231,42 +1231,11 @@ local function generalSettings()
 			desc = L["Fraction of the frame height taken by the power bar."],
 		},
 		{ header = L["Castbar"], glyph = "bars-progress" },
-		{
-			path = "unitFrames.castbarTargetName",
-			new = "1.4.0",
-			label = L["Show cast target"],
-			type = "toggle",
-			desc = L["Class-colored name of the caster's target on the right of the castbar."],
-		},
-		{
-			path = "unitFrames.castbarTargetingYou",
-			new = "1.4.0",
-			label = L["Highlight casts on you"],
-			type = "toggle",
-			desc = L["Colored castbar border while an enemy casts at you."],
-		},
-		{
-			path = "unitFrames.castbarImportant",
-			new = "1.4.0",
-			label = L["Pulse important casts"],
-			type = "toggle",
-			desc = L["Pulsing glow around the castbar for crowd control and heals."],
-		},
-		{
-			path = "unitFrames.castbarInterrupter",
-			new = "1.4.0",
-			label = L["Show who interrupted"],
-			type = "toggle",
-			desc = L["Keep an interrupted castbar red for a second with the interrupter's name."],
-		},
-		{
-			path = "unitFrames.castbarFinishFlash",
-			new = "1.4.0",
-			label = L["Flash on finished cast"],
-			type = "toggle",
-			advanced = true,
-			desc = L["Short white flash when a cast completes."],
-		},
+	}
+end
+
+local function displaySettings()
+	return {
 		{
 			path = "unitFrames.castbarTicks",
 			new = "1.4.1",
@@ -1442,6 +1411,8 @@ end
 local function generalSchema()
 	return concat(
 		generalSettings(),
+		ns.CastbarIndicators(),
+		displaySettings(),
 		textEntries(
 			"health",
 			L["Health bar texts"],
@@ -1511,8 +1482,6 @@ local function squareTabEntry(key, parent, name, glyph)
 		schema = squareTab(SQUARES[key]),
 	}
 end
-
-local bossCopy = { Width = "unitFrames.bossWidth", Height = "unitFrames.bossHeight" }
 
 local raidTab, raidIndicatorsTab
 do
@@ -1813,12 +1782,5 @@ ns.RegisterPage({
 		},
 		squareTabEntry("arenaPet", "arena", L["Arena pets"], "paw"),
 		squareTabEntry("arenaTarget", "arena", L["Arena targets"], "bullseye"),
-		{
-			key = "boss",
-			name = L["Boss"],
-			glyph = "skull",
-			copy = bossCopy,
-			schema = concat(framesSection(), bossSchema()),
-		},
 	},
 })

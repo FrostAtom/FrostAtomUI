@@ -535,7 +535,7 @@ function ActionButtonMixin:UpdateCooldown()
 	local endTime = start + duration
 	if enable == 1 and duration > GCD_DURATION and endTime > now then
 		self.cooldownEnd, self.cooldownDuration = endTime, duration
-		self.schoolLocked = config.interruptLockout
+		self.schoolLocked = config.lossOfControl
 			and duration <= MAX_INTERRUPT_LOCKOUT
 			and start > interruptedAt - INTERRUPT_TOLERANCE
 			and start < interruptedAt + INTERRUPT_TOLERANCE
@@ -814,12 +814,9 @@ end
 function ActionBar:UpdateLockoutTracking()
 	if config.lossOfControl then
 		self:RegisterUnitEvent("UNIT_AURA", "player", scanLossOfControl)
-	else
-		self:UnregisterUnitEvent("UNIT_AURA", "player", scanLossOfControl)
-	end
-	if config.interruptLockout then
 		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
 	else
+		self:UnregisterUnitEvent("UNIT_AURA", "player", scanLossOfControl)
 		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
 	end
 	scanLossOfControl()

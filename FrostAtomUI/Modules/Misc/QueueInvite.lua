@@ -17,6 +17,7 @@ local pulse = ns.QueuePulse
 
 local WHICH = "CONFIRM_BATTLEFIELD_ENTRY"
 local INVITE_SOUND = "Sound\\Spells\\PVPThroughQueue.wav"
+local COUNTDOWN_FONT_SIZE = 20
 local COUNTDOWN_TICK = 0.2
 local COUNTDOWN_URGENT = 10
 local COUNTDOWN_URGENT_COLOR = { 1, 0.3, 0.3 }
@@ -480,7 +481,7 @@ local function updateInvite()
 		end
 		confirmed[i] = confirm
 	end
-	if pendingInvite and config.enabled and config.countdown then
+	if pendingInvite and config.enabled then
 		countdown.untilTick = 0
 		countdown:Show()
 	else
@@ -489,8 +490,7 @@ local function updateInvite()
 end
 
 local function applyConfig()
-	local font = ns.Config.queueInvite.font
-	ns.SetFont(countdownText, font.size, font.outline, true)
+	ns.SetFont(countdownText, COUNTDOWN_FONT_SIZE, "OUTLINE", true)
 	updateInvite()
 	refreshDialogs()
 end

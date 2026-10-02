@@ -95,6 +95,13 @@ local schema = {
 		desc = L["Remaining time under this value is shown with tenths of a second in the expiring color."],
 	},
 	{
+		path = "cooldownTimer.readyFlash",
+		advanced = true,
+		label = L["Cooldown ready flash"],
+		type = "toggle",
+		desc = L["Short bright flash on cooldown tracker and internal cooldown icons as the ability becomes ready."],
+	},
+	{
 		path = "cooldownTimer.expiringColor",
 		new = "1.4.0",
 		label = L["Expiring color"],

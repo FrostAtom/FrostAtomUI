@@ -22,6 +22,7 @@ local SECOND_BEAT_DELAY = 0.27
 local SECOND_BEAT_ATTACK = 0.11
 local SECOND_BEAT_RELEASE = 0.42
 local SECOND_BEAT_STRENGTH = 0.75
+local PULSE_SPEED = 1.5
 local URGENT_SECONDS = 10
 local URGENT_SPEED = 1.7
 local URGENT_BLEND_TIME = 1
@@ -218,7 +219,7 @@ driver:SetScript("OnUpdate", function(self, elapsed)
 		self.urgent = expiration and expiration <= URGENT_SECONDS
 	end
 
-	local speed = ns.Config.queuePopFlash.pulseSpeed
+	local speed = PULSE_SPEED
 	local step = elapsed / URGENT_BLEND_TIME
 	if self.urgent then
 		speed = speed * URGENT_SPEED
@@ -274,7 +275,7 @@ local function updateFlash()
 		end
 	end
 
-	local show = active and ns.Config.queuePopFlash.enabled
+	local show = active and ns.Config.queueInvite.enabled and ns.Config.queuePopFlash.enabled
 	if show == flashing then
 		return
 	end
@@ -295,6 +296,7 @@ end
 
 updateFlash()
 Misc:WatchConfig("queuePopFlash", updateFlash)
+Misc:WatchConfig("queueInvite.enabled", updateFlash)
 Misc:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", updateFlash)
 Misc:RegisterEvent("PLAYER_ENTERING_WORLD", setProposal(false))
 Misc:RegisterEvent("LFG_PROPOSAL_SHOW", setProposal(true))

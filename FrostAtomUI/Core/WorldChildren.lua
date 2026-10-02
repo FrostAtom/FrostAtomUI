@@ -1,26 +1,33 @@
 local _, ns = ...
 
 local WorldFrame = WorldFrame
-local GetCurrentResolution, GetScreenResolutions = GetCurrentResolution, GetScreenResolutions
-local floor, tonumber = math.floor, tonumber
+local floor = math.floor
 
 local WorldChildren = {}
 ns.WorldChildren = WorldChildren
 
-local pixel = 1
+local pixelX, pixelY = 1, 1
+local gridX, gridY = 0, 0
 
 function WorldChildren.UpdatePixel()
-	local resolution = select(GetCurrentResolution(), GetScreenResolutions())
-	local height = resolution and tonumber(resolution:match("x(%d+)$"))
-	pixel = height and WorldFrame:GetHeight() / height or 1
+	pixelX, pixelY = ns.Pixel.Units(WorldFrame)
+	gridX, gridY = ns.Pixel.GridOffset()
 end
 
 function WorldChildren.Pixel()
-	return pixel
+	return pixelY
 end
 
 function WorldChildren.Snap(value)
-	return floor(value / pixel + 0.5) * pixel
+	return floor(value / pixelY + 0.5) * pixelY
+end
+
+function WorldChildren.SnapX(value)
+	return (floor(value / pixelX - gridX + 0.5) + gridX) * pixelX
+end
+
+function WorldChildren.SnapY(value)
+	return (floor(value / pixelY - gridY + 0.5) + gridY) * pixelY
 end
 
 local KIND_BY_TEXTURE = {
@@ -109,7 +116,9 @@ end
 
 local scanner = CreateFrame("Frame")
 scanner:SetScript("OnUpdate", scanNewChildren)
-scanner:SetScript("OnEvent", WorldChildren.UpdatePixel)
-scanner:RegisterEvent("PLAYER_LOGIN")
-scanner:RegisterEvent("DISPLAY_SIZE_CHANGED")
+
+local pixelWatcher = ns.Mixin({}, ns.EventMixin)
+pixelWatcher:RegisterEvent("PLAYER_LOGIN", WorldChildren.UpdatePixel)
+pixelWatcher:RegisterEvent("DISPLAY_SIZE_CHANGED", WorldChildren.UpdatePixel)
+pixelWatcher:RegisterEvent(ns.PIXEL_CHANGED, WorldChildren.UpdatePixel)
 WorldChildren.UpdatePixel()

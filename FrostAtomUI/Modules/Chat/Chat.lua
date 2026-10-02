@@ -78,8 +78,10 @@ end
 local function applyFrameConfig()
 	for i = 1, NUM_CHAT_WINDOWS do
 		local chatFrame = _G["ChatFrame" .. i]
-		chatFrame:SetFading(config.fadeMessages)
-		chatFrame:SetTimeVisible(config.fadeTime)
+		chatFrame:SetFading(config.fadeTime > 0)
+		if config.fadeTime > 0 then
+			chatFrame:SetTimeVisible(config.fadeTime)
+		end
 	end
 	for i = 1, #chatBackdrops do
 		chatBackdrops[i]:SetBackdropColor(0, 0, 0, config.backgroundAlpha)
@@ -540,7 +542,7 @@ local lastAutoReplies = { CHAT_MSG_AFK = {}, CHAT_MSG_DND = {} }
 local autoReplyLine, autoReplyFiltered
 
 local function filterAutoReply(_, event, message, author, _, _, _, _, _, _, _, _, lineId)
-	if not config.filterAutoReplies or not author then
+	if not author then
 		return
 	end
 	lineId = lineId or GetTime()

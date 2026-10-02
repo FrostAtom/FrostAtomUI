@@ -35,6 +35,9 @@ local ORANGE = { 1, 0.6, 0.2 }
 local YELLOW = { 1, 0.9, 0.3 }
 local GREEN = { 0.4, 1, 0.4 }
 
+local FPS_RED, FPS_ORANGE, FPS_YELLOW = 50, 60, 90
+local LATENCY_RED, LATENCY_ORANGE, LATENCY_YELLOW = 200, 100, 50
+
 local function tierColor(value, red, orange, yellow, higherIsBetter)
 	local color
 	if higherIsBetter then
@@ -57,13 +60,13 @@ local function onUpdate(_, elapsed)
 	if config.showFps then
 		local fps = GetFramerate()
 		fpsValue:SetFormattedText("%d", fps + 0.5)
-		fpsValue:SetTextColor(tierColor(fps + 0.5, config.fpsRed, config.fpsOrange, config.fpsYellow, true))
+		fpsValue:SetTextColor(tierColor(fps + 0.5, FPS_RED, FPS_ORANGE, FPS_YELLOW, true))
 	end
 
 	if config.showLatency then
 		local _, _, latency = GetNetStats()
 		latencyValue:SetFormattedText("%d", latency)
-		latencyValue:SetTextColor(tierColor(latency, config.latencyRed, config.latencyOrange, config.latencyYellow))
+		latencyValue:SetTextColor(tierColor(latency, LATENCY_RED, LATENCY_ORANGE, LATENCY_YELLOW))
 	end
 end
 

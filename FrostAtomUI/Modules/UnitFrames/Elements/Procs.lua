@@ -66,7 +66,7 @@ local function createIcon(container, index)
 	icon.cooldown = CreateFrame("Cooldown", nil, icon)
 	icon.cooldown:SetAllPoints()
 	CooldownTimer:Attach(icon.cooldown, container.size * FONT_SCALE, icon)
-	CooldownTimer:AttachFlash(icon.cooldown, icon.texture, ns.Config.unitFrames, "cooldownReadyFlash")
+	CooldownTimer:AttachFlash(icon.cooldown, icon.texture)
 
 	icon.glow = icon:CreateTexture(nil, "OVERLAY")
 	icon.glow:SetPoint("CENTER")

@@ -273,15 +273,6 @@ tinsert(schema, #schema - 3, {
 	desc = L["Unit frames that show the internal cooldown icons."],
 })
 
-tinsert(schema, #schema - 1, {
-	path = "unitFrames.cooldownReadyFlash",
-	label = L["Cooldown ready flash"],
-	type = "toggle",
-	advanced = true,
-	enabledBy = { "internalCooldowns.enabled", "unitFrames.enabled" },
-	desc = L["Short bright flash on a tracked cooldown icon as the ability becomes ready."],
-})
-
 Section(schema, L["Internal cooldowns layout"], "internalCooldowns", {
 	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
 	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
@@ -327,27 +318,6 @@ Section(schema, L["Arena history"], "arenaHistory", {
 		step = 50,
 		advanced = true,
 		desc = L["Oldest games are dropped past this count."],
-	},
-	{
-		path = "winColor",
-		label = L["Win color"],
-		type = "color",
-		advanced = true,
-		desc = L["Result text of won games in the history window."],
-	},
-	{
-		path = "lossColor",
-		label = L["Loss color"],
-		type = "color",
-		advanced = true,
-		desc = L["Result text of lost games in the history window."],
-	},
-	{
-		path = "leftColor",
-		label = L["Left color"],
-		type = "color",
-		advanced = true,
-		desc = L["Result text of games you left before the end in the history window."],
 	},
 	{
 		label = L["History window"],

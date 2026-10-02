@@ -192,7 +192,7 @@ local function applyConfig()
 	local config = ns.Config.runes
 	local width, height, gap = config.width, config.height, config.gap
 	local iconSize = min(height + ICON_EXTRA, width)
-	local edge = ns.PixelPerfect(1)
+	local edge = ns.PixelPerfect(1, holder)
 	local font = config.timerFont
 	holder:SetSize(NUM_RUNES * (width + gap) - gap, height)
 
@@ -229,4 +229,5 @@ function Runes:Initialize()
 
 	applyConfig()
 	self:WatchConfig("runes", applyConfig)
+	self:RegisterEvent(ns.PIXEL_CHANGED, applyConfig)
 end

@@ -16,6 +16,7 @@ local frameConfig = ns.Config.unitFrames
 local plateConfig = ns.Config.namePlates
 local BACKDROP = ns.CreateBackdrop(8, 2)
 local BORDER_INSET = 3
+local PADDING = 4
 local SENDER_GAP = 2
 
 local function iconTagToTexture(tag)
@@ -58,7 +59,7 @@ local function layout(bubble, info)
 	text:SetWidth(0)
 	text:SetWidth(max(min(text:GetStringWidth(), config.bubbleMaxWidth), senderWidth))
 
-	local inset = config.bubblePadding + BORDER_INSET
+	local inset = PADDING + BORDER_INSET
 	bubble:ClearAllPoints()
 	bubble:SetPoint("BOTTOMLEFT", text, -inset, -inset)
 	bubble:SetPoint("TOPRIGHT", text, inset, inset + senderHeight)

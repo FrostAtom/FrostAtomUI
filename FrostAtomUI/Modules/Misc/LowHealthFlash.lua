@@ -4,6 +4,8 @@ local UnitHealth, UnitHealthMax, UnitIsDeadOrGhost = UnitHealth, UnitHealthMax, 
 
 local Misc = ns:GetModule("Misc")
 
+local PULSE_SPEED = 1.2
+
 local flash = CreateFrame("Frame")
 flash:Hide()
 flash:SetAlpha(0)
@@ -15,7 +17,7 @@ texture:SetTexture("Interface\\FullScreenTextures\\LowHealth")
 texture:SetBlendMode("ADD")
 
 flash:SetScript("OnUpdate", function(self, elapsed)
-	local alpha = self:GetAlpha() + elapsed * self.direction * ns.Config.lowHealthFlash.pulseSpeed
+	local alpha = self:GetAlpha() + elapsed * self.direction * PULSE_SPEED
 	if alpha > 1 or alpha < 0 then
 		self.direction = -self.direction
 	end
