@@ -148,7 +148,7 @@ function Macros.StubOf(body)
 end
 
 function Macros.FindById(id)
-	for _, list in pairs(lists) do
+	for _, list in pairs(lists or {}) do
 		for i = 1, #list do
 			if list[i].id == id then
 				return list[i]
@@ -401,6 +401,58 @@ function Macros.Export(items)
 	return EXPORT_PREFIX .. ns.Encode(ns.Serialize({ macros = items }))
 end
 
+function Macros.ExportItem(scope, entry)
+	if type(entry) == "table" then
+		return { scope = scope, name = entry.name, icon = entry.icon, body = entry.body }
+	end
+	local name, texture, body = GetMacroInfo(entry)
+	return {
+		scope = scope,
+		name = name,
+		icon = texture ~= ns.Media.questionMark and texture or nil,
+		body = (Parser.Decode(body or "")),
+	}
+end
+
+function Macros.ScopeItems(scope, items)
+	if GAME_SCOPES[scope] then
+		local indices = Macros.GameIndices(scope, {})
+		for i = 1, #indices do
+			items[#items + 1] = Macros.ExportItem(scope, indices[i])
+		end
+	elseif lists then
+		local list = lists[scope]
+		for i = 1, #list do
+			items[#items + 1] = Macros.ExportItem(scope, list[i])
+		end
+	end
+	return items
+end
+
+function Macros.CommandId(command)
+	return tonumber(strmatch(command, "^CLICK " .. BUTTON_PREFIX .. "(%d+):"))
+end
+
+function Macros.Match(item)
+	local scope = item.scope
+	if GAME_SCOPES[scope] then
+		local indices = Macros.GameIndices(scope, {})
+		for i = 1, #indices do
+			local name, _, body = GetMacroInfo(indices[i])
+			if strtrim(name) == item.name and Parser.Decode(body or "") == item.body then
+				return indices[i]
+			end
+		end
+		scope = GAME_SCOPES[scope]
+	end
+	local list = lists and lists[scope] or {}
+	for i = 1, #list do
+		if strtrim(list[i].name) == item.name and list[i].body == item.body then
+			return list[i]
+		end
+	end
+end
+
 local function sanitize(item)
 	if type(item) ~= "table" or type(item.body) ~= "string" then
 		return nil
@@ -413,6 +465,7 @@ local function sanitize(item)
 		body = strgsub(item.body, "\r\n?", "\n"),
 	}
 end
+Macros.Sanitize = sanitize
 
 function Macros.DecodeExport(text)
 	text = text and strtrim(text)
@@ -468,27 +521,42 @@ local function uniqueName(base, taken, limit)
 	return name
 end
 
-function Macros.Import(items)
+function Macros.Import(items, entries)
 	local taken = {}
 	local imported, converted = 0, 0
 	local lastScope, lastEntry, lastGameName
-	for _, item in ipairs(items) do
-		local scope = item.scope
-		local gameBody = GAME_SCOPES[scope] and Macros.Encode(item.body)
-		if gameBody and (InCombatLockdown() or #gameBody > GAME_BODY_LIMIT or not gameSlotFree(scope)) then
-			scope = GAME_SCOPES[scope]
-			gameBody = nil
-			converted = converted + 1
-		end
-		taken[scope] = taken[scope] or takenNames(scope)
-		if gameBody then
-			lastGameName = uniqueName(item.name, taken[scope], STUB_NAME_LIMIT)
-			CreateMacro(lastGameName, iconIndexOf(item.icon), gameBody, scope == "gameChar" and 1 or nil)
+	for index, item in ipairs(items) do
+		local existing = entries and Macros.Match(item)
+		if existing then
+			entries[index] = existing
 		else
-			lastEntry = Macros.Create(scope, uniqueName(item.name, taken[scope], NAME_LIMIT), item.icon, item.body)
+			local scope = item.scope
+			local gameBody = GAME_SCOPES[scope] and Macros.Encode(item.body)
+			if gameBody and (InCombatLockdown() or #gameBody > GAME_BODY_LIMIT or not gameSlotFree(scope)) then
+				scope = GAME_SCOPES[scope]
+				gameBody = nil
+				converted = converted + 1
+			end
+			if gameBody or lists then
+				taken[scope] = taken[scope] or takenNames(scope)
+				if gameBody then
+					if entries then
+						lastGameName = item.name ~= "" and ns.TruncateUTF8(item.name, STUB_NAME_LIMIT) or " "
+					else
+						lastGameName = uniqueName(item.name, taken[scope], STUB_NAME_LIMIT)
+					end
+					CreateMacro(lastGameName, iconIndexOf(item.icon), gameBody, scope == "gameChar" and 1 or nil)
+				else
+					lastEntry =
+						Macros.Create(scope, uniqueName(item.name, taken[scope], NAME_LIMIT), item.icon, item.body)
+					if entries then
+						entries[index] = lastEntry
+					end
+				end
+				lastScope = scope
+				imported = imported + 1
+			end
 		end
-		lastScope = scope
-		imported = imported + 1
 	end
 	if GAME_SCOPES[lastScope] then
 		lastEntry = GetMacroIndexByName(lastGameName)

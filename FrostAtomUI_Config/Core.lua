@@ -2276,6 +2276,12 @@ local function refreshPage(page)
 	refreshView(page)
 end
 
+function ns.ShowReloadButton()
+	if frame then
+		frame.reloadButton:Show()
+	end
+end
+
 function ns.RefreshPage()
 	if frame and frame:IsShown() then
 		refreshPage(currentPage)

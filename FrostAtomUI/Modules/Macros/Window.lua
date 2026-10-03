@@ -1725,33 +1725,7 @@ local function createDetail()
 	frame.run = run
 end
 
-local function exportItem(scope, entry)
-	if isVirtual(entry) then
-		return { scope = scope, name = entry.name, icon = entry.icon, body = entry.body }
-	end
-	local name, texture, body = GetMacroInfo(entry)
-	return {
-		scope = scope,
-		name = name,
-		icon = texture ~= ns.Media.questionMark and texture or nil,
-		body = (Parser.Decode(body or "")),
-	}
-end
-
-local function scopeItems(scope, items)
-	if isGame(scope) then
-		local indices = Macros.GameIndices(scope, {})
-		for i = 1, #indices do
-			items[#items + 1] = exportItem(scope, indices[i])
-		end
-	else
-		local list = Macros.GetList(scope)
-		for i = 1, #list do
-			items[#items + 1] = exportItem(scope, list[i])
-		end
-	end
-	return items
-end
+local exportItem, scopeItems = Macros.ExportItem, Macros.ScopeItems
 
 local function transferSummary(items)
 	local counts = {}

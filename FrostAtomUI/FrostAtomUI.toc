@@ -171,6 +171,8 @@ Modules\Misc\InspectTalentData.lua
 Modules\Misc\InspectStatData.lua
 Modules\Misc\InspectGear.lua
 Modules\Misc\InspectFrame.lua
+Modules\Misc\TransferData.lua
+Modules\Misc\Transfer.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua

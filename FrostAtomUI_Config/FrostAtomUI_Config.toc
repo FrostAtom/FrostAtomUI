@@ -30,3 +30,4 @@ Pages\Client.lua
 Pages\BlizzardUI.lua
 Pages\Bags.lua
 Pages\Profiles.lua
+Pages\Transfer.lua
