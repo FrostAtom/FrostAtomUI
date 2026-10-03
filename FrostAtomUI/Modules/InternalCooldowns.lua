@@ -23,6 +23,30 @@ local MEMORY_TIME = 30 * 86400
 local COMBATLOG_OBJECT_TYPE_PLAYER = 0x400
 local QUESTION_MARK = "Interface\\Icons\\INV_Misc_QuestionMark"
 local KIND_ORDER = { i = 1, e = 2, g = 3, s = 4 }
+local KIND_CATEGORIES = { e = "enchant", g = "gem" }
+local SLOT_CATEGORIES = {
+	[11] = "ring",
+	[12] = "ring",
+	[13] = "trinket",
+	[14] = "trinket",
+	[16] = "weapon",
+	[17] = "weapon",
+	[18] = "weapon",
+}
+local EQUIP_CATEGORIES = {
+	INVTYPE_TRINKET = "trinket",
+	INVTYPE_FINGER = "ring",
+	INVTYPE_WEAPON = "weapon",
+	INVTYPE_2HWEAPON = "weapon",
+	INVTYPE_WEAPONMAINHAND = "weapon",
+	INVTYPE_WEAPONOFFHAND = "weapon",
+	INVTYPE_SHIELD = "weapon",
+	INVTYPE_HOLDABLE = "weapon",
+	INVTYPE_RANGED = "weapon",
+	INVTYPE_RANGEDRIGHT = "weapon",
+	INVTYPE_THROWN = "weapon",
+	INVTYPE_RELIC = "weapon",
+}
 
 local EVENT_TYPES = {
 	SPELL_AURA_APPLIED = { buff = true, stack = true, debuff = true },
@@ -54,6 +78,11 @@ local function addSource(keys, kind, id, cd, spell)
 	local source = sources[key]
 	if not source then
 		source = { key = key, kind = kind, id = id, cd = cd, spell = spell, spells = {} }
+		if kind == "s" then
+			source.category = ns.ProcData[spell].talent and "talent" or "set"
+		else
+			source.category = KIND_CATEGORIES[kind]
+		end
 		sources[key] = source
 	elseif cd > source.cd then
 		source.cd = cd
@@ -118,19 +147,24 @@ local auras = {}
 local memory = {}
 local playerGUID, testKeys
 
+local function itemCategory(source)
+	if not source.category then
+		local _, _, _, _, _, _, _, _, equipLoc = GetItemInfo(source.id)
+		if not equipLoc then
+			return nil
+		end
+		source.category = EQUIP_CATEGORIES[equipLoc] or "armor"
+	end
+	return source.category
+end
+
 local function isTrinket(key)
 	local source = sources[key]
 	if not source or source.kind ~= "i" then
 		return false
 	end
-	if source.trinket == nil then
-		local _, _, _, _, _, _, _, _, equipLoc = GetItemInfo(source.id)
-		if not equipLoc then
-			return true
-		end
-		source.trinket = equipLoc == "INVTYPE_TRINKET"
-	end
-	return source.trinket
+	local category = itemCategory(source)
+	return category == nil or category == "trinket"
 end
 
 local function addGear(found, kind, id, slot)
@@ -498,6 +532,22 @@ function InternalCooldowns:GetSource(key)
 	return sources[key]
 end
 
+function InternalCooldowns:GetCategory(guid, key)
+	local source = sources[key]
+	if not source then
+		return "trinket"
+	end
+	if source.kind ~= "i" then
+		return source.category
+	end
+	local owned = guid and gear[guid]
+	local slot = owned and owned[key]
+	if slot then
+		return SLOT_CATEGORIES[slot] or "armor"
+	end
+	return itemCategory(source)
+end
+
 function InternalCooldowns:GetTexture(key)
 	local source = sources[key]
 	if not source then
@@ -534,10 +584,8 @@ end
 function InternalCooldowns:GetTestKeys()
 	if not testKeys then
 		testKeys = {}
-		for key, source in pairs(sources) do
-			if source.kind == "i" then
-				testKeys[#testKeys + 1] = key
-			end
+		for key in pairs(sources) do
+			testKeys[#testKeys + 1] = key
 		end
 		sort(testKeys)
 	end

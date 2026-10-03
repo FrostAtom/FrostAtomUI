@@ -8,7 +8,7 @@ local UnitCanAttack = UnitCanAttack
 local GameTooltip = GameTooltip
 local GetTime = GetTime
 local min, huge, random = math.min, math.huge, math.random
-local unpack = unpack
+local unpack, wipe = unpack, wipe
 
 local ICD = ns:GetModule("InternalCooldowns")
 local CooldownTimer = ns:GetModule("CooldownTimer")
@@ -19,6 +19,9 @@ local FRAME_LEVEL_OFFSET = 4
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 1.75
 local TEST_AURA_DURATION = 15
+local TEST_MAX_ICONS = 3
+local MAX_UNKNOWN = 2
+local PLAYER_SLOTS = 4
 local UNKNOWN = ICD.UNKNOWN
 
 local containers = {}
@@ -30,8 +33,19 @@ local function setIconSize(icon, size)
 end
 
 local function placeIcon(container, icon, index)
+	local step = container.size + container.spacing
 	icon:ClearAllPoints()
-	icon:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -(index - 1) * (container.size + container.spacing), 0)
+	if container.centered then
+		local shown = container.shown or 1
+		icon:SetPoint("CENTER", container, "CENTER", (index - 1 - (shown - 1) / 2) * step, 0)
+		return
+	end
+	icon:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -(index - 1) * step, 0)
+end
+
+local function slotShown(guid, key)
+	local category = ICD:GetCategory(guid, key)
+	return category == nil or ns.Config.internalCooldowns.slots[category] ~= false
 end
 
 local function onIconEnter(icon)
@@ -123,6 +137,12 @@ local function hideFrom(container, shown)
 	for i = shown + 1, #container do
 		container[i]:Hide()
 	end
+	if container.centered and container.shown ~= shown then
+		container.shown = shown
+		for i = 1, shown do
+			placeIcon(container, container[i], i)
+		end
+	end
 end
 
 local refresh
@@ -152,7 +172,7 @@ function refresh(container)
 	if container.enabled and guid and (container.kind == "arena" or UnitIsPlayer(unit)) then
 		local config = ns.Config.internalCooldowns
 		local hideReady = config.hideReady
-		local unknown = config.unknownTrinkets and not hideReady and isHostile(container, unit)
+		local unknown = config.unknownTrinkets and config.slots.trinket and not hideReady and isHostile(container, unit)
 		local keys = ICD:Collect(guid, container.keys, unknown)
 		for i = 1, #keys do
 			local key = keys[i]
@@ -161,7 +181,7 @@ function refresh(container)
 				start, duration = ICD:GetCooldown(guid, key)
 				auraStart, auraDuration = ICD:GetAura(guid, key)
 			end
-			if start or not hideReady then
+			if (start or not hideReady) and slotShown(guid, key) then
 				shown = shown + 1
 				local icon = setIcon(container, shown, key)
 				if auraStart then
@@ -191,15 +211,28 @@ local function update(frame)
 	refresh(frame.procs)
 end
 
-local function test(frame)
-	local container = frame.procs
+local testKeys = {}
+
+local function shownTestKeys()
+	wipe(testKeys)
+	local keys = ICD:GetTestKeys()
+	for i = 1, #keys do
+		if slotShown(nil, keys[i]) then
+			testKeys[#testKeys + 1] = keys[i]
+		end
+	end
+	return testKeys
+end
+
+local function fillTest(container)
 	container:SetScript("OnUpdate", nil)
 	container.guid = nil
 	local shown = 0
 	if container.enabled then
-		local keys = ICD:GetTestKeys()
+		local config = ns.Config.internalCooldowns
+		local keys = shownTestKeys()
 		local now = GetTime()
-		local count = random(0, 3)
+		local count = min(random(container.centered and 1 or 0, TEST_MAX_ICONS), #keys)
 		for _ = 1, count do
 			shown = shown + 1
 			local icon = setIcon(container, shown, keys[random(#keys)])
@@ -213,14 +246,18 @@ local function test(frame)
 				setIconCooldown(icon, nil)
 			end
 		end
-		if container.kind == "arena" and ns.Config.internalCooldowns.unknownTrinkets then
-			for _ = count + 1, 2 do
+		if container.kind == "arena" and config.unknownTrinkets and config.slots.trinket then
+			for _ = count + 1, MAX_UNKNOWN do
 				shown = shown + 1
 				setIconCooldown(setIcon(container, shown, UNKNOWN), nil)
 			end
 		end
 	end
 	hideFrom(container, shown)
+end
+
+local function test(frame)
+	fillTest(frame.procs)
 end
 
 local function onUpdated(frame, guid)
@@ -236,9 +273,39 @@ local function anchorContainer(container, config)
 end
 
 local function applyContainerSettings(container, config)
-	container.enabled = config.enabled and config[container.kind]
-	container.size, container.spacing = config.size, config.spacing
-	container:SetSize(config.size, config.size)
+	local enabled = config.enabled and config[container.kind]
+	local size = config.size
+	if container.centered then
+		enabled = enabled and config.playerDetached
+		size = config.playerSize
+		container:SetSize(size * PLAYER_SLOTS + config.spacing * (PLAYER_SLOTS - 1), size)
+	else
+		enabled = enabled and not (container.kind == "player" and config.playerDetached)
+		container:SetSize(size, size)
+	end
+	container.enabled = enabled
+	container.size, container.spacing = size, config.spacing
+end
+
+local function applyIcons(container, config)
+	container.shown = nil
+	for j = 1, #container do
+		local icon = container[j]
+		setIconSize(icon, container.size)
+		placeIcon(container, icon, j)
+		icon:EnableMouse(not config.clickThrough)
+		icon.active = nil
+	end
+end
+
+local playerBlock
+
+local function updatePlayerBlock()
+	if UF.testing or ns.Movers.IsUnlocked() then
+		fillTest(playerBlock)
+	else
+		refresh(playerBlock)
+	end
 end
 
 local function applyConfig()
@@ -248,19 +315,41 @@ local function applyConfig()
 		local frame = container:GetParent()
 		applyContainerSettings(container, config)
 		anchorContainer(container, config)
-		for j = 1, #container do
-			local icon = container[j]
-			setIconSize(icon, config.size)
-			placeIcon(container, icon, j)
-			icon:EnableMouse(not config.clickThrough)
-			icon.active = nil
-		end
+		applyIcons(container, config)
 		if frame.test then
 			test(frame)
 		elseif frame:IsShown() then
 			refresh(container)
 		end
 	end
+	applyContainerSettings(playerBlock, config)
+	applyIcons(playerBlock, config)
+	updatePlayerBlock()
+end
+
+local function createPlayerBlock()
+	local container = CreateFrame("Frame", nil, UIParent)
+	container.unit = "player"
+	container.kind = "player"
+	container.centered = true
+	container.keys = {}
+	container.untilCheck = 0
+	container.nextExpiry = huge
+	applyContainerSettings(container, ns.Config.internalCooldowns)
+	UF:AnchorToConfig(container, "internalCooldowns.playerPoint", "Player internal cooldowns", {
+		enabledPath = { "internalCooldowns.player", "internalCooldowns.playerDetached" },
+	})
+
+	local events = ns.Mixin({}, ns.EventMixin)
+	events:RegisterEvent(ns.PROC_COOLDOWN_UPDATED, function(_, guid)
+		if guid == nil or guid == UnitGUID("player") then
+			updatePlayerBlock()
+		end
+	end)
+	hooksecurefunc(UF, "SetTestMode", updatePlayerBlock)
+	hooksecurefunc(ns.Movers, "Unlock", updatePlayerBlock)
+	hooksecurefunc(ns.Movers, "Lock", updatePlayerBlock)
+	return container
 end
 
 local function create(frame)
@@ -286,6 +375,7 @@ end
 UF:RegisterElement("procs", create, update, test)
 
 UF:OnInitialize(function(self)
+	playerBlock = createPlayerBlock()
 	applyConfig()
 	self:WatchConfig("internalCooldowns", applyConfig)
 end)

@@ -38,6 +38,20 @@ ns.RegisterElement({
 })
 
 ns.RegisterElement({
+	path = "internalCooldowns.playerPoint",
+	page = "arena",
+	name = L["Player internal cooldowns"],
+	glyph = "gem",
+	enabledBy = {
+		"unitFrames.enabled",
+		"internalCooldowns.enabled",
+		"internalCooldowns.player",
+		"internalCooldowns.playerDetached",
+	},
+	schema = {},
+})
+
+ns.RegisterElement({
 	path = "matchResults.point",
 	page = "arena",
 	name = L["Match results"],
@@ -246,6 +260,7 @@ Section(schema, L["Internal cooldowns"], "internalCooldowns", {
 		label = L["Unknown enemy trinkets"],
 		type = "toggle",
 		advanced = true,
+		enabledBy = "internalCooldowns.slots.trinket",
 		desc = L["Question mark icons for enemy trinkets that have not proced yet."],
 	},
 	{
@@ -273,10 +288,47 @@ tinsert(schema, #schema - 3, {
 	desc = L["Unit frames that show the internal cooldown icons."],
 })
 
+tinsert(schema, #schema - 3, {
+	path = "internalCooldowns.slots",
+	new = "1.4.1",
+	label = L["Sources"],
+	type = "multiselect",
+	values = {
+		{ "trinket", L["Trinkets"] },
+		{ "ring", L["Rings"] },
+		{ "weapon", L["Weapons and relics"] },
+		{ "armor", L["Other items"] },
+		{ "enchant", L["Enchants"] },
+		{ "gem", L["Gems"] },
+		{ "set", L["Set bonuses"] },
+		{ "talent", L["Talents"] },
+	},
+	enabledBy = "internalCooldowns.enabled",
+	desc = L["Which procs get an icon. Enchants are weapon enchants and cloak embroideries, gems are meta gems."],
+})
+
 Section(schema, L["Internal cooldowns layout"], "internalCooldowns", {
 	{ path = "size", label = L["Icon size"], type = "number", min = 12, max = 48, step = 1 },
 	{ path = "spacing", label = L["Spacing"], type = "number", min = 0, max = 10, step = 1, advanced = true },
 	offset("offset", L["Offset from the top right corner"]),
+	{
+		path = "playerDetached",
+		new = "1.4.1",
+		label = L["Player icons separately"],
+		type = "toggle",
+		enabledBy = "internalCooldowns.player",
+		desc = L["Your own icons are a separate larger block above the action bars instead of above the player frame, moved with the other frames."],
+	},
+	{
+		path = "playerSize",
+		new = "1.4.1",
+		label = L["Player icon size"],
+		type = "number",
+		min = 12,
+		max = 64,
+		step = 1,
+		enabledBy = { "internalCooldowns.player", "internalCooldowns.playerDetached" },
+	},
 }, nil, nil, "up-down-left-right")
 
 Section(schema, L["Match results"], "matchResults", {
