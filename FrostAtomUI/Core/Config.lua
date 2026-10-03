@@ -741,7 +741,7 @@ ns.Defaults = {
 	},
 
 	queuePopFlash = {
-		enabled = true,
+		enabled = false,
 		color = { 0.1, 1, 0.2 },
 		intensity = 0.7,
 	},
