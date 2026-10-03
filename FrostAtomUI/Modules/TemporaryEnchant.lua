@@ -225,8 +225,6 @@ local function applyConfig()
 end
 
 function TemporaryEnchant:Initialize()
-	ns.DestroyFrame(TemporaryEnchantFrame, true)
-
 	holder = CreateFrame("Frame", nil, UIParent)
 	self:AnchorToConfig(holder, "temporaryEnchant.point", "Weapon enchants", { visible = standaloneVisible })
 	for i = 1, MAX_ICONS do

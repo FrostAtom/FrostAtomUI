@@ -106,7 +106,7 @@ local ELEMENTS = {
 	{ "minimap.point", "info", sized("minimap.size"), enabled("minimap.enabled") },
 	{ "unitFrames.playerAuras", "info" },
 	{ "unitFrames.playerDebuffs", "info" },
-	{ "actionBar.microMenu", "info" },
+	{ "actionBar.microMenu", "info", nil, enabled("hideBlizzard.actionBars") },
 	{ "groupCooldowns.friendlyPoint", "cooldown", nil, cooldownBlock("friendly") },
 	{ "groupCooldowns.enemyPoint", "cooldown", nil, cooldownBlock("enemy") },
 	{ "groupCooldowns.friendlyInterruptPoint", "cooldown", nil, interruptPanel("friendly") },

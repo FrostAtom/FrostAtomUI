@@ -165,6 +165,12 @@ ns.OnLocaleReady(function()
 end)
 
 UF:OnInitialize(function()
+	for _, key in ipairs({ "SET_FOCUS", "CLEAR_FOCUS", "LOCK_FOCUS_FRAME", "UNLOCK_FOCUS_FRAME" }) do
+		UnitPopupButtons[key] = nil
+		for _, menu in pairs(UnitPopupMenus) do
+			ns.tDeleteItem(menu, key)
+		end
+	end
 	for _, which in ipairs({ "PLAYER", "PARTY", "RAID_PLAYER" }) do
 		addCopyName(which)
 	end

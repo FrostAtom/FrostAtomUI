@@ -173,6 +173,9 @@ function ActionBar:InitializeTotemBar()
 	if ns.PLAYER_CLASS ~= "SHAMAN" or not bar then
 		return
 	end
+	bar.ignoreFramePositionManager = true
+	UIPARENT_MANAGED_FRAME_POSITIONS.MultiCastActionBarFrame = nil
+	UIPARENT_MANAGED_FRAME_POSITIONS.MULTICASTACTIONBAR_YPOS = nil
 
 	holder = CreateFrame("Frame", nil, UIParent, "SecureHandlerStateTemplate")
 	holder.fader = ns.CreateFader({ holder }, nil, isFlyoutOpen)

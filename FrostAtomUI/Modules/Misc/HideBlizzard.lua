@@ -2,7 +2,7 @@ local _, ns = ...
 
 local DestroyFrame = ns.DestroyFrame
 local noop = ns.noop
-local ActionBar = ns:GetModule("ActionBar")
+local HideBlizzard = ns:NewModule("HideBlizzard")
 
 local BUTTON_PREFIXES = {
 	"ActionButton",
@@ -93,10 +93,10 @@ end
 
 local function layoutMicroMenu()
 	if InCombatLockdown() then
-		ActionBar:RegisterEvent("PLAYER_REGEN_ENABLED", layoutMicroMenu)
+		HideBlizzard:RegisterEvent("PLAYER_REGEN_ENABLED", layoutMicroMenu)
 		return
 	end
-	ActionBar:UnregisterEvent("PLAYER_REGEN_ENABLED", layoutMicroMenu)
+	HideBlizzard:UnregisterEvent("PLAYER_REGEN_ENABLED", layoutMicroMenu)
 
 	local found = {}
 	collectMicroButtons(MainMenuBarArtFrame, found)
@@ -130,7 +130,54 @@ local function layoutMicroMenu()
 	microMenuResize.maxWidth = width * 2
 end
 
-function ActionBar:HideBlizzard()
+local function createMenus(module)
+	microMenu = CreateFrame("Frame", "FrostAtomUIMicroMenu", UIParent)
+	microMenuResize = {
+		get = function()
+			return microMenuWidth() * ns.Config.actionBar.microMenuScale, MICRO_MENU_HEIGHT
+		end,
+		set = function(width)
+			ns:SetConfig("actionBar.microMenuScale", width / microMenuWidth())
+		end,
+	}
+	for _, name in ipairs(MICRO_BUTTONS) do
+		local button = _G[name]
+		if button then
+			microButtons[#microButtons + 1] = button
+			microButtonIndex[button] = true
+		end
+	end
+	layoutMicroMenu()
+	hooksecurefunc("UpdateMicroButtons", layoutMicroMenu)
+	module:AnchorToConfig(microMenu, "actionBar.microMenu", "Micro menu", {
+		secure = true,
+		resize = microMenuResize,
+	})
+
+	MainMenuBarBackpackButton:SetParent(UIParent)
+	MainMenuBarBackpackButton:SetSize(BACKPACK_SIZE, BACKPACK_SIZE)
+	MainMenuBarBackpackButtonNormalTexture:SetSize(BACKPACK_BORDER_SIZE, BACKPACK_BORDER_SIZE)
+	module:AnchorToConfig(MainMenuBarBackpackButton, "actionBar.bagButton", "Bag button")
+
+	local microMenuFader = ns.CreateFader({ microMenu })
+	local bagFader = ns.CreateFader({ MainMenuBarBackpackButton })
+
+	local function applyMicroMenuScale(_, path)
+		ns.Movers.SetScale(microMenu, ns.Config.actionBar.microMenuScale, path == "actionBar.microMenuScale")
+	end
+	applyMicroMenuScale()
+	module:WatchConfig("actionBar.microMenuScale", applyMicroMenuScale, true)
+
+	local function applyMenus()
+		local config = ns.Config.actionBar
+		microMenuFader:Configure(config.microMenuMouseover, config.menuFadeAlpha, config.microMenuCombat)
+		bagFader:Configure(config.bagButtonMouseover, config.menuFadeAlpha, config.bagButtonCombat)
+	end
+	applyMenus()
+	module:WatchConfig("actionBar", applyMenus)
+end
+
+local function hideActionBars(module)
 	InterfaceOptionsActionBarsPanelAlwaysShowActionBars:EnableMouse(false)
 	InterfaceOptionsActionBarsPanelAlwaysShowActionBars:SetAlpha(0)
 	InterfaceOptionsActionBarsPanelLockActionBars:EnableMouse(false)
@@ -138,7 +185,6 @@ function ActionBar:HideBlizzard()
 	InterfaceOptionsStatusTextPanelXP:SetAlpha(0)
 	InterfaceOptionsStatusTextPanelXP:SetScale(0.0001)
 
-	MultiCastActionBarFrame.ignoreFramePositionManager = true
 	MainMenuBarVehicleLeaveButton_Update = noop
 
 	for _, bar in ipairs({ MultiBarBottomLeft, MultiBarBottomRight, MultiBarLeft, MultiBarRight }) do
@@ -194,48 +240,60 @@ function ActionBar:HideBlizzard()
 		DestroyFrame(_G["CharacterBag" .. i .. "Slot"])
 	end
 
-	microMenu = CreateFrame("Frame", "FrostAtomUIMicroMenu", UIParent)
-	microMenuResize = {
-		get = function()
-			return microMenuWidth() * ns.Config.actionBar.microMenuScale, MICRO_MENU_HEIGHT
-		end,
-		set = function(width)
-			ns:SetConfig("actionBar.microMenuScale", width / microMenuWidth())
-		end,
-	}
-	for _, name in ipairs(MICRO_BUTTONS) do
-		local button = _G[name]
-		if button then
-			microButtons[#microButtons + 1] = button
-			microButtonIndex[button] = true
+	createMenus(module)
+end
+
+local function hideUnitFrames()
+	Arena_LoadUI = noop
+
+	DestroyFrame(PlayerFrame, true)
+	DestroyFrame(TargetFrame, true)
+	DestroyFrame(FocusFrame, true)
+	DestroyFrame(ComboFrame, true)
+	DestroyFrame(PartyMemberBackground)
+
+	for i = 1, MAX_PARTY_MEMBERS do
+		local frame = _G["PartyMemberFrame" .. i]
+		DestroyFrame(frame, true)
+		hooksecurefunc(frame, "Show", frame.Hide)
+		DestroyFrame(_G["PartyMemberFrame" .. i .. "PetFrame"], true)
+	end
+
+	ns:GetModule("CVars"):Pin("hidePartyInRaid", "1")
+end
+
+local function hideCastBar()
+	DestroyFrame(CastingBarFrame)
+	UIPARENT_MANAGED_FRAME_POSITIONS.CastingBarFrame = nil
+end
+
+local function hideBuffs()
+	DestroyFrame(BuffFrame, true)
+	DestroyFrame(ConsolidatedBuffs, true)
+end
+
+local function hideWeaponEnchants()
+	DestroyFrame(TemporaryEnchantFrame, true)
+end
+
+local function hideRunes()
+	DestroyFrame(RuneFrame, true)
+end
+
+local HIDERS = {
+	actionBars = hideActionBars,
+	unitFrames = hideUnitFrames,
+	castBar = hideCastBar,
+	buffs = hideBuffs,
+	weaponEnchants = hideWeaponEnchants,
+	runes = hideRunes,
+}
+
+function HideBlizzard:Initialize()
+	local config = ns.Config.hideBlizzard
+	for key, hide in pairs(HIDERS) do
+		if config[key] then
+			hide(self)
 		end
 	end
-	layoutMicroMenu()
-	hooksecurefunc("UpdateMicroButtons", layoutMicroMenu)
-	self:AnchorToConfig(microMenu, "actionBar.microMenu", "Micro menu", {
-		secure = true,
-		resize = microMenuResize,
-	})
-
-	MainMenuBarBackpackButton:SetParent(UIParent)
-	MainMenuBarBackpackButton:SetSize(BACKPACK_SIZE, BACKPACK_SIZE)
-	MainMenuBarBackpackButtonNormalTexture:SetSize(BACKPACK_BORDER_SIZE, BACKPACK_BORDER_SIZE)
-	self:AnchorToConfig(MainMenuBarBackpackButton, "actionBar.bagButton", "Bag button")
-
-	local microMenuFader = ns.CreateFader({ microMenu })
-	local bagFader = ns.CreateFader({ MainMenuBarBackpackButton })
-
-	local function applyMicroMenuScale(_, path)
-		ns.Movers.SetScale(microMenu, ns.Config.actionBar.microMenuScale, path == "actionBar.microMenuScale")
-	end
-	applyMicroMenuScale()
-	self:WatchConfig("actionBar.microMenuScale", applyMicroMenuScale, true)
-
-	local function applyMenus()
-		local config = ns.Config.actionBar
-		microMenuFader:Configure(config.microMenuMouseover, config.menuFadeAlpha, config.microMenuCombat)
-		bagFader:Configure(config.bagButtonMouseover, config.menuFadeAlpha, config.bagButtonCombat)
-	end
-	applyMenus()
-	self:WatchConfig("actionBar", applyMenus)
 end

@@ -627,7 +627,6 @@ end
 function UF:Initialize()
 	local config = ns.Config.unitFrames
 
-	self:HideBlizzard()
 	createPlayer(self, config)
 	createTargets(self, config)
 	createParty(self, config)

@@ -13,8 +13,14 @@ local LOAD_DELAY = 2
 local NEXT_DELAY = 0.3
 local MAX_BUTTON_NAME = 12
 
-local ACTION_BARS = { "Action bars", "actionBar.enabled" }
-local UNIT_FRAMES = { "Unit frames", "unitFrames.enabled" }
+local ACTION_BARS = { "Action bars", "actionBar.enabled", "hideBlizzard.actionBars" }
+local UNIT_FRAMES = {
+	"Unit frames",
+	"unitFrames.enabled",
+	"hideBlizzard.unitFrames",
+	"hideBlizzard.castBar",
+	"hideBlizzard.buffs",
+}
 local ARENA_FRAMES = { "Arena frames", "unitFrames.showArena" }
 local NAMEPLATES = { "Nameplates", "namePlates.enabled" }
 local BAGS = { "Bags", "bags.enabled" }
@@ -100,7 +106,9 @@ StaticPopupDialogs[POPUP] = {
 	end,
 	OnAlt = function(_, entry)
 		remember(entry[1], "ours")
-		ns:SetConfig(entry[2][2], false)
+		for i = 2, #entry[2] do
+			ns:SetConfig(entry[2][i], false)
+		end
 		ReloadUI()
 	end,
 	OnCancel = function(_, entry, reason)

@@ -196,7 +196,7 @@ ns.RegisterElement({
 	},
 })
 
-local function menuVisibility(prefix, mouseoverDesc)
+function ns.MenuVisibility(prefix, mouseoverDesc)
 	local mouseoverPath, combatPath = prefix .. "Mouseover", prefix .. "Combat"
 	return { header = L["Visibility"], glyph = "eye" }, {
 		path = mouseoverPath,
@@ -223,38 +223,6 @@ local function menuVisibility(prefix, mouseoverDesc)
 		disabledDesc = FADE_DISABLED_DESC,
 	}
 end
-
-ns.RegisterElement({
-	path = "actionBar.microMenu",
-	page = PAGE,
-	tab = "other",
-	name = L["Micro menu"],
-	enabledBy = ENABLE,
-	schema = {
-		{ header = L["Layout"], glyph = "up-down-left-right" },
-		{
-			path = "actionBar.microMenuScale",
-			label = L["Scale"],
-			type = "number",
-			min = 0.5,
-			max = 2,
-			step = 0.05,
-			percent = true,
-		},
-		menuVisibility("actionBar.microMenu", L["Keep the micro menu faded until the cursor is over it."]),
-	},
-})
-
-ns.RegisterElement({
-	path = "actionBar.bagButton",
-	page = PAGE,
-	tab = "other",
-	name = L["Bag button"],
-	enabledBy = ENABLE,
-	schema = {
-		menuVisibility("actionBar.bagButton", L["Keep the bag button faded until the cursor is over it."]),
-	},
-})
 
 local ActionBar = ui.ActionBar
 local EXTRA_BARS = "actionBar.extraBars"
@@ -593,7 +561,7 @@ ns.RegisterPage({
 			label = L["Enable"],
 			type = "toggle",
 			reload = true,
-			desc = L["Replace Blizzard action bars."],
+			desc = L["FrostAtom UI action bars. The Blizzard ones are hidden on the Blizzard UI page."],
 		},
 	},
 	tabs = {

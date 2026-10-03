@@ -218,7 +218,6 @@ function Runes:Initialize()
 	if ns.PLAYER_CLASS ~= "DEATHKNIGHT" then
 		return
 	end
-	ns.DestroyFrame(RuneFrame, true)
 
 	holder = CreateFrame("Frame", nil, UIParent)
 	self:AnchorToConfig(holder, "runes.point", "Runes")

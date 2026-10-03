@@ -1059,6 +1059,15 @@ ns.Defaults = {
 		movingAlpha = 0.5,
 	},
 
+	hideBlizzard = {
+		actionBars = true,
+		unitFrames = true,
+		castBar = true,
+		buffs = true,
+		weaponEnchants = true,
+		runes = true,
+	},
+
 	blizzardFrames = {
 		enabled = true,
 		captureBarPoint = { "TOPRIGHT", 0, -44, "minimap.point", "BOTTOMRIGHT" },
@@ -2139,6 +2148,26 @@ local function migrateMergedToggles(profile)
 	end
 end
 
+local HIDE_BLIZZARD_MODULES = {
+	actionBars = "actionBar",
+	unitFrames = "unitFrames",
+	castBar = "unitFrames",
+	buffs = "unitFrames",
+	weaponEnchants = "temporaryEnchant",
+	runes = "runes",
+}
+
+local function migrateHideBlizzard(profile)
+	for key, module in pairs(HIDE_BLIZZARD_MODULES) do
+		local source = profile[module]
+		if source and source.enabled == false then
+			local target = profile.hideBlizzard or {}
+			target[key] = false
+			profile.hideBlizzard = target
+		end
+	end
+end
+
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
@@ -2165,6 +2194,7 @@ local ONE_TIME_MIGRATIONS = {
 	{ "playerDebuffsMigrated", migratePlayerDebuffs },
 	{ "diminishArenaSizeMigrated", migrateDiminishArenaSize },
 	{ "interruptGrowthMigrated", migrateGroupCooldownInterruptGrowth },
+	{ "hideBlizzardMigrated", migrateHideBlizzard },
 }
 
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)

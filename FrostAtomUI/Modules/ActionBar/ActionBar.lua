@@ -349,8 +349,6 @@ function ActionBar:Layout(path)
 end
 
 function ActionBar:Initialize()
-	self:HideBlizzard()
-
 	local bar1 = self:CreateBar(1, setupPagedButton)
 	bar1:SetAttribute("_onstate-page", [[ control:ChildUpdate("page", newstate) ]])
 	RegisterStateDriver(bar1, "page", PAGE_DRIVER_CONDITION)

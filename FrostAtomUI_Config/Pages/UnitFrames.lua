@@ -1697,7 +1697,7 @@ ns.RegisterPage({
 			label = L["Enable"],
 			type = "toggle",
 			reload = true,
-			desc = L["Replace Blizzard unit frames."],
+			desc = L["FrostAtom UI unit frames. The Blizzard ones are hidden on the Blizzard UI page."],
 		},
 		testFramesButton(),
 	},

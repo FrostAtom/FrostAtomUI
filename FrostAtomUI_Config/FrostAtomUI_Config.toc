@@ -27,5 +27,6 @@ Pages\Cooldowns.lua
 Pages\PvP.lua
 Pages\QualityOfLife.lua
 Pages\Client.lua
+Pages\BlizzardUI.lua
 Pages\Bags.lua
 Pages\Profiles.lua

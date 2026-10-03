@@ -69,7 +69,7 @@ Section(schema, L["Runes"], "runes", {
 		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = L["Replace the Blizzard rune frame."],
+		desc = L["Rune bars with timers. The Blizzard rune frame is hidden on the Blizzard UI page."],
 	},
 }, NotClass("DEATHKNIGHT"), nil, "gem")
 
@@ -97,7 +97,7 @@ Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 		label = L["Enable"],
 		type = "toggle",
 		reload = true,
-		desc = L["Replace the Blizzard temporary enchant icons, right-click to cancel."],
+		desc = L["Weapon enchant icons with timers, right-click to cancel. The Blizzard ones are hidden on the Blizzard UI page."],
 	},
 	{
 		path = "showInAuras",

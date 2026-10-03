@@ -5,7 +5,7 @@
 ## Notes-ruRU: Замена интерфейса: панели команд, рамки юнитов, индикаторы имён, чат, мини-карта и PvP-помощники.
 ## Author: frostatom
 ## Version: 1.4.0
-## X-Build: 2026-10-02
+## X-Build: 2026-10-04
 ## SavedVariables: FrostAtomUIDB
 
 Libs\LibStub\LibStub.lua
@@ -60,7 +60,6 @@ Modules\ActionBar\ShapeshiftBar.lua
 Modules\ActionBar\VehicleExit.lua
 Modules\ActionBar\TotemBar.lua
 Modules\ActionBar\Binder.lua
-Modules\ActionBar\Blizzard.lua
 
 # Unit frames
 Modules\UnitFrames\UnitFrames.lua
@@ -89,7 +88,6 @@ Modules\UnitFrames\Elements\Unseen.lua
 Modules\UnitFrames\Elements\RaidAuras.lua
 Modules\UnitFrames\Layout.lua
 Modules\UnitFrames\Test.lua
-Modules\UnitFrames\Blizzard.lua
 Modules\UnitFrames\Raid.lua
 
 # Nameplates
@@ -129,6 +127,7 @@ Modules\Macros\Window.lua
 Modules\Chat\Chat.lua
 Modules\Chat\WhisperBlock.lua
 Modules\Chat\History.lua
+Modules\Chat\Split.lua
 Modules\Chat\Bubbles.lua
 Modules\Chat\ChannelColors.lua
 Modules\Chat\ScrollButton.lua
@@ -164,6 +163,7 @@ Modules\Misc\CombatAlert.lua
 Modules\Misc\ShieldIndicator.lua
 Modules\Misc\Performance.lua
 Modules\Misc\WorldMap.lua
+Modules\Misc\HideBlizzard.lua
 Modules\Misc\BlizzardFrames.lua
 Modules\Misc\SpellBook.lua
 Modules\Misc\TalentFrame.lua
