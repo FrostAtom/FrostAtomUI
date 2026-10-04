@@ -376,7 +376,7 @@ end
 function Totems.ApplyStyle(plate)
 	local totem = plate.totem
 	NamePlates.StyleHolder(totem)
-	ns.SetFont(totem.timer, config.auraFont.size, config.auraFont.outline)
+	ns.SetFont(totem.timer, config.totemTimerFont.size, config.totemTimerFont.outline)
 	local color = frameConfig.castbarColor
 	totem.bar:SetVertexColor(color[1], color[2], color[3])
 	totem.borderColor = nil

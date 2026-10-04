@@ -1,6 +1,9 @@
 local _, ns = ...
 
 ns.SetLocale("ruRU", {
+	["Arena number font"] = "Шрифт номеров арены",
+	["Totem timer font"] = "Шрифт таймера тотемов",
+	["Spell name, cast target and interrupt result on the castbar."] = "Название заклинания, цель каста и результат прерывания на полосе заклинаний.",
 	["Reset positions"] = "Сбросить позиции",
 	["cannot move frames in combat"] = "нельзя перемещать рамки в бою",
 	["Reset the positions of all frames to defaults?"] = "Вернуть все рамки на позиции по умолчанию?",

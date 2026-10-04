@@ -39,7 +39,6 @@ local STACK_BASE_LEVEL = 21
 local STACK_STEP = 3
 local HOVER_ALPHA = 0.15
 local ARENA_LABEL_COLOR = { 1, 0.82, 0 }
-local ARENA_LABEL_GROWTH = 3
 local SPREAD_SPEED = 3
 local SPREAD_RAISE = 1
 local SPREAD_LOWER = 0.8
@@ -849,13 +848,13 @@ local function createText(parent, font)
 end
 
 local function createCastTexts(castbar)
-	local targetText = createText(castbar, config.nameFont)
+	local targetText = createText(castbar, config.castbarFont)
 	targetText:SetPoint("RIGHT", -TEXT_INSET, 0)
 	targetText:SetJustifyH("RIGHT")
 	targetText:SetWordWrap(false)
 	castbar.targetText = targetText
 
-	local spellText = createText(castbar, config.nameFont)
+	local spellText = createText(castbar, config.castbarFont)
 	spellText:SetPoint("LEFT", TEXT_INSET, 0)
 	spellText:SetPoint("RIGHT", targetText, "LEFT", -TEXT_INSET, 0)
 	spellText:SetJustifyH("LEFT")
@@ -864,8 +863,8 @@ local function createCastTexts(castbar)
 end
 
 local function styleCastTexts(castbar)
-	ns.SetFont(castbar.targetText, config.nameFont.size, config.nameFont.outline)
-	styleText(castbar.spellText, config.nameFont)
+	ns.SetFont(castbar.targetText, config.castbarFont.size, config.castbarFont.outline)
+	styleText(castbar.spellText, config.castbarFont)
 end
 
 NamePlates.CreateHolder = createHolder
@@ -1001,7 +1000,7 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 	resultIcon:SetPoint("RIGHT", result, "LEFT", -ICON_GAP, 0)
 	NamePlates.SkinIcon(result, resultIcon)
 	result.icon = resultIcon
-	local resultText = createText(result, config.nameFont)
+	local resultText = createText(result, config.castbarFont)
 	resultText:SetPoint("LEFT", bar, TEXT_INSET, 0)
 	resultText:SetPoint("RIGHT", bar, -TEXT_INSET, 0)
 	resultText:SetWordWrap(false)
@@ -1015,8 +1014,8 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 end
 
 local function styleArenaLabel(plate)
-	local font = config.nameFont
-	ns.SetFont(plate.arenaLabel, font.size + ARENA_LABEL_GROWTH, font.outline, true)
+	local font = config.arenaNumberFont
+	ns.SetFont(plate.arenaLabel, font.size, font.outline, true)
 end
 
 local function setupNamePlate(plate, info)
@@ -1245,7 +1244,7 @@ local function applyStyle()
 		local castbar = plate.castbar
 		styleCastTexts(castbar)
 		local result = castbar.result
-		styleText(result.text, config.nameFont)
+		styleText(result.text, config.castbarFont)
 		styleHolder(result)
 		result:Hide()
 		if castbar:IsShown() then

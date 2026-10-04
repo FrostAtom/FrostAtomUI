@@ -574,6 +574,8 @@ ns.Defaults = {
 		castbarGap = 3,
 		nameFont = { size = 9, outline = "OUTLINE" },
 		percentFont = { size = 9, outline = "OUTLINE" },
+		castbarFont = { size = 9, outline = "OUTLINE" },
+		arenaNumberFont = { size = 12, outline = "OUTLINE" },
 		castbarColor = { 0.75, 0.4, 0 },
 		castbarLockedColor = { 0.4, 0.4, 0.4 },
 		castbarSpellName = true,
@@ -585,6 +587,7 @@ ns.Defaults = {
 		auraRowGap = 3,
 		maxAuraIcons = 6,
 		auraFont = { size = 15, outline = "OUTLINE" },
+		totemTimerFont = { size = 15, outline = "OUTLINE" },
 		aurasAllPlates = true,
 		enemyBuffs = true,
 		otherDebuffs = false,
@@ -2181,6 +2184,28 @@ local function migrateHideBlizzard(profile)
 	end
 end
 
+local ARENA_NUMBER_FONT_GROWTH = 3
+
+local function migrateNamePlateFonts(profile)
+	local namePlates = profile.namePlates
+	if not namePlates then
+		return
+	end
+	local name, aura = namePlates.nameFont, namePlates.auraFont
+	if name and namePlates.castbarFont == nil then
+		namePlates.castbarFont = CopyTable(name)
+	end
+	if name and namePlates.arenaNumberFont == nil then
+		namePlates.arenaNumberFont = {
+			size = name.size and name.size + ARENA_NUMBER_FONT_GROWTH,
+			outline = name.outline,
+		}
+	end
+	if aura and namePlates.totemTimerFont == nil then
+		namePlates.totemTimerFont = CopyTable(aura)
+	end
+end
+
 function migrate(profile)
 	migrateAuraTracker(profile)
 	migrateActionBarGap(profile)
@@ -2208,6 +2233,7 @@ local ONE_TIME_MIGRATIONS = {
 	{ "diminishArenaSizeMigrated", migrateDiminishArenaSize },
 	{ "interruptGrowthMigrated", migrateGroupCooldownInterruptGrowth },
 	{ "hideBlizzardMigrated", migrateHideBlizzard },
+	{ "namePlateFontsMigrated", migrateNamePlateFonts },
 }
 
 Config:RegisterEvent(ns.DB_LOADED, function(_, db)
