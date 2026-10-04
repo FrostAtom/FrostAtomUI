@@ -156,20 +156,28 @@ function UF.CreateCastGlow(parent, anchor, size)
 	glow:SetFrameLevel(parent:GetFrameLevel())
 	glow:Hide()
 
-	local function edge()
-		local texture = glow:CreateTexture(nil, "BACKGROUND")
-		texture:SetTexture(ns.Media.blank)
-		texture:SetBlendMode("ADD")
-		return texture
+	local function edge(texture)
+		local region = glow:CreateTexture(nil, "BACKGROUND")
+		region:SetTexture(texture or ns.Media.blank)
+		region:SetBlendMode("ADD")
+		return region
+	end
+
+	local function corner(point, relativePoint, left, right, top, bottom)
+		local region = edge(ns.Media.glowCorner)
+		region:SetSize(size, size)
+		region:SetPoint(point, anchor, relativePoint)
+		region:SetTexCoord(left, right, top, bottom)
+		return region
 	end
 
 	local top = edge()
-	top:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT", -size, 0)
-	top:SetPoint("BOTTOMRIGHT", anchor, "TOPRIGHT", size, 0)
+	top:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT")
+	top:SetPoint("BOTTOMRIGHT", anchor, "TOPRIGHT")
 	top:SetHeight(size)
 	local bottom = edge()
-	bottom:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -size, 0)
-	bottom:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT", size, 0)
+	bottom:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT")
+	bottom:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT")
 	bottom:SetHeight(size)
 	local left = edge()
 	left:SetPoint("TOPRIGHT", anchor, "TOPLEFT")
@@ -181,6 +189,12 @@ function UF.CreateCastGlow(parent, anchor, size)
 	right:SetWidth(size)
 
 	glow.top, glow.bottom, glow.left, glow.right = top, bottom, left, right
+	glow.corners = {
+		corner("BOTTOMRIGHT", "TOPLEFT", 0, 0.5, 0, 0.5),
+		corner("BOTTOMLEFT", "TOPRIGHT", 0.5, 1, 0, 0.5),
+		corner("TOPRIGHT", "BOTTOMLEFT", 0, 0.5, 0.5, 1),
+		corner("TOPLEFT", "BOTTOMRIGHT", 0.5, 1, 0.5, 1),
+	}
 	return glow
 end
 
@@ -192,6 +206,9 @@ function UF.StartCastGlow(glow, color)
 		glow.bottom:SetGradientAlpha("VERTICAL", r, g, b, 0, r, g, b, 1)
 		glow.left:SetGradientAlpha("HORIZONTAL", r, g, b, 0, r, g, b, 1)
 		glow.right:SetGradientAlpha("HORIZONTAL", r, g, b, 1, r, g, b, 0)
+		for i = 1, 4 do
+			glow.corners[i]:SetVertexColor(r, g, b)
+		end
 	end
 	glow.elapsed = 0
 	glow:SetAlpha(0)

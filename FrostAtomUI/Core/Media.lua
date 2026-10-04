@@ -8,6 +8,7 @@ local Media = {
 	mapUnit = MEDIA_PATH .. "mapUnit",
 	transparent = MEDIA_PATH .. "transparent",
 	arenaCountdown = MEDIA_PATH .. "arenaCountdown",
+	glowCorner = MEDIA_PATH .. "glowCorner",
 	buttonHighlight = "Interface\\Buttons\\ButtonHilight-Square",
 	blank = "Interface\\Buttons\\WHITE8x8",
 	border = "Interface\\Tooltips\\UI-Tooltip-Border",

@@ -15,7 +15,7 @@ local config = ns.Config.namePlates
 local frameConfig = ns.Config.unitFrames
 local BACKDROP = ns.CreateBackdrop(8, 2)
 local BORDER_INSET = 3
-local TARGET_EDGE_BACKDROP = { edgeFile = ns.Media.border, edgeSize = 16 }
+local TARGET_EDGE_CORNER = 5 * 16 / 14
 local TARGET_EDGE_OUTSET = 1
 local TARGET_BACKGROUND = { 1, 1, 1, 1 }
 local TARGET_RELIEF_ALPHA = 0.6
@@ -874,20 +874,53 @@ NamePlates.CreateText = createText
 NamePlates.CreateCastTexts = createCastTexts
 NamePlates.StyleCastTexts = styleCastTexts
 
+local function edgeTexture(edge, layer, blend, alpha)
+	local texture = edge:CreateTexture(nil, layer)
+	texture:SetTexture(ns.Media.border)
+	texture:SetBlendMode(blend)
+	texture:SetVertexColor(1, 1, 1, alpha)
+	return texture
+end
+
+local function edgeCorner(edge, layer, blend, alpha, point, segment, left, right, top, bottom)
+	local texture = edgeTexture(edge, layer, blend, alpha)
+	texture:SetSize(TARGET_EDGE_CORNER, TARGET_EDGE_CORNER)
+	texture:SetPoint(point)
+	local u = segment * 16
+	texture:SetTexCoord((u + left) / 128, (u + right) / 128, top / 16, bottom / 16)
+	return texture
+end
+
+local function createEdgeTextures(edge, layer, blend, alpha)
+	local topLeft = edgeCorner(edge, layer, blend, alpha, "TOPLEFT", 4, 1, 6, 1, 6)
+	local topRight = edgeCorner(edge, layer, blend, alpha, "TOPRIGHT", 5, 10, 15, 1, 6)
+	local bottomLeft = edgeCorner(edge, layer, blend, alpha, "BOTTOMLEFT", 6, 1, 6, 10, 15)
+	local bottomRight = edgeCorner(edge, layer, blend, alpha, "BOTTOMRIGHT", 7, 10, 15, 10, 15)
+
+	local left = edgeTexture(edge, layer, blend, alpha)
+	left:SetPoint("TOPLEFT", topLeft, "BOTTOMLEFT")
+	left:SetPoint("BOTTOMRIGHT", bottomLeft, "TOPRIGHT")
+	left:SetTexCoord(1 / 128, 6 / 128, 1 / 16, 15 / 16)
+	local right = edgeTexture(edge, layer, blend, alpha)
+	right:SetPoint("TOPLEFT", topRight, "BOTTOMLEFT")
+	right:SetPoint("BOTTOMRIGHT", bottomRight, "TOPRIGHT")
+	right:SetTexCoord(26 / 128, 31 / 128, 1 / 16, 15 / 16)
+	local top = edgeTexture(edge, layer, blend, alpha)
+	top:SetPoint("TOPLEFT", topLeft, "TOPRIGHT")
+	top:SetPoint("BOTTOMRIGHT", topRight, "BOTTOMLEFT")
+	top:SetTexCoord(33 / 128, 1 / 16, 38 / 128, 1 / 16, 33 / 128, 15 / 16, 38 / 128, 15 / 16)
+	local bottom = edgeTexture(edge, layer, blend, alpha)
+	bottom:SetPoint("TOPLEFT", bottomLeft, "TOPRIGHT")
+	bottom:SetPoint("BOTTOMRIGHT", bottomRight, "BOTTOMLEFT")
+	bottom:SetTexCoord(58 / 128, 1 / 16, 63 / 128, 1 / 16, 58 / 128, 15 / 16, 63 / 128, 15 / 16)
+end
+
 function NamePlates.CreateTargetEdge(parent, outset)
 	local edge = CreateFrame("Frame", nil, parent)
 	edge:SetPoint("TOPLEFT", -outset, outset)
 	edge:SetPoint("BOTTOMRIGHT", outset, -outset)
-	edge:SetBackdrop(TARGET_EDGE_BACKDROP)
-	edge:SetBackdropBorderColor(1, 1, 1)
-	for _, region in ipairs({ edge:GetRegions() }) do
-		region:SetBlendMode("ADD")
-	end
-	local relief = CreateFrame("Frame", nil, edge)
-	relief:SetAllPoints()
-	relief:SetFrameLevel(edge:GetFrameLevel())
-	relief:SetBackdrop(TARGET_EDGE_BACKDROP)
-	relief:SetBackdropBorderColor(1, 1, 1, TARGET_RELIEF_ALPHA)
+	createEdgeTextures(edge, "BORDER", "BLEND", TARGET_RELIEF_ALPHA)
+	createEdgeTextures(edge, "ARTWORK", "ADD", 1)
 	edge:Hide()
 	return edge
 end
