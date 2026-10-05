@@ -593,7 +593,6 @@ ns.Defaults = {
 		otherDebuffs = false,
 		ccAuraSize = 36,
 		castbarsAllPlates = true,
-		castbarsCombatLog = true,
 		healthTextFormat = "percent",
 		arenaNumbers = true,
 		spreadPlates = false,

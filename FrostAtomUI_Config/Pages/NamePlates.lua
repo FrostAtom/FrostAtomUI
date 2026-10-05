@@ -354,16 +354,7 @@ local generalEntries = {
 		new = NEW,
 		label = L["Castbars on every nameplate"],
 		type = "toggle",
-		desc = L["Casts of arena opponents, your focus, the unit under the cursor and your group's targets on their nameplates, not only on the target. A cast keeps running after you switch targets."],
-	},
-	{
-		path = "namePlates.castbarsCombatLog",
-		advanced = true,
-		new = NEW,
-		label = L["Casts from the combat log"],
-		type = "toggle",
-		desc = L["Show casts of enemy players that no unit points at, timed from the spell's base cast time."],
-		enabledBy = "namePlates.castbarsAllPlates",
+		desc = L["Casts of arena opponents, your focus, the unit under the cursor and your group's targets on their nameplates, not only on the target. A cast is shown only while one of these units points at the nameplate."],
 	},
 	{
 		path = "namePlates.castbarIconSize",

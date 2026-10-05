@@ -4,9 +4,7 @@ local UF = ns:GetModule("UnitFrames")
 
 local UnitGUID, UnitName, UnitIsUnit, UnitCanAttack = UnitGUID, UnitName, UnitIsUnit, UnitCanAttack
 local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
-local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
-local band = bit.band
 
 local config = ns.Config.namePlates
 local frameConfig = ns.Config.unitFrames
@@ -21,47 +19,10 @@ local ICON_GAP = NamePlates.ICON_GAP
 local FINISH_WINDOW = NamePlates.CAST_FINISH_WINDOW
 local LATE_INTERRUPT = NamePlates.CAST_LATE_INTERRUPT
 local STOP_TIMEOUT = 0.5
-local INSTANT_WINDOW = 0.2
-local TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
-local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
 local CANCELLED = {}
-
-local INSTANT_PROCS = {
-	[12043] = true, -- Presence of Mind
-	[48108] = { 11366 }, -- Hot Streak (Pyroblast)
-	[57761] = { 133, 44614 }, -- Fireball! (Fireball, Frostfire Bolt)
-	[54741] = { 2120 }, -- Firestarter (Flamestrike)
-	[59578] = { 879, 19750 }, -- The Art of War (Exorcism, Flash of Light)
-	[54149] = { 19750 }, -- Infusion of Light (Flash of Light)
-	[33151] = { 585, 2061 }, -- Surge of Light (Smite, Flash Heal)
-	[16166] = { 403, 421, 51505 }, -- Elemental Mastery (Lightning Bolt, Chain Lightning, Lava Burst)
-	[53817] = { 403, 421, 331, 8004, 1064, 51514 }, -- Maelstrom Weapon (Lightning Bolt, Chain Lightning, Healing Wave, Lesser Healing Wave, Chain Heal, Hex)
-	[16188] = true, -- Nature's Swiftness
-	[17116] = true, -- Nature's Swiftness
-	[69369] = true, -- Predator's Swiftness
-	[17941] = { 686 }, -- Shadow Trance (Shadow Bolt)
-	[34936] = { 686, 29722 }, -- Backlash (Shadow Bolt, Incinerate)
-}
-
-local procSpells = {}
-for auraId, spells in pairs(INSTANT_PROCS) do
-	if spells == true then
-		procSpells[auraId] = true
-	else
-		local names = {}
-		for i = 1, #spells do
-			local name = GetSpellInfo(spells[i])
-			if name then
-				names[name] = true
-			end
-		end
-		procSpells[auraId] = names
-	end
-end
 
 local casts = {}
 local pool = {}
-local castTimes = {}
 local lastStop = {}
 local lastTexture = {}
 
@@ -142,8 +103,9 @@ local function recordUnitCast(unit)
 		castId = nil
 	end
 	if not name then
-		if casts[guid] then
-			removeCast(guid)
+		local entry = casts[guid]
+		if entry then
+			removeCast(guid, GetTime() >= entry.endTime - FINISH_WINDOW)
 		end
 		return
 	end
@@ -158,7 +120,6 @@ local function recordUnitCast(unit)
 		notInterruptible = nil
 	end
 	entry.locked = unitLocked(unit, notInterruptible)
-	entry.fromLog = false
 	refreshGUID(guid)
 end
 
@@ -183,15 +144,11 @@ local function updateBarTarget(bar, unit)
 	bar.holder:SetBackdropBorderColor(color[1], color[2], color[3])
 end
 
-local function isTracked(plate, entry)
-	return entry.fromLog or NamePlates.GetPlateUnit(plate) ~= nil
-end
-
 local function onBarUpdate(bar, elapsed)
 	local entry = bar.entry
 	local now = GetTime()
 	local plate = bar:GetParent()
-	if now > entry.endTime + STOP_TIMEOUT or not isTracked(plate, entry) then
+	if now > entry.endTime + STOP_TIMEOUT or not NamePlates.GetPlateUnit(plate) then
 		if plate.guid and casts[plate.guid] == entry then
 			removeCast(plate.guid)
 		else
@@ -265,7 +222,7 @@ function updatePlate(plate)
 		or plate.totemSpell
 		or plate.hiddenByName
 		or GetTime() > entry.endTime
-		or not isTracked(plate, entry)
+		or not NamePlates.GetPlateUnit(plate)
 	then
 		hideBar(plate)
 		return
@@ -305,14 +262,14 @@ end
 
 local function onCastFailed(_, unit, _, _, castId)
 	local guid, entry = unitCast(unit)
-	if entry and (entry.fromLog or entry.castId == castId) then
+	if entry and entry.castId == castId then
 		removeCast(guid)
 	end
 end
 
 local function onCastInterrupted(_, unit, _, _, castId)
 	local guid, entry = unitCast(unit)
-	if entry and (entry.isChannel or entry.fromLog or entry.castId == castId) then
+	if entry and (entry.isChannel or entry.castId == castId) then
 		removeCast(guid, frameConfig.castbarInterrupter and (UF.RecentSilence(guid) or CANCELLED) or nil)
 	end
 end
@@ -378,93 +335,6 @@ local function onSilenced(_, guid, text)
 	end
 end
 
-local function spellCastTime(spellId)
-	local castTime = castTimes[spellId]
-	if castTime == nil then
-		local _, _, _, _, _, _, time = GetSpellInfo(spellId)
-		castTime = time and time > 0 and time / 1e3 or false
-		castTimes[spellId] = castTime
-	end
-	return castTime
-end
-
-local function isEnemyPlayer(flags)
-	return band(flags, TYPE_PLAYER) > 0 and band(flags, REACTION_HOSTILE) > 0
-end
-
-local function guidUnit(guid)
-	local plate = guidPlates[guid]
-	return plate and NamePlates.GetPlateUnit(plate) or ns.UnitByGUID(guid)
-end
-
-local function onLogCastStart(srcGUID, srcFlags, _, _, spellId, spellName)
-	if not config.castbarsCombatLog or not isEnemyPlayer(srcFlags) then
-		return
-	end
-	local now = GetTime()
-	local entry = casts[srcGUID]
-	if entry and not entry.fromLog and entry.endTime > now then
-		return
-	end
-	local unit = guidUnit(srcGUID)
-	if unit then
-		recordUnitCast(unit)
-		return
-	end
-	local castTime = spellCastTime(spellId)
-	if not castTime then
-		return
-	end
-	entry = acquire(srcGUID)
-	entry.name = spellName
-	entry.texture = ns.SpellTexture(spellId)
-	entry.startTime = now
-	entry.endTime = now + castTime
-	entry.isChannel = false
-	entry.castId = nil
-	entry.locked = false
-	entry.fromLog = true
-	refreshGUID(srcGUID)
-end
-
-local function isInstantCast(spellId)
-	local _, _, _, cost, _, _, castTime = GetSpellInfo(spellId)
-	return castTime == 0 and cost and cost > 0
-end
-
-local function onLogCastSuccess(srcGUID, _, _, _, spellId, spellName)
-	local entry = casts[srcGUID]
-	if not entry or entry.isChannel then
-		return
-	end
-	if entry.name == spellName then
-		removeCast(srcGUID, true)
-	elseif entry.fromLog and isInstantCast(spellId) then
-		removeCast(srcGUID)
-	end
-end
-
-local function onLogProcRemoved(_, _, dstGUID, _, spellId)
-	local spells = procSpells[spellId]
-	local entry = spells and casts[dstGUID]
-	if not entry or not entry.fromLog or spells ~= true and not spells[entry.name] then
-		return
-	end
-	removeCast(dstGUID, GetTime() - entry.startTime > INSTANT_WINDOW)
-end
-
-local function onLogInterrupt(_, _, dstGUID)
-	if casts[dstGUID] and not frameConfig.castbarInterrupter then
-		removeCast(dstGUID)
-	end
-end
-
-local function onLogDied(_, _, dstGUID)
-	if casts[dstGUID] then
-		removeCast(dstGUID)
-	end
-end
-
 local function onUnitAdded(plate, unit)
 	if UnitGUID(unit) == plate.guid then
 		recordUnitCast(unit)
@@ -475,7 +345,7 @@ end
 local function onUnitRemoved(plate)
 	local guid = plate.guid
 	local entry = guid and casts[guid]
-	if entry and not entry.fromLog and not NamePlates.GetPlateUnit(plate) then
+	if entry and not NamePlates.GetPlateUnit(plate) then
 		removeCast(guid)
 	end
 end
@@ -563,11 +433,6 @@ NamePlates:OnInitialize(function(self)
 			self:RegisterUnitEvent(event, LOCK_UNITS[i], handler)
 		end
 	end
-	NamePlates.AddLogHandler("SPELL_CAST_START", onLogCastStart)
-	NamePlates.AddLogHandler("SPELL_CAST_SUCCESS", onLogCastSuccess)
-	NamePlates.AddLogHandler("SPELL_AURA_REMOVED", onLogProcRemoved)
-	NamePlates.AddLogHandler("SPELL_INTERRUPT", onLogInterrupt)
-	NamePlates.AddLogHandler("UNIT_DIED", onLogDied)
 	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = updatePlate
 	NamePlates.onUnitAdded[#NamePlates.onUnitAdded + 1] = onUnitAdded
 	NamePlates.onUnitRemoved[#NamePlates.onUnitRemoved + 1] = onUnitRemoved
