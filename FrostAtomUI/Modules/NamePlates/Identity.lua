@@ -8,8 +8,8 @@ local GetNumRaidMembers, GetNumPartyMembers = GetNumRaidMembers, GetNumPartyMemb
 local GetTime = GetTime
 local band = bit.band
 local match = string.match
-local abs = math.abs
-local wipe = wipe
+local abs, huge = math.abs, math.huge
+local next, pairs, wipe = next, pairs, wipe
 
 local config = ns.Config.namePlates
 local plates = NamePlates.plates
@@ -20,17 +20,15 @@ local CONFIRM_HOLD = 1
 local MAX_ARENA = 5
 local MAX_PARTY = 4
 local MAX_RAID = 40
-local MAX_NAMEPLATE_TOKENS = 40
 local TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
 
-local C_NamePlate = _G.C_NamePlate
-local hasNamePlateTokens = C_NamePlate and C_NamePlate.GetNamePlateForUnit and true or false
-
 local ARENA_UNITS, ARENA_PET_UNITS = {}, {}
+local ARENA_INDEX = {}
 for i = 1, MAX_ARENA do
 	ARENA_UNITS[i] = "arena" .. i
 	ARENA_PET_UNITS[i] = "arenapet" .. i
+	ARENA_INDEX[ARENA_UNITS[i]] = i
 end
 local PARTY_UNITS, PARTY_TARGETS = {}, {}
 for i = 1, MAX_PARTY do
@@ -42,11 +40,12 @@ for i = 1, MAX_RAID do
 	RAID_UNITS[i] = "raid" .. i
 	RAID_TARGETS[i] = "raid" .. i .. "target"
 end
-local NAMEPLATE_UNITS = {}
-if hasNamePlateTokens then
-	for i = 1, MAX_NAMEPLATE_TOKENS do
-		NAMEPLATE_UNITS[i] = "nameplate" .. i
-	end
+local GROUP_UNITS = {}
+for i = 1, MAX_PARTY do
+	GROUP_UNITS[PARTY_UNITS[i]] = true
+end
+for i = 1, MAX_RAID do
+	GROUP_UNITS[RAID_UNITS[i]] = true
 end
 
 local EVENT_UNITS = { target = true, focus = true }
@@ -54,12 +53,18 @@ for i = 1, MAX_ARENA do
 	EVENT_UNITS[ARENA_UNITS[i]] = true
 	EVENT_UNITS[ARENA_PET_UNITS[i]] = true
 end
-for i = 1, #NAMEPLATE_UNITS do
-	EVENT_UNITS[NAMEPLATE_UNITS[i]] = true
-end
 NamePlates.ARENA_UNITS = ARENA_UNITS
 NamePlates.ARENA_PET_UNITS = ARENA_PET_UNITS
 NamePlates.EVENT_UNITS = EVENT_UNITS
+
+local FIXED_UNITS = { "target", "focus" }
+for i = 1, MAX_ARENA do
+	FIXED_UNITS[#FIXED_UNITS + 1] = ARENA_UNITS[i]
+end
+for i = 1, MAX_ARENA do
+	FIXED_UNITS[#FIXED_UNITS + 1] = ARENA_PET_UNITS[i]
+end
+FIXED_UNITS[#FIXED_UNITS + 1] = "mouseover"
 
 local targetOf = setmetatable({}, {
 	__index = function(self, unit)
@@ -71,23 +76,97 @@ local targetOf = setmetatable({}, {
 NamePlates.targetOf = targetOf
 
 local guidPlates = {}
+local unitPlates = {}
 local enemyPlayers = {}
 local knownGUIDs = {}
 local onIdentity = {}
+local onUnitAdded = {}
+local onUnitRemoved = {}
 local onPass = {}
-local groupTargets, groupTargetCount = {}, 0
 NamePlates.guidPlates = guidPlates
+NamePlates.unitPlates = unitPlates
 NamePlates.onIdentity = onIdentity
+NamePlates.onUnitAdded = onUnitAdded
+NamePlates.onUnitRemoved = onUnitRemoved
 NamePlates.onPass = onPass
 
+local units, priority = {}, {}
 local nameIndex = {}
-local passUnit = {}
-local passArena = {}
-local tokenPlates = {}
+local resolved = {}
+local claims = {}
+local owners = {}
+local changed = {}
+local stale = {}
 
 local function notify(plate)
 	for i = 1, #onIdentity do
 		onIdentity[i](plate)
+	end
+end
+
+local function fire(handlers, plate, unit)
+	for i = 1, #handlers do
+		handlers[i](plate, unit)
+	end
+end
+
+local function updateArenaLabel(plate)
+	local label = plate.arenaLabel
+	local index = config.arenaNumbers and not plate.totem:IsShown() and plate.arenaIndex
+	if index then
+		label:SetFormattedText("%d", index)
+	else
+		label:SetText("")
+	end
+end
+
+local function refreshUnits(plate)
+	local best, bestRank, arenaIndex
+	for unit in pairs(plate.units) do
+		local rank = priority[unit] or huge
+		if not bestRank or rank < bestRank then
+			best, bestRank = unit, rank
+		end
+		local index = ARENA_INDEX[unit]
+		if index and (not arenaIndex or index < arenaIndex) then
+			arenaIndex = index
+		end
+	end
+	plate.unit = best
+	if plate.arenaIndex ~= arenaIndex then
+		plate.arenaIndex = arenaIndex
+		updateArenaLabel(plate)
+	end
+end
+
+local function attach(plate, unit)
+	local set = plate.units
+	if not set then
+		set = {}
+		plate.units = set
+	end
+	unitPlates[unit] = plate
+	set[unit] = true
+	refreshUnits(plate)
+	fire(onUnitAdded, plate, unit)
+end
+
+local function detach(plate, unit)
+	unitPlates[unit] = nil
+	plate.units[unit] = nil
+	refreshUnits(plate)
+	fire(onUnitRemoved, plate, unit)
+end
+
+local function detachAll(plate)
+	local set = plate.units
+	if not set then
+		return
+	end
+	local unit = next(set)
+	while unit do
+		detach(plate, unit)
+		unit = next(set)
 	end
 end
 
@@ -104,9 +183,8 @@ local function setGUID(plate, guid)
 	if guid then
 		local other = guidPlates[guid]
 		if other and other ~= plate then
+			detachAll(other)
 			other.guid = nil
-			other.unit = nil
-			other.arenaIndex = nil
 			notify(other)
 		end
 		guidPlates[guid] = plate
@@ -114,41 +192,32 @@ local function setGUID(plate, guid)
 	return true
 end
 
-local function setUnit(plate, unit, arenaIndex)
-	if plate.unit == unit and plate.arenaIndex == arenaIndex then
-		return false
-	end
-	plate.unit = unit
-	plate.arenaIndex = arenaIndex
-	return true
-end
-
-local function updateArenaLabel(plate)
-	local label = plate.arenaLabel
-	local index = config.arenaNumbers and not plate.totem:IsShown() and plate.arenaIndex
-	if index then
-		label:SetFormattedText("%d", index)
-	else
-		label:SetText("")
-	end
-end
-
-local function unbind(plate)
-	local changed = setGUID(plate, nil)
-	if setUnit(plate, nil, nil) then
-		changed = true
-	end
-	if changed then
-		updateArenaLabel(plate)
+local function release(plate)
+	detachAll(plate)
+	if setGUID(plate, nil) then
 		notify(plate)
 	end
 end
 
 function NamePlates.GetPlateUnit(plate)
 	local unit = plate.unit
-	if unit and plate.guid and UnitGUID(unit) == plate.guid then
+	if not unit then
+		return
+	end
+	local guid = plate.guid
+	if UnitGUID(unit) == guid then
 		return unit
 	end
+	for other in pairs(plate.units) do
+		if UnitGUID(other) == guid then
+			return other
+		end
+	end
+end
+
+function NamePlates.PlateHasUnit(plate, unit)
+	local set = plate.units
+	return set ~= nil and set[unit] == true and UnitGUID(unit) == plate.guid
 end
 
 local function healthMatches(plate, unit)
@@ -161,39 +230,51 @@ local function healthMatches(plate, unit)
 	return abs(healthbar:GetValue() / max - UnitHealth(unit) / unitMax) <= HEALTH_TOLERANCE
 end
 
-local function assign(plate, unit, guid, now)
-	if setGUID(plate, guid) then
-		plate.dirty = true
-	end
-	plate.confirmedAt = now
-	if not passUnit[plate] then
-		passUnit[plate] = unit
-	end
-end
-
 local function isCandidate(plate, guid, now)
-	return not passUnit[plate] and (plate.guid == nil or plate.guid == guid or now - plate.confirmedAt > CONFIRM_HOLD)
+	local claimed = claims[plate]
+	if claimed then
+		return claimed == guid
+	end
+	return plate.guid == nil or plate.guid == guid or now - plate.confirmedAt > CONFIRM_HOLD
 end
 
-local function resolveUnit(unit, now)
-	local guid = UnitGUID(unit)
-	if not guid then
-		return
-	end
-	local name = UnitName(unit)
+local function knownPlate(guid, name)
 	local plate = guidPlates[guid]
 	if plate and plate:IsShown() and plate.plateName == name then
-		assign(plate, unit, guid, now)
 		return plate
 	end
+end
 
+local function targetPlate(name)
+	local found
+	for i = 1, #plates do
+		local plate = plates[i]
+		if plate:IsShown() and plate:IsTarget() and plate.plateName == name then
+			if found then
+				return
+			end
+			found = plate
+		end
+	end
+	return found
+end
+
+local function mouseoverPlate(name)
+	for i = 1, #plates do
+		local plate = plates[i]
+		if plate:IsShown() and plate.plateName == name and ns.PlateLayer.IsMouseover(plate.info) then
+			return plate
+		end
+	end
+end
+
+local function matchPlate(unit, guid, name, now)
 	local candidate = nameIndex[name]
 	if candidate == nil then
 		return
 	end
 	if candidate then
 		if isCandidate(candidate, guid, now) and (UnitIsPlayer(unit) or healthMatches(candidate, unit)) then
-			assign(candidate, unit, guid, now)
 			return candidate
 		end
 		return
@@ -201,54 +282,58 @@ local function resolveUnit(unit, now)
 
 	local found
 	for i = 1, #plates do
-		local other = plates[i]
-		if
-			other.plateName == name
-			and other:IsShown()
-			and isCandidate(other, guid, now)
-			and healthMatches(other, unit)
-		then
-			if found then
-				return
-			end
-			found = other
-		end
-	end
-	if found then
-		assign(found, unit, guid, now)
-		return found
-	end
-end
-
-local function resolveTarget(now)
-	if not NamePlates.GetTargetName() then
-		return
-	end
-	local found
-	for i = 1, #plates do
 		local plate = plates[i]
-		if plate:IsShown() and plate:IsTarget() then
+		if
+			plate.plateName == name
+			and plate:IsShown()
+			and isCandidate(plate, guid, now)
+			and healthMatches(plate, unit)
+		then
 			if found then
 				return
 			end
 			found = plate
 		end
 	end
-	if found then
-		assign(found, "target", UnitGUID("target"), now)
-	end
+	return found
 end
 
-local function resolveMouseover(now)
-	if not UnitExists("mouseover") then
+local function resolve(unit, now)
+	local guid = UnitGUID(unit)
+	if not guid then
 		return
 	end
-	local name = UnitName("mouseover")
+	local owner = owners[guid]
+	if owner then
+		return owner
+	end
+	local name = UnitName(unit)
+	local plate
+	if unit == "target" then
+		plate = targetPlate(name) or knownPlate(guid, name)
+	elseif unit == "mouseover" then
+		plate = mouseoverPlate(name) or knownPlate(guid, name)
+	else
+		plate = knownPlate(guid, name) or matchPlate(unit, guid, name, now)
+	end
+	if not plate or claims[plate] then
+		return
+	end
+	owners[guid] = plate
+	claims[plate] = guid
+	return plate
+end
+
+local function bindEnemyPlayers()
 	for i = 1, #plates do
 		local plate = plates[i]
-		if plate:IsShown() and ns.PlateLayer.IsMouseover(plate.info) and plate.plateName == name then
-			assign(plate, "mouseover", UnitGUID("mouseover"), now)
-			return
+		if plate:IsShown() and not plate.guid and not claims[plate] then
+			local name = plate.plateName
+			local guid = name and enemyPlayers[name]
+			if guid and nameIndex[name] == plate and not guidPlates[guid] then
+				setGUID(plate, guid)
+				changed[plate] = true
+			end
 		end
 	end
 end
@@ -259,64 +344,58 @@ local function pass()
 	end
 	local now = GetTime()
 	wipe(nameIndex)
-	wipe(passUnit)
-	wipe(passArena)
+	wipe(resolved)
+	wipe(claims)
+	wipe(owners)
+	wipe(changed)
 
-	local shown = 0
 	for i = 1, #plates do
 		local plate = plates[i]
 		local name = plate.plateName
 		if plate:IsShown() and name and not plate.totemSpell then
-			shown = shown + 1
 			nameIndex[name] = nameIndex[name] == nil and plate
 		end
 	end
-	if shown == 0 then
-		return
+
+	for i = 1, #units do
+		local unit = units[i]
+		resolved[unit] = resolve(unit, now)
 	end
 
-	for unit, plate in pairs(tokenPlates) do
-		if plate:IsShown() and plate.healthbar then
-			local guid = UnitGUID(unit)
-			if guid then
-				assign(plate, unit, guid, now)
-			end
+	local count = 0
+	for unit, plate in pairs(unitPlates) do
+		if resolved[unit] ~= plate or claims[plate] ~= plate.guid then
+			count = count + 1
+			stale[count] = unit
 		end
 	end
-	resolveTarget(now)
-	resolveUnit("focus", now)
-	for i = 1, MAX_ARENA do
-		local plate = resolveUnit(ARENA_UNITS[i], now)
+	for i = 1, count do
+		local unit = stale[i]
+		stale[i] = nil
+		local plate = unitPlates[unit]
 		if plate then
-			passArena[plate] = i
+			detach(plate, unit)
 		end
-		resolveUnit(ARENA_PET_UNITS[i], now)
-	end
-	resolveMouseover(now)
-	for i = 1, groupTargetCount do
-		resolveUnit(groupTargets[i], now)
 	end
 
-	for i = 1, #plates do
-		local plate = plates[i]
+	for plate, guid in pairs(claims) do
+		if setGUID(plate, guid) then
+			changed[plate] = true
+		end
+		plate.confirmedAt = now
+	end
+	bindEnemyPlayers()
+	for plate in pairs(changed) do
 		if plate:IsShown() then
-			local unit = passUnit[plate]
-			if not unit and not plate.guid then
-				local name = plate.plateName
-				local guid = name and enemyPlayers[name]
-				if guid and nameIndex[name] == plate and not guidPlates[guid] then
-					setGUID(plate, guid)
-					plate.dirty = true
-				end
-			end
-			if setUnit(plate, unit, passArena[plate]) then
-				plate.dirty = true
-			end
-			if plate.dirty then
-				plate.dirty = nil
-				updateArenaLabel(plate)
-				notify(plate)
-			end
+			notify(plate)
+		end
+	end
+
+	for i = 1, #units do
+		local unit = units[i]
+		local plate = resolved[unit]
+		if plate and unitPlates[unit] ~= plate and plate.guid == claims[plate] then
+			attach(plate, unit)
 		end
 	end
 
@@ -330,23 +409,33 @@ local function requestPass()
 end
 
 local function updateRoster()
-	groupTargetCount = 0
+	wipe(units)
+	wipe(priority)
+	for i = 1, #FIXED_UNITS do
+		units[i] = FIXED_UNITS[i]
+	end
 	local raidCount = GetNumRaidMembers()
-	local units, targets, count
+	local members, targets, count
 	if raidCount > 0 then
-		units, targets, count = RAID_UNITS, RAID_TARGETS, raidCount
+		members, targets, count = RAID_UNITS, RAID_TARGETS, raidCount
 	else
-		units, targets, count = PARTY_UNITS, PARTY_TARGETS, GetNumPartyMembers()
+		members, targets, count = PARTY_UNITS, PARTY_TARGETS, GetNumPartyMembers()
 	end
 	for i = 1, count do
-		local unit = units[i]
+		local unit = members[i]
 		if UnitExists(unit) and not UnitIsUnit(unit, "player") then
-			groupTargetCount = groupTargetCount + 1
-			groupTargets[groupTargetCount] = targets[i]
+			units[#units + 1] = targets[i]
 		end
 	end
-	for i = groupTargetCount + 1, #groupTargets do
-		groupTargets[i] = nil
+	for i = 1, #units do
+		priority[units[i]] = i
+	end
+	requestPass()
+end
+
+local function onUnitTarget(_, unit)
+	if GROUP_UNITS[unit] then
+		requestPass()
 	end
 end
 
@@ -404,36 +493,19 @@ local function onEnteringWorld()
 	wipe(enemyPlayers)
 	wipe(knownGUIDs)
 	updateRoster()
-	requestPass()
 end
 
 local function onPlateShow(plate, name)
 	if plate.identityName ~= name then
 		plate.identityName = name
-		unbind(plate)
+		release(plate)
+		requestPass()
 	end
 end
 
 local function onPlateHide(plate)
 	plate.identityName = nil
-	unbind(plate)
-end
-
-local function onNamePlateAdded(_, unit)
-	local plate = C_NamePlate.GetNamePlateForUnit(unit)
-	if plate then
-		tokenPlates[unit] = plate
-		requestPass()
-	end
-end
-
-local function onNamePlateRemoved(_, unit)
-	local plate = tokenPlates[unit]
-	tokenPlates[unit] = nil
-	if plate and plate.unit == unit then
-		plate.unit = nil
-		requestPass()
-	end
+	release(plate)
 end
 
 local function applyArenaLabels()
@@ -456,10 +528,7 @@ NamePlates:OnInitialize(function(self)
 	self:RegisterEvent("PLAYER_FOCUS_CHANGED", requestPass)
 	self:RegisterEvent("UPDATE_MOUSEOVER_UNIT", requestPass)
 	self:RegisterEvent("ARENA_OPPONENT_UPDATE", requestPass)
-	if hasNamePlateTokens then
-		self:RegisterEvent("NAME_PLATE_UNIT_ADDED", onNamePlateAdded)
-		self:RegisterEvent("NAME_PLATE_UNIT_REMOVED", onNamePlateRemoved)
-	end
+	self:RegisterEvent("UNIT_TARGET", onUnitTarget)
 	self:WatchConfig("namePlates", applyArenaLabels)
 	ns.Scheduler.AddTicker(pass, pass, RESOLVE_INTERVAL)
 	updateRoster()

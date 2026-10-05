@@ -183,11 +183,15 @@ local function updateBarTarget(bar, unit)
 	bar.holder:SetBackdropBorderColor(color[1], color[2], color[3])
 end
 
+local function isTracked(plate, entry)
+	return entry.fromLog or NamePlates.GetPlateUnit(plate) ~= nil
+end
+
 local function onBarUpdate(bar, elapsed)
 	local entry = bar.entry
 	local now = GetTime()
-	if now > entry.endTime + STOP_TIMEOUT then
-		local plate = bar:GetParent()
+	local plate = bar:GetParent()
+	if now > entry.endTime + STOP_TIMEOUT or not isTracked(plate, entry) then
 		if plate.guid and casts[plate.guid] == entry then
 			removeCast(plate.guid)
 		else
@@ -261,6 +265,7 @@ function updatePlate(plate)
 		or plate.totemSpell
 		or plate.hiddenByName
 		or GetTime() > entry.endTime
+		or not isTracked(plate, entry)
 	then
 		hideBar(plate)
 		return
@@ -460,12 +465,19 @@ local function onLogDied(_, _, dstGUID)
 	end
 end
 
-local function onIdentity(plate)
-	local unit = NamePlates.GetPlateUnit(plate)
-	if unit then
+local function onUnitAdded(plate, unit)
+	if UnitGUID(unit) == plate.guid then
 		recordUnitCast(unit)
 	end
 	updatePlate(plate)
+end
+
+local function onUnitRemoved(plate)
+	local guid = plate.guid
+	local entry = guid and casts[guid]
+	if entry and not entry.fromLog and not NamePlates.GetPlateUnit(plate) then
+		removeCast(guid)
+	end
 end
 
 local function onPass(now)
@@ -479,14 +491,14 @@ local function onPass(now)
 	end
 	for i = 1, #plates do
 		local plate = plates[i]
-		local unit = plate.unit
-		if unit and plate:IsShown() and plate.guid then
+		local unit = plate:IsShown() and NamePlates.GetPlateUnit(plate)
+		if unit then
 			if not EVENT_UNITS[unit] then
 				recordUnitCast(unit)
 			end
 			local bar = plate.vcast
 			if bar and bar:IsShown() then
-				updateBarTarget(bar, NamePlates.GetPlateUnit(plate))
+				updateBarTarget(bar, unit)
 			end
 		end
 	end
@@ -556,7 +568,9 @@ NamePlates:OnInitialize(function(self)
 	NamePlates.AddLogHandler("SPELL_AURA_REMOVED", onLogProcRemoved)
 	NamePlates.AddLogHandler("SPELL_INTERRUPT", onLogInterrupt)
 	NamePlates.AddLogHandler("UNIT_DIED", onLogDied)
-	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
+	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = updatePlate
+	NamePlates.onUnitAdded[#NamePlates.onUnitAdded + 1] = onUnitAdded
+	NamePlates.onUnitRemoved[#NamePlates.onUnitRemoved + 1] = onUnitRemoved
 	NamePlates.onPass[#NamePlates.onPass + 1] = onPass
 	NamePlates.onPlateLayout[#NamePlates.onPlateLayout + 1] = relayout
 	self:RegisterEvent(UF.CAST_INTERRUPTED, onInterrupter)

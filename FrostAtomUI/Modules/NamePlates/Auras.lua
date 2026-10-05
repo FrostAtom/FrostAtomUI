@@ -24,9 +24,7 @@ local EVENT_UNITS = NamePlates.EVENT_UNITS
 local ICON_RATIO = 0.65
 local DURATION_BAR_HEIGHT = 2
 local TIMER_INTERVAL = 0.1
-local EXACT_INTERVAL = 1
 local SWEEP_INTERVAL = 10
-local SAME_SCAN = 0.02
 local DR_SETTLE = 0.05
 local CROP_Y = (1 - ICON_RATIO) / 2
 local COMBATLOG_OBJECT_CONTROL_PLAYER = 0x100
@@ -46,7 +44,6 @@ local function getSet(guid)
 		local count = #setPool
 		set = setPool[count] or {}
 		setPool[count] = nil
-		set.exactAt = 0
 		cache[guid] = set
 	end
 	return set
@@ -140,11 +137,8 @@ local function addAura(set, aura, kind, isPlayer)
 	end
 end
 
-local function exactScan(unit, guid, now)
+local function exactScan(unit, guid)
 	local set = getSet(guid)
-	if now - set.exactAt < SAME_SCAN then
-		return
-	end
 	clearSet(set)
 	if not EVENT_UNITS[unit] then
 		Auras.Invalidate(unit)
@@ -171,8 +165,46 @@ local function exactScan(unit, guid, now)
 		end
 	end
 
-	set.exactAt = now
 	sort(set, auraOrder)
+	markDirty(guid)
+end
+
+local pendingScans = {}
+
+local function flushScans()
+	for guid in pairs(pendingScans) do
+		pendingScans[guid] = nil
+		local plate = guidPlates[guid]
+		local unit = plate and NamePlates.GetPlateUnit(plate)
+		if unit then
+			exactScan(unit, guid)
+		end
+	end
+end
+
+local function syncLive(guid)
+	local plate = guidPlates[guid]
+	local unit = plate and NamePlates.GetPlateUnit(plate)
+	if not unit then
+		return false
+	end
+	if not EVENT_UNITS[unit] then
+		pendingScans[guid] = true
+		ns.Defer(pendingScans, flushScans)
+	end
+	return true
+end
+
+local function pruneUntimed(guid)
+	local set = cache[guid]
+	if not set then
+		return
+	end
+	for i = #set, 1, -1 do
+		if set[i].expires == 0 then
+			removeEntry(set, i)
+		end
+	end
 	markDirty(guid)
 end
 
@@ -195,7 +227,7 @@ local function drFactor(guid, category, now)
 end
 
 local function onAuraApplied(srcGUID, _, dstGUID, dstFlags, spellId, spellName, _, auraType)
-	if band(dstFlags, COMBATLOG_OBJECT_CONTROL_PLAYER) == 0 then
+	if band(dstFlags, COMBATLOG_OBJECT_CONTROL_PLAYER) == 0 or syncLive(dstGUID) then
 		return
 	end
 	local isBuff = auraType == "BUFF"
@@ -237,7 +269,10 @@ end
 
 local function onAuraDose(_, _, dstGUID, _, spellId, _, _, _, amount)
 	local set = cache[dstGUID]
-	local entry = set and findEntry(set, spellId)
+	if not set or syncLive(dstGUID) then
+		return
+	end
+	local entry = findEntry(set, spellId)
 	if entry and amount then
 		entry.count = amount
 		markDirty(dstGUID)
@@ -246,7 +281,7 @@ end
 
 local function onAuraRemoved(_, _, dstGUID, _, spellId)
 	local set = cache[dstGUID]
-	if not set then
+	if not set or syncLive(dstGUID) then
 		return
 	end
 	local _, index = findEntry(set, spellId)
@@ -484,16 +519,22 @@ end)
 local function onUnitAura(_, unit)
 	local guid = UnitGUID(unit)
 	if guid and guidPlates[guid] then
-		exactScan(unit, guid, GetTime())
+		exactScan(unit, guid)
 	end
 end
 
-local function onIdentity(plate)
-	local unit = NamePlates.GetPlateUnit(plate)
-	if unit then
-		exactScan(unit, plate.guid, GetTime())
+local function onUnitAdded(plate, unit)
+	local guid = plate.guid
+	if guid and UnitGUID(unit) == guid then
+		exactScan(unit, guid)
 	end
-	updatePlate(plate)
+end
+
+local function onUnitRemoved(plate)
+	local guid = plate.guid
+	if guid and not NamePlates.GetPlateUnit(plate) then
+		pruneUntimed(guid)
+	end
 end
 
 local function sweep(now)
@@ -513,14 +554,9 @@ end
 local function onPass(now)
 	for i = 1, #plates do
 		local plate = plates[i]
-		local unit, guid = plate.unit, plate.guid
-		if unit and guid and not EVENT_UNITS[unit] and plate:IsShown() then
-			local set = cache[guid]
-			if not set or now - set.exactAt >= EXACT_INTERVAL then
-				if UnitGUID(unit) == guid then
-					exactScan(unit, guid, now)
-				end
-			end
+		local unit = plate:IsShown() and NamePlates.GetPlateUnit(plate)
+		if unit and not EVENT_UNITS[unit] then
+			exactScan(unit, plate.guid)
 		end
 	end
 	if now >= nextSweep then
@@ -586,7 +622,9 @@ NamePlates:OnInitialize(function(self)
 	NamePlates.AddLogHandler("SPELL_AURA_BROKEN", onAuraRemoved)
 	NamePlates.AddLogHandler("SPELL_AURA_BROKEN_SPELL", onAuraRemoved)
 	NamePlates.AddLogHandler("UNIT_DIED", onUnitDied)
-	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
+	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = updatePlate
+	NamePlates.onUnitAdded[#NamePlates.onUnitAdded + 1] = onUnitAdded
+	NamePlates.onUnitRemoved[#NamePlates.onUnitRemoved + 1] = onUnitRemoved
 	NamePlates.onPass[#NamePlates.onPass + 1] = onPass
 	NamePlates.onPlateHide[#NamePlates.onPlateHide + 1] = onPlateHide
 	NamePlates.onPlateLayout[#NamePlates.onPlateLayout + 1] = updatePlate

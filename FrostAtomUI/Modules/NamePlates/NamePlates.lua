@@ -516,6 +516,18 @@ end
 
 local CastbarMixin = {}
 
+local function isTargetPlate(plate)
+	local guid = UnitGUID("target")
+	if not guid or plate.blizzardName:GetText() ~= UnitName("target") then
+		return false
+	end
+	if plate.guid then
+		return plate.guid == guid
+	end
+	local owner = NamePlates.unitPlates.target
+	return owner == nil or owner == plate or owner.guid ~= guid
+end
+
 function CastbarMixin:Layout()
 	NamePlates.LayoutCastbar(self)
 	self.locked = nil
@@ -538,6 +550,13 @@ function CastbarMixin:UpdateLock()
 end
 
 function CastbarMixin:OnUpdate(elapsed)
+	if not isTargetPlate(self:GetParent()) then
+		if self.casting then
+			self:StopCast()
+		end
+		self:Hide()
+		return
+	end
 	if self:GetNumPoints() ~= 2 then
 		self:Layout()
 	end
@@ -611,7 +630,7 @@ end
 
 function CastbarMixin:StartCast()
 	self.result:Hide()
-	if not UnitExists("target") or self:GetParent().blizzardName:GetText() ~= UnitName("target") then
+	if not isTargetPlate(self:GetParent()) then
 		if self.casting then
 			self:StopCast()
 		end
