@@ -850,6 +850,7 @@ ns.Defaults = {
 		cameraDistanceClose = 10,
 		cameraDistanceMedium = 25,
 		cameraDistanceFar = 50,
+		instantCameraCollision = false,
 		cameraYawSpeed = 180,
 		cameraPitchSpeed = 90,
 		cameraZoomSpeed = 8.33,

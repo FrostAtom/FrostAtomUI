@@ -459,15 +459,48 @@ ns.OnLocaleReady(function()
 end)
 
 local snapFrame = CreateFrame("Frame")
-local snapMax, snapFactor, snapDistance, snapTime, snapFrames, snapStopFrames
+local snapMax, snapFactor, snapDistance, snapTime, snapFrames, snapStopFrames, snapLocked, snapReplay
+local snapOwnView
+
+local function snapView()
+	local view = tonumber(GetCVar("cameraView"))
+	if view and view >= 1 and view <= 5 then
+		local blendStyle = GetCVar("cameraViewBlendStyle")
+		SetCVar("cameraViewBlendStyle", "0")
+		snapOwnView = true
+		SetView(view)
+		snapOwnView = nil
+		SetCVar("cameraViewBlendStyle", blendStyle)
+	end
+end
+
+local function releaseSnap()
+	if not snapLocked then
+		return
+	end
+	snapLocked = nil
+	MoveViewInStop()
+	MoveViewOutStop()
+	snapStopFrames = snapFrames
+end
 
 local function finishSnap(self, elapsed)
 	snapTime = snapTime + elapsed
 	snapFrames = snapFrames + 1
+	local max = GetCVar("cameraDistanceMax")
+	if tonumber(max) ~= tonumber(snapDistance) then
+		snapMax = max
+	end
 	SetCVar("cameraDistanceMax", snapDistance)
 
+	if snapLocked and (not ns.Config.tweaks.instantCameraCollision or UnitInVehicle("player")) then
+		releaseSnap()
+	end
 	if not snapStopFrames then
-		if snapTime < CAMERA_SNAP_HOLD or snapFrames < CAMERA_SNAP_MIN_FRAMES then
+		if snapLocked then
+			snapView()
+		end
+		if snapLocked or snapTime < CAMERA_SNAP_HOLD or snapFrames < CAMERA_SNAP_MIN_FRAMES then
 			MoveViewInStart(CAMERA_SNAP_SPEED)
 			MoveViewOutStart(CAMERA_SNAP_SPEED)
 		else
@@ -486,6 +519,34 @@ local function finishSnap(self, elapsed)
 	SetCVar("cameraDistanceMaxFactor", snapFactor)
 	SetCVar("cameraDistanceMax", snapMax)
 	snapTime = nil
+	local replay = snapReplay
+	snapReplay = nil
+	if replay == "view" then
+		local view = tonumber(GetCVar("cameraView"))
+		if view and view >= 1 and view <= 5 then
+			SetView(view)
+		end
+	elseif replay then
+		replay.func(replay.amount)
+	end
+end
+
+for _, name in ipairs({ "CameraZoomIn", "CameraZoomOut" }) do
+	hooksecurefunc(name, function(amount)
+		if snapLocked then
+			releaseSnap()
+			snapReplay = { func = _G[name], amount = amount }
+		end
+	end)
+end
+
+for _, name in ipairs({ "SetView", "NextView", "PrevView", "ResetView" }) do
+	hooksecurefunc(name, function()
+		if snapLocked and not snapOwnView then
+			releaseSnap()
+			snapReplay = "view"
+		end
+	end)
 end
 
 function FrostAtomUI_SetCameraDistance(preset)
@@ -501,15 +562,11 @@ function FrostAtomUI_SetCameraDistance(preset)
 	snapTime = 0
 	snapFrames = 0
 	snapStopFrames = nil
+	snapReplay = nil
 	snapDistance = tostring(distance)
+	snapLocked = ns.Config.tweaks.enabled and ns.Config.tweaks.instantCameraCollision and not UnitInVehicle("player")
 
-	local view = tonumber(GetCVar("cameraView"))
-	if view and view >= 1 and view <= 5 then
-		local blendStyle = GetCVar("cameraViewBlendStyle")
-		SetCVar("cameraViewBlendStyle", "0")
-		SetView(view)
-		SetCVar("cameraViewBlendStyle", blendStyle)
-	end
+	snapView()
 
 	SetCVar("cameraDistanceMaxFactor", "1")
 	SetCVar("cameraDistanceMax", snapDistance)

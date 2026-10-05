@@ -48,6 +48,8 @@ local TOMBSTONE_SIZE = 16
 local TOMBSTONE_ICON = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local ENVIRONMENT_ICON = "Interface\\Icons\\Ability_Creature_Cursed_05"
 local MELEE_SPELL = 6603 -- Auto Attack
+local FEIGN_DEATH = 5384 -- Feign Death
+local FEIGN_WINDOW = 1
 local NO_ENTRIES = {}
 
 local FIXED_ICONS = {
@@ -117,6 +119,7 @@ local ENTRY_FIELDS = {
 local playerGUID
 local buffers = {}
 local units = {}
+local feignedAt = {}
 local trackArena = false
 
 local recaps = {}
@@ -188,7 +191,7 @@ local function onCombatLogEvent(
 	_,
 	_,
 	event,
-	_,
+	sourceGUID,
 	sourceName,
 	_,
 	destGUID,
@@ -205,6 +208,12 @@ local function onCombatLogEvent(
 	a9,
 	a10
 )
+	if event == "SPELL_CAST_SUCCESS" or event == "SPELL_AURA_APPLIED" then
+		if a1 == FEIGN_DEATH and trackArena then
+			feignedAt[event == "SPELL_CAST_SUCCESS" and sourceGUID or destGUID] = GetTime()
+		end
+		return
+	end
 	if destGUID ~= playerGUID then
 		if not trackArena or band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == 0 then
 			return
@@ -614,9 +623,17 @@ local function onPlayerDead()
 	end
 end
 
-function onUnitDied(guid, name)
+local function isFeigning(guid)
 	local unit = unitFor(guid)
-	if unit and UnitIsFeignDeath(unit) then
+	if unit and (UnitIsFeignDeath(unit) or UnitHealth(unit) > 0) then
+		return true
+	end
+	local feigned = feignedAt[guid]
+	return feigned and GetTime() - feigned < FEIGN_WINDOW
+end
+
+function onUnitDied(guid, name)
+	if isFeigning(guid) then
 		return
 	end
 	name = name or UNKNOWN
@@ -649,6 +666,7 @@ local function updateZone()
 			end
 		end
 		wipe(units)
+		wipe(feignedAt)
 	end
 end
 

@@ -137,6 +137,13 @@ for _, preset in ipairs({
 	}
 	cameraPresets[#cameraPresets + 1] = cameraKey("FROSTATOMUI_CAMERA_" .. preset[1]:upper())
 end
+cameraPresets[#cameraPresets + 1] = {
+	path = "instantCameraCollision",
+	label = L["Instant return after collision"],
+	type = "toggle",
+	new = NEW,
+	desc = L["After a preset key the camera holds that distance: when terrain or a wall stops blocking it, it jumps straight back instead of sliding out over 2 seconds. Mouse wheel zoom, a camera view change or a vehicle ends it until the next preset key. Made for camera following set to Never: smooth turning behind the character gets jerky."],
+}
 
 Section(schema, L["Camera distance presets"], "tweaks", cameraPresets, nil, nil, "magnifying-glass-plus")
 
