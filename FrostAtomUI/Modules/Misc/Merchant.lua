@@ -979,9 +979,53 @@ local function onBuybackInfo()
 	updateLevels()
 end
 
+local function clickedInMerchant()
+	local frame = GetMouseFocus()
+	while frame do
+		if frame == MerchantFrame then
+			return true
+		end
+		frame = frame:GetParent()
+	end
+	return false
+end
+
+local linkSearchTime
+
+local function onInsertLink(text)
+	if
+		not searchBox
+		or not searchBox:IsVisible()
+		or type(text) ~= "string"
+		or not strfind(text, "|Hitem:", 1, true)
+		or ChatEdit_GetActiveWindow()
+		or (MacroFrameText and MacroFrameText:IsVisible())
+		or clickedInMerchant()
+	then
+		return
+	end
+	local focus = GetCurrentKeyBoardFocus()
+	if focus and focus ~= searchBox then
+		return
+	end
+	local name = GetItemInfo(text) or strmatch(text, "|h%[(.-)%]|h")
+	if name then
+		searchBox:SetText(name)
+		linkSearchTime = GetTime()
+	end
+end
+
+local function onOpenStackSplit()
+	if linkSearchTime == GetTime() then
+		StackSplitFrame:Hide()
+	end
+end
+
 saveOriginalPoints()
 hooksecurefunc("MerchantFrame_UpdateMerchantInfo", onMerchantInfo)
 hooksecurefunc("MerchantFrame_UpdateBuybackInfo", onBuybackInfo)
+hooksecurefunc("ChatEdit_InsertLink", onInsertLink)
+hooksecurefunc("OpenStackSplitFrame", onOpenStackSplit)
 
 Misc:WatchConfig("merchant", refresh)
 

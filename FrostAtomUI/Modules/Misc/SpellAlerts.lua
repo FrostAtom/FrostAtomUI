@@ -174,7 +174,7 @@ local function onCombatLog(_, _, event, sourceGUID, _, sourceFlags, destGUID, _,
 		spell = AURA[spellId] or AURA_NAMES[spellName]
 		if spell then
 			if isEnabled(spell) and isHostile(destFlags) and isWatched(destGUID) then
-				alert(spell.sound, spell.priority, destGUID)
+				alert(spell.sound, spell.priority, sourceGUID)
 			end
 			return
 		end
