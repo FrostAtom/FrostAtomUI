@@ -224,11 +224,7 @@ local function hideActionBars(module)
 		end
 	end
 
-	if PlayerTalentFrame then
-		detachTalentFrame()
-	else
-		hooksecurefunc("TalentFrame_LoadUI", detachTalentFrame)
-	end
+	ns:OnAddonLoaded("Blizzard_TalentUI", detachTalentFrame)
 
 	for _, key in ipairs(MANAGED_POSITIONS) do
 		UIPARENT_MANAGED_FRAME_POSITIONS[key] = nil
