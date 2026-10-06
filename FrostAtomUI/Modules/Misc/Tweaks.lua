@@ -479,6 +479,7 @@ local function releaseSnap()
 		return
 	end
 	snapLocked = nil
+	ns:SaveVariable("cameraSnapDistance", nil)
 	MoveViewInStop()
 	MoveViewOutStop()
 	snapStopFrames = snapFrames
@@ -549,12 +550,7 @@ for _, name in ipairs({ "SetView", "NextView", "PrevView", "ResetView" }) do
 	end)
 end
 
-function FrostAtomUI_SetCameraDistance(preset)
-	local distance = ns.Config.tweaks["cameraDistance" .. preset]
-	if not distance then
-		return
-	end
-
+local function snapCamera(distance)
 	if not snapTime then
 		snapMax = GetCVar("cameraDistanceMax")
 		snapFactor = GetCVar("cameraDistanceMaxFactor")
@@ -565,6 +561,7 @@ function FrostAtomUI_SetCameraDistance(preset)
 	snapReplay = nil
 	snapDistance = tostring(distance)
 	snapLocked = ns.Config.tweaks.enabled and ns.Config.tweaks.instantCameraCollision and not UnitInVehicle("player")
+	ns:SaveVariable("cameraSnapDistance", snapLocked and distance or nil)
 
 	snapView()
 
@@ -574,6 +571,24 @@ function FrostAtomUI_SetCameraDistance(preset)
 	MoveViewOutStart(CAMERA_SNAP_SPEED)
 	snapFrame:SetScript("OnUpdate", finishSnap)
 end
+
+function FrostAtomUI_SetCameraDistance(preset)
+	local distance = ns.Config.tweaks["cameraDistance" .. preset]
+	if distance then
+		snapCamera(distance)
+	end
+end
+
+local function restoreCameraSnap(self)
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD", restoreCameraSnap)
+
+	local distance = ns.db.cameraSnapDistance
+	if distance and not snapTime and ns.Config.tweaks.enabled and ns.Config.tweaks.instantCameraCollision then
+		snapCamera(distance)
+	end
+end
+
+Misc:RegisterEvent("PLAYER_ENTERING_WORLD", restoreCameraSnap)
 
 local function defaultFocusKey(self)
 	self:UnregisterEvent("UPDATE_BINDINGS", defaultFocusKey)

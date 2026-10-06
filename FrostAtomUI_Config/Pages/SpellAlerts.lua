@@ -87,7 +87,7 @@ local schema = {
 		path = ENABLED,
 		label = L["Enable"],
 		type = "toggle",
-		desc = L["A voice names important spells of enemy players: crowd control cast at you or your allies, defensive and offensive cooldowns, trinkets. Plays even with sound effects turned off."],
+		desc = L["A voice names important spells of enemy players: crowd control cast at you or your allies, defensive and offensive cooldowns, trinkets. Plays through the sound effects channel: follows the master and sound effects volume and is silent while sound effects are off."],
 	},
 	{
 		label = L["Test"],
