@@ -130,7 +130,7 @@ end
 
 local function bagInventorySlot(bag)
 	if bag > NUM_BAG_SLOTS then
-		return BankButtonIDToInvSlotID(bag - NUM_BAG_SLOTS, 1)
+		return BankButtonIDToInvSlotID(bag, 1)
 	elseif bag > BACKPACK_CONTAINER then
 		return ContainerIDToInventoryID(bag)
 	end
@@ -594,6 +594,7 @@ function BagSlotMixin:OnClick()
 		return
 	end
 	if self:IsPurchasable() then
+		BankFrame.nextSlotCost = GetBankSlotCost(GetNumBankSlots())
 		StaticPopup_Show("CONFIRM_BUY_BANK_SLOT")
 	elseif CursorHasItem() then
 		if self.bag == BACKPACK_CONTAINER then
