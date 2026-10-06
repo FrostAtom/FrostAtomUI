@@ -4,36 +4,17 @@ if not ns.IS_WOWCIRCLE then
 	return
 end
 
-local UnitName = UnitName
-local SelectGossipOption = SelectGossipOption
 local ipairs, pairs, tonumber, wipe = ipairs, pairs, tonumber, wipe
 local tinsert, tsort = table.insert, table.sort
 
 local UF = ns:GetModule("UnitFrames")
+local GossipCards = ns.GossipCards
 
 local NPC_NAME = "Arena Spectator"
 local ICON_SIZE = 17
 local ICON_GAP = 1
 local VS_GAP = 6
-local LIST_TOP = 10
-local NAV_WIDTH = 78
-local NAV_HEIGHT = 22
-local NAV_LEFT = 21
-local NAV_BOTTOM = 73
-local NAV_GAP = 2
-local CARD_LEFT = 4
-local CARD_RIGHT = -6
-local CARD_INK = { 0.22, 0.13, 0.04 }
-local CARD_BACKDROP = {
-	bgFile = ns.Media.blank,
-	edgeFile = ns.Media.blank,
-	edgeSize = 1,
-}
-local CARD_FILL = { 0.35, 0.22, 0.08, 0.16 }
-local CARD_FILL_HOVER = { 0.55, 0.35, 0.08, 0.38 }
-local CARD_EDGE = { 0.3, 0.18, 0.06, 0.45 }
-local CARD_EDGE_HOVER = { 0.35, 0.2, 0.04, 1 }
-local DIM_ALPHA = 0.45
+local DIM_ALPHA = GossipCards.DIM_ALPHA
 local BRACKET_HEIGHT = 44
 local BRACKET_GAP = 8
 local BRACKET_LABEL_SIZE = 17
@@ -46,6 +27,7 @@ local MATCH_PADDING = 8
 local MATCH_RATING_SIZE = 14
 local MATCH_VS_SIZE = 11
 local BRACKET_PATTERN = "^%s*(.-)%s*%-%s*Spectators count:%s*(%d+)%s*$"
+local NAV_ORDER = { Back = 1, Refresh = 2 }
 local ICON_TRIM = UF.ICON_TRIM
 
 local CLASS_SUFFIXES = {
@@ -183,71 +165,16 @@ local function compareMatches(a, b)
 	return a:GetID() < b:GetID()
 end
 
-local function onCardClick(card)
-	SelectGossipOption(card:GetParent():GetID())
-end
+local createText = GossipCards.CreateText
 
-local function paintCard(card, hovered)
-	local fill = hovered and CARD_FILL_HOVER or CARD_FILL
-	local edge = hovered and CARD_EDGE_HOVER or CARD_EDGE
-	card:SetBackdropColor(fill[1], fill[2], fill[3], fill[4])
-	card:SetBackdropBorderColor(edge[1], edge[2], edge[3], edge[4])
-end
-
-local function onCardEnter(card)
-	paintCard(card, true)
-end
-
-local function onCardLeave(card)
-	paintCard(card, false)
-end
-
-local function pressCard(card, x, y)
-	local content = card.content
-	content:ClearAllPoints()
-	content:SetPoint("TOPLEFT", x, y)
-	content:SetPoint("BOTTOMRIGHT", x, y)
-end
-
-local function onCardMouseDown(card)
-	pressCard(card, 1, -1)
-end
-
-local function onCardMouseUp(card)
-	pressCard(card, 0, 0)
-end
-
-local function createText(parent, size, alpha)
-	local text = parent:CreateFontString(nil, "OVERLAY")
-	text:SetFont(STANDARD_TEXT_FONT, size)
-	text:SetTextColor(CARD_INK[1], CARD_INK[2], CARD_INK[3])
-	text:SetAlpha(alpha or 1)
-	return text
-end
-
-local function createCard(button)
-	local card = CreateFrame("Button", nil, button)
-	card:SetPoint("TOPLEFT", CARD_LEFT, 0)
-	card:SetPoint("TOPRIGHT", CARD_RIGHT, 0)
-	card:SetBackdrop(CARD_BACKDROP)
-	card:SetScript("OnClick", onCardClick)
-	card:SetScript("OnEnter", onCardEnter)
-	card:SetScript("OnLeave", onCardLeave)
-	card:SetScript("OnMouseDown", onCardMouseDown)
-	card:SetScript("OnMouseUp", onCardMouseUp)
-	card.content = CreateFrame("Frame", nil, card)
-	pressCard(card, 0, 0)
-
-	local bracket = CreateFrame("Frame", nil, card.content)
-	bracket:SetAllPoints()
+local function createBracket(bracket)
 	bracket.label = createText(bracket, BRACKET_LABEL_SIZE)
 	bracket.label:SetPoint("CENTER")
 	bracket.count = createText(bracket, BRACKET_COUNT_SIZE, DIM_ALPHA)
 	bracket.count:SetPoint("BOTTOMRIGHT", -BRACKET_COUNT_X, BRACKET_COUNT_Y)
-	card.bracket = bracket
+end
 
-	local match = CreateFrame("Frame", nil, card.content)
-	match:SetAllPoints()
+local function createMatch(match)
 	match.left = createText(match, MATCH_RATING_SIZE)
 	match.left:SetPoint("LEFT", MATCH_PADDING, 0)
 	match.right = createText(match, MATCH_RATING_SIZE)
@@ -256,24 +183,6 @@ local function createCard(button)
 	match.vs:SetPoint("CENTER")
 	match.vs:SetText("vs")
 	match.icons = {}
-	card.match = match
-
-	button.spectatorCard = card
-	return card
-end
-
-local function showCard(button, height, gap, kind)
-	local card = button.spectatorCard or createCard(button)
-	card:SetHeight(height)
-	ns.SetShown(card.bracket, kind == "bracket")
-	ns.SetShown(card.match, kind == "match")
-	paintCard(card, card:IsMouseOver())
-	_G[button:GetName() .. "GossipIcon"]:Hide()
-	button:EnableMouse(false)
-	button:SetText("")
-	button:SetHeight(height + gap)
-	card:Show()
-	return card
 end
 
 local function getIcon(match, index)
@@ -307,7 +216,7 @@ local function layoutTeam(match, team, first, point, relativePoint, direction)
 end
 
 local function showMatch(button, team1, rating1, team2, rating2)
-	local match = showCard(button, MATCH_HEIGHT, MATCH_GAP, "match").match
+	local match = GossipCards.ShowCard(button, createMatch, MATCH_HEIGHT, MATCH_GAP)
 	match.left:SetText(rating1)
 	match.right:SetText(rating2)
 	layoutTeam(match, team1, 1, "RIGHT", "LEFT", -1)
@@ -318,108 +227,34 @@ local function showMatch(button, team1, rating1, team2, rating2)
 end
 
 local function showBracket(button, name, count)
-	local bracket = showCard(button, BRACKET_HEIGHT, BRACKET_GAP, "bracket").bracket
+	local bracket = GossipCards.ShowCard(button, createBracket, BRACKET_HEIGHT, BRACKET_GAP)
 	bracket.label:SetText(name)
 	bracket.count:SetText(count)
 end
 
-local function resetButton(button)
-	if button.spectatorCard then
-		button.spectatorCard:Hide()
-	end
-	_G[button:GetName() .. "GossipIcon"]:Show()
-	button:EnableMouse(true)
-end
-
-local function onNavClick(self)
-	SelectGossipOption(self:GetID())
-end
-
-local function createNavButton(text)
-	local button = CreateFrame("Button", nil, GossipFrameGreetingPanel, "UIPanelButtonTemplate")
-	button:SetSize(NAV_WIDTH, NAV_HEIGHT)
-	button:SetText(text)
-	button:SetScript("OnClick", onNavClick)
-	button:Hide()
-	return button
-end
-
-local navButtons = {}
-navButtons.Back = createNavButton("Back")
-navButtons.Back:SetPoint("BOTTOMLEFT", GossipFrame, "BOTTOMLEFT", NAV_LEFT, NAV_BOTTOM)
-navButtons.Refresh = createNavButton("Refresh")
-
-local function layoutNavButtons()
-	local refresh, back = navButtons.Refresh, navButtons.Back
-	refresh:ClearAllPoints()
-	if back:IsShown() then
-		refresh:SetPoint("LEFT", back, "RIGHT", NAV_GAP, 0)
-	else
-		refresh:SetPoint("BOTTOMLEFT", GossipFrame, "BOTTOMLEFT", NAV_LEFT, NAV_BOTTOM)
-	end
-end
-
-local applied
 local rows, matchRows, matchSlots = {}, {}, {}
 
-local function restore()
-	applied = false
-	GossipGreetingText:Show()
-	for _, nav in pairs(navButtons) do
-		nav:Hide()
-	end
-	for i = 1, NUMGOSSIPBUTTONS do
-		local button = _G["GossipTitleButton" .. i]
-		button:ClearAllPoints()
-		if i == 1 then
-			button:SetPoint("TOPLEFT", GossipGreetingText, "BOTTOMLEFT", -10, -20)
-		else
-			button:SetPoint("TOPLEFT", _G["GossipTitleButton" .. (i - 1)], "BOTTOMLEFT", 0, -3)
-		end
-		resetButton(button)
-	end
-end
-
-local function update()
-	if UnitName("npc") ~= NPC_NAME then
-		if applied then
-			restore()
-		end
-		return
-	end
-	applied = true
-	GossipGreetingText:Hide()
-	for _, nav in pairs(navButtons) do
-		nav:Hide()
-	end
-
+GossipCards.Register(NPC_NAME, function(buttons)
 	wipe(rows)
 	wipe(matchRows)
 	wipe(matchSlots)
-	for i = 1, NUMGOSSIPBUTTONS do
-		local button = _G["GossipTitleButton" .. i]
-		resetButton(button)
-		if button:IsShown() then
-			local text = button.type == "Gossip" and button:GetText() or ""
-			local nav = navButtons[text]
-			if nav then
-				nav:SetID(button:GetID())
-				nav:Show()
-				button:Hide()
+	for _, button in ipairs(buttons) do
+		local text = button.type == "Gossip" and button:GetText() or ""
+		if NAV_ORDER[text] then
+			GossipCards.AddNav(button, text, NAV_ORDER[text])
+		else
+			tinsert(rows, button)
+			local bracket, count = text:match(BRACKET_PATTERN)
+			if bracket then
+				showBracket(button, bracket, count)
 			else
-				tinsert(rows, button)
-				local bracket, count = text:match(BRACKET_PATTERN)
-				if bracket then
-					showBracket(button, bracket, count)
-				else
-					local team1, rating1, team2, rating2 = parseMatch(text)
-					if team1 then
-						showMatch(button, team1, rating1, team2, rating2)
-						button.spectatorRating = rating1
-						button.spectatorRatingLow = rating2
-						tinsert(matchRows, button)
-						tinsert(matchSlots, #rows)
-					end
+				local team1, rating1, team2, rating2 = parseMatch(text)
+				if team1 then
+					showMatch(button, team1, rating1, team2, rating2)
+					button.spectatorRating = rating1
+					button.spectatorRatingLow = rating2
+					tinsert(matchRows, button)
+					tinsert(matchSlots, #rows)
 				end
 			end
 		end
@@ -429,26 +264,5 @@ local function update()
 	for i, slot in ipairs(matchSlots) do
 		rows[slot] = matchRows[i]
 	end
-
-	local previous
-	for _, button in ipairs(rows) do
-		button:ClearAllPoints()
-		if previous then
-			button:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -3)
-		else
-			button:SetPoint("TOPLEFT", GossipGreetingScrollChildFrame, "TOPLEFT", 0, -LIST_TOP)
-		end
-		previous = button
-	end
-
-	layoutNavButtons()
-
-	if previous then
-		GossipSpacerFrame:SetPoint("TOP", previous, "BOTTOM", 0, 0)
-		GossipSpacerFrame:Show()
-	else
-		GossipSpacerFrame:Hide()
-	end
-end
-
-hooksecurefunc("GossipFrameUpdate", update)
+	return rows
+end)
