@@ -414,6 +414,60 @@ Data.CLASS_SOUNDS = {
 	WARRIOR = "Warrior",
 }
 
+local CASTER_CLASSES = {
+	DEATHKNIGHT = {
+		"hungeringCold", "strangulate", "gnaw", "antiMagicShell", "iceboundFortitude", "lichborne", "antiMagicZone",
+		"vampiricBlood", "summonGargoyle", "hysteria", "dancingRuneWeapon", "deathGrip",
+	},
+	DRUID = {
+		"cyclone", "hibernate", "entanglingRoots", "bash", "maim", "barkskin", "survivalInstincts",
+		"frenziedRegeneration", "berserk", "starfall", "innervate", "prowl",
+	},
+	HUNTER = {
+		"scareBeast", "freezingTrap", "freezingArrow", "wyvernSting", "scatterShot", "silencingShot", "intimidation",
+		"deterrence", "roarOfSacrifice", "bestialWrath", "rapidFire", "mastersCall", "readiness", "feignDeath",
+	},
+	MAGE = {
+		"polymorph", "deepFreeze", "dragonsBreath", "iceBlock", "arcanePower", "icyVeins", "combustion",
+		"presenceOfMind", "mirrorImage", "coldSnap", "invisibility", "evocation",
+	},
+	PALADIN = {
+		"turnEvil", "repentance", "hammerOfJustice", "divineShield", "handOfProtection", "divineProtection",
+		"handOfFreedom", "handOfSacrifice", "divineSacrifice", "auraMastery", "layOnHands", "avengingWrath",
+		"divinePlea",
+	},
+	PRIEST = {
+		"mindControl", "massDispel", "shackleUndead", "psychicScream", "psychicHorror", "silence", "painSuppression",
+		"guardianSpirit", "dispersion", "fearWard", "powerInfusion", "shadowfiend", "innerFocus", "divineHymn",
+		"hymnOfHope",
+	},
+	ROGUE = {
+		"blind", "sap", "gouge", "kidneyShot", "dismantle", "cheapShot", "garroteSilence", "evasion",
+		"cloakOfShadows", "cheatingDeath", "shadowDance", "adrenalineRush", "killingSpree", "coldBlood",
+		"preparation", "vanish", "stealth", "shadowstep",
+	},
+	SHAMAN = {
+		"hex", "groundingTotem", "shamanisticRage", "elementalMastery", "bloodlust", "heroism", "feralSpirit",
+		"manaTideTotem", "tremorTotem", "earthbindTotem",
+	},
+	WARLOCK = {
+		"fear", "howlOfTerror", "seduction", "banish", "deathCoil", "shadowfury", "metamorphosis",
+		"demonicCircleTeleport",
+	},
+	WARRIOR = {
+		"intimidatingShout", "disarm", "shockwave", "concussionBlow", "shieldWall", "spellReflection",
+		"enragedRegeneration", "berserkerRage", "retaliation", "recklessness", "deathWish", "bladestorm",
+		"shatteringThrow",
+	},
+}
+
+local casterClass = {}
+for class, keys in pairs(CASTER_CLASSES) do
+	for _, key in ipairs(keys) do
+		casterClass[key] = class
+	end
+end
+
 local maps = {
 	start = {},
 	success = {},
@@ -430,6 +484,7 @@ for category, spells in pairs(Data.SPELLS) do
 		spell.sound = spell.key
 		spell.youSound = crowdControl and not spell.area and spell.key .. "You" or spell.key
 		spell.downSound = spell.down and spell.key .. "Down"
+		spell.casterClass = casterClass[spell.key]
 		local map = maps[spell.event or EVENTS[category]]
 		if spell.byName then
 			local name = GetSpellInfo(spell[1])

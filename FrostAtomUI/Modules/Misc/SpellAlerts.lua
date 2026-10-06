@@ -105,6 +105,14 @@ local function isHostile(flags)
 		and bit_band(flags, COMBATLOG_OBJECT_REACTION_HOSTILE) ~= 0
 end
 
+local function isCastBy(spell, guid)
+	if not spell.casterClass then
+		return true
+	end
+	local _, class = GetPlayerInfoByGUID(guid)
+	return not class or class == spell.casterClass
+end
+
 local function isWatched(guid)
 	return zone == "arena" or not config.targetOnly or guid == UnitGUID("target") or guid == UnitGUID("focus")
 end
@@ -162,24 +170,30 @@ local function onCombatLog(_, _, event, sourceGUID, _, sourceFlags, destGUID, _,
 	local spell
 	if event == "SPELL_CAST_START" then
 		spell = START[spellId]
-		if spell and isEnabled(spell) and isHostile(sourceFlags) then
+		if spell and isEnabled(spell) and isHostile(sourceFlags) and isCastBy(spell, sourceGUID) then
 			onCastStart(spell, sourceGUID)
 		end
 	elseif event == "SPELL_CAST_SUCCESS" then
 		spell = SUCCESS[spellId]
-		if spell and isEnabled(spell) and isHostile(sourceFlags) and isWatched(sourceGUID) then
+		if
+			spell
+			and isEnabled(spell)
+			and isHostile(sourceFlags)
+			and isWatched(sourceGUID)
+			and isCastBy(spell, sourceGUID)
+		then
 			alert(castSound(spell, sourceGUID), spell.priority, sourceGUID)
 		end
 	elseif event == "SPELL_AURA_APPLIED" then
 		spell = AURA[spellId] or AURA_NAMES[spellName]
 		if spell then
-			if isEnabled(spell) and isHostile(destFlags) and isWatched(destGUID) then
+			if isEnabled(spell) and isHostile(destFlags) and isWatched(destGUID) and isCastBy(spell, sourceGUID) then
 				alert(spell.sound, spell.priority, sourceGUID)
 			end
 			return
 		end
 		spell = CONTROL[spellId]
-		if spell and isEnabled(spell) and isHostile(sourceFlags) then
+		if spell and isEnabled(spell) and isHostile(sourceFlags) and isCastBy(spell, sourceGUID) then
 			onControl(spell, sourceGUID, destGUID)
 		end
 	elseif event == "SPELL_AURA_REMOVED" then
@@ -191,6 +205,7 @@ local function onCombatLog(_, _, event, sourceGUID, _, sourceFlags, destGUID, _,
 				and isEnabled(spell)
 				and isHostile(destFlags)
 				and isWatched(destGUID)
+				and isCastBy(spell, sourceGUID)
 			then
 				alert(spell.downSound, spell.priority, destGUID)
 			end
@@ -211,7 +226,7 @@ local function onUnitSpell(_, unit, spellName)
 	local spell = CAST_NAMES[spellName]
 	if spell and isEnabled(spell) and UnitIsPlayer(unit) and UnitIsEnemy("player", unit) then
 		local guid = UnitGUID(unit)
-		if isWatched(guid) then
+		if isWatched(guid) and isCastBy(spell, guid) then
 			alert(spell.sound, spell.priority, guid)
 		end
 	end
