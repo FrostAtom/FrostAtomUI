@@ -1,0 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch
+kokoro>=0.9.4
+soundfile

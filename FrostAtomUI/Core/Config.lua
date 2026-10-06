@@ -765,6 +765,17 @@ ns.Defaults = {
 		interruptSuccessSound = "LOOTWINDOWCOINSOUND",
 	},
 
+	spellAlerts = {
+		enabled = true,
+		zones = { arena = true, battleground = true, world = false },
+		targetOnly = true,
+		controlOnYou = false,
+		defensiveEnd = true,
+		controlEnd = true,
+		interrupted = true,
+		spells = {},
+	},
+
 	cursorTrail = {
 		enabled = false,
 		hideInCombat = false,

@@ -44,6 +44,7 @@ Modules\Talents.lua
 Modules\CooldownTracker.lua
 Modules\DRData.lua
 Modules\LoseControlData.lua
+Modules\SpellAlertData.lua
 Modules\ProcData.lua
 Modules\TotemData.lua
 Modules\InternalCooldowns.lua
@@ -159,6 +160,7 @@ Modules\Misc\TopKillers.lua
 Modules\Misc\Announcers.lua
 Modules\Misc\InterruptAnnounce.lua
 Modules\Misc\SoundAlerts.lua
+Modules\Misc\SpellAlerts.lua
 Modules\Misc\Battleground.lua
 Modules\Misc\Merchant.lua
 Modules\Misc\Equipment.lua

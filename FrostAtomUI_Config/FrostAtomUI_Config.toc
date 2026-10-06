@@ -25,6 +25,7 @@ Pages\Hud.lua
 Pages\Arena.lua
 Pages\Cooldowns.lua
 Pages\PvP.lua
+Pages\SpellAlerts.lua
 Pages\QualityOfLife.lua
 Pages\Client.lua
 Pages\BlizzardUI.lua

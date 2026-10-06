@@ -46,6 +46,7 @@ local REGISTRY = {
 	{ "DRTracker", { "Diminishing returns", "diminishingReturns.enabled" } },
 	{ "DiminishingReturns", { "Diminishing returns", "diminishingReturns.enabled" } },
 	{ "InternalCooldowns", { "Trinket internal cooldowns", "internalCooldowns.enabled" } },
+	{ "SoundAlerter", { "Spell alerts", "spellAlerts.enabled" } },
 	{ "OmniCC", { "Cooldown timers" } },
 	{ "Quartz", { "Player castbar", "unitFrames.showPlayerCastbar" } },
 	{ "TipTac", { "Tooltip", "tooltip.enabled" } },

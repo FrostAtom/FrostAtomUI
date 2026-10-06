@@ -14,5 +14,9 @@ Desktop.ini
 .luarc.json
 .claude/
 node_modules/
+tools/voice/.venv/
+tools/voice/models/
+tools/voice/out/
+__pycache__/
 docs/*
 !docs/screenshots/

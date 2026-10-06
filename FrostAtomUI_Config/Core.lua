@@ -1245,8 +1245,12 @@ function creators.toggle(parent, entry)
 	local check = createCheckButton(row)
 	check:SetPoint("LEFT", CONTROL_X - 4, 0)
 	check:SetScript("OnClick", function(self)
+		local value = self:GetChecked() and true or false
 		playCheckSound(self)
-		set(entry, self:GetChecked() and true or false)
+		set(entry, value)
+		if entry.onClick then
+			entry.onClick(value)
+		end
 	end)
 	bindRow(check, row)
 	row:SetScript("OnMouseUp", function(_, button)
