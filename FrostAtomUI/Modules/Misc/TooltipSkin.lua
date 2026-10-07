@@ -3,6 +3,8 @@ local _, ns = ...
 local Misc = ns:GetModule("Misc")
 local config = ns.Config.tooltip
 
+local abs = math.abs
+
 local TOOLTIP_NAMES = {
 	"GameTooltip",
 	"ItemRefTooltip",
@@ -229,21 +231,29 @@ local function layoutHealthBar()
 	end
 end
 
-local reserveKey = {}
+local reservedHeight
 
-local function reserveHealthBarLine()
-	if GameTooltip:IsShown() and healthBar:IsShown() and GameTooltip:GetUnit() and config.healthBar == "inside" then
-		GameTooltip:AddLine(" ")
-		GameTooltip:Show()
+local function reserveHealthBarSpace(tooltip)
+	reservedHeight = nil
+	if Skin.HealthBarMode() == "inside" and healthBar:IsShown() and tooltip:GetUnit() then
+		reservedHeight = tooltip:GetHeight() + BAR_INSET + BAR_HEIGHT
+		tooltip:SetHeight(reservedHeight)
 	end
+end
+
+local function keepHealthBarSpace(tooltip)
+	if not reservedHeight or abs(tooltip:GetHeight() - reservedHeight) > 0.5 then
+		reserveHealthBarSpace(tooltip)
+	end
+end
+
+local function dropHealthBarSpace()
+	reservedHeight = nil
 end
 
 function Skin.PrepareUnit(tooltip)
 	if tooltip ~= GameTooltip or not enabled or not healthBar:IsShown() then
 		return
-	end
-	if config.healthBar == "inside" then
-		ns.Defer(reserveKey, reserveHealthBarLine)
 	end
 	tooltip:SetMinimumWidth(MIN_UNIT_WIDTH)
 end
@@ -325,6 +335,10 @@ if enabled then
 	applyGradients()
 	skinMenus()
 	skinCloseButton(ItemRefCloseButton)
+	hooksecurefunc(GameTooltip, "Show", reserveHealthBarSpace)
+	hooksecurefunc(GameTooltip, "SetUnit", reserveHealthBarSpace)
+	GameTooltip:HookScript("OnTooltipSetUnit", dropHealthBarSpace)
+	GameTooltip:HookScript("OnUpdate", keepHealthBarSpace)
 	hooksecurefunc("GameTooltip_ShowStatusBar", function(tooltip)
 		local bar = _G[tooltip:GetName() .. "StatusBar" .. (tooltip.shownStatusBars or 1)]
 		if bar then

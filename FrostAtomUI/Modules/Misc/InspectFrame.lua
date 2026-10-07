@@ -213,6 +213,7 @@ local ACHIEVEMENT_ROWS = {
 	{
 		label = "Other",
 		ids = {
+			13, -- Level 80
 			1174, -- The Arena Master
 			408, -- Hot Streak
 			1162, -- Hotter Streak
