@@ -52,7 +52,7 @@ local function spellToggle(spell, name, icon)
 		end,
 		onClick = function(value)
 			if value then
-				PlaySoundFile(Data.VOICE_PATH:format(spell.sound))
+				PlaySoundFile(Data.VOICE_PATH:format(spell.sound), "Master")
 			end
 		end,
 		defaultText = default and L["On"] or L["Off"],
@@ -87,7 +87,7 @@ local schema = {
 		path = ENABLED,
 		label = L["Enable"],
 		type = "toggle",
-		desc = L["A voice names important spells of enemy players: crowd control cast at you or your allies, defensive and offensive cooldowns, trinkets. Plays through the sound effects channel: follows the master and sound effects volume and is silent while sound effects are off."],
+		desc = L["A voice names important spells of enemy players: crowd control cast at you or your allies, defensive and offensive cooldowns, trinkets. Plays through the master channel: follows only the master volume and is heard while sound effects are off."],
 	},
 	{
 		label = L["Test"],

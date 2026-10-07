@@ -46,7 +46,7 @@ local queue, recent = {}, {}
 local busyUntil, pumpScheduled = 0, false
 
 local function play(sound, now)
-	PlaySoundFile(VOICE_PATH:format(sound))
+	PlaySoundFile(VOICE_PATH:format(sound), "Master")
 	busyUntil = now + (LENGTHS[sound] or DEFAULT_LENGTH) + GAP
 end
 

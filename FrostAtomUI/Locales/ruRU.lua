@@ -2071,7 +2071,7 @@ ns.SetLocale("ruRU", {
 	["Ignored players. Only adds players, nobody is removed."] = "Игнорируемые игроки. Только добавляет игроков, никто не удаляется.",
 
 	["Spell alerts"] = "Голосовые оповещения",
-	["A voice names important spells of enemy players: crowd control cast at you or your allies, defensive and offensive cooldowns, trinkets. Plays through the sound effects channel: follows the master and sound effects volume and is silent while sound effects are off."] = "Голос называет важные заклинания вражеских игроков: контроль по вам и союзникам, защитные и атакующие способности, аксессуары. Звучит через канал звуковых эффектов: зависит от общей громкости и громкости звуков и молчит, если звуки выключены.",
+	["A voice names important spells of enemy players: crowd control cast at you or your allies, defensive and offensive cooldowns, trinkets. Plays through the master channel: follows only the master volume and is heard while sound effects are off."] = "Голос называет важные заклинания вражеских игроков: контроль по вам и союзникам, защитные и атакующие способности, аксессуары. Звучит через общий канал: зависит только от общей громкости и слышен, даже если звуки выключены.",
 	["Play three alerts in a row to hear the volume and the queue."] = "Проиграть три оповещения подряд, чтобы проверить громкость и очередь.",
 	["Play in"] = "Где звучат",
 	["World"] = "Открытый мир",
