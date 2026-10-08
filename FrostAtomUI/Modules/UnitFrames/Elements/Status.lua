@@ -10,6 +10,7 @@ local GetTime = GetTime
 local random, floor = math.random, math.floor
 
 local config = ns.Config.unitFrames
+local themeConfig = ns.Config.theme
 
 local PVP_TEXTURE = "Interface\\TargetingFrame\\UI-PVP-%s"
 local PVP_VARIANTS = { "Alliance", "Horde", "FFA", false }
@@ -69,7 +70,7 @@ local function onPvpTimerUpdate(timer)
 		return
 	end
 	timer.shown = remaining
-	timer.text:SetFormattedText("%d:%02d", floor(remaining / 60), remaining % 60)
+	timer.text:SetText(ns.FormatClock(remaining))
 end
 
 local function onPlayerFlagsChanged(frame, unit)
@@ -87,7 +88,7 @@ local function createPvpTimer(frame, pvp)
 
 	timer.text = timer:CreateFontString(nil, "OVERLAY")
 	timer.text:SetPoint("TOP", pvp, "BOTTOM", 0, 1)
-	timer.text:SetTextColor(unpack(config.textColor))
+	timer.text:SetTextColor(unpack(themeConfig.textColor))
 	pvp.timer = timer
 
 	frame:RegisterEvent("PLAYER_FLAGS_CHANGED", onPlayerFlagsChanged)
@@ -107,7 +108,7 @@ local function createPvp(frame)
 	return pvp
 end
 
-UF:RegisterElement("pvp", createPvp, updatePvp, testPvp)
+UF:RegisterElement({ name = "pvp", Create = createPvp, Update = updatePvp, Test = testPvp })
 
 local HAPPINESS_COORDS = {
 	{ 0.375, 0.5625, 0, 0.359375 },
@@ -144,4 +145,4 @@ local function createHappiness(frame)
 	return icon
 end
 
-UF:RegisterElement("happiness", createHappiness, updateHappiness, testHappiness)
+UF:RegisterElement({ name = "happiness", Create = createHappiness, Update = updateHappiness, Test = testHappiness })

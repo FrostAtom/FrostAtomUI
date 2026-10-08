@@ -21,6 +21,8 @@ local Media = {
 }
 ns.Media = Media
 
+local DEFAULT_FONT, DEFAULT_FONT_BOLD = Media.font, Media.fontBold
+
 Media.fonts = {
 	{ "Fonts\\ARIALN.ttf", "Arial Narrow" },
 	{ "Fonts\\FRIZQT__.ttf", "Friz Quadrata" },
@@ -39,13 +41,54 @@ Media.statusbars = {
 	{ "Interface\\Tooltips\\UI-Tooltip-Background", "Matte" },
 }
 
-local function knownStatusbar(path)
-	for _, statusbar in ipairs(Media.statusbars) do
-		if statusbar[1] == path then
+local LSM = LibStub("LibSharedMedia-3.0")
+local LSM_TYPES = { fonts = LSM.MediaType.FONT, statusbars = LSM.MediaType.STATUSBAR }
+local lower = string.lower
+
+for kind, mediaType in pairs(LSM_TYPES) do
+	for _, entry in ipairs(Media[kind]) do
+		LSM:Register(mediaType, entry[2], entry[1])
+	end
+end
+
+function ns.MediaList(kind)
+	local list, seen = {}, {}
+	for _, entry in ipairs(Media[kind]) do
+		list[#list + 1] = { entry[1], entry[2] }
+		seen[lower(entry[1])] = true
+	end
+	local shared = {}
+	for name, path in pairs(LSM:HashTable(LSM_TYPES[kind])) do
+		if type(path) == "string" and not seen[lower(path)] then
+			seen[lower(path)] = true
+			shared[#shared + 1] = { path, name }
+		end
+	end
+	table.sort(shared, function(a, b)
+		return a[2] < b[2]
+	end)
+	for i = 1, #shared do
+		list[#list + 1] = shared[i]
+	end
+	return list
+end
+
+local function known(kind, path, fallback)
+	if type(path) ~= "string" then
+		return fallback
+	end
+	local key = lower(path)
+	for _, entry in ipairs(Media[kind]) do
+		if lower(entry[1]) == key then
 			return path
 		end
 	end
-	return Media.statusbars[1][1]
+	for _, shared in pairs(LSM:HashTable(LSM_TYPES[kind])) do
+		if type(shared) == "string" and lower(shared) == key then
+			return path
+		end
+	end
+	return fallback
 end
 
 local statusBars = setmetatable({}, { __mode = "k" })
@@ -63,11 +106,14 @@ function ns.SetFont(region, size, outline, bold)
 end
 
 function ns.ApplyMedia(general)
-	local fontChanged = Media.font ~= general.font or Media.fontBold ~= general.fontBold
-	local statusbar = knownStatusbar(general.statusbar)
+	Media.applied = general
+	local font = known("fonts", general.font, DEFAULT_FONT)
+	local fontBold = known("fonts", general.fontBold, DEFAULT_FONT_BOLD)
+	local statusbar = known("statusbars", general.statusbar, Media.statusbars[1][1])
+	local fontChanged = Media.font ~= font or Media.fontBold ~= fontBold
 	local statusbarChanged = Media.statusbar ~= statusbar
-	Media.font = general.font
-	Media.fontBold = general.fontBold
+	Media.font = font
+	Media.fontBold = fontBold
 	Media.statusbar = statusbar
 	if fontChanged then
 		for region, bold in pairs(fontRegions) do
@@ -83,6 +129,12 @@ function ns.ApplyMedia(general)
 		end
 	end
 end
+
+LSM.RegisterCallback(Media, "LibSharedMedia_Registered", function(_, mediaType)
+	if (mediaType == LSM_TYPES.fonts or mediaType == LSM_TYPES.statusbars) and Media.applied then
+		ns.ApplyMedia(Media.applied)
+	end
+end)
 
 function ns.CreateBackdrop(edgeSize, inset)
 	inset = inset or ns.PixelPerfect(1)

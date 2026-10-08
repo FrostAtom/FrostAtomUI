@@ -22,7 +22,7 @@ jobs:
         uses: JohnnyMorganz/stylua-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          version: v2.0.2
+          version: v2.5.2
           args: --check .
 
       - name: luacheck
@@ -30,3 +30,37 @@ jobs:
         uses: lunarmodules/luacheck@v1
         with:
           args: . --no-color -q
+
+      - name: Lua 5.1
+        if: ${{ !cancelled() }}
+        run: sudo apt-get install -y -q lua5.1
+
+      - name: tests
+        if: ${{ !cancelled() }}
+        run: lua5.1 tests/run.lua .
+
+      - name: repository
+        if: ${{ !cancelled() }}
+        run: python3 tools/check_repo.py
+
+      - name: locales
+        if: ${{ !cancelled() }}
+        run: python3 tools/check_locales.py
+
+      - name: versions
+        if: ${{ !cancelled() }}
+        run: python3 tools/check_versions.py
+
+      - name: settings schema
+        if: ${{ !cancelled() }}
+        run: lua5.1 tools/check_schema.lua .
+
+      - name: settings entries
+        if: ${{ !cancelled() }}
+        run: lua5.1 tools/check_settings.lua .
+      - name: spell data
+        if: ${{ !cancelled() }}
+        run: lua5.1 tools/spelldb/validate.lua .
+      - name: architecture
+        if: ${{ !cancelled() }}
+        run: python3 tools/archcheck.py

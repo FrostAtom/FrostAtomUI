@@ -25,12 +25,47 @@ ns.COMBAT_VISIBILITY_VALUES = {
 local PAGE = "actionbar"
 local ENABLE = "actionBar.enabled"
 local COMBAT_DESC = L["Fade out of combat or in combat. With mouseover the cursor still reveals it."]
-local FADE_DISABLED_DESC = L["Used only with mouseover or when Visible is not Always."]
+local FADE_DISABLED_DESC = L['Used only with "Show on mouseover" or when "Show" is not "Always".']
 
 local function fadeDisabled(mouseoverPath, combatPath)
 	return function()
 		return not ui:GetConfig(mouseoverPath) and ui:GetConfig(combatPath) == "any"
 	end
+end
+
+local function conditionActions(text, accept)
+	text = strtrim(text)
+	if text == "" then
+		return true
+	end
+	for clause in text:gmatch("[^;]+") do
+		local action = strtrim((clause:gsub("%b[]", "")))
+		if not accept(action) then
+			return false
+		end
+	end
+	return true
+end
+
+local function validateVisibility(text)
+	if conditionActions(text, function(action)
+		return action == "show" or action == "hide"
+	end) then
+		return true
+	end
+	return false, L['Every part must end in "show" or "hide": [combat] show; hide']
+end
+
+local function validatePaging(text)
+	if
+		conditionActions(text, function(action)
+			local page = tonumber(action)
+			return page ~= nil and page >= 1 and page <= 12 and page == math.floor(page)
+		end)
+	then
+		return true
+	end
+	return false, L["Every part must end in a page number from 1 to 12: [mod:shift] 2; 1"]
 end
 
 local function barSchema(prefix, hasToggle, hasCount, extra)
@@ -64,6 +99,7 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 	}
 	schema[#schema + 1] = {
 		path = prefix .. ".columns",
+		advanced = true,
 		label = L["Columns"],
 		type = "number",
 		min = 1,
@@ -90,6 +126,7 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 	schema[#schema + 1] = { header = L["Visibility"], glyph = "eye" }
 	schema[#schema + 1] = {
 		path = prefix .. ".mouseover",
+		advanced = true,
 		new = "1.4.0",
 		label = L["Show on mouseover"],
 		type = "toggle",
@@ -98,8 +135,9 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 	}
 	schema[#schema + 1] = {
 		path = prefix .. ".combat",
-		new = "1.4.1",
-		label = L["Visible"],
+		advanced = true,
+		new = "1.5.0",
+		label = L["Show"],
 		type = "select",
 		values = ns.COMBAT_VISIBILITY_VALUES,
 		enabledBy = enabledBy,
@@ -109,7 +147,7 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 		path = prefix .. ".fadeAlpha",
 		advanced = true,
 		new = "1.4.0",
-		label = L["Faded alpha"],
+		label = L["Faded opacity"],
 		type = "number",
 		min = 0,
 		max = 1,
@@ -118,8 +156,33 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 		enabledBy = enabledBy,
 		disabled = fadeDisabled(prefix .. ".mouseover", prefix .. ".combat"),
 		disabledDesc = FADE_DISABLED_DESC,
-		desc = L["Bar alpha while it is faded by mouseover or combat visibility."],
+		desc = L["Bar opacity while it is faded by mouseover or combat visibility."],
 	}
+	if prefix:find("bar%d+$") then
+		schema[#schema + 1] = {
+			path = prefix .. ".visibility",
+			advanced = true,
+			label = L["Show condition"],
+			type = "string",
+			width = 240,
+			maxLetters = 200,
+			enabledBy = enabledBy,
+			validate = validateVisibility,
+			desc = L['A macro condition that shows or hides the whole bar, e.g. "[combat] show; hide" or "[@target,exists] show; hide". Empty: always shown. Applied after combat.'],
+		}
+	end
+	if prefix == "actionBar.bar1" then
+		schema[#schema + 1] = {
+			path = "actionBar.bar1.paging",
+			advanced = true,
+			label = L["Page condition"],
+			type = "string",
+			width = 240,
+			maxLetters = 300,
+			validate = validatePaging,
+			desc = L['A macro condition that picks the page of bar 1, e.g. "[mod:shift] 2; [form:1] 7; 1". Empty: the game paging with stances, forms, vehicles and the bar switch keys.'],
+		}
+	end
 	return schema
 end
 
@@ -145,7 +208,7 @@ barElement(L["Bar 5"], "bar5", true, true)
 barElement(L["Bar 6"], "bar6", true, true, "1.4.0")
 barElement(L["Stance bar"], "stance", false, false)
 barElement(L["Pet bar"], "pet", false, false)
-barElement(L["Totem bar"], "totemBar", true, false, "1.4.1", ns.NotClass("SHAMAN"), {
+barElement(L["Totem bar"], "totemBar", true, false, "1.5.0", ns.NotClass("SHAMAN"), {
 	{ header = L["Totem menu"], glyph = "fire", advanced = true },
 	{
 		path = "actionBar.totemBar.flyoutButtonSize",
@@ -180,7 +243,7 @@ ns.RegisterElement({
 	page = PAGE,
 	tab = "other",
 	name = L["Vehicle exit"],
-	new = "1.4.1",
+	new = "1.5.0",
 	enabledBy = ENABLE,
 	schema = {
 		{ header = L["Layout"], glyph = "up-down-left-right" },
@@ -205,15 +268,15 @@ function ns.MenuVisibility(prefix, mouseoverDesc)
 		desc = mouseoverDesc,
 	}, {
 		path = combatPath,
-		new = "1.4.1",
-		label = L["Visible"],
+		new = "1.5.0",
+		label = L["Show"],
 		type = "select",
 		values = ns.COMBAT_VISIBILITY_VALUES,
 		desc = COMBAT_DESC,
 	}, {
 		path = "actionBar.menuFadeAlpha",
 		advanced = true,
-		label = L["Faded alpha (micro menu, bag button)"],
+		label = L["Faded opacity (micro menu, bag button)"],
 		type = "number",
 		min = 0,
 		max = 1,
@@ -275,7 +338,7 @@ ns.RegisterElement({
 })
 
 local function isPageUsed(page)
-	return ui.Config.actionBar.extraBars["bar" .. page]
+	return ui:GetConfig("actionBar.extraBars.bar" .. page)
 end
 
 local function freePageValues()
@@ -358,7 +421,7 @@ local addBarEntry = {
 
 local barsSchema = {
 	{ type = "elements" },
-	{ path = EXTRA_BARS, hidden = true },
+	{ path = EXTRA_BARS, hidden = true, userContent = true, label = L["Extra bars"] },
 }
 
 local schema = {
@@ -366,7 +429,7 @@ local schema = {
 	{
 		label = L["Key bindings"],
 		type = "execute",
-		new = "1.4.1",
+		new = "1.5.0",
 		text = L["Bind keys"],
 		glyph = "keyboard",
 		width = 140,
@@ -380,7 +443,7 @@ local schema = {
 	},
 	{
 		path = "actionBar.hideEmptyButtons",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Hide empty buttons"],
 		type = "toggle",
 		desc = L["Buttons without an action are hidden and appear while a spell or item is dragged."],
@@ -395,7 +458,7 @@ local schema = {
 	{
 		path = "actionBar.dragButton",
 		advanced = true,
-		label = L["Drag spells with"],
+		label = L["Pick up spells with"],
 		type = "select",
 		values = DRAG_BUTTON_VALUES,
 		desc = L["Mouse button that picks a spell up from a bar button. Dropping always works with any button."],
@@ -403,7 +466,7 @@ local schema = {
 	{
 		path = "actionBar.dragModifier",
 		advanced = true,
-		label = L["Drag modifier"],
+		label = L["Hold to pick up spells"],
 		type = "select",
 		values = DRAG_MODIFIER_VALUES,
 		desc = L["Key to hold while dragging a spell off a bar. Without a modifier a spell can be dragged away by accident."],
@@ -434,7 +497,7 @@ local schema = {
 	{
 		path = "actionBar.lossOfControl",
 		new = "1.4.0",
-		label = L["Loss of control"],
+		label = L["Lockout overlay"],
 		type = "toggle",
 		desc = L["Red overlay with the remaining duration on abilities you cannot use while stunned, feared, polymorphed or silenced, and on the spell school locked by an interrupt."],
 	},
@@ -442,7 +505,7 @@ local schema = {
 		path = "actionBar.lossOfControlColor",
 		advanced = true,
 		new = "1.4.0",
-		label = L["Loss of control color"],
+		label = L["Lockout overlay color"],
 		type = "color",
 		alpha = true,
 		enabledBy = "actionBar.lossOfControl",
@@ -479,7 +542,7 @@ local schema = {
 	},
 	{
 		path = "actionBar.showCounts",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Item counts"],
 		type = "toggle",
 		desc = L["Stack or charge count in the bottom-right corner of the button."],
@@ -487,7 +550,7 @@ local schema = {
 	{
 		path = "actionBar.countFont",
 		advanced = true,
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Count font"],
 		type = "font",
 		enabledBy = "actionBar.showCounts",
@@ -495,7 +558,7 @@ local schema = {
 	{
 		path = "actionBar.cooldownFont",
 		advanced = true,
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Cooldown font"],
 		type = "font",
 		desc = L["Remaining cooldown text on action bar buttons."],
@@ -551,6 +614,7 @@ end
 ns.RegisterPage({
 	key = PAGE,
 	name = L["Action bars"],
+	desc = L["Action bars: buttons, visibility, range and cooldowns."],
 	glyph = "table-cells",
 	order = 24,
 	group = "frames",
@@ -560,8 +624,12 @@ ns.RegisterPage({
 			path = ENABLE,
 			label = L["Enable"],
 			type = "toggle",
-			reload = true,
-			desc = L["FrostAtom UI action bars. The Blizzard ones are hidden on the Blizzard UI page."],
+			blizzard = {
+				paths = { "hideBlizzard.actionBars" },
+				offText = L["Turn off FrostAtom UI action bars?\n\nBlizzard's action bars are hidden right now."],
+				onText = L["Hide Blizzard's action bars?\n\nThey are shown now and would stay next to the FrostAtom UI bars."],
+			},
+			desc = L["FrostAtom UI action bars instead of Blizzard's. Turning them off or on asks what to do with the Blizzard bars."],
 		},
 	},
 	tabs = {

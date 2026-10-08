@@ -6,6 +6,7 @@ local RequestBattlefieldScoreData = RequestBattlefieldScoreData
 local GetNumBattlefieldScores = GetNumBattlefieldScores
 local GetBattlefieldScore = GetBattlefieldScore
 local UnitFactionGroup = UnitFactionGroup
+local UnitGUID, UnitClass, UnitName = UnitGUID, UnitClass, UnitName
 local match = string.match
 local floor = math.floor
 
@@ -13,10 +14,15 @@ local POLL_INTERVAL = 10
 local CROSS_TEXTURE = "Interface\\LFGFrame\\UI-LFG-ICON-ROLES"
 local CROSS_GAP = 2
 local HEALER_CLASSES = { PRIEST = true, PALADIN = true, SHAMAN = true, DRUID = true }
+local HEALER_TREES = { PRIEST = { true, true }, PALADIN = { true }, SHAMAN = { [3] = true }, DRUID = { [3] = true } }
+local MAX_ARENA = 5
+local Talents = ns:GetModule("Talents")
 local config = ns.Config.namePlates
 
 local plates = NamePlates.plates
 local healers = {}
+local arenaHealers = {}
+local inArena = false
 local plateCrosses = setmetatable({}, { __mode = "k" })
 
 local function createCross(plate)
@@ -49,7 +55,7 @@ NamePlates.PlaceHealerCross = placeCross
 
 local function updateCross(plate, name)
 	local cross = plateCrosses[plate]
-	if config.showHealers and healers[name] then
+	if config.showHealers and name and (healers[name] or arenaHealers[name]) then
 		if not cross then
 			cross = createCross(plate)
 			plateCrosses[plate] = cross
@@ -57,6 +63,7 @@ local function updateCross(plate, name)
 		sizeCross(cross)
 		placeCross(plate)
 		cross:Show()
+		ns.ExplainOnce("healer")
 	elseif cross then
 		cross:Hide()
 	end
@@ -85,7 +92,42 @@ local function updateHealers()
 	refreshCrosses()
 end
 
-NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = updateCross
+local found = {}
+
+local function updateArenaHealers()
+	wipe(found)
+	if inArena then
+		for i = 1, MAX_ARENA do
+			local unit = "arena" .. i
+			local guid = UnitGUID(unit)
+			local _, class = UnitClass(unit)
+			local trees = guid and class and HEALER_TREES[class]
+			local spec = trees and Talents:GetSpec(guid)
+			if spec and trees[spec] then
+				local name = UnitName(unit)
+				if name then
+					found[name] = true
+				end
+			end
+		end
+	end
+	local changed = false
+	for name in pairs(found) do
+		changed = changed or not arenaHealers[name]
+	end
+	for name in pairs(arenaHealers) do
+		changed = changed or not found[name]
+	end
+	if changed then
+		arenaHealers, found = found, arenaHealers
+		refreshCrosses()
+	end
+end
+
+NamePlates.RegisterPlugin({
+	name = "healers",
+	Show = updateCross,
+})
 
 local poller = CreateFrame("Frame")
 poller:Hide()
@@ -100,8 +142,12 @@ end)
 
 NamePlates:WatchConfig("namePlates", updateHealers)
 NamePlates:RegisterEvent("UPDATE_BATTLEFIELD_SCORE", updateHealers)
+NamePlates:RegisterEvent(ns.E.TALENTS_UPDATED, updateArenaHealers)
+NamePlates:RegisterEvent("ARENA_OPPONENT_UPDATE", updateArenaHealers)
 NamePlates:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	local _, instanceType = IsInInstance()
+	inArena = instanceType == "arena"
+	updateArenaHealers()
 	if instanceType == "pvp" then
 		poller.timer = 0
 		poller:Show()

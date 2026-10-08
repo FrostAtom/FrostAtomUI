@@ -57,6 +57,22 @@ function ns.Lower(text)
 	return (text:lower():gsub("\208[\128-\175]", CYRILLIC_LOWER))
 end
 
+function ns.FormatClock(seconds)
+	seconds = floor(seconds)
+	return ("%d:%02d"):format(floor(seconds / 60), seconds % 60)
+end
+
+function ns.GroupChannel()
+	local _, instanceType = IsInInstance()
+	if instanceType == "pvp" then
+		return "BATTLEGROUND"
+	elseif GetNumRaidMembers() > 0 then
+		return "RAID"
+	elseif GetNumPartyMembers() > 0 then
+		return "PARTY"
+	end
+end
+
 local spellTextures = {}
 
 function ns.SpellTexture(spellId)
@@ -297,9 +313,15 @@ ns.NEUTRAL_COLOR = NEUTRAL_COLOR
 ns.FRIENDLY_COLOR = FRIENDLY_COLOR
 
 local HEALTH_GRADIENT = {
-	HOSTILE_COLOR[1], HOSTILE_COLOR[2], HOSTILE_COLOR[3],
-	NEUTRAL_COLOR[1], NEUTRAL_COLOR[2], NEUTRAL_COLOR[3],
-	FRIENDLY_COLOR[1], FRIENDLY_COLOR[2], FRIENDLY_COLOR[3],
+	HOSTILE_COLOR[1],
+	HOSTILE_COLOR[2],
+	HOSTILE_COLOR[3],
+	NEUTRAL_COLOR[1],
+	NEUTRAL_COLOR[2],
+	NEUTRAL_COLOR[3],
+	FRIENDLY_COLOR[1],
+	FRIENDLY_COLOR[2],
+	FRIENDLY_COLOR[3],
 }
 
 function ns.HealthColor(percent)
@@ -443,9 +465,40 @@ local SOUND_FILES = {
 
 function ns.PlayAlertSound(sound)
 	local file = SOUND_FILES[sound]
+	-- 3.3.5: PlaySound is silent while sound effects are off; PlaySoundFile still plays
 	if file and GetCVar("Sound_EnableSFX") == "0" then
 		PlaySoundFile(file)
 	else
 		PlaySound(sound)
 	end
+end
+
+local ARENA_PREPARATION = 32727
+
+function ns.InArenaPreparation()
+	local _, kind = IsInInstance()
+	local name = GetSpellInfo(ARENA_PREPARATION)
+	return kind == "arena" and name ~= nil and UnitAura("player", name) ~= nil
+end
+
+local linkHandlers = {}
+local blizzardSetItemRef
+
+local function setItemRef(link, ...)
+	local prefix, rest = string.match(link or "", "^(%w+):(.*)$")
+	local handler = prefix and linkHandlers[prefix]
+	if handler then
+		handler(rest)
+		return
+	end
+	return blizzardSetItemRef(link, ...)
+end
+
+function ns.RegisterLink(prefix, handler)
+	if not blizzardSetItemRef then
+		-- FrameXML: SetItemRef errors on unknown link types, so a hook would run too late
+		blizzardSetItemRef = SetItemRef
+		SetItemRef = setItemRef
+	end
+	linkHandlers[prefix] = handler
 end

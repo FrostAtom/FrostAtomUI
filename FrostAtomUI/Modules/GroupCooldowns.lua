@@ -5,7 +5,6 @@ local L = ns.L
 local UnitExists, UnitGUID, UnitClass, UnitRace, UnitName = UnitExists, UnitGUID, UnitClass, UnitRace, UnitName
 local GameTooltip = GameTooltip
 local GetTime = GetTime
-local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local UNKNOWNOBJECT = UNKNOWNOBJECT
 local max, min, floor, ceil, huge, random = math.max, math.min, math.floor, math.ceil, math.huge, math.random
 local wipe, unpack = wipe, unpack
@@ -15,17 +14,19 @@ local CATEGORIES = Data.CATEGORIES
 local SPEC_HINTS = Data.SPEC_HINTS
 local CooldownTracker = ns:GetModule("CooldownTracker")
 local CooldownTimer = ns:GetModule("CooldownTimer")
-local UF = ns:GetModule("UnitFrames")
 
 local GroupCooldowns = ns:NewModule("GroupCooldowns")
 ns.GroupCooldowns = GroupCooldowns
 
+local ZONES = { arena = "arena", pvp = "battleground" }
 local CHECK_INTERVAL = 0.2
 local FONT_SCALE = 0.45
 local GLOW_TEXTURE = "Interface\\Buttons\\UI-ActionButton-Border"
 local GLOW_SCALE = 1.75
 local LABEL_GAP = 4
 local LABEL_FONT_SIZE = 10
+local MAYBE_SCALE = 0.5
+local MAYBE_COLOR = { 1, 0.82, 0 }
 local PREVIEW_NAMES = { "Frostatom", "Nightshade", "Zephyra", "Thoralf", "Mirelle", "Kaelith", "Dravok", "Sylvara" }
 local PREVIEW_RACES =
 	{ "Human", "Scourge", "Tauren", "Gnome", "BloodElf", "Orc", "Troll", "Dwarf", "NightElf", "Draenei" }
@@ -43,13 +44,13 @@ local PREVIEW_CLASSES = {
 }
 
 local CATEGORY_NAMES = {
-	defensive = L["Defensive"],
-	offensive = L["Burst"],
-	interrupt = L["Interrupt"],
-	trinket = L["Trinket"],
-	cc = L["Control"],
-	mobility = L["Mobility"],
-	utility = L["Utility"],
+	defensive = "Defensive",
+	offensive = "Burst",
+	interrupt = "Interrupt",
+	trinket = "Trinket",
+	cc = "Control",
+	mobility = "Mobility",
+	utility = "Utility",
 }
 GroupCooldowns.CATEGORY_NAMES = CATEGORY_NAMES
 
@@ -70,6 +71,7 @@ local SIDES = {
 		interruptLabel = "Ally interrupts",
 		frames = "party",
 		frameLabel = "Party",
+		moverLabel = "Party member",
 		frameSide = "RIGHT",
 	},
 	enemy = {
@@ -78,6 +80,7 @@ local SIDES = {
 		interruptLabel = "Enemy interrupts",
 		frames = "arena",
 		frameLabel = "Arena",
+		moverLabel = "Arena opponent",
 		frameSide = "LEFT",
 	},
 }
@@ -116,12 +119,13 @@ local function onIconEnter(icon)
 	GameTooltip:SetHyperlink("spell:" .. icon.spellId)
 	local owner = icon.owner
 	if owner and owner.name then
-		local color = RAID_CLASS_COLORS[owner.class]
-		if color then
-			GameTooltip:AddLine(owner.name, color.r, color.g, color.b)
-		else
-			GameTooltip:AddLine(owner.name, 1, 1, 1)
-		end
+		GameTooltip:AddLine(owner.name, ns.ClassColor(owner.class))
+	end
+	if icon.maybe then
+		GameTooltip:AddLine(
+			L["May be ready: the cooldown was counted with the shortest glyphs and talents."],
+			unpack(MAYBE_COLOR)
+		)
 	end
 	GameTooltip:Show()
 end
@@ -134,6 +138,24 @@ local function setIconSize(icon, size)
 	icon:SetSize(size, size)
 	ns.SetFont(icon.cooldown.timer, size * FONT_SCALE, "OUTLINE")
 	icon.glow:SetSize(size * GLOW_SCALE, size * GLOW_SCALE)
+	if icon.maybeMark then
+		ns.SetFont(icon.maybeMark, size * MAYBE_SCALE, "OUTLINE")
+	end
+end
+
+local function setMaybe(icon, maybe)
+	icon.maybe = maybe or nil
+	if maybe and not icon.maybeMark then
+		local mark = icon:CreateFontString(nil, "OVERLAY")
+		mark:SetPoint("BOTTOMRIGHT", 1, -1)
+		mark:SetTextColor(unpack(MAYBE_COLOR))
+		mark:SetText("?")
+		icon.maybeMark = mark
+		ns.SetFont(mark, icon:GetWidth() * MAYBE_SCALE, "OUTLINE")
+	end
+	if icon.maybeMark then
+		ns.SetShown(icon.maybeMark, maybe)
+	end
 end
 
 local function layoutOf(panel, config)
@@ -145,20 +167,11 @@ end
 local function createIcon(panel)
 	local config = ns.Config.groupCooldowns
 	local size = layoutOf(panel, config)
-	local icon = CreateFrame("Frame", nil, panel)
+	local icon = CooldownTimer:CreateIcon(panel, { fontSize = size * FONT_SCALE, timerOnIcon = true, flash = true })
 	icon:SetFrameLevel(panel:GetFrameLevel() + 1)
 	icon:EnableMouse(not config.clickThrough)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
-
-	icon.texture = icon:CreateTexture(nil, "BORDER")
-	icon.texture:SetNonBlocking(true)
-	UF.SkinIcon(icon, icon.texture)
-
-	icon.cooldown = CreateFrame("Cooldown", nil, icon)
-	icon.cooldown:SetAllPoints()
-	CooldownTimer:Attach(icon.cooldown, size * FONT_SCALE, icon)
-	CooldownTimer:AttachFlash(icon.cooldown, icon.texture)
 
 	icon.glow = icon:CreateTexture(nil, "OVERLAY")
 	icon.glow:SetPoint("CENTER")
@@ -185,13 +198,13 @@ local function acquireLabel(panel, category)
 		label = panel:CreateFontString(nil, "OVERLAY")
 		ns.SetFont(label, LABEL_FONT_SIZE, "OUTLINE")
 		label:SetTextColor(unpack(CATEGORY_COLORS[category]))
-		label:SetText(CATEGORY_NAMES[category])
+		label:SetText(L[CATEGORY_NAMES[category]])
 		panel.labels[category] = label
 	end
 	return label
 end
 
-local function setIconState(icon, owner, id, start, duration, active)
+local function setIconState(icon, owner, id, start, duration, active, maybe)
 	local config = ns.Config.groupCooldowns
 	if icon.spellId ~= id then
 		icon.spellId = id
@@ -202,18 +215,14 @@ local function setIconState(icon, owner, id, start, duration, active)
 		icon.cooldown:SetCooldown(start or 0, start and duration or 0)
 	end
 	icon.texture:SetDesaturated(start ~= nil and config.desaturate)
-	local color = RAID_CLASS_COLORS[owner.class]
-	if color then
-		icon.border:SetVertexColor(color.r, color.g, color.b)
-	else
-		icon.border:SetVertexColor(1, 1, 1)
-	end
+	icon.border:SetVertexColor(ns.ClassColor(owner.class))
 	if active then
 		icon.glow:SetVertexColor(unpack(config.glowColor))
 		icon.glow:Show()
 	else
 		icon.glow:Hide()
 	end
+	setMaybe(icon, maybe)
 	icon:Show()
 end
 
@@ -234,7 +243,9 @@ local function collectSpells(owner, panel, config)
 	for _, list in pairs(byCategory) do
 		wipe(list)
 	end
-	local tracked = owner.spells or CooldownTracker:GetTrackedFor(owner.guid, owner.class, owner.race, true)
+	owner.trackedBuffer = owner.trackedBuffer or {}
+	local tracked = owner.spells
+		or CooldownTracker:GetTrackedFor(owner.guid, owner.class, owner.race, true, owner.trackedBuffer)
 	for i = 1, tracked and #tracked or 0 do
 		local id = tracked[i]
 		local category = categoryOf(id)
@@ -299,7 +310,25 @@ local function isPlaced(panel)
 	return panel.kind ~= "frame" or previewing or panel.frame:IsVisible()
 end
 
+local function clearPanel(panel)
+	for i = 1, #panel.icons do
+		local icon = panel.icons[i]
+		if icon.owner then
+			icon.owner, icon.start, icon.duration = nil, nil, nil
+			icon.cooldown:SetCooldown(0, 0)
+			icon:Hide()
+		end
+	end
+	panel:Hide()
+	panel.nextExpiry = huge
+	panel:SetScript("OnUpdate", nil)
+end
+
 function refresh(panel)
+	if not panel.active then
+		clearPanel(panel)
+		return
+	end
 	local config = ns.Config.groupCooldowns
 	local size, spacing, perRow, rowSpacing = layoutOf(panel, config)
 	local step, rowStep = size + spacing, size + rowSpacing
@@ -335,9 +364,12 @@ function refresh(panel)
 				if start and start + duration <= now then
 					start, duration = nil, nil
 				end
-				setIconState(icon, owner, id, start, duration, active)
+				local maybe = not start and not owner.preview and CooldownTracker:GetMaybeReady(owner.guid, id)
+				setIconState(icon, owner, id, start, duration, active, maybe)
 				if start then
 					nextExpiry = min(nextExpiry, start + duration)
+				elseif maybe then
+					nextExpiry = min(nextExpiry, maybe)
 				end
 			end
 		end
@@ -477,12 +509,6 @@ local function update(state)
 	end
 end
 
-local function updateAll()
-	for _, state in pairs(sides) do
-		update(state)
-	end
-end
-
 local function ownsGUID(panel, guid)
 	local owners = panel.owners
 	for i = 1, #owners do
@@ -519,9 +545,11 @@ local function clearEnemies()
 	end
 end
 
+local applyConfig
+
 function GroupCooldowns:PLAYER_ENTERING_WORLD()
 	clearEnemies()
-	updateAll()
+	applyConfig()
 end
 
 function GroupCooldowns:ARENA_OPPONENT_UPDATE(unit, kind)
@@ -564,7 +592,7 @@ function GroupCooldowns.SetPreview(enabled)
 	for _, state in pairs(sides) do
 		wipe(state.previewSlots)
 	end
-	updateAll()
+	applyConfig()
 end
 
 local function applyIcons(panel, config)
@@ -577,10 +605,17 @@ local function applyIcons(panel, config)
 	end
 end
 
-local function applyConfig()
+local function isZoneShown(config)
+	local _, instanceType = IsInInstance()
+	return config.zones[ZONES[instanceType] or "world"]
+end
+
+function applyConfig()
 	local config = ns.Config.groupCooldowns
+	CooldownTracker:SetDemand("groupCooldowns", config.enabled)
+	local zoneShown = previewing or isZoneShown(config)
 	for side, state in pairs(sides) do
-		local enabled = config.enabled and config[side]
+		local enabled = config.enabled and config[side] and zoneShown
 		local byFrames = usesFrames(side)
 		local growth = config[side .. "Growth"]
 
@@ -662,7 +697,7 @@ end
 local function createFramePanels()
 	for side, state in pairs(sides) do
 		local info = SIDES[side]
-		local frames = UF.groupFrames and UF.groupFrames[info.frames]
+		local frames = ns.FrameBridge.groupFrames and ns.FrameBridge.groupFrames[info.frames]
 		for i = 1, frames and #frames or 0 do
 			local panel = newPanel(side, "frame")
 			panel.frame = frames[i]
@@ -670,7 +705,7 @@ local function createFramePanels()
 			panel.owners = {}
 			panel.pointPath = "groupCooldowns." .. info.frames .. i .. "Point"
 			state.frames[i] = panel
-			GroupCooldowns:RegisterMover(panel, panel.pointPath, info.frameLabel .. " " .. i .. " cooldowns", {
+			GroupCooldowns:RegisterMover(panel, panel.pointPath, info.moverLabel .. " " .. i .. " cooldowns", {
 				enabledPath = {
 					"groupCooldowns." .. side,
 					"groupCooldowns." .. side .. "Layout",
@@ -692,14 +727,8 @@ local function createFramePanels()
 	end
 end
 
-local initialized = false
-
-UF:OnInitialize(function()
+ns.FrameBridge.OnReady(function()
 	framesReady = true
-	if initialized then
-		createFramePanels()
-		applyConfig()
-	end
 end)
 
 function GroupCooldowns:Initialize()
@@ -709,21 +738,22 @@ function GroupCooldowns:Initialize()
 		state.group = createGroupPanel(self, state)
 		state.interrupts = createInterruptPanel(self, state)
 	end
-	initialized = true
 	if framesReady then
 		createFramePanels()
 	end
 	applyConfig()
 	self:WatchConfig("groupCooldowns", applyConfig)
 
-	self:RegisterEvent(ns.COOLDOWN_UPDATED, onCooldownUpdated)
-	self:RegisterEvent(ns.TALENTS_UPDATED, onCooldownUpdated)
+	self:RegisterEvent(ns.E.COOLDOWN_UPDATED, onCooldownUpdated)
+	self:RegisterEvent(ns.E.TALENTS_UPDATED, onCooldownUpdated)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 	self:RegisterEvent("ARENA_OPPONENT_UPDATE")
 	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
 	self:RegisterEvent("UNIT_NAME_UPDATE", onNameUpdate)
 
-	hooksecurefunc(UF, "SetTestMode", function()
-		GroupCooldowns.SetPreview(UF.testing)
+	self:RegisterEvent(ns.E.PREVIEW_CHANGED, function(_, name, active)
+		if name == "unitFrames" then
+			GroupCooldowns.SetPreview(active)
+		end
 	end)
 end

@@ -13,13 +13,13 @@ local GetTime = GetTime
 local UnitGUID, UnitDebuff, UnitBuff = UnitGUID, UnitDebuff, UnitBuff
 local COMBATLOG_OBJECT_CONTROL_PLAYER = 0x100
 local COMBATLOG_OBJECT_REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
+local GROUP_AFFILIATION = 0x6
 
 local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
 local MAX_STACKS = 3
 
-ns.DR_UPDATED = "FrostAtomUI_DR_UPDATED"
-
 local DR = ns:NewModule("DiminishingReturns")
+ns.Mixin(DR, ns.Demand)
 
 local states = {}
 local preparing = false
@@ -69,7 +69,7 @@ local function onApplied(guid, category, spellId, refresh)
 	entry.appliedAt = now
 	entry.expires = now + AURA_TIMEOUT + RESET_TIME
 
-	ns:Fire(ns.DR_UPDATED, guid)
+	ns:Fire(ns.E.DR_UPDATED, guid)
 end
 
 local function onRemoved(guid, category)
@@ -81,7 +81,7 @@ local function onRemoved(guid, category)
 	entry.active = entry.active - 1
 	if entry.active == 0 then
 		entry.expires = GetTime() + RESET_TIME
-		ns:Fire(ns.DR_UPDATED, guid)
+		ns:Fire(ns.E.DR_UPDATED, guid)
 	end
 end
 
@@ -100,6 +100,7 @@ local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, destFlags, sp
 		and (
 			bit_band(destFlags, COMBATLOG_OBJECT_CONTROL_PLAYER) == 0
 			or bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == 0
+				and bit_band(destFlags, GROUP_AFFILIATION) == 0
 		)
 	then
 		return
@@ -114,6 +115,9 @@ end
 local RECONCILE_UNITS = { player = true, target = true, focus = true }
 for i = 1, 5 do
 	RECONCILE_UNITS["arena" .. i] = true
+end
+for i = 1, 4 do
+	RECONCILE_UNITS["party" .. i] = true
 end
 
 local carried = {}
@@ -162,11 +166,11 @@ local function onUnitAura(self, unit)
 		end
 	end
 	if ended then
-		ns:Fire(ns.DR_UPDATED, guid)
+		ns:Fire(ns.E.DR_UPDATED, guid)
 	end
 end
 
-function DR:Get(guid)
+local function liveState(guid)
 	local state = guid and states[guid]
 	if not state then
 		return
@@ -178,13 +182,42 @@ function DR:Get(guid)
 	return state
 end
 
-function DR:IsAuraActive(entry, now)
-	return entry.active > 0 and now < entry.appliedAt + AURA_TIMEOUT
+local function describe(entry, now)
+	return entry.stacks,
+		entry.expires,
+		entry.active > 0 and now < entry.appliedAt + AURA_TIMEOUT,
+		entry.spellId,
+		entry.appliedAt
+end
+
+function DR:GetCategory(guid, category)
+	local state = liveState(guid)
+	local entry = state and state[category]
+	if entry and entry.stacks > 0 then
+		return describe(entry, GetTime())
+	end
+end
+
+local function nothing() end
+
+function DR:IterateCategories(guid)
+	local state = liveState(guid)
+	if not state then
+		return nothing
+	end
+	local order, now, i = state.order, GetTime(), 0
+	return function()
+		i = i + 1
+		local category = order[i]
+		if category then
+			return category, describe(state[category], now)
+		end
+	end
 end
 
 function DR:Reset()
 	wipe(states)
-	ns:Fire(ns.DR_UPDATED)
+	ns:Fire(ns.E.DR_UPDATED)
 end
 
 local function onEnteringWorld(self)
@@ -192,22 +225,17 @@ local function onEnteringWorld(self)
 	self:Reset()
 end
 
-local function applyEnabled(self)
-	if ns.Config.diminishingReturns.enabled then
-		preparing = hasArenaPreparation()
-		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
-		self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
-		self:RegisterEvent("UNIT_AURA", onUnitAura)
-	else
-		self:UnregisterEvent("UNIT_AURA")
-		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-		self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-		preparing = false
-		self:Reset()
-	end
+function DR:OnDemandStart()
+	preparing = hasArenaPreparation()
+	ns.CombatLog.Register(self, { "SPELL_AURA_APPLIED", "SPELL_AURA_REFRESH", "SPELL_AURA_REMOVED" }, onCombatLogEvent)
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
+	self:RegisterEvent("UNIT_AURA", onUnitAura)
 end
 
-function DR:Initialize()
-	applyEnabled(self)
-	self:WatchConfig("diminishingReturns.enabled", applyEnabled)
+function DR:OnDemandStop()
+	self:UnregisterEvent("UNIT_AURA")
+	ns.CombatLog.Unregister(self, onCombatLogEvent)
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+	preparing = false
+	self:Reset()
 end

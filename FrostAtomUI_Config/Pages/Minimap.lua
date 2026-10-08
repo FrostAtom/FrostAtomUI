@@ -32,7 +32,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "minimap.collectButtons",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Collect addon buttons"],
 			type = "toggle",
 			desc = L["Gather addon buttons from the minimap edge into a panel opened by the + button on the left side of the minimap."],
@@ -84,8 +84,8 @@ ns.RegisterElement({
 		},
 		{
 			path = "minimap.combat",
-			new = "1.4.1",
-			label = L["Visible"],
+			new = "1.5.0",
+			label = L["Show"],
 			type = "select",
 			values = ns.COMBAT_VISIBILITY_VALUES,
 			desc = L["Fade out of combat or in combat. With mouseover the cursor still reveals it."],
@@ -93,7 +93,7 @@ ns.RegisterElement({
 		{
 			path = "minimap.fadeAlpha",
 			advanced = true,
-			label = L["Faded alpha"],
+			label = L["Faded opacity"],
 			type = "number",
 			min = 0,
 			max = 1,
@@ -103,7 +103,7 @@ ns.RegisterElement({
 				return not FrostAtomUI:GetConfig("minimap.mouseover")
 					and FrostAtomUI:GetConfig("minimap.combat") == "any"
 			end,
-			disabledDesc = L["Used only with Show on mouseover or when Visible is not Always."],
+			disabledDesc = L['Used only with "Show on mouseover" or when "Show" is not "Always".'],
 		},
 	},
 })
@@ -132,7 +132,6 @@ local schema = {
 		path = "minimap.enabled",
 		label = L["Enable"],
 		type = "toggle",
-		reload = true,
 		desc = L["Square minimap, clock, hidden buttons. The world map has its own switch below."],
 	},
 	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
@@ -144,7 +143,6 @@ Section(schema, L["World map"], "worldMap", {
 		path = "enabled",
 		label = L["Enable"],
 		type = "toggle",
-		reload = true,
 		desc = L["Zoomable, pannable map without the black background, with coordinates and class colored group icons."],
 	},
 	{
@@ -172,7 +170,7 @@ Section(schema, L["World map"], "worldMap", {
 	},
 	{
 		path = "fadeWhenMoving",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Fade while moving"],
 		type = "toggle",
 		desc = L["Make the map transparent while you move, unless the cursor is over it."],
@@ -180,8 +178,8 @@ Section(schema, L["World map"], "worldMap", {
 	{
 		path = "movingAlpha",
 		advanced = true,
-		new = "1.4.1",
-		label = L["Alpha while moving"],
+		new = "1.5.0",
+		label = L["Opacity while moving"],
 		type = "number",
 		min = 0.1,
 		max = 1,
@@ -194,6 +192,7 @@ Section(schema, L["World map"], "worldMap", {
 ns.RegisterPage({
 	key = "minimap",
 	name = L["Minimap & map"],
+	desc = L["Minimap, clock, zone text, queue eye and the world map."],
 	glyph = "map",
 	order = 44,
 	group = "interface",

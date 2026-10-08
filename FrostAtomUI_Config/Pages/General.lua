@@ -4,6 +4,18 @@ local L = FrostAtomUI.L
 
 local ui = FrostAtomUI
 
+local function fontValues()
+	local values = {}
+	for _, font in ipairs(ui.MediaList("fonts")) do
+		local label = font[2]
+		if ui.LOCALE ~= "enUS" and not ui.CanRenderLocale(ui.LOCALE, font[1]) then
+			label = label .. " " .. L["(no letters of this language)"]
+		end
+		values[#values + 1] = { font[1], label }
+	end
+	return values
+end
+
 local schema = {
 	{ header = L["Language"], glyph = "language" },
 	{
@@ -14,17 +26,36 @@ local schema = {
 		get = ui.GetLocaleOverride,
 		set = function(value)
 			ui.SetLocaleOverride(value)
-			ns.Confirm(L["The language changes after a UI reload. Reload now?"], ReloadUI)
+			ns.ShowReloadButton(L["Interface language"])
 		end,
 		desc = L["Language of FrostAtom UI text. Auto follows the game client."],
 	},
+	{
+		label = L["Server"],
+		type = "select",
+		width = 180,
+		values = ui.GetRealmOptions,
+		get = ui.GetRealmOverride,
+		set = function(value)
+			ui.SetRealmOverride(value)
+			ns.ShowReloadButton(L["Server"])
+		end,
+		desc = L["Features made for one server: WoW Circle solo queue, gossip windows, top killers and the combat log fix. Auto checks the realmlist."],
+	},
 	{ header = L["Appearance"], glyph = "palette" },
-	{ path = "general.font", label = L["Font"], type = "select", values = ui.Media.fonts, preview = "font" },
+	{
+		path = "general.font",
+		label = L["Font"],
+		type = "select",
+		values = fontValues(),
+		preview = "font",
+		desc = L["The list also has fonts that other addons share through LibSharedMedia, for example SharedMedia."],
+	},
 	{
 		path = "general.fontBold",
 		label = L["Bold font"],
 		type = "select",
-		values = ui.Media.fonts,
+		values = fontValues(),
 		preview = "font",
 		advanced = true,
 	},
@@ -32,39 +63,60 @@ local schema = {
 		path = "general.statusbar",
 		label = L["Status bar texture"],
 		type = "select",
-		values = ui.Media.statusbars,
+		values = ui.MediaList("statusbars"),
 		preview = "statusbar",
+		desc = L["The list also has textures that other addons share through LibSharedMedia, for example SharedMedia."],
 	},
 	{
-		path = "general.useUiScale",
-		label = L["Override UI scale"],
-		type = "toggle",
-		desc = L["Apply the scale below instead of the game's own setting. Turning it off keeps the last applied value."],
-	},
-	{
-		path = "general.pixelPerfectScale",
-		label = L["Pixel-perfect scale"],
-		type = "toggle",
-		enabledBy = "general.useUiScale",
+		path = "general.uiScaleMode",
+		label = L["UI scale"],
+		type = "select",
+		width = 180,
+		values = {
+			{ "game", L["As in game"], L["The game's own setting from the video options."] },
+			{
+				"pixel",
+				L["Sharp frames (%d%%)"]:format(floor(ui.PixelPerfectScale() * 100 + 0.5)),
+				L["One interface unit becomes one screen pixel, borders stay sharp. On large screens everything gets smaller."],
+			},
+			{ "custom", L["Custom size"], L["The size from the slider below."] },
+		},
+		set = function(value)
+			if value == "custom" then
+				ui:SetConfig("general.uiScale", floor(UIParent:GetScale() * 100 + 0.5) / 100)
+			end
+			ui:SetConfig("general.uiScaleMode", value)
+		end,
 		confirmRevert = true,
-		desc = L["One interface unit becomes one screen pixel: 768 / screen height (%.2f here). Borders stay sharp, on large screens this goes below the game's 0.64 limit and leaves more room for frames."]:format(
-			ui.PixelPerfectScale()
-		),
+		desc = L['"As in game" brings back the scale you had before.'],
 	},
 	{
 		path = "general.uiScale",
-		label = L["UI scale"],
+		label = L["Custom scale"],
 		type = "number",
+		percent = true,
 		min = 0.4,
-		max = 1,
+		max = 1.15,
 		step = 0.01,
-		enabledBy = "general.useUiScale",
+		applyOnRelease = true,
 		disabled = function()
-			return ui:GetConfig("general.pixelPerfectScale")
+			return ui:GetConfig("general.uiScaleMode") ~= "custom"
 		end,
-		disabledDesc = L["Pixel-perfect scale picks the scale."],
+		disabledDesc = L['Pick "Custom size" in UI scale.'],
 		confirmRevert = true,
-		desc = L["Below 0.64 the scale is applied by FrostAtom UI itself, the game's own setting stops at 0.64."],
+		desc = L["Below 64% the scale is applied by FrostAtom UI itself, the game's own setting stops at 64%."],
+	},
+	{ header = L["Mouse"], glyph = "computer-mouse" },
+	{
+		label = L["Aura icons ignore the mouse"],
+		type = "toggle",
+		get = function()
+			return ns.AllClickThrough()
+		end,
+		set = function(value)
+			ns.SetAllClickThrough(value)
+		end,
+		desc = L["Turns click-through on or off for every block of icons at once: unit frame auras, player buffs, DR, trinkets, cooldowns. Each block keeps its own switch."],
 	},
 	{ header = L["Cooldown timers"], new = "1.4.0", glyph = "stopwatch" },
 	{
@@ -124,14 +176,13 @@ local schema = {
 		type = "color",
 		desc = L["A minute or more left."],
 	},
-	{ header = L["Other addons"], new = "1.4.1", glyph = "puzzle-piece" },
+	{ header = L["Other addons"], new = "1.5.0", glyph = "puzzle-piece" },
 	{
 		label = L["Conflicting addons"],
-		new = "1.4.1",
+		new = "1.5.0",
 		type = "execute",
 		text = L["Ask again"],
 		glyph = "arrows-rotate",
-		advanced = true,
 		func = function()
 			ui.ResetConflictChoices()
 		end,
@@ -142,8 +193,9 @@ local schema = {
 ns.RegisterPage({
 	key = "general",
 	name = L["General"],
+	desc = L["Language, fonts, interface size and cooldown timers."],
 	glyph = "gear",
 	order = 10,
-	group = "core",
+	group = "start",
 	schema = schema,
 })

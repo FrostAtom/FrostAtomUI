@@ -289,7 +289,7 @@ Data.SPELLS = {
 		{ key = "dragonsBreath", down = true, 31661, 33041, 33042, 33043, 42949, 42950 }, -- Dragon's Breath
 		{ key = "hungeringCold", down = true, 51209 }, -- Hungering Cold
 		{ key = "silencingShot", 34490 }, -- Silencing Shot
-		{ key = "strangulate", 47476, 49913, 49914, 49915, 49916 }, -- Strangulate
+		{ key = "strangulate", 47476 }, -- Strangulate
 		{ key = "silence", 15487 }, -- Silence
 		{ key = "disarm", 676 }, -- Disarm
 		{ key = "dismantle", 51722 }, -- Dismantle
@@ -416,47 +416,150 @@ Data.CLASS_SOUNDS = {
 
 local CASTER_CLASSES = {
 	DEATHKNIGHT = {
-		"hungeringCold", "strangulate", "gnaw", "antiMagicShell", "iceboundFortitude", "lichborne", "antiMagicZone",
-		"vampiricBlood", "summonGargoyle", "hysteria", "dancingRuneWeapon", "deathGrip",
+		"hungeringCold",
+		"strangulate",
+		"gnaw",
+		"antiMagicShell",
+		"iceboundFortitude",
+		"lichborne",
+		"antiMagicZone",
+		"vampiricBlood",
+		"summonGargoyle",
+		"hysteria",
+		"dancingRuneWeapon",
+		"deathGrip",
 	},
 	DRUID = {
-		"cyclone", "hibernate", "entanglingRoots", "bash", "maim", "barkskin", "survivalInstincts",
-		"frenziedRegeneration", "berserk", "starfall", "innervate", "prowl",
+		"cyclone",
+		"hibernate",
+		"entanglingRoots",
+		"bash",
+		"maim",
+		"barkskin",
+		"survivalInstincts",
+		"frenziedRegeneration",
+		"berserk",
+		"starfall",
+		"innervate",
+		"prowl",
 	},
 	HUNTER = {
-		"scareBeast", "freezingTrap", "freezingArrow", "wyvernSting", "scatterShot", "silencingShot", "intimidation",
-		"deterrence", "roarOfSacrifice", "bestialWrath", "rapidFire", "mastersCall", "readiness", "feignDeath",
+		"scareBeast",
+		"freezingTrap",
+		"freezingArrow",
+		"wyvernSting",
+		"scatterShot",
+		"silencingShot",
+		"intimidation",
+		"deterrence",
+		"roarOfSacrifice",
+		"bestialWrath",
+		"rapidFire",
+		"mastersCall",
+		"readiness",
+		"feignDeath",
 	},
 	MAGE = {
-		"polymorph", "deepFreeze", "dragonsBreath", "iceBlock", "arcanePower", "icyVeins", "combustion",
-		"presenceOfMind", "mirrorImage", "coldSnap", "invisibility", "evocation",
+		"polymorph",
+		"deepFreeze",
+		"dragonsBreath",
+		"iceBlock",
+		"arcanePower",
+		"icyVeins",
+		"combustion",
+		"presenceOfMind",
+		"mirrorImage",
+		"coldSnap",
+		"invisibility",
+		"evocation",
 	},
 	PALADIN = {
-		"turnEvil", "repentance", "hammerOfJustice", "divineShield", "handOfProtection", "divineProtection",
-		"handOfFreedom", "handOfSacrifice", "divineSacrifice", "auraMastery", "layOnHands", "avengingWrath",
+		"turnEvil",
+		"repentance",
+		"hammerOfJustice",
+		"divineShield",
+		"handOfProtection",
+		"divineProtection",
+		"handOfFreedom",
+		"handOfSacrifice",
+		"divineSacrifice",
+		"auraMastery",
+		"layOnHands",
+		"avengingWrath",
 		"divinePlea",
 	},
 	PRIEST = {
-		"mindControl", "massDispel", "shackleUndead", "psychicScream", "psychicHorror", "silence", "painSuppression",
-		"guardianSpirit", "dispersion", "fearWard", "powerInfusion", "shadowfiend", "innerFocus", "divineHymn",
+		"mindControl",
+		"massDispel",
+		"shackleUndead",
+		"psychicScream",
+		"psychicHorror",
+		"silence",
+		"painSuppression",
+		"guardianSpirit",
+		"dispersion",
+		"fearWard",
+		"powerInfusion",
+		"shadowfiend",
+		"innerFocus",
+		"divineHymn",
 		"hymnOfHope",
 	},
 	ROGUE = {
-		"blind", "sap", "gouge", "kidneyShot", "dismantle", "cheapShot", "garroteSilence", "evasion",
-		"cloakOfShadows", "cheatingDeath", "shadowDance", "adrenalineRush", "killingSpree", "coldBlood",
-		"preparation", "vanish", "stealth", "shadowstep",
+		"blind",
+		"sap",
+		"gouge",
+		"kidneyShot",
+		"dismantle",
+		"cheapShot",
+		"garroteSilence",
+		"evasion",
+		"cloakOfShadows",
+		"cheatingDeath",
+		"shadowDance",
+		"adrenalineRush",
+		"killingSpree",
+		"coldBlood",
+		"preparation",
+		"vanish",
+		"stealth",
+		"shadowstep",
 	},
 	SHAMAN = {
-		"hex", "groundingTotem", "shamanisticRage", "elementalMastery", "bloodlust", "heroism", "feralSpirit",
-		"manaTideTotem", "tremorTotem", "earthbindTotem",
+		"hex",
+		"groundingTotem",
+		"shamanisticRage",
+		"elementalMastery",
+		"bloodlust",
+		"heroism",
+		"feralSpirit",
+		"manaTideTotem",
+		"tremorTotem",
+		"earthbindTotem",
 	},
 	WARLOCK = {
-		"fear", "howlOfTerror", "seduction", "banish", "deathCoil", "shadowfury", "metamorphosis",
+		"fear",
+		"howlOfTerror",
+		"seduction",
+		"banish",
+		"deathCoil",
+		"shadowfury",
+		"metamorphosis",
 		"demonicCircleTeleport",
 	},
 	WARRIOR = {
-		"intimidatingShout", "disarm", "shockwave", "concussionBlow", "shieldWall", "spellReflection",
-		"enragedRegeneration", "berserkerRage", "retaliation", "recklessness", "deathWish", "bladestorm",
+		"intimidatingShout",
+		"disarm",
+		"shockwave",
+		"concussionBlow",
+		"shieldWall",
+		"spellReflection",
+		"enragedRegeneration",
+		"berserkerRage",
+		"retaliation",
+		"recklessness",
+		"deathWish",
+		"bladestorm",
 		"shatteringThrow",
 	},
 }
@@ -474,7 +577,7 @@ local maps = {
 	aura = {},
 	control = {},
 }
-local auraNames, castNames, myControl = {}, {}, {}
+local auraNames, castNames, myControl, controlOnYou = {}, {}, {}, {}
 
 for category, spells in pairs(Data.SPELLS) do
 	local crowdControl = category == "cast" or category == "control"
@@ -497,6 +600,9 @@ for category, spells in pairs(Data.SPELLS) do
 				if crowdControl and spell.down then
 					myControl[spell[i]] = spell
 				end
+				if category == "cast" and not spell.area then
+					controlOnYou[spell[i]] = spell
+				end
 			end
 		end
 		if spell.hidden then
@@ -515,3 +621,4 @@ Data.AURA_NAMES = auraNames
 Data.CONTROL = maps.control
 Data.CAST_NAMES = castNames
 Data.MY_CONTROL = myControl
+Data.CONTROL_ON_YOU = controlOnYou

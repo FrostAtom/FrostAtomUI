@@ -2,6 +2,7 @@ local _, ns = ...
 
 local ui = FrostAtomUI
 local L = ui.L
+local LIMITS = ui.Limits
 
 local function size(path, label, min, max, desc, enabledBy)
 	return {
@@ -22,7 +23,7 @@ local function advanced(entry)
 end
 
 local function new(entry)
-	entry.new = "1.4.1"
+	entry.new = "1.5.0"
 	return entry
 end
 
@@ -54,6 +55,8 @@ local TAGS = {
 	{ "maxhp", L["Maximum health"] },
 	{ "misshp", L["Missing health"] },
 	{ "perhp", L["Health percent"] },
+	{ "smarthp", L["Percent on enemies, value on allies"] },
+	{ "targetname", L["Name of the unit's target"] },
 	{ "curpp", L["Current power"] },
 	{ "maxpp", L["Maximum power"] },
 	{ "perpp", L["Power percent"] },
@@ -71,14 +74,38 @@ local TAG_MODIFIERS = {
 	{ "ffaaff", L["Any hex color"] },
 	{ "8", L["Maximum letters"] },
 	{ "raw", L["Full numbers, not shortened"] },
+	{ "nofull", L["Empty while full"] },
+	{ "neg", L["With a minus, empty at zero"] },
+	{ "floor", L["Percent rounded down"] },
 }
 
+local HEALTH_TAG_NAMES = { curhp = true, maxhp = true, misshp = true, perhp = true, smarthp = true, status = true }
+local UNIT_MODIFIERS = { class = true, reaction = true, power = true }
+
+local HEALTH_TAGS, PLATE_TAG_MODIFIERS = {}, {}
+for _, tag in ipairs(TAGS) do
+	if HEALTH_TAG_NAMES[tag[1]] then
+		HEALTH_TAGS[#HEALTH_TAGS + 1] = tag
+	end
+end
+for _, modifier in ipairs(TAG_MODIFIERS) do
+	if not UNIT_MODIFIERS[modifier[1]] then
+		PLATE_TAG_MODIFIERS[#PLATE_TAG_MODIFIERS + 1] = modifier
+	end
+end
+
 local function renderTags(template)
-	return FrostAtomUI:GetModule("UnitFrames").RenderTags(template, "player")
+	return FrostAtomUI.API.RunAction("renderTags", template, "player")
+end
+
+local function renderPlateTags(template)
+	return FrostAtomUI.API.RunAction("renderHealthTags", template, UnitHealth("player"), UnitHealthMax("player"))
 end
 
 local function validateTags(template)
-	local check = FrostAtomUI:GetModule("UnitFrames").CheckTag
+	local function check(body)
+		return FrostAtomUI.API.RunAction("checkTag", body)
+	end
 	for body in template:gmatch("%[([^%[%]]*)%]") do
 		local token, option = check(body)
 		if token then
@@ -92,30 +119,91 @@ local function validateTags(template)
 	return true
 end
 
+local function validatePlateTags(template)
+	local ok, message = validateTags(template)
+	if message then
+		return ok, message
+	end
+	for body in template:gmatch("%[([^%[%]]*)%]") do
+		local name = body:match("^[^:]+")
+		if not HEALTH_TAG_NAMES[name] then
+			return true, L["[%s] shows nothing on nameplates: only health tags work there."]:format(name)
+		end
+	end
+	return true
+end
+
+function ns.HealthTagEntries(path, presets, fields)
+	local plates = fields.plates
+	local preset = {
+		label = fields.label or L["Health text"],
+		type = "select",
+		new = "1.5.0",
+		advanced = fields.advanced,
+		values = presets,
+		placeholder = L["Custom tags"],
+		desc = fields.presetDesc or L["A ready text; the tags below can be changed freely."],
+		enabledBy = fields.enabledBy,
+		get = function()
+			local value = ui:GetConfig(path)
+			for _, option in ipairs(presets) do
+				if option[1] == value then
+					return value
+				end
+			end
+		end,
+		set = function(value)
+			ui:SetConfig(path, value)
+		end,
+	}
+	local text = {
+		path = fields.entryPath or path,
+		label = L["Text"],
+		type = "string",
+		new = "1.5.0",
+		advanced = fields.advanced,
+		indent = true,
+		width = 220,
+		maxLetters = 120,
+		desc = fields.desc,
+		enabledBy = fields.enabledBy,
+		tags = HEALTH_TAGS,
+		modifiers = plates and PLATE_TAG_MODIFIERS or TAG_MODIFIERS,
+		render = plates and renderPlateTags or renderTags,
+		validate = plates and validatePlateTags or validateTags,
+	}
+	return preset, text
+end
+
 local TEXT_POINTS = {
 	health = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" },
 	power = { "LEFT", "RIGHT" },
 }
 local selectedTextPoints = {}
 
-local function textSlots(bar)
-	return ui.Config.unitFrames[bar .. "Texts"]
+local function textsPath(bar, scope)
+	return scope and uf(scope .. capitalize(bar) .. "Texts") or uf(bar .. "Texts")
 end
 
-local function defaultTextSlots(bar)
-	return ui.Defaults.unitFrames[bar .. "Texts"]
+local function textSlots(bar, scope)
+	return ui:GetConfig(textsPath(bar, scope))
+end
+
+local function defaultTextSlots(bar, scope)
+	return ui:GetFactoryConfig(textsPath(bar, scope))
 end
 
 local function hasText(slot)
 	return slot.text ~= "" or slot.hover ~= ""
 end
 
-local function selectedTextPoint(bar)
-	local point = selectedTextPoints[bar]
+local function selectedTextPoint(bar, scope)
+	local id = (scope or "") .. bar
+	local point = selectedTextPoints[id]
 	if point then
 		return point
 	end
-	local points, slots = TEXT_POINTS[bar], textSlots(bar)
+	local points, slots = TEXT_POINTS[bar], textSlots(bar, scope)
 	point = points[1]
 	for _, candidate in ipairs(points) do
 		if hasText(slots[candidate]) then
@@ -123,12 +211,12 @@ local function selectedTextPoint(bar)
 			break
 		end
 	end
-	selectedTextPoints[bar] = point
+	selectedTextPoints[id] = point
 	return point
 end
 
-local function describeTextPoint(bar, point)
-	local slot = textSlots(bar)[point]
+local function describeTextPoint(bar, point, scope)
+	local slot = textSlots(bar, scope)[point]
 	if not hasText(slot) then
 		return L["No text"]
 	end
@@ -142,8 +230,8 @@ local function describeTextPoint(bar, point)
 	return table.concat(lines, "\n")
 end
 
-local function isDefaultTexts(bar)
-	local slots, defaults = textSlots(bar), defaultTextSlots(bar)
+local function isDefaultTexts(bar, scope)
+	local slots, defaults = textSlots(bar, scope), defaultTextSlots(bar, scope)
 	for _, point in ipairs(TEXT_POINTS[bar]) do
 		local slot, default = slots[point], defaults[point]
 		if slot.text ~= default.text or slot.hover ~= default.hover then
@@ -153,49 +241,51 @@ local function isDefaultTexts(bar)
 	return true
 end
 
-local function textPoint(bar, label, desc)
+local function textPoint(bar, label, desc, scope, enabledBy)
 	return {
 		label = label,
 		type = "anchor",
 		desc = desc,
+		enabledBy = enabledBy,
 		points = TEXT_POINTS[bar],
 		get = function()
-			return selectedTextPoint(bar)
+			return selectedTextPoint(bar, scope)
 		end,
 		set = function(point)
 			local focus = GetCurrentKeyBoardFocus()
 			if focus and focus.editing then
 				focus:ClearFocus()
 			end
-			selectedTextPoints[bar] = point
+			selectedTextPoints[(scope or "") .. bar] = point
 			ns.RefreshPage()
 		end,
 		marked = function(point)
-			return hasText(textSlots(bar)[point])
+			return hasText(textSlots(bar, scope)[point])
 		end,
 		describe = function(point)
-			return describeTextPoint(bar, point)
+			return describeTextPoint(bar, point, scope)
 		end,
 		isDefault = function()
-			return isDefaultTexts(bar)
+			return isDefaultTexts(bar, scope)
 		end,
 		reset = function()
-			ui:ResetConfig(uf(bar .. "Texts"))
+			ui:ResetConfig(textsPath(bar, scope))
 		end,
 	}
 end
 
-local function textField(bar, field, label, desc)
+local function textField(bar, field, label, desc, scope, enabledBy)
 	local function path()
-		return uf(("%sTexts.%s.%s"):format(bar, selectedTextPoint(bar), field))
+		return ("%s.%s.%s"):format(textsPath(bar, scope), selectedTextPoint(bar, scope), field)
 	end
 	local function default()
-		return defaultTextSlots(bar)[selectedTextPoint(bar)][field]
+		return defaultTextSlots(bar, scope)[selectedTextPoint(bar, scope)][field]
 	end
 	return {
 		label = label,
 		type = "string",
 		indent = true,
+		enabledBy = enabledBy,
 		width = 220,
 		maxLetters = 120,
 		desc = desc,
@@ -222,12 +312,44 @@ local function textField(bar, field, label, desc)
 	}
 end
 
-local function textEntries(bar, label, desc)
+local function textEntries(bar, label, desc, scope, enabledBy)
 	return {
-		textPoint(bar, label, desc),
-		textField(bar, "text", L["Text"], L["Empty: no text at this point."]),
-		textField(bar, "hover", L["Text (mouseover)"], L["Empty to keep the text on mouseover."]),
+		textPoint(bar, label, desc, scope, enabledBy),
+		textField(bar, "text", L["Text"], L["Empty: no text at this point."], scope, enabledBy),
+		textField(bar, "hover", L["Text (mouseover)"], L["Empty to keep the text on mouseover."], scope, enabledBy),
 	}
+end
+
+local function ownTexts(key)
+	local own = uf(key .. "OwnTexts")
+	local schema = {
+		{ header = L["Texts"], glyph = "font" },
+		{
+			path = own,
+			label = L["Own texts"],
+			type = "toggle",
+			desc = L["Off: this frame shows the texts set on the General tab. On: the texts below."],
+		},
+		{
+			path = uf(key .. "TextSize"),
+			new = "1.5.0",
+			label = L["Text size"],
+			type = "number",
+			min = 0,
+			max = 32,
+			step = 1,
+			zeroText = L["As on General"],
+			desc = L["Font size of the texts on this frame. 0 keeps the size from the General tab."],
+		},
+	}
+	for _, bar in ipairs({ "health", "power" }) do
+		local label = bar == "health" and L["Health bar texts"] or L["Power bar texts"]
+		for _, entry in ipairs(textEntries(bar, label, nil, key, own)) do
+			entry.advanced = true
+			schema[#schema + 1] = entry
+		end
+	end
+	return schema
 end
 
 local HEALTH_COLOR_VALUES = {
@@ -257,6 +379,7 @@ local CLASS_ICON_STYLE_VALUES = {
 local ICON_SIDE_VALUES = {
 	{ "LEFT", L["On the left"], glyph = "arrow-left" },
 	{ "RIGHT", L["On the right"], glyph = "arrow-right" },
+	{ "NONE", L["No icon"], glyph = "ban" },
 }
 
 local CAST_TIME_VALUES = {
@@ -280,6 +403,7 @@ local AURA_POSITION_VALUES = {
 	{ "TOP", L["Above"], glyph = "arrow-up" },
 	{ "LEFT", L["On the left"], glyph = "arrow-left" },
 	{ "RIGHT", L["On the right"], glyph = "arrow-right" },
+	{ "NONE", L["No icon"], glyph = "ban" },
 }
 
 local AURA_ORDER_DESC = L["Which block is closer to the frame when debuffs and buffs are on the same side."]
@@ -294,13 +418,13 @@ local function testFramesButton()
 		glyph = "flask",
 		desc = L["Show every frame with fake units to preview the layout."],
 		func = function()
-			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
+			ui.API.RunAction("unitFrameTest")
 		end,
 	}
 end
 
 local function showToggle(path, isNew)
-	return { path = path, new = isNew and "1.4.1" or nil, label = L["Show"], type = "toggle" }
+	return { path = path, new = isNew and "1.5.0" or nil, label = L["Show"], type = "toggle" }
 end
 
 local function layoutHeader()
@@ -318,12 +442,11 @@ local function iconSide(key, enabledBy)
 	local requires = "unitFrames.showClassIcon"
 	return {
 		path = uf(key .. "IconSide"),
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Class icon side"],
 		type = "select",
 		values = ICON_SIDE_VALUES,
 		enabledBy = enabledBy and { requires, enabledBy } or requires,
-		advanced = true,
 	}
 end
 
@@ -332,8 +455,9 @@ local function frameLayout(key, shownPath, shownLabel)
 	if shownPath then
 		list[#list + 1] = { path = shownPath, label = shownLabel, type = "toggle" }
 	end
-	list[#list + 1] = size(uf(key .. "Width"), L["Width"], 120, 320, nil, shownPath)
-	list[#list + 1] = size(uf(key .. "Height"), L["Height"], 30, 80, nil, shownPath)
+	list[#list + 1] = size(uf(key .. "Width"), L["Width"], LIMITS.frame.width[1], LIMITS.frame.width[2], nil, shownPath)
+	list[#list + 1] =
+		size(uf(key .. "Height"), L["Height"], LIMITS.frame.height[1], LIMITS.frame.height[2], nil, shownPath)
 	list[#list + 1] = iconSide(key, shownPath)
 	return list
 end
@@ -342,7 +466,7 @@ local function castbarShownPath(key)
 	return uf("show" .. capitalize(key) .. "Castbar")
 end
 
-local function castbarEntries(key, minWidth, maxWidth, desc, enabledBy, isNew)
+local function castbarEntries(key, desc, enabledBy, isNew)
 	local shownPath = castbarShownPath(key)
 	local toggle = { path = shownPath, label = L["Castbar"], type = "toggle", enabledBy = enabledBy }
 	if isNew then
@@ -351,30 +475,34 @@ local function castbarEntries(key, minWidth, maxWidth, desc, enabledBy, isNew)
 	end
 	return {
 		toggle,
-		size(uf(key .. "CastbarWidth"), L["Castbar width"], minWidth, maxWidth, desc, shownPath),
+		size(
+			uf(key .. "CastbarWidth"),
+			L["Castbar width"],
+			LIMITS.castbar.width[1],
+			LIMITS.castbar.width[2],
+			desc,
+			shownPath
+		),
 		size(
 			uf(key .. "CastbarHeight"),
 			L["Castbar height"],
-			10,
-			50,
+			LIMITS.castbar.height[1],
+			LIMITS.castbar.height[2],
 			L["The spell icon follows the height."],
 			shownPath
 		),
 	}
 end
 
-local function castbarSection(key, minWidth, maxWidth, desc, enabledBy, isNew)
-	return concat(
-		{ { header = L["Castbar"], glyph = "bars-progress" } },
-		castbarEntries(key, minWidth, maxWidth, desc, enabledBy, isNew)
-	)
+local function castbarSection(key, desc, enabledBy, isNew)
+	return concat({ { header = L["Castbar"], glyph = "bars-progress" } }, castbarEntries(key, desc, enabledBy, isNew))
 end
 
 local function castbarLatency()
 	return {
 		{
 			path = "unitFrames.castbarLatency",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Latency zone"],
 			type = "toggle",
 			enabledBy = "unitFrames.showPlayerCastbar",
@@ -382,12 +510,36 @@ local function castbarLatency()
 		},
 		{
 			path = "unitFrames.castbarLatencyColor",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Latency color"],
 			type = "color",
 			alpha = true,
 			advanced = true,
 			enabledBy = "unitFrames.castbarLatency",
+		},
+		{
+			path = "unitFrames.playerGcd",
+			label = L["Global cooldown bar"],
+			type = "toggle",
+			enabledBy = "unitFrames.showPlayerCastbar",
+			desc = L["Thin bar under the castbar that fills while the global cooldown runs: the next spell can be pressed when it is full."],
+		},
+		{
+			path = "unitFrames.playerGcdHeight",
+			label = L["Global cooldown bar height"],
+			type = "number",
+			min = 1,
+			max = 10,
+			step = 1,
+			advanced = true,
+			enabledBy = "unitFrames.playerGcd",
+		},
+		{
+			path = "unitFrames.playerGcdColor",
+			label = L["Global cooldown bar color"],
+			type = "color",
+			advanced = true,
+			enabledBy = "unitFrames.playerGcd",
 		},
 	}
 end
@@ -414,6 +566,7 @@ local function auraPlacement(key, kind, shownPath)
 	local growth = new({
 		path = uf(key .. kind .. "Growth"),
 		label = labels[2],
+		advanced = true,
 		type = "select",
 		values = HORIZONTAL_GROWTH_VALUES,
 		enabledBy = shownPath,
@@ -422,20 +575,65 @@ local function auraPlacement(key, kind, shownPath)
 	return position, growth
 end
 
+local DEBUFF_FILTER_VALUES = {
+	{ "all", L["All"] },
+	{ "mine", L["Only mine"], L["Debuffs cast by you, your pet or vehicle."] },
+	{ "important", L["Important"], L["Yours, crowd control and the spells from the list of important auras."] },
+}
+
+local BUFF_FILTER_VALUES = {
+	{ "all", L["All"] },
+	{
+		"important",
+		L["Important"],
+		L["Defensive and offensive cooldowns, buffs you can dispel or steal, yours and the spells from the list of important auras."],
+	},
+}
+
+local function withPath(enabledBy, path)
+	if not enabledBy then
+		return path
+	end
+	local list = type(enabledBy) == "table" and { unpack(enabledBy) } or { enabledBy }
+	list[#list + 1] = path
+	return list
+end
+
+local function auraFilters(key, debuffs, buffs, enabledBy)
+	return {
+		path = uf(key .. "DebuffFilter"),
+		label = L["Debuffs to show"],
+		type = "select",
+		values = DEBUFF_FILTER_VALUES,
+		advanced = true,
+		enabledBy = withPath(enabledBy, debuffs),
+	}, {
+		path = uf(key .. "BuffFilter"),
+		label = L["Buffs to show"],
+		type = "select",
+		values = BUFF_FILTER_VALUES,
+		advanced = true,
+		enabledBy = withPath(enabledBy, buffs),
+	}
+end
+
 local function targetAuras(key)
 	local name = capitalize(key)
 	local debuffs, buffs = uf("show" .. name .. "Debuffs"), uf("show" .. name .. "Buffs")
 	local either = { debuffs, buffs }
 	local debuffPosition, debuffGrowth = auraPlacement(key, "Debuff", debuffs)
 	local buffPosition, buffGrowth = auraPlacement(key, "Buff", buffs)
+	local debuffFilter, buffFilter = auraFilters(key, debuffs, buffs)
 	return {
 		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		auraToggle(debuffs, L["Debuffs"]),
 		debuffPosition,
 		debuffGrowth,
+		debuffFilter,
 		auraToggle(buffs, L["Buffs"]),
 		buffPosition,
 		buffGrowth,
+		buffFilter,
 		{
 			path = uf(key .. "AuraPerRow"),
 			new = "1.4.0",
@@ -491,11 +689,13 @@ local function groupAuras(key, enabledBy)
 	debuffToggle.enabledBy, buffToggle.enabledBy = enabledBy, enabledBy
 	local debuffPosition, debuffGrowth = auraPlacement(key, "Debuff", debuffs)
 	local buffPosition, buffGrowth = auraPlacement(key, "Buff", buffs)
+	local debuffFilter, buffFilter = auraFilters(key, debuffs, buffs, enabledBy)
 	return {
 		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		debuffToggle,
 		debuffPosition,
 		debuffGrowth,
+		debuffFilter,
 		size(uf(key .. "DebuffSize"), L["Debuff size"], 16, 60, FIT_DESC, debuffs),
 		advanced(
 			size(
@@ -510,6 +710,7 @@ local function groupAuras(key, enabledBy)
 		buffToggle,
 		buffPosition,
 		buffGrowth,
+		buffFilter,
 		size(uf(key .. "BuffSize"), L["Buff size"], 10, 40, FIT_DESC, buffs),
 		advanced(
 			size(
@@ -602,14 +803,14 @@ local function squareLayout(key, shownPath, shownLabel, shownDesc, enabledBy, is
 		layoutHeader(),
 		{
 			path = shownPath,
-			new = isNew and "1.4.1" or nil,
+			new = isNew and "1.5.0" or nil,
 			label = shownLabel,
 			type = "toggle",
 			enabledBy = enabledBy,
 			desc = shownDesc,
 		},
-		size(uf(key .. "Width"), L["Width"], 20, 120, nil, shownPath),
-		size(uf(key .. "Height"), L["Height"], 20, 120, nil, shownPath),
+		size(uf(key .. "Width"), L["Width"], LIMITS.square.width[1], LIMITS.square.width[2], nil, shownPath),
+		size(uf(key .. "Height"), L["Height"], LIMITS.square.height[1], LIMITS.square.height[2], nil, shownPath),
 	}
 end
 
@@ -626,7 +827,7 @@ end
 local function petHappiness()
 	return {
 		path = "unitFrames.petHappiness",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Pet happiness"],
 		type = "toggle",
 		hidden = ns.NotClass("HUNTER"),
@@ -638,7 +839,7 @@ end
 local function hideTargetOfTargetSelf()
 	return {
 		path = "unitFrames.hideTargetOfTargetSelf",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Hide when it is you"],
 		type = "toggle",
 		enabledBy = "unitFrames.showTargetOfTarget",
@@ -739,20 +940,27 @@ local function squareTab(square)
 	return concat(
 		framesSection(),
 		squareLayout(square.key, square.shownPath, square.label, square.desc, square.group, square.isNew),
-		castbarSection(square.key, 60, 300, nil, square.shownPath, true),
+		castbarSection(square.key, nil, square.shownPath, true),
 		squareAuras(square.key, square.shownPath),
 		squareDisplay(square),
 		squareVisibility(square)
 	)
 end
 
-local function castbarPanel(key, minWidth, desc, isNew)
+local function castbarPanel(key, desc, isNew)
 	local shownPath = castbarShownPath(key)
 	return {
 		showToggle(shownPath, isNew),
 		layoutHeader(),
-		size(uf(key .. "CastbarWidth"), L["Width"], minWidth, 400, desc, shownPath),
-		size(uf(key .. "CastbarHeight"), L["Height"], 10, 50, L["The spell icon follows the height."], shownPath),
+		size(uf(key .. "CastbarWidth"), L["Width"], LIMITS.castbar.width[1], LIMITS.castbar.width[2], desc, shownPath),
+		size(
+			uf(key .. "CastbarHeight"),
+			L["Height"],
+			LIMITS.castbar.height[1],
+			LIMITS.castbar.height[2],
+			L["The spell icon follows the height."],
+			shownPath
+		),
 	}
 end
 
@@ -761,7 +969,7 @@ local function playerIndicators()
 		{ header = L["Indicators"], glyph = "icons" },
 		{
 			path = "unitFrames.pvpTimer",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["PvP flag timer"],
 			type = "toggle",
 			advanced = true,
@@ -770,7 +978,7 @@ local function playerIndicators()
 		},
 		{
 			path = "unitFrames.druidMana",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Mana in shapeshift forms"],
 			type = "toggle",
 			hidden = ns.NotClass("DRUID"),
@@ -778,14 +986,14 @@ local function playerIndicators()
 		},
 		{
 			path = "unitFrames.combatGlow",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Combat glow"],
 			type = "toggle",
 			desc = L["Pulsing glow around the player frame while in combat."],
 		},
 		{
 			path = "unitFrames.combatGlowColor",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Combat glow color"],
 			type = "color",
 			advanced = true,
@@ -798,9 +1006,9 @@ local function comboPoints()
 	return {
 		{ header = L["Combo points"], glyph = "circle-dot" },
 		size("unitFrames.comboPointSize", L["Combo point size"], 4, 20, L["Dots above the target frame."]),
-		{ path = "unitFrames.comboPointColor", label = L["Combo points (full)"], type = "color", advanced = true },
+		{ path = "theme.comboPointColor", label = L["Combo points (full)"], type = "color", advanced = true },
 		{
-			path = "unitFrames.comboPointPartialColor",
+			path = "theme.comboPointPartialColor",
 			label = L["Combo points (partial)"],
 			type = "color",
 			advanced = true,
@@ -811,7 +1019,7 @@ end
 local function playerAuraGrowth(path)
 	return {
 		path = path,
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Growth direction"],
 		type = "select",
 		values = HORIZONTAL_GROWTH_VALUES,
@@ -858,7 +1066,7 @@ local function playerDebuffSection()
 		new(playerAuraGrowth("unitFrames.playerDebuffGrowth")),
 		{
 			path = "unitFrames.playerDebuffSize",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Icon size"],
 			type = "number",
 			min = 16,
@@ -867,13 +1075,58 @@ local function playerDebuffSection()
 		},
 		{
 			path = "unitFrames.playerDebuffPerRow",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Icons per row"],
 			type = "number",
 			min = 4,
 			max = 20,
 			step = 1,
 		},
+	}
+end
+
+local function openLink(label, page, tab)
+	return {
+		label = label,
+		type = "execute",
+		text = L["Open"],
+		glyph = "up-right-from-square",
+		func = function()
+			ns.Toggle(page, tab)
+		end,
+	}
+end
+
+local function arenaClick(path, label)
+	return {
+		path = path,
+		label = label,
+		type = "string",
+		width = 240,
+		maxLetters = 255,
+		advanced = true,
+	}
+end
+
+local function arenaPvp()
+	return {
+		{ header = L["PvP"], glyph = "hand-fist" },
+		{ alias = "diminishingReturns", label = L["Diminishing returns on"] },
+		{ alias = "diminishingReturns.arenaAnchor" },
+		{ alias = "diminishingReturns.arenaGrowth" },
+		{ alias = "loseControl.enabled", label = L["CC on frames"] },
+		{ alias = "groupCooldowns.enemySeparateTrinket" },
+		{ header = L["Clicks"], glyph = "computer-mouse" },
+		{
+			description = L['Left click targets, right click sets focus. With a modifier the click can cast a spell on that opponent (type its name) or run a macro (starts with "/", %u is the opponent: /cast [@%u] Polymorph). Applied after combat.'],
+		},
+		arenaClick("unitFrames.arenaShiftClick", L["Shift + left click"]),
+		arenaClick("unitFrames.arenaCtrlClick", L["Ctrl + left click"]),
+		arenaClick("unitFrames.arenaAltClick", L["Alt + left click"]),
+		{ header = L["Related"], glyph = "link" },
+		openLink(L["Enemy cooldowns"], "cooldowns", "enemy"),
+		openLink(L["Arena"], "arena"),
+		openLink(L["Voice"], "alerts", "voice"),
 	}
 end
 
@@ -891,7 +1144,7 @@ local function arenaUnseen()
 		{
 			path = "arenaUnseen.alpha",
 			new = "1.4.0",
-			label = L["Unseen opponent alpha"],
+			label = L["Unseen opponent opacity"],
 			type = "number",
 			min = 0.1,
 			max = 1,
@@ -930,7 +1183,7 @@ registerElement({
 	tab = "player",
 	name = L["Player castbar"],
 	glyph = "bars-progress",
-	schema = concat(castbarPanel("player", 100), { { header = L["Latency"], glyph = "signal" } }, castbarLatency()),
+	schema = concat(castbarPanel("player"), { { header = L["Latency"], glyph = "signal" } }, castbarLatency()),
 })
 
 registerElement({
@@ -944,7 +1197,7 @@ registerElement({
 registerElement({
 	path = "unitFrames.playerDebuffs",
 	tab = "player",
-	new = "1.4.1",
+	new = "1.5.0",
 	name = L["Player debuffs"],
 	glyph = "skull-crossbones",
 	schema = playerDebuffSection(),
@@ -964,10 +1217,10 @@ registerElement({
 registerElement({
 	path = "unitFrames.targetCastbar",
 	tab = "target",
-	new = "1.4.1",
+	new = "1.5.0",
 	name = L["Target castbar"],
 	glyph = "bars-progress",
-	schema = castbarPanel("target", 60),
+	schema = castbarPanel("target"),
 })
 
 registerElement({
@@ -984,10 +1237,10 @@ registerElement({
 registerElement({
 	path = "unitFrames.focusCastbar",
 	tab = "focus",
-	new = "1.4.1",
+	new = "1.5.0",
 	name = L["Focus castbar"],
 	glyph = "bars-progress",
-	schema = castbarPanel("focus", 60),
+	schema = castbarPanel("focus"),
 })
 
 local SINGLE_SQUARES = {
@@ -1013,11 +1266,11 @@ for _, info in ipairs(SINGLE_SQUARES) do
 	registerElement({
 		path = uf(info.key .. "Castbar"),
 		tab = info.key,
-		new = "1.4.1",
+		new = "1.5.0",
 		name = info.castbar,
 		glyph = "bars-progress",
 		enabledBy = { "unitFrames.enabled", square.shownPath },
-		schema = castbarPanel(info.key, 60, nil, true),
+		schema = castbarPanel(info.key, nil, true),
 	})
 end
 
@@ -1048,12 +1301,12 @@ local function registerGroup(group)
 		registerElement({
 			path = uf(group.prefix .. i .. "Castbar"),
 			tab = group.prefix,
-			new = "1.4.1",
+			new = "1.5.0",
 			name = first and group.castbarsName or L[label .. " castbar"],
 			glyph = "bars-progress",
 			hidden = not first,
 			enabledBy = enabledBy,
-			schema = castbarPanel(group.prefix, 60, GROUP_CASTBAR_DESC),
+			schema = castbarPanel(group.prefix, GROUP_CASTBAR_DESC),
 		})
 		for _, kind in ipairs({ "Pet", "Target" }) do
 			local key = group.prefix .. kind
@@ -1063,7 +1316,7 @@ local function registerGroup(group)
 			registerElement({
 				path = uf(group.prefix .. i .. kind),
 				tab = key,
-				new = "1.4.1",
+				new = "1.5.0",
 				name = first and names.frames or L[childLabel],
 				glyph = kind == "Pet" and "paw" or "bullseye",
 				hidden = not first,
@@ -1073,12 +1326,12 @@ local function registerGroup(group)
 			registerElement({
 				path = uf(group.prefix .. i .. kind .. "Castbar"),
 				tab = key,
-				new = "1.4.1",
+				new = "1.5.0",
 				name = first and names.castbars or L[childLabel .. " castbar"],
 				glyph = "bars-progress",
 				hidden = not first,
 				enabledBy = { "unitFrames.enabled", group.shownPath, square.shownPath },
-				schema = castbarPanel(key, 60, GROUP_CASTBAR_DESC, true),
+				schema = castbarPanel(key, GROUP_CASTBAR_DESC, true),
 			})
 		end
 	end
@@ -1087,7 +1340,7 @@ end
 registerGroup({
 	prefix = "party",
 	count = 4,
-	label = "Party",
+	label = "Party member",
 	name = L["Party"],
 	castbarsName = L["Party castbars"],
 	glyph = "users",
@@ -1099,7 +1352,7 @@ registerGroup({
 registerGroup({
 	prefix = "arena",
 	count = 3,
-	label = "Arena",
+	label = "Arena opponent",
 	name = L["Arena"],
 	castbarsName = L["Arena castbars"],
 	glyph = "crosshairs",
@@ -1111,28 +1364,39 @@ registerGroup({
 function ns.CastbarIndicators()
 	return {
 		{
-			path = "unitFrames.castbarTargetName",
+			path = "castbar.targetName",
 			new = "1.4.0",
-			label = L["Show cast target"],
+			label = L["Show caster's target"],
 			type = "toggle",
-			desc = L["Class-colored name of the caster's target on the right of unit frame and nameplate castbars."],
+			desc = L['Class-colored name of the caster\'s target on the right of unit frame and nameplate castbars. Shown only when it fits the spell: a friend for heals and buffs, an enemy for damage and control. At arena, control targets are dimmed with "?": focus macros are not visible.'],
 		},
 		{
-			path = "unitFrames.castbarTargetingYou",
+			path = "castbar.targetingYou",
 			new = "1.4.0",
 			label = L["Highlight casts on you"],
 			type = "toggle",
 			desc = L["Colored border of unit frame and nameplate castbars while an enemy casts at you."],
 		},
 		{
-			path = "unitFrames.castbarImportant",
+			path = "castbar.important",
 			new = "1.4.0",
 			label = L["Pulse important casts"],
 			type = "toggle",
 			desc = L["Pulsing glow around unit frame and nameplate castbars for crowd control and heals."],
 		},
 		{
-			path = "unitFrames.castbarInterrupter",
+			path = "castbar.importantExtra",
+			new = "1.5.0",
+			label = L["More important casts"],
+			type = "string",
+			width = 240,
+			maxLetters = 400,
+			advanced = true,
+			enabledBy = "castbar.important",
+			desc = L["Spell names or IDs separated by commas, pulsing in addition to the built-in crowd control and heals."],
+		},
+		{
+			path = "castbar.interrupter",
 			new = "1.4.0",
 			label = L["Show who interrupted"],
 			type = "toggle",
@@ -1172,14 +1436,52 @@ local function generalSettings()
 		},
 		{
 			path = "unitFrames.outOfRangeAlpha",
-			label = L["Out of range alpha"],
+			label = L["Out of range opacity"],
 			type = "number",
 			min = 0,
 			max = 1,
 			step = 0.05,
 			percent = true,
 			advanced = true,
-			desc = L["Party and arena frames fade to this alpha when the unit is out of range."],
+			desc = L["Party and arena frames fade to this opacity when the unit is out of range."],
+		},
+		{
+			path = "unitFrames.rangeSpellFriendly",
+			new = "1.5.0",
+			label = L["Range spell for allies"],
+			type = "string",
+			width = 180,
+			maxLetters = 60,
+			advanced = true,
+			desc = L["Name of a spell you know, such as a heal: an ally is in range while this spell can reach them. Empty: the game's 40 yard check."],
+		},
+		{
+			path = "unitFrames.rangeSpellHostile",
+			new = "1.5.0",
+			label = L["Range spell for enemies"],
+			type = "string",
+			width = 180,
+			maxLetters = 60,
+			advanced = true,
+			desc = L["Name of a spell you know, such as your main attack: an enemy is in range while this spell can reach them. Empty: about 28 yards."],
+		},
+		{ header = L["Aura filters"], glyph = "filter" },
+		{
+			path = "unitFrames.auraHidden",
+			label = L["Hidden auras"],
+			type = "string",
+			width = 240,
+			maxLetters = 500,
+			desc = L["Spell names or IDs separated by commas: these auras are never shown on unit frames."],
+		},
+		{
+			path = "unitFrames.auraImportant",
+			label = L["Also important"],
+			type = "string",
+			width = 240,
+			maxLetters = 500,
+			advanced = true,
+			desc = L['Spell names or IDs separated by commas: shown by the "Important" filter of debuffs and buffs on target, focus, party and arena frames.'],
 		},
 		{ header = L["Health bar"], glyph = "heart" },
 		{
@@ -1205,7 +1507,7 @@ local function generalSettings()
 		},
 		{
 			path = "unitFrames.healPredictionSplit",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Split your heals"],
 			type = "toggle",
 			advanced = true,
@@ -1238,7 +1540,7 @@ local function displaySettings()
 	return {
 		{
 			path = "unitFrames.castbarTicks",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Channel ticks"],
 			type = "toggle",
 			advanced = true,
@@ -1246,7 +1548,7 @@ local function displaySettings()
 		},
 		{
 			path = "unitFrames.castbarTimeFormat",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Cast time"],
 			type = "select",
 			values = CAST_TIME_VALUES,
@@ -1255,14 +1557,14 @@ local function displaySettings()
 		{ header = L["Auras"], glyph = "wand-magic-sparkles" },
 		{
 			path = "unitFrames.auraTimers",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Aura timers"],
 			type = "toggle",
 			desc = L["Remaining time on buff and debuff icons of every unit frame."],
 		},
 		{
 			path = "unitFrames.auraTimerMaxDuration",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Hide timers on auras longer than"],
 			type = "number",
 			min = 0,
@@ -1281,7 +1583,7 @@ local function displaySettings()
 		},
 		{
 			path = "unitFrames.classIconStyle",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Icon style"],
 			type = "select",
 			values = CLASS_ICON_STYLE_VALUES,
@@ -1328,9 +1630,9 @@ end
 local function colorSettings()
 	return {
 		{ header = L["Colors"], glyph = "palette", advanced = true },
-		{ path = "unitFrames.textColor", label = L["Text"], type = "color" },
-		{ path = "unitFrames.backdropColor", label = L["Backdrop"], type = "color", alpha = true },
-		{ path = "unitFrames.borderColor", label = L["Border"], type = "color" },
+		{ path = "theme.textColor", label = L["Text"], type = "color" },
+		{ path = "theme.backdropColor", label = L["Backdrop"], type = "color", alpha = true },
+		{ path = "theme.borderColor", label = L["Border"], type = "color" },
 		{
 			path = "unitFrames.targetBorderColor",
 			label = L["Border (target)"],
@@ -1344,14 +1646,29 @@ local function colorSettings()
 			desc = L["Border of the party or arena frame of your current focus."],
 		},
 		{
+			path = "dispelHighlightMode",
+			new = "1.5.0",
+			label = L["Dispel highlight"],
+			type = "select",
+			values = {
+				{
+					"control",
+					L["Crowd control"],
+					L["Stuns, fears, polymorphs, silences, roots and other loss of control."],
+				},
+				{ "all", L["Everything dispellable"], L["Also damage over time and other debuffs."] },
+			},
+			desc = L["Which debuffs you can dispel color the health bar of a unit frame."],
+		},
+		{
 			path = "dispelHighlightAlpha",
-			label = L["Dispel highlight alpha"],
+			label = L["Dispel highlight opacity"],
 			type = "number",
 			min = 0,
 			max = 1,
 			step = 0.05,
 			percent = true,
-			desc = L["Border alpha on unit frames with a debuff you can dispel."],
+			desc = L["Opacity of the debuff-type color over the health bar. 0 turns the highlight off."],
 		},
 		{
 			path = "unitFrames.healthCutawayColor",
@@ -1361,7 +1678,7 @@ local function colorSettings()
 			enabledBy = "unitFrames.healthCutaway",
 		},
 		{
-			path = "unitFrames.healPredictionColor",
+			path = "theme.healPredictionColor",
 			new = "1.4.0",
 			label = L["Incoming heals color"],
 			type = "color",
@@ -1369,8 +1686,8 @@ local function colorSettings()
 			enabledByAny = { "unitFrames.healPrediction", "playerPlate.healPrediction" },
 		},
 		{
-			path = "unitFrames.healPredictionOwnColor",
-			new = "1.4.1",
+			path = "theme.healPredictionOwnColor",
+			new = "1.5.0",
 			label = L["Your incoming heals"],
 			type = "color",
 			alpha = true,
@@ -1378,7 +1695,7 @@ local function colorSettings()
 			enabledByAny = { "unitFrames.healPrediction", "playerPlate.healPrediction" },
 		},
 		{
-			path = "unitFrames.absorbColor",
+			path = "theme.absorbColor",
 			new = "1.4.0",
 			label = L["Absorb shields color"],
 			type = "color",
@@ -1386,23 +1703,23 @@ local function colorSettings()
 			enabledByAny = { "unitFrames.absorbs", "playerPlate.absorbs" },
 		},
 		{ header = L["Castbar colors"], glyph = "palette", advanced = true },
-		{ path = "unitFrames.castbarColor", label = L["Castbar"], type = "color" },
-		{ path = "unitFrames.castbarChannelColor", label = L["Castbar (channel)"], type = "color" },
-		{ path = "unitFrames.castbarLockedColor", label = L["Castbar (not interruptible)"], type = "color" },
+		{ path = "castbar.color", label = L["Castbar"], type = "color" },
+		{ path = "castbar.channelColor", label = L["Castbar (channel)"], type = "color" },
+		{ path = "castbar.lockedColor", label = L["Castbar (not interruptible)"], type = "color" },
 		{
-			path = "unitFrames.castbarTargetingYouColor",
+			path = "castbar.targetingYouColor",
 			new = "1.4.0",
 			label = L["Castbar border (targeting you)"],
 			type = "color",
-			enabledBy = "unitFrames.castbarTargetingYou",
+			enabledBy = "castbar.targetingYou",
 			desc = L["Also used by nameplates."],
 		},
 		{
-			path = "unitFrames.castbarImportantColor",
+			path = "castbar.importantColor",
 			new = "1.4.0",
 			label = L["Castbar glow (important cast)"],
 			type = "color",
-			enabledBy = "unitFrames.castbarImportant",
+			enabledBy = "castbar.important",
 			desc = L["Also used by nameplates."],
 		},
 	}
@@ -1496,7 +1813,7 @@ do
 		row.path = path(key)
 		row.label = label
 		row.type = kind
-		row.new = "1.4.1"
+		row.new = "1.5.0"
 		row.enabledBy = row.enabledBy and { ENABLED, row.enabledBy } or ENABLED
 		return row
 	end
@@ -1563,7 +1880,7 @@ do
 					{ "name", L["Name"] },
 				},
 			}),
-			number("outOfRangeAlpha", L["Out of range alpha"], 0, 1, 0.05, { percent = true, advanced = true }),
+			number("outOfRangeAlpha", L["Out of range opacity"], 0, 1, 0.05, { percent = true, advanced = true }),
 			entry("testCount", L["Test frame count"], "select", {
 				values = { { 10, "10" }, { 15, "15" }, { 40, "40" } },
 				desc = L["Number of fake frames in the unit frame test mode."],
@@ -1572,18 +1889,20 @@ do
 	end
 
 	local function bars()
+		local presets = {
+			{ "", L["None"] },
+			{ "[perhp]%", L["Percent"] },
+			{ "[misshp:neg]", L["Missing health"] },
+		}
+		local fields = { enabledBy = ENABLED, desc = L["Empty: no health text."] }
+		local healthPreset, healthTag = ns.HealthTagEntries(path("healthTag"), presets, fields)
 		return {
 			{ header = L["Health bar"], glyph = "heart" },
 			entry("classColor", L["Class color"], "toggle", {
 				desc = L["Off: colored by the health percent."],
 			}),
-			entry("healthText", L["Health text"], "select", {
-				values = {
-					{ "none", L["None"] },
-					{ "percent", L["Percent"] },
-					{ "deficit", L["Missing health"] },
-				},
-			}),
+			healthPreset,
+			healthTag,
 			number("nameLength", L["Name length"], 2, 20, 1, { advanced = true }),
 			entry("nameClassColor", L["Class-colored name"], "toggle"),
 			entry("font", L["Text font"], "font", { advanced = true }),
@@ -1621,7 +1940,7 @@ do
 				advanced = true,
 				values = {
 					{ "border", L["Border"] },
-					{ "overlay", L["Overlay"], L["Uses the dispel highlight alpha of the General tab."] },
+					{ "overlay", L["Overlay"], L["Uses the dispel highlight opacity of the General tab."] },
 				},
 			}),
 			{ header = L["Auras"], glyph = "wand-magic-sparkles" },
@@ -1654,7 +1973,7 @@ do
 	registerElement({
 		path = "raidFrames.point",
 		tab = "raid",
-		new = "1.4.1",
+		new = "1.5.0",
 		name = L["Raid"],
 		glyph = "people-group",
 		enabledBy = { "unitFrames.enabled", ENABLED },
@@ -1668,7 +1987,7 @@ do
 		schema = concat({
 			{
 				path = ENABLED,
-				new = "1.4.1",
+				new = "1.5.0",
 				label = L["Enable"],
 				type = "toggle",
 				desc = L["Compact frames for battlegrounds and raid groups."],
@@ -1687,6 +2006,7 @@ end
 ns.RegisterPage({
 	key = "unitframes",
 	name = L["Unit frames"],
+	desc = L["Player, target, focus, party and arena frames: size, texts, auras, castbars."],
 	glyph = "id-badge",
 	order = 20,
 	group = "frames",
@@ -1696,8 +2016,12 @@ ns.RegisterPage({
 			path = "unitFrames.enabled",
 			label = L["Enable"],
 			type = "toggle",
-			reload = true,
-			desc = L["FrostAtom UI unit frames. The Blizzard ones are hidden on the Blizzard UI page."],
+			blizzard = {
+				paths = { "hideBlizzard.unitFrames", "hideBlizzard.castBar", "hideBlizzard.buffs" },
+				offText = L["Turn off FrostAtom UI unit frames?\n\nBlizzard's unit frames, castbar and buffs are hidden right now."],
+				onText = L["Hide Blizzard's unit frames, castbar and buffs?\n\nThey are shown now and would stay next to the FrostAtom UI frames."],
+			},
+			desc = L["FrostAtom UI unit frames instead of Blizzard's. Turning them off or on asks what to do with the Blizzard frames, castbar and buffs."],
 		},
 		testFramesButton(),
 	},
@@ -1716,10 +2040,11 @@ ns.RegisterPage({
 			schema = concat(
 				framesSection(),
 				frameLayout("player"),
-				castbarSection("player", 100, 500),
+				castbarSection("player"),
 				castbarLatency(),
 				playerBuffSection(),
 				playerDebuffSection(),
+				ownTexts("player"),
 				playerIndicators()
 			),
 		},
@@ -1732,8 +2057,9 @@ ns.RegisterPage({
 			schema = concat(
 				framesSection(),
 				frameLayout("target"),
-				castbarSection("target", 60, 400),
+				castbarSection("target"),
 				targetAuras("target"),
+				ownTexts("target"),
 				comboPoints()
 			),
 		},
@@ -1746,8 +2072,9 @@ ns.RegisterPage({
 			schema = concat(
 				framesSection(),
 				frameLayout("focus"),
-				castbarSection("focus", 60, 400),
-				targetAuras("focus")
+				castbarSection("focus"),
+				targetAuras("focus"),
+				ownTexts("focus")
 			),
 		},
 		squareTabEntry("focusTarget", "focus", L["Target of focus"], "bullseye"),
@@ -1759,8 +2086,9 @@ ns.RegisterPage({
 			schema = concat(
 				framesSection(),
 				frameLayout("party", "unitFrames.showParty", L["Party frames"]),
-				castbarSection("party", 60, 400, GROUP_CASTBAR_DESC, "unitFrames.showParty"),
-				groupAuras("party", "unitFrames.showParty")
+				castbarSection("party", GROUP_CASTBAR_DESC, "unitFrames.showParty"),
+				groupAuras("party", "unitFrames.showParty"),
+				ownTexts("party")
 			),
 		},
 		squareTabEntry("partyPet", "party", L["Party pets"], "paw"),
@@ -1775,9 +2103,11 @@ ns.RegisterPage({
 			schema = concat(
 				framesSection(),
 				frameLayout("arena", "unitFrames.showArena", L["Arena frames"]),
-				castbarSection("arena", 60, 400, GROUP_CASTBAR_DESC, "unitFrames.showArena"),
+				castbarSection("arena", GROUP_CASTBAR_DESC, "unitFrames.showArena"),
 				groupAuras("arena", "unitFrames.showArena"),
-				arenaUnseen()
+				ownTexts("arena"),
+				arenaUnseen(),
+				arenaPvp()
 			),
 		},
 		squareTabEntry("arenaPet", "arena", L["Arena pets"], "paw"),

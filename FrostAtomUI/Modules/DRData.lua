@@ -27,247 +27,46 @@ Data.CATEGORY_NAMES = {
 	dragonsbreath = "Dragon's Breath",
 }
 
-Data.SPELLS = {
-	[5211] = "stun", -- Bash
-	[6798] = "stun", -- Bash
-	[8983] = "stun", -- Bash
-	[58861] = "stun", -- Bash
-	[53148] = "stun", -- Charge
-	[12809] = "stun", -- Concussion Blow
-	[44572] = "stun", -- Deep Freeze
-	[60995] = "stun", -- Demon Charge
-	[47481] = "stun", -- Gnaw
-	[853] = "stun", -- Hammer of Justice
-	[5588] = "stun", -- Hammer of Justice
-	[5589] = "stun", -- Hammer of Justice
-	[10308] = "stun", -- Hammer of Justice
-	[31368] = "stun", -- Heavy Netherweave Net
-	[2812] = "stun", -- Holy Wrath
-	[10318] = "stun", -- Holy Wrath
-	[27139] = "stun", -- Holy Wrath
-	[48816] = "stun", -- Holy Wrath
-	[48817] = "stun", -- Holy Wrath
-	[22703] = "stun", -- Inferno Effect
-	[20253] = "stun", -- Intercept
-	[30153] = "stun", -- Intercept
-	[30195] = "stun", -- Intercept
-	[30197] = "stun", -- Intercept
-	[47995] = "stun", -- Intercept
-	[408] = "stun", -- Kidney Shot
-	[8643] = "stun", -- Kidney Shot
-	[22570] = "stun", -- Maim
-	[49802] = "stun", -- Maim
-	[31367] = "stun", -- Netherweave Net
-	[50518] = "stun", -- Ravage
-	[53558] = "stun", -- Ravage
-	[53559] = "stun", -- Ravage
-	[53560] = "stun", -- Ravage
-	[53561] = "stun", -- Ravage
-	[53562] = "stun", -- Ravage
-	[46567] = "stun", -- Rocket Launch
-	[30283] = "stun", -- Shadowfury
-	[30413] = "stun", -- Shadowfury
-	[30414] = "stun", -- Shadowfury
-	[47846] = "stun", -- Shadowfury
-	[47847] = "stun", -- Shadowfury
-	[46968] = "stun", -- Shockwave
-	[50519] = "stun", -- Sonic Blast
-	[53564] = "stun", -- Sonic Blast
-	[53565] = "stun", -- Sonic Blast
-	[53566] = "stun", -- Sonic Blast
-	[53567] = "stun", -- Sonic Blast
-	[53568] = "stun", -- Sonic Blast
-	[20549] = "stun", -- War Stomp
-
-	[1833] = "openingstun", -- Cheap Shot
-	[9005] = "openingstun", -- Pounce
-	[9823] = "openingstun", -- Pounce
-	[9827] = "openingstun", -- Pounce
-	[27006] = "openingstun", -- Pounce
-	[49803] = "openingstun", -- Pounce
-
-	[12355] = "randomstun", -- Impact
-	[24394] = "randomstun", -- Intimidation
-	[39796] = "randomstun", -- Stoneclaw Stun
-	[20170] = "randomstun", -- Stun
-
-	[7922] = "charge", -- Charge Stun
-
-	[33786] = "cyclone", -- Cyclone
-
-	[19821] = "silence", -- Arcane Bomb
-	[25046] = "silence", -- Arcane Torrent
-	[28730] = "silence", -- Arcane Torrent
-	[50613] = "silence", -- Arcane Torrent
-	[1330] = "silence", -- Garrote - Silence
-	[15487] = "silence", -- Silence
-	[18498] = "silence", -- Silenced - Gag Order
-	[18469] = "silence", -- Silenced - Improved Counterspell
-	[55021] = "silence", -- Silenced - Improved Counterspell
-	[18425] = "silence", -- Silenced - Improved Kick
-	[63529] = "silence", -- Silenced - Shield of the Templar
-	[34490] = "silence", -- Silencing Shot
-	[24259] = "silence", -- Spell Lock
-	[47476] = "silence", -- Strangulate
-	[31117] = "silence", -- Unstable Affliction
-
-	[30217] = "disorient", -- Adamantite Grenade
-	[67769] = "disorient", -- Cobalt Frag Bomb
-	[30216] = "disorient", -- Fel Iron Bomb
-	[60210] = "disorient", -- Freezing Arrow Effect
-	[3355] = "disorient", -- Freezing Trap Effect
-	[14308] = "disorient", -- Freezing Trap Effect
-	[14309] = "disorient", -- Freezing Trap Effect
-	[1776] = "disorient", -- Gouge
-	[51514] = "disorient", -- Hex
-	[49203] = "disorient", -- Hungering Cold
-	[51209] = "disorient", -- Hungering Cold
-	[118] = "disorient", -- Polymorph
-	[12824] = "disorient", -- Polymorph
-	[12825] = "disorient", -- Polymorph
-	[12826] = "disorient", -- Polymorph
-	[28271] = "disorient", -- Polymorph
-	[28272] = "disorient", -- Polymorph
-	[61305] = "disorient", -- Polymorph
-	[61721] = "disorient", -- Polymorph
-	[61780] = "disorient", -- Polymorph
-	[30501] = "disorient", -- Poultryized!
-	[30504] = "disorient", -- Poultryized!
-	[20066] = "disorient", -- Repentance
-	[2070] = "disorient", -- Sap
-	[6770] = "disorient", -- Sap
-	[11297] = "disorient", -- Sap
-	[51724] = "disorient", -- Sap
-	[56350] = "disorient", -- Saronite Bomb
-	[53261] = "disorient", -- Saronite Grenade
-	[9484] = "disorient", -- Shackle Undead
-	[9485] = "disorient", -- Shackle Undead
-	[10955] = "disorient", -- Shackle Undead
-	[30461] = "disorient", -- The Bigger One
-	[71988] = "disorient", -- Vile Fumes
-	[19386] = "disorient", -- Wyvern Sting
-	[24132] = "disorient", -- Wyvern Sting
-	[24133] = "disorient", -- Wyvern Sting
-	[27068] = "disorient", -- Wyvern Sting
-	[49011] = "disorient", -- Wyvern Sting
-	[49012] = "disorient", -- Wyvern Sting
-
-	[2094] = "fear", -- Blind
-	[35474] = "fear", -- Drums of Panic
-	[5782] = "fear", -- Fear
-	[6213] = "fear", -- Fear
-	[6215] = "fear", -- Fear
-	[5484] = "fear", -- Howl of Terror
-	[17928] = "fear", -- Howl of Terror
-	[5246] = "fear", -- Intimidating Shout
-	[20511] = "fear", -- Intimidating Shout
-	[8122] = "fear", -- Psychic Scream
-	[8124] = "fear", -- Psychic Scream
-	[10888] = "fear", -- Psychic Scream
-	[10890] = "fear", -- Psychic Scream
-	[1513] = "fear", -- Scare Beast
-	[14326] = "fear", -- Scare Beast
-	[14327] = "fear", -- Scare Beast
-	[6358] = "fear", -- Seduction
-	[10326] = "fear", -- Turn Evil
-
-	[6789] = "horror", -- Death Coil
-	[17925] = "horror", -- Death Coil
-	[17926] = "horror", -- Death Coil
-	[27223] = "horror", -- Death Coil
-	[47859] = "horror", -- Death Coil
-	[47860] = "horror", -- Death Coil
-	[64044] = "horror", -- Psychic Horror
-
-	[19306] = "root", -- Counterattack
-	[20909] = "root", -- Counterattack
-	[20910] = "root", -- Counterattack
-	[27067] = "root", -- Counterattack
-	[48998] = "root", -- Counterattack
-	[48999] = "root", -- Counterattack
-	[339] = "root", -- Entangling Roots
-	[1062] = "root", -- Entangling Roots
-	[5195] = "root", -- Entangling Roots
-	[5196] = "root", -- Entangling Roots
-	[9852] = "root", -- Entangling Roots
-	[9853] = "root", -- Entangling Roots
-	[19970] = "root", -- Entangling Roots
-	[19971] = "root", -- Entangling Roots
-	[19972] = "root", -- Entangling Roots
-	[19973] = "root", -- Entangling Roots
-	[19974] = "root", -- Entangling Roots
-	[19975] = "root", -- Entangling Roots
-	[26989] = "root", -- Entangling Roots
-	[27010] = "root", -- Entangling Roots
-	[53308] = "root", -- Entangling Roots
-	[53313] = "root", -- Entangling Roots
-	[45334] = "root", -- Feral Charge Effect
-	[33395] = "root", -- Freeze
-	[39965] = "root", -- Frost Grenade
-	[122] = "root", -- Frost Nova
-	[865] = "root", -- Frost Nova
-	[6131] = "root", -- Frost Nova
-	[10230] = "root", -- Frost Nova
-	[27088] = "root", -- Frost Nova
-	[42917] = "root", -- Frost Nova
-	[55536] = "root", -- Frostweave Net
-	[50245] = "root", -- Pin
-	[53544] = "root", -- Pin
-	[53545] = "root", -- Pin
-	[53546] = "root", -- Pin
-	[53547] = "root", -- Pin
-	[53548] = "root", -- Pin
-	[54706] = "root", -- Venom Web Spray
-	[55505] = "root", -- Venom Web Spray
-	[55506] = "root", -- Venom Web Spray
-	[55507] = "root", -- Venom Web Spray
-	[55508] = "root", -- Venom Web Spray
-	[55509] = "root", -- Venom Web Spray
-	[4167] = "root", -- Web
-
-	[19185] = "randomroot", -- Entrapment
-	[64803] = "randomroot", -- Entrapment
-	[64804] = "randomroot", -- Entrapment
-	[63685] = "randomroot", -- Freeze
-	[12494] = "randomroot", -- Frostbite
-	[58373] = "randomroot", -- Glyph of Hamstring
-	[23694] = "randomroot", -- Improved Hamstring
-	[55080] = "randomroot", -- Shattered Barrier
-
-	[53359] = "disarm", -- Chimera Shot - Scorpid
-	[676] = "disarm", -- Disarm
-	[51722] = "disarm", -- Dismantle
-	[64346] = "disarm", -- Fiery Payback
-	[64058] = "disarm", -- Psychic Horror
-	[50541] = "disarm", -- Snatch
-	[53537] = "disarm", -- Snatch
-	[53538] = "disarm", -- Snatch
-	[53540] = "disarm", -- Snatch
-	[53542] = "disarm", -- Snatch
-	[53543] = "disarm", -- Snatch
-
-	[1098] = "mindcontrol", -- Enslave Demon
-	[11725] = "mindcontrol", -- Enslave Demon
-	[11726] = "mindcontrol", -- Enslave Demon
-	[61191] = "mindcontrol", -- Enslave Demon
-	[13181] = "mindcontrol", -- Gnomish Mind Control Cap
-	[605] = "mindcontrol", -- Mind Control
-
-	[710] = "banish", -- Banish
-	[18647] = "banish", -- Banish
-
-	[2637] = "sleep", -- Hibernate
-	[18657] = "sleep", -- Hibernate
-	[18658] = "sleep", -- Hibernate
-
-	[19503] = "scatter", -- Scatter Shot
-
-	[31661] = "dragonsbreath", -- Dragon's Breath
-	[33041] = "dragonsbreath", -- Dragon's Breath
-	[33042] = "dragonsbreath", -- Dragon's Breath
-	[33043] = "dragonsbreath", -- Dragon's Breath
-	[42949] = "dragonsbreath", -- Dragon's Breath
-	[42950] = "dragonsbreath", -- Dragon's Breath
+Data.CATEGORY_ORDER = {
+	"stun",
+	"openingstun",
+	"randomstun",
+	"charge",
+	"cyclone",
+	"disorient",
+	"sleep",
+	"scatter",
+	"dragonsbreath",
+	"fear",
+	"horror",
+	"mindcontrol",
+	"banish",
+	"silence",
+	"disarm",
+	"root",
+	"randomroot",
 }
+
+Data.FILTER_GROUPS = {
+	stun = "stuns",
+	openingstun = "stuns",
+	randomstun = "stuns",
+	charge = "stuns",
+	cyclone = "incapacitates",
+	disorient = "incapacitates",
+	sleep = "incapacitates",
+	scatter = "incapacitates",
+	dragonsbreath = "incapacitates",
+	banish = "incapacitates",
+	fear = "fears",
+	horror = "fears",
+	mindcontrol = "fears",
+	silence = "silences",
+	disarm = "disarms",
+	root = "roots",
+	randomroot = "roots",
+}
+
+Data.SPELLS = ns.SpellDB.DRSpells()
 
 Data.TEST_SPELLS = { 853, 1833, 12355, 15487, 118, 6770, 5782, 6789, 33786, 122, 12494, 676, 19503, 31661, 2637 }

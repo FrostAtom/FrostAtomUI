@@ -22,8 +22,16 @@ local SAMPLES = {
 
 local L = setmetatable({}, {
 	__index = function(self, key)
-		rawset(self, key, key)
-		return key
+		local value = key
+		if type(key) == "string" then
+			local head, number, tail = key:match("^(.-)(%d+)(.*)$")
+			local pattern = head and rawget(self, head .. "%d" .. tail)
+			if pattern then
+				value = pattern:format(tonumber(number))
+			end
+		end
+		rawset(self, key, value)
+		return value
 	end,
 })
 
@@ -32,13 +40,22 @@ ns.CLIENT_LOCALE = GetLocale()
 
 local translations = {}
 local handlers = {}
+local sources = {}
+
+function ns.SourceText(text)
+	return sources[text]
+end
 
 function ns.SetLocale(locale, entries)
 	translations[locale] = entries
 end
 
 function ns.OnLocaleReady(handler)
-	handlers[#handlers + 1] = handler
+	if ns.LOCALE then
+		handler()
+	else
+		handlers[#handlers + 1] = handler
+	end
 end
 
 local probe
@@ -49,7 +66,7 @@ local function canRender(locale, font)
 	if not sample or locale == ns.CLIENT_LOCALE then
 		return true
 	end
-	font = font or ns.Media and ns.Media.font or STANDARD_TEXT_FONT
+	font = font or STANDARD_TEXT_FONT
 	local key = locale .. font
 	local result = renderable[key]
 	if result == nil then
@@ -66,40 +83,36 @@ local function canRender(locale, font)
 end
 ns.CanRenderLocale = canRender
 
-local function isAvailable(locale)
-	return locale == "enUS" or translations[locale] ~= nil and canRender(locale)
+local function isAvailable(locale, font)
+	return locale == "enUS" or translations[locale] ~= nil and canRender(locale, font)
 end
 
-function ns.ApplyLocale(locale)
-	local active = locale and isAvailable(locale) and locale or ns.CLIENT_LOCALE
+function ns.ApplyLocale(locale, font)
+	local active = locale and isAvailable(locale, font) and locale or ns.CLIENT_LOCALE
 	ns.LOCALE = active
 	local entries = translations[active]
-	if entries then
+	wipe(sources)
+	if type(entries) == "table" then
 		for key, value in pairs(entries) do
 			if type(value) == "string" then
 				rawset(L, key, value)
+				sources[value] = key
 			end
 		end
+	end
+	for code in pairs(translations) do
+		translations[code] = true
 	end
 	for i = 1, #handlers do
 		handlers[i]()
 	end
 end
 
-function ns.GetLocaleOverride()
-	return ns.db and ns.db.locale or ""
-end
-
-function ns.SetLocaleOverride(locale)
-	ns:SaveVariable("locale", locale ~= "" and locale or nil)
-end
-
-function ns.GetLocaleOptions()
+function ns.LocaleOptions(current, font)
 	local options = { { "", ("%s (%s)"):format(L["Auto"], NAMES[ns.CLIENT_LOCALE] or ns.CLIENT_LOCALE) } }
 	local codes = { "enUS" }
-	local current = ns.GetLocaleOverride()
 	for code in pairs(translations) do
-		if code ~= "enUS" and (code == current or canRender(code)) then
+		if code ~= "enUS" and (code == current or canRender(code, font)) then
 			codes[#codes + 1] = code
 		end
 	end

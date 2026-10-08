@@ -13,6 +13,7 @@ Desktop.ini
 # Local tooling
 .luarc.json
 .claude/
+.mcp.json
 node_modules/
 tools/voice/.venv/
 tools/voice/models/

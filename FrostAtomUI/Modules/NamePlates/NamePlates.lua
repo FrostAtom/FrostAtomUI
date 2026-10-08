@@ -1,18 +1,19 @@
 local _, ns = ...
 
-local UnitExists = UnitExists
-local UnitName, UnitGUID, UnitIsUnit, UnitCanAttack = UnitName, UnitGUID, UnitIsUnit, UnitCanAttack
+local UnitGUID, UnitIsUnit, UnitCanAttack = UnitGUID, UnitIsUnit, UnitCanAttack
 local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
 local GetTime = GetTime
-local floor, huge, min, abs, exp = math.floor, math.huge, math.min, math.abs, math.exp
+local huge, min, abs, exp = math.huge, math.min, math.abs, math.exp
 local sort = table.sort
 
 local NamePlates = ns:NewModule("NamePlates")
+ns:RegisterReloadPaths("namePlates.enabled")
 local PlateLayer = ns.PlateLayer
 local FRIENDLY = PlateLayer.FRIENDLY
 
 local config = ns.Config.namePlates
-local frameConfig = ns.Config.unitFrames
+local themeConfig, castConfig = ns.Config.theme, ns.Config.castbar
+local renderHealthTags = ns.Tags.RenderHealth
 local BACKDROP = ns.CreateBackdrop(8, 2)
 local BORDER_INSET = 3
 local TARGET_EDGE_CORNER = 5 * 16 / 14
@@ -28,13 +29,14 @@ local SHIELD_HOLE = 19
 local SHIELD_INSETS = { 10.5, 11.5, 9.5, 16.5 }
 local CAST_GLOW_SIZE = 4
 local COMPACT_CAST_HEIGHT = 5
-local CAST_FINISH_WINDOW = 0.5
-local CAST_LATE_INTERRUPT = 0.3
-local CAST_FLASH_TIME = 0.5
-local CAST_FLASH_ALPHA = 0.5
-local CAST_FADE_SPEED = 1 / 0.3
-local CAST_INTERRUPT_HOLD = 1
-local CAST_INTERRUPT_COLOR = { 0.8, 0.1, 0.1 }
+local CAST_TIMING = ns.Cast.TIMING
+local CAST_FINISH_WINDOW = CAST_TIMING.FINISH_WINDOW
+local CAST_LATE_INTERRUPT = CAST_TIMING.LATE_INTERRUPT
+local CAST_FLASH_TIME = CAST_TIMING.FLASH_TIME
+local CAST_FLASH_ALPHA = CAST_TIMING.FLASH_ALPHA
+local CAST_FADE_SPEED = CAST_TIMING.FADE_SPEED
+local CAST_INTERRUPT_HOLD = CAST_TIMING.INTERRUPT_HOLD
+local CAST_INTERRUPT_COLOR = CAST_TIMING.INTERRUPT_COLOR
 local STACK_BASE_LEVEL = 21
 local STACK_STEP = 3
 local HOVER_ALPHA = 0.15
@@ -69,13 +71,46 @@ NamePlates.plates = plates
 NamePlates.onPlateShow = onPlateShow
 NamePlates.onPlateHide = onPlateHide
 NamePlates.onPlateLayout = onPlateLayout
+NamePlates.onPlateSetup = {}
+NamePlates.onIdentity = {}
+NamePlates.onUnitAdded = {}
+NamePlates.onUnitRemoved = {}
+NamePlates.onPass = {}
+
+local PLUGIN_HOOKS = {
+	Show = "onPlateShow",
+	Hide = "onPlateHide",
+	Layout = "onPlateLayout",
+	Identity = "onIdentity",
+	UnitAdded = "onUnitAdded",
+	UnitRemoved = "onUnitRemoved",
+	Pass = "onPass",
+	Setup = "onPlateSetup",
+}
+local plugins = {}
+NamePlates.plugins = plugins
+
+function NamePlates.RegisterPlugin(plugin)
+	assert(type(plugin.name) == "string", "nameplate plugin needs a name")
+	plugins[#plugins + 1] = plugin
+	for key, list in pairs(PLUGIN_HOOKS) do
+		local hook = plugin[key]
+		if hook then
+			local hooks = NamePlates[list]
+			hooks[#hooks + 1] = hook
+		end
+	end
+	for event, handler in pairs(plugin.Log or {}) do
+		NamePlates.AddLogHandler(event, handler)
+	end
+end
+
 NamePlates.BORDER_INSET = BORDER_INSET
 NamePlates.ICON_GAP = ICON_GAP
 NamePlates.CAST_GLOW_SIZE = CAST_GLOW_SIZE
 NamePlates.CAST_FINISH_WINDOW = CAST_FINISH_WINDOW
 NamePlates.CAST_LATE_INTERRUPT = CAST_LATE_INTERRUPT
 
-local targetName
 local spreadActive = false
 
 local trash = CreateFrame("Frame")
@@ -83,8 +118,7 @@ trash:Hide()
 
 local PlateMixin = {}
 
-local UF = ns:GetModule("UnitFrames")
-local classColors, classBarColors = UF.classColors, UF.classBarColors
+local classColors, classBarColors = ns.Colors.class, ns.Colors.classBar
 
 function PlateMixin:ApplyBarColor(force)
 	local healthbar = self.healthbar
@@ -125,6 +159,7 @@ function PlateMixin:UpdateColors()
 	if settings ~= self.settings then
 		self.settings = settings
 		self.layoutDirty = true
+		self.borderState = nil
 	end
 
 	local mode = settings.healthColorMode
@@ -160,14 +195,6 @@ function PlateMixin:IsTarget()
 	return PlateLayer.IsTarget(self.info)
 end
 
-function NamePlates.GetTargetName()
-	return targetName
-end
-
-local function updateTargetName()
-	targetName = UnitExists("target") and UnitName("target") or nil
-end
-
 local hiddenNames = {}
 
 local function updateHiddenNames()
@@ -176,12 +203,16 @@ local function updateHiddenNames()
 		return
 	end
 	for _, name in ipairs(config.hiddenNames) do
-		hiddenNames[strlower(name)] = true
+		hiddenNames[ns.Lower(name)] = true
 	end
 end
 
 local function isHiddenName(name)
-	return name ~= nil and hiddenNames[strlower(name)] == true
+	return name ~= nil and hiddenNames[ns.Lower(name)] == true
+end
+
+local function isFilteredTotem(spellId)
+	return spellId ~= nil and config.totemFilter == "important" and not ns.TotemData.IsImportant(spellId)
 end
 
 local WorldChildren = ns.WorldChildren
@@ -235,6 +266,10 @@ function PlateMixin:ApplyStackLevel()
 	if auraRow then
 		setLevel(auraRow, level + 2)
 	end
+	local controlIcon = self.controlIcon
+	if controlIcon then
+		setLevel(controlIcon, level + 2)
+	end
 	setLevel(self.totem, level)
 end
 
@@ -251,33 +286,20 @@ function PlateMixin:SetStackLevel(level)
 	end
 end
 
-local function setHealthText(text, value, max, isTarget, shown)
-	local mode = config.healthTextFormat
-	if not (shown == "all" or isTarget and shown == "target") or max <= 0 then
-		if text.mode then
-			text.mode = nil
+local function setHealthText(text, value, max, isTarget, shown, enemy)
+	local template = config.healthTag
+	if not (shown == "all" or isTarget and shown == "target") or max <= 0 or template == "" then
+		if text.template then
+			text.template = nil
 			text:SetText("")
 		end
 		return
 	end
-	if value == text.value and max == text.max and mode == text.mode then
+	if value == text.value and max == text.max and template == text.template and enemy == text.enemy then
 		return
 	end
-	text.value, text.max, text.mode = value, max, mode
-	local percent = floor(value / max * 100)
-	if mode == "percent" then
-		text:SetFormattedText("%d%%", percent)
-	elseif value < 1e3 then
-		if mode == "both" then
-			text:SetFormattedText("%d | %d%%", value, percent)
-		else
-			text:SetFormattedText("%d", value)
-		end
-	elseif mode == "both" then
-		text:SetFormattedText("%s | %d%%", ns.FormatValue(value), percent)
-	else
-		text:SetText(ns.FormatValue(value))
-	end
+	text.value, text.max, text.template, text.enemy = value, max, template, enemy
+	text:SetText(renderHealthTags(template, value, max, enemy))
 end
 
 local function applyHighlight(plate)
@@ -311,6 +333,9 @@ function PlateMixin:OnUpdate()
 		return
 	end
 
+	if (isTarget and self.settings.targetScale or 1) ~= self.layoutScale then
+		self.layoutDirty = true
+	end
 	if self.layoutDirty then
 		self:ApplyLayout()
 		self:UpdateHitRect()
@@ -324,33 +349,37 @@ function PlateMixin:OnUpdate()
 	local threat = self.threat
 	local hasThreat = threat:IsShown()
 	local holder = self.holder
-	if hasThreat then
+	if hasThreat and not isTarget then
 		local r, g, b = threat:GetVertexColor()
-		self:SetNameColor(r, g, b)
-		if not isTarget then
-			holder:SetBackdropBorderColor(r, g, b)
-		end
-	else
-		local nameColor = self.nameColor
-		self:SetNameColor(nameColor[1], nameColor[2], nameColor[3])
+		holder:SetBackdropBorderColor(r, g, b)
 	end
+	local nameColor = self.nameColor
+	self:SetNameColor(nameColor[1], nameColor[2], nameColor[3])
 
 	local borderState = isTarget and "target" or hasThreat and "threat" or "normal"
 	if borderState ~= self.borderState then
 		self.borderState = borderState
 		local targeted = isTarget and config.targetBorder
 		if borderState ~= "threat" then
-			local color = frameConfig.borderColor
+			local settings = self.settings
+			local color = settings.ownBorderColor and settings.borderColor or themeConfig.borderColor
 			holder:SetBackdropBorderColor(color[1], color[2], color[3], targeted and 0 or 1)
 		end
-		local background = targeted and TARGET_BACKGROUND or frameConfig.backdropColor
+		local background = targeted and TARGET_BACKGROUND or themeConfig.backdropColor
 		holder:SetBackdropColor(background[1], background[2], background[3], background[4] or 1)
 		ns.SetShown(holder.targetEdge, targeted)
 	end
 
 	local healthbar = self.healthbar
 	local _, max = healthbar:GetMinMaxValues()
-	setHealthText(healthbar.percent, healthbar:GetValue(), max, isTarget, self.settings.healthText)
+	setHealthText(
+		healthbar.percent,
+		healthbar:GetValue(),
+		max,
+		isTarget,
+		self.settings.healthText,
+		self.reaction ~= FRIENDLY
+	)
 end
 
 local function setIconShown(icon, shown)
@@ -373,7 +402,9 @@ function PlateMixin:ApplyLayout()
 	self.layoutDirty = nil
 	local settings = self.settings
 	local holder = self.holder
-	holder:SetSize(snap(settings.width + BORDER_INSET * 2), snap(settings.height + BORDER_INSET * 2))
+	local scale = self:IsTarget() and settings.targetScale or 1
+	self.layoutScale = scale
+	holder:SetSize(snap(settings.width * scale + BORDER_INSET * 2), snap(settings.height * scale + BORDER_INSET * 2))
 	self.snapX = nil
 	self:SnapHolder()
 	ns.SetShown(self.name, settings.showName)
@@ -406,13 +437,13 @@ function PlateMixin:OnShow()
 	end
 	local Totems = NamePlates.Totems
 	self:UpdateColors()
-	self.hiddenByName = isHiddenName(name)
+	local totemSpell = config.totemIcons and Totems.Identify(self)
+	self.hiddenByName = isHiddenName(name) or isFilteredTotem(totemSpell)
 	if self.hiddenByName then
 		self:ApplyHidden()
 		return
 	end
 	self.overlay:Show()
-	local totemSpell = config.totemIcons and Totems.Identify(self)
 	local unitIcon, unitIconCoords
 	if not totemSpell then
 		unitIcon, unitIconCoords = NamePlates.ArenaIcons.Identify(self)
@@ -567,7 +598,7 @@ function CastbarMixin:OnUpdate(elapsed)
 	end
 	self:UpdateLock()
 	if self.important and self.casting then
-		UF.PulseCastGlow(self.glow, elapsed)
+		ns.Cast.PulseGlow(self.glow, elapsed)
 	end
 end
 
@@ -600,7 +631,7 @@ end
 local activeCastbar
 
 function CastbarMixin:SetTargetingYou(targetingYou)
-	local color = targetingYou and frameConfig.castbarTargetingYouColor or frameConfig.borderColor
+	local color = targetingYou and castConfig.targetingYouColor or themeConfig.borderColor
 	self.holder:SetBackdropBorderColor(color[1], color[2], color[3])
 end
 
@@ -608,14 +639,9 @@ function CastbarMixin:UpdateTarget()
 	if not self.casting then
 		return
 	end
-	local name = frameConfig.castbarTargetName and not UnitIsUnit("targettarget", "target") and UnitName("targettarget")
-	if name then
-		UF.SetCastTargetText(self.targetText, "targettarget", name)
-	else
-		self.targetText:SetText("")
-	end
+	ns.Cast.ShowCastTarget(self.targetText, "target", "targettarget", self.spellName)
 	self:SetTargetingYou(
-		frameConfig.castbarTargetingYou and UnitIsUnit("targettarget", "player") and UnitCanAttack("player", "target")
+		castConfig.targetingYou and UnitIsUnit("targettarget", "player") and UnitCanAttack("player", "target")
 	)
 end
 
@@ -656,13 +682,14 @@ function CastbarMixin:StartCast()
 	activeCastbar = self
 	self.casting = true
 	self.isChannel = isChannel
+	self.spellName = name
 	self.endTime = endTime / 1e3
 	self.guid = UnitGUID("target")
 	self.immune = ns.HasCastImmunity and ns.HasCastImmunity("target") or false
-	self.important = frameConfig.castbarImportant and UF.importantCasts[name] or false
+	self.important = castConfig.important and ns.Cast.importantCasts[name] or false
 	if self.important then
 		if not self.glow:IsShown() then
-			UF.StartCastGlow(self.glow, frameConfig.castbarImportantColor)
+			ns.Cast.StartGlow(self.glow, castConfig.importantColor)
 		end
 	else
 		self.glow:Hide()
@@ -694,7 +721,7 @@ local function showCastResult(plate, texture, iconShown, locked, interruptText, 
 	local color = interruptText and CAST_INTERRUPT_COLOR or locked and config.castbarLockedColor or config.castbarColor
 	bar:SetVertexColor(color[1], color[2], color[3])
 	if interruptText or cancelled then
-		result.text:SetText(interruptText or UF.CANCELLED_TEXT)
+		result.text:SetText(interruptText or ns.Cast.CANCELLED_TEXT)
 		result.hold = CAST_INTERRUPT_HOLD
 		result.flashing = false
 		result.flash:Hide()
@@ -756,8 +783,8 @@ end
 
 local function onTargetCastInterrupted()
 	local castbar = stopActiveCast()
-	if castbar and frameConfig.castbarInterrupter then
-		local text = UF.RecentSilence(castbar.guid)
+	if castbar and castConfig.interrupter then
+		local text = ns.Cast.RecentSilence(castbar.guid)
 		if text then
 			castbar:ShowResult(text)
 		else
@@ -768,7 +795,7 @@ end
 
 local function onCastSilenced(_, guid, text)
 	local castbar = activeCastbar
-	if not (frameConfig.castbarInterrupter and castbar and castbar.guid == guid) or castbar.casting then
+	if not (castConfig.interrupter and castbar and castbar.guid == guid) or castbar.casting then
 		return
 	end
 	local result = castbar.result
@@ -779,7 +806,7 @@ end
 
 local function onCastInterrupter(_, guid, text)
 	local castbar = activeCastbar
-	if not (frameConfig.castbarInterrupter and castbar and castbar.guid == guid) then
+	if not (castConfig.interrupter and castbar and castbar.guid == guid) then
 		return
 	end
 	local result = castbar.result
@@ -815,7 +842,6 @@ local function onTargetCastStart()
 end
 
 local function onTargetChanged()
-	updateTargetName()
 	if activeCastbar and activeCastbar.guid ~= UnitGUID("target") then
 		activeCastbar:StopCast()
 		activeCastbar = nil
@@ -838,8 +864,8 @@ onPlateShow[#onPlateShow + 1] = function(plate)
 end
 
 local function styleHolder(holder)
-	holder:SetBackdropColor(unpack(frameConfig.backdropColor))
-	holder:SetBackdropBorderColor(unpack(frameConfig.borderColor))
+	holder:SetBackdropColor(unpack(themeConfig.backdropColor))
+	holder:SetBackdropBorderColor(unpack(themeConfig.borderColor))
 end
 
 local function createHolder(parent, level)
@@ -859,7 +885,7 @@ end
 
 local function styleText(text, font)
 	ns.SetFont(text, font.size, font.outline)
-	text:SetTextColor(unpack(frameConfig.textColor))
+	text:SetTextColor(unpack(themeConfig.textColor))
 end
 
 local function createText(parent, font)
@@ -1000,7 +1026,7 @@ local function setupCastbar(plate, castbar, blizzardIcon, shield)
 
 	createCastTexts(castbar)
 
-	castbar.glow = UF.CreateCastGlow(castbar, holder, CAST_GLOW_SIZE)
+	castbar.glow = ns.Cast.CreateGlow(castbar, holder, CAST_GLOW_SIZE)
 	castbar.stoppedAt = 0
 
 	local result = createHolder(plate, plate:GetFrameLevel() + 2)
@@ -1056,7 +1082,10 @@ local function setupNamePlate(plate, info)
 
 	setupHealthbar(plate, healthbar, background)
 	setupCastbar(plate, castbar, castIcon, castShield)
-	NamePlates.Totems.Setup(plate)
+	local setups = NamePlates.onPlateSetup
+	for i = 1, #setups do
+		setups[i](plate)
+	end
 
 	name:Hide()
 
@@ -1255,7 +1284,9 @@ local function applyStyle()
 		NamePlates.Totems.ApplyStyle(plate)
 		plate.borderState = nil
 		plate.nameR = nil
-		plate.healthbar.percent.mode = nil
+		local percent = plate.healthbar.percent
+		percent.template = nil
+		percent:SetText("")
 		styleArenaLabel(plate)
 		applyHighlight(plate)
 		plate:UpdateColors()
@@ -1287,21 +1318,21 @@ end
 
 function NamePlates:Initialize()
 	WorldChildren.UpdatePixel()
-	updateTargetName()
 	updateHiddenNames()
-	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = onIdentity
+	NamePlates.RegisterPlugin({
+		name = "style",
+		Identity = onIdentity,
+	})
 	local function onPixelChanged()
 		WorldChildren.UpdatePixel()
 		applyStyle()
 	end
 	self:RegisterEvent("DISPLAY_SIZE_CHANGED", onPixelChanged)
-	self:RegisterEvent(ns.PIXEL_CHANGED, onPixelChanged)
+	self:RegisterEvent(ns.E.PIXEL_CHANGED, onPixelChanged)
 	self:RegisterEvent("PLAYER_TARGET_CHANGED", onTargetChanged)
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", updateTargetName)
-	self:RegisterUnitEvent("UNIT_NAME_UPDATE", "target", updateTargetName)
 	self:RegisterUnitEvent("UNIT_AURA", "target", onTargetAura)
-	self:RegisterEvent(UF.CAST_INTERRUPTED, onCastInterrupter)
-	self:RegisterEvent(UF.CAST_SILENCED, onCastSilenced)
+	self:RegisterEvent(ns.E.CAST_INTERRUPTED, onCastInterrupter)
+	self:RegisterEvent(ns.E.CAST_SILENCED, onCastSilenced)
 	self:RegisterUnitEvent("UNIT_TARGET", "target", onTargetTargetChanged)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_START", "target", onTargetCastStart)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_START", "target", onTargetCastStart)
@@ -1311,7 +1342,8 @@ function NamePlates:Initialize()
 	self:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "target", onTargetCastStop)
 	self:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "target", onTargetCastInterrupted)
 	self:WatchConfig("namePlates", applyStyle)
-	self:WatchConfig("unitFrames", applyStyle)
+	self:WatchConfig("theme", applyStyle)
+	self:WatchConfig("castbar", applyStyle)
 	if config.enabled then
 		PlateLayer.Register(layerHandlers)
 		CreateFrame("Frame"):SetScript("OnUpdate", function(_, elapsed)

@@ -132,6 +132,7 @@ function Totems:COMBAT_LOG_EVENT_UNFILTERED(_, event, srcGUID, _, _, dstGUID, _,
 end
 
 local function onClick(self)
+	-- 3.3.5 has no destroytotem secure action; DestroyTotem works from a plain button
 	DestroyTotem(self:GetID())
 end
 
@@ -176,7 +177,7 @@ end
 
 local function applyConfig()
 	local config = ns.Config.totems
-	local frameConfig = ns.Config.unitFrames
+	local themeConfig = ns.Config.theme
 	local size, gap, font = config.size, config.gap, config.timerFont
 	local pulseColor = config.pulseColor
 	holder:SetSize(MAX_TOTEMS * (size + gap) - gap, size)
@@ -191,8 +192,8 @@ local function applyConfig()
 		pulse:ClearAllPoints()
 		pulse:SetPoint("BOTTOMLEFT", button, "TOPLEFT", 0, gap)
 		pulse:SetPoint("BOTTOMRIGHT", button, "TOPRIGHT", 0, gap)
-		pulse:SetBackdropColor(unpack(frameConfig.backdropColor))
-		pulse:SetBackdropBorderColor(unpack(frameConfig.borderColor))
+		pulse:SetBackdropColor(unpack(themeConfig.backdropColor))
+		pulse:SetBackdropBorderColor(unpack(themeConfig.borderColor))
 		pulse.bar:SetStatusBarColor(pulseColor[1], pulseColor[2], pulseColor[3])
 		updateButton(button)
 	end
@@ -213,9 +214,13 @@ function Totems:Initialize()
 
 	applyConfig()
 	self:WatchConfig("totems", applyConfig, true)
-	self:WatchConfig("unitFrames", applyConfig, true)
+	self:WatchConfig("theme", applyConfig, true)
 
 	self:RegisterEvent("PLAYER_TOTEM_UPDATE")
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateAll")
-	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	local logEvents = { SPELL_SUMMON = true, UNIT_DIED = true, UNIT_DESTROYED = true }
+	for event in pairs(TICK_EVENTS) do
+		logEvents[event] = true
+	end
+	ns.CombatLog.Register(self, logEvents, self.COMBAT_LOG_EVENT_UNFILTERED)
 end

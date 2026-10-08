@@ -262,7 +262,7 @@ local function scanItem(itemId)
 	end
 	scanTip:Hide()
 
-	info = { text = concat(scanLines, "\n", 1, count):lower(), bind = bind, red = red }
+	info = { text = ns.Lower(concat(scanLines, "\n", 1, count)), bind = bind, red = red }
 	wipe(scanLines)
 	tooltipCache[itemId] = info
 	return info
@@ -345,8 +345,8 @@ local function itemRecord(itemId)
 		if not armorClass then
 			buildItemClasses()
 		end
-		name = name:lower()
-		local types = (itemType .. " " .. subType .. " " .. (_G[equipLoc] or "")):lower()
+		name = ns.Lower(name)
+		local types = ns.Lower(itemType .. " " .. subType .. " " .. (_G[equipLoc] or ""))
 		record = {
 			name = name,
 			types = types,
@@ -364,7 +364,7 @@ local function qualityByName(value)
 	for i = 0, #QUALITY_NAMES - 1 do
 		local localized = _G["ITEM_QUALITY" .. i .. "_DESC"]
 		if
-			QUALITY_NAMES[i + 1]:sub(1, #value) == value or (localized and localized:lower():sub(1, #value) == value)
+			QUALITY_NAMES[i + 1]:sub(1, #value) == value or (localized and ns.Lower(localized):sub(1, #value) == value)
 		then
 			return i
 		end
@@ -375,7 +375,7 @@ local function equipmentSetItems(value)
 	local items = {}
 	for i = 1, GetNumEquipmentSets() do
 		local name = GetEquipmentSetInfo(i)
-		if name and name:lower():find(value, 1, true) then
+		if name and ns.Lower(name):find(value, 1, true) then
 			local ids = GetEquipmentSetItemIDs(name)
 			if ids then
 				for _, id in pairs(ids) do

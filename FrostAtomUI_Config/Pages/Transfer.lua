@@ -112,8 +112,9 @@ local function apply()
 		function()
 			if Transfer.Import(data, selected) then
 				window:Hide()
-				ns.ShowReloadButton()
+				ns.ShowReloadButton(L["Transfer"])
 				ui.Print(L["reload the UI to apply everything"])
+				ns.RefreshPage()
 			end
 		end
 	)
@@ -246,14 +247,30 @@ schema[#schema + 1] = {
 	func = showImport,
 	desc = L["Paste a settings string, see what it contains and choose what to apply. Each applied category replaces the current settings of this category."],
 }
+schema[#schema + 1] = {
+	label = L["Previous key bindings"],
+	type = "execute",
+	text = L["Restore"],
+	glyph = "clock-rotate-left",
+	disabled = function()
+		return Transfer.GetBindingsBackup() == nil
+	end,
+	disabledDesc = L["Nothing to restore: no key bindings were imported yet."],
+	confirm = L["Bring back the key bindings you had before the last import? The imported ones are removed."],
+	func = function()
+		if Transfer.RestoreBindings() then
+			ui.Print(L["key bindings restored"])
+			ns.RefreshPage()
+		end
+	end,
+	desc = L["Importing key bindings keeps a copy of yours first. This brings them back."],
+}
 
-ns.RegisterPage({
+ns.AddTab("profiles", {
 	key = "transfer",
-	name = L["Transfer"],
+	order = 2,
+	name = L["Game settings transfer"],
 	glyph = "arrow-right-arrow-left",
-	new = "1.4.1",
-	order = 88,
-	group = "system",
+	new = "1.5.0",
 	schema = schema,
-	noReset = true,
 })

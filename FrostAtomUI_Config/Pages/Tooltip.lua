@@ -26,7 +26,7 @@ local AURA_VALUES = {
 ns.RegisterElement({
 	path = "tooltip.point",
 	page = "tooltip",
-	name = L["Tooltip"],
+	name = L["Tooltips"],
 	glyph = "comment-dots",
 	enabledBy = "tooltip.enabled",
 	schema = {
@@ -75,7 +75,8 @@ ns.RegisterElement({
 
 ns.RegisterPage({
 	key = "tooltip",
-	name = L["Tooltip"],
+	name = L["Tooltips"],
+	desc = L["Tooltips: position, contents and look."],
 	glyph = "comment-dots",
 	order = 46,
 	group = "interface",
@@ -117,7 +118,6 @@ ns.RegisterPage({
 			new = "1.4.0",
 			label = L["Skin tooltips"],
 			type = "toggle",
-			reload = true,
 			desc = L["Flat dark background, thin border, top highlight and the addon font on tooltips and dropdown menus. Off keeps the Blizzard look."],
 		},
 		{
@@ -216,7 +216,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "tooltip.showArenaTeams",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Arena ratings"],
 			type = "toggle",
 			desc = L["Team rating for 2v2, 3v3 and 5v5 of inspected players, personal rating in brackets when it differs. Friendly players only: enemies can't be inspected."],
@@ -322,7 +322,7 @@ ns.RegisterPage({
 		{
 			path = "tooltip.showAuraCaster",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Aura caster"],
 			type = "toggle",
 			desc = L["Name of the player who cast a buff or debuff, in its tooltip."],

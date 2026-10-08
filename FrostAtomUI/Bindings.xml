@@ -1,8 +1,23 @@
 <Bindings>
 	<!-- Listed under "FrostAtomUI" in the Key Bindings window; the labels are
-	     BINDING_HEADER_/BINDING_NAME_ globals in Modules/Misc/Tweaks.lua. -->
-	<Binding name="CLICK FrostAtomUIFocusButton:LeftButton" header="FROSTATOMUI" />
+	     BINDING_HEADER_/BINDING_NAME_ globals in Modules/Interface/Tweaks.lua. -->
+	<Binding name="FROSTATOMUI_SETTINGS" header="FROSTATOMUI">
+		SlashCmdList.FROSTATOMUI_CONFIG("")
+	</Binding>
+	<Binding name="FROSTATOMUI_MOVE">
+		SlashCmdList.FROSTATOMUI_MOVE("")
+	</Binding>
+	<Binding name="FROSTATOMUI_KEYBIND">
+		SlashCmdList.FROSTATOMUI_BIND("")
+	</Binding>
+	<Binding name="CLICK FrostAtomUIFocusButton:LeftButton" />
 	<Binding name="CLICK FrostAtomUIMacrosToggle:LeftButton" />
+	<Binding name="CLICK FrostAtomUIArenaTarget1:LeftButton" />
+	<Binding name="CLICK FrostAtomUIArenaTarget2:LeftButton" />
+	<Binding name="CLICK FrostAtomUIArenaTarget3:LeftButton" />
+	<Binding name="CLICK FrostAtomUIArenaFocus1:LeftButton" />
+	<Binding name="CLICK FrostAtomUIArenaFocus2:LeftButton" />
+	<Binding name="CLICK FrostAtomUIArenaFocus3:LeftButton" />
 	<Binding name="FROSTATOMUI_CAMERA_CLOSE">
 		FrostAtomUI_SetCameraDistance("Close")
 	</Binding>

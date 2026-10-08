@@ -1,12 +1,12 @@
 local _, ns = ...
 
-local GetCVar, GetCursorPosition, GetScreenWidth, GetScreenHeight = GetCVar, GetCursorPosition, GetScreenWidth, GetScreenHeight
+local GetCVar, GetCursorPosition, GetScreenWidth, GetScreenHeight =
+	GetCVar, GetCursorPosition, GetScreenWidth, GetScreenHeight
 local InCombatLockdown = InCombatLockdown
 local floor, abs, sqrt, tonumber = math.floor, math.abs, math.sqrt, tonumber
 
 local Pixel = ns.Mixin({}, ns.EventMixin)
 ns.Pixel = Pixel
-ns.PIXEL_CHANGED = "FrostAtomUI_PIXEL_CHANGED"
 
 local REFERENCE_HEIGHT = 768
 local MIN_SIZE, MAX_SIZE = 200, 16384
@@ -87,6 +87,7 @@ local function feed(axis, value, span)
 end
 
 local lastX, lastY
+-- 3.3.5 has no API for the windowed backbuffer size; GetCursorPosition is quantized to it
 local sampler = CreateFrame("Frame")
 sampler:SetScript("OnUpdate", function()
 	local x, y = GetCursorPosition()
@@ -100,7 +101,7 @@ sampler:SetScript("OnUpdate", function()
 		changed = feed(axisX, x, REFERENCE_HEIGHT * aspectRatio()) or changed
 	end
 	if changed then
-		ns:Fire(ns.PIXEL_CHANGED)
+		ns:Fire(ns.E.PIXEL_CHANGED)
 	end
 end)
 
@@ -115,7 +116,7 @@ Pixel:RegisterEvent("DISPLAY_SIZE_CHANGED", function()
 	axisX.calibrated, axisY.calibrated = true, true
 	axisX.candidates, axisY.candidates = nil, nil
 	if useResolution() then
-		ns:Fire(ns.PIXEL_CHANGED)
+		ns:Fire(ns.E.PIXEL_CHANGED)
 	end
 end)
 
@@ -127,16 +128,13 @@ local function effectiveScale(region)
 	return region:GetEffectiveScale()
 end
 
-function Pixel.ScreenSize()
-	return axisX.size, axisY.size
-end
-
 function Pixel.Units(region)
 	local scale = effectiveScale(region)
 	return REFERENCE_HEIGHT * aspectRatio() / (axisX.size * scale), REFERENCE_HEIGHT / (axisY.size * scale)
 end
 
 function Pixel.GridOffset()
+	-- D3D9: the client's broken half-pixel projection puts the UI off the pixel grid (smeared edges, text)
 	if not (GetCVar("gxApi") or ""):upper():find("^D3D") then
 		return 0, 0
 	end

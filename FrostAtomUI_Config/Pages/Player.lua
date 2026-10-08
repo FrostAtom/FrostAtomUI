@@ -13,10 +13,20 @@ local HEALTH_COLOR_VALUES = {
 	{ "custom", L["Fixed color"], L["The health color below."] },
 }
 
-local HEALTH_TEXT_VALUES = {
-	{ "percent", L["Percent"] },
-	{ "value", L["Current health"] },
+local NO_COMBO_POINTS = ui.PLAYER_CLASS ~= "ROGUE" and ui.PLAYER_CLASS ~= "DRUID"
+
+local HEALTH_TAG_PRESETS = {
+	{ "[perhp:floor]%", L["Percent"] },
+	{ "[curhp]", L["Current health"] },
 }
+
+local healthPreset, healthTag = ns.HealthTagEntries("playerPlate.healthTag", HEALTH_TAG_PRESETS, {
+	entryPath = "healthTag",
+	advanced = true,
+	enabledBy = { "playerPlate.enabled", "playerPlate.showText" },
+	desc = L["Empty: no health text."],
+})
+healthTag.enabledBy = "playerPlate.showText"
 
 local schema = {
 	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
@@ -68,7 +78,6 @@ Section(schema, L["Runes"], "runes", {
 		path = "enabled",
 		label = L["Enable"],
 		type = "toggle",
-		reload = true,
 		desc = L["Rune bars with timers. The Blizzard rune frame is hidden on the Blizzard UI page."],
 	},
 }, NotClass("DEATHKNIGHT"), nil, "gem")
@@ -96,12 +105,11 @@ Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 		path = "enabled",
 		label = L["Enable"],
 		type = "toggle",
-		reload = true,
 		desc = L["Weapon enchant icons with timers, right-click to cancel. The Blizzard ones are hidden on the Blizzard UI page."],
 	},
 	{
 		path = "showInAuras",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Show in player buffs"],
 		type = "toggle",
 		desc = L["Show the enchants in the player buff list like buffs, in front of all other buffs, instead of separate icons. Needs the unit frames."],
@@ -113,6 +121,7 @@ Section(schema, L["Weapon enchants"], "temporaryEnchant", {
 ns.RegisterPage({
 	key = "player",
 	name = L["Player resources"],
+	desc = L["Your health and resource plate, shield, runes, totems and weapon enchants."],
 	glyph = "user",
 	order = 26,
 	group = "frames",
@@ -161,7 +170,7 @@ ns.RegisterElement({
 		{
 			path = "druidMana",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Mana in shapeshift forms"],
 			type = "toggle",
 			hidden = NotClass("DRUID"),
@@ -181,6 +190,26 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Estimated size of absorb shields on you, with a glow at the bar edge while a shield is up. Colors are shared with the unit frames."],
 		},
+		{
+			path = "comboPoints",
+			new = "1.5.0",
+			label = L["Combo points"],
+			type = "toggle",
+			hidden = NO_COMBO_POINTS,
+			desc = L["Five pips under the bars, empty ones are gray. Druids see them in cat form. Colors are shared with the unit frames."],
+		},
+		{
+			path = "comboPointHeight",
+			advanced = true,
+			new = "1.5.0",
+			label = L["Combo point height"],
+			type = "number",
+			min = 2,
+			max = 20,
+			step = 1,
+			hidden = NO_COMBO_POINTS,
+			enabledBy = "playerPlate.comboPoints",
+		},
 		{ header = L["Text"], glyph = "font" },
 		{
 			path = "showText",
@@ -188,15 +217,8 @@ ns.RegisterElement({
 			type = "toggle",
 			desc = L["Health and power numbers on the bars."],
 		},
-		{
-			path = "healthText",
-			advanced = true,
-			new = "1.4.0",
-			label = L["Health text"],
-			type = "select",
-			values = HEALTH_TEXT_VALUES,
-			enabledBy = "playerPlate.showText",
-		},
+		healthPreset,
+		healthTag,
 		{ path = "font", advanced = true, label = L["Font"], type = "font", enabledBy = "playerPlate.showText" },
 		{ header = L["Colors"], glyph = "palette" },
 		{
@@ -214,6 +236,7 @@ ns.RegisterElement({
 			disabled = function()
 				return ui:GetConfig("playerPlate.healthColorMode") ~= "custom"
 			end,
+			disabledDesc = L['Pick "Fixed color" in the color mode.'],
 		},
 	}),
 })
@@ -246,14 +269,14 @@ ns.RegisterElement({
 		{ header = L["Display"], glyph = "bars-staggered" },
 		{
 			path = "showIcons",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Rune icons"],
 			type = "toggle",
 			desc = L["Rune symbol in the middle of each bar, gray while the rune recharges."],
 		},
 		{
 			path = "readyFlash",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Ready flash"],
 			type = "toggle",
 			desc = L["Short flash on a rune as it becomes ready or turns into a death rune."],
@@ -261,7 +284,7 @@ ns.RegisterElement({
 		{ header = L["Text"], glyph = "font" },
 		{
 			path = "showTimer",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Timer"],
 			type = "toggle",
 			desc = L["Seconds left until a recharging rune is ready."],
@@ -269,7 +292,7 @@ ns.RegisterElement({
 		{
 			path = "timerFont",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Timer font"],
 			type = "font",
 			enabledBy = "runes.showTimer",
@@ -296,7 +319,7 @@ ns.RegisterElement({
 		{ path = "gap", advanced = true, label = L["Spacing"], type = "number", min = 0, max = 12, step = 1 },
 		{
 			path = "pulse",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Totem pulse bar"],
 			type = "toggle",
 			desc = L["Bar above your pulsing totems (Tremor, Earthbind, Cleansing, Magma, Healing Stream, Stoneclaw, Mana Tide) that fills up to the next pulse. Synced from the summon and every pulse seen in the combat log."],
@@ -304,7 +327,7 @@ ns.RegisterElement({
 		{
 			path = "pulseHeight",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Totem pulse bar height"],
 			type = "number",
 			min = 2,
@@ -315,7 +338,7 @@ ns.RegisterElement({
 		{
 			path = "pulseColor",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Totem pulse bar color"],
 			type = "color",
 			enabledBy = "totems.pulse",
@@ -332,6 +355,7 @@ ns.RegisterElement({
 	glyph = "wand-sparkles",
 	enabledBy = "temporaryEnchant.enabled",
 	disabled = enchantsInAuras,
+	disabledDesc = L["The enchants are shown among the player buffs."],
 	schema = ElementSchema("temporaryEnchant", {
 		{ header = L["Layout"], glyph = "up-down-left-right" },
 		{ path = "size", label = L["Icon size"], type = "number", min = 16, max = 64, step = 1 },

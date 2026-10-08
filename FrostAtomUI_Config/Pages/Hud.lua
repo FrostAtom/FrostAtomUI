@@ -26,7 +26,7 @@ ns.RegisterElement({
 			glyph = "flask",
 			desc = L["Show the enter combat message once."],
 			func = function()
-				FrostAtomUI:GetModule("Misc"):TestCombatAlert()
+				FrostAtomUI.API.RunAction("combatAlertTest")
 			end,
 		},
 	},
@@ -71,7 +71,7 @@ ns.RegisterElement({
 		},
 		{
 			path = "experienceBar.backgroundAlpha",
-			label = L["Background alpha"],
+			label = L["Background opacity"],
 			type = "number",
 			min = 0,
 			max = 1,
@@ -79,6 +79,15 @@ ns.RegisterElement({
 			percent = true,
 		},
 	},
+})
+
+ns.RegisterElement({
+	path = "deathRecap.point",
+	page = "hud",
+	name = L["Death recap"],
+	glyph = "skull",
+	enabledBy = "deathRecap.enabled",
+	schema = {},
 })
 
 local schema = {
@@ -163,7 +172,7 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 	},
 	{
 		path = "trailAlpha",
-		label = L["Trail alpha"],
+		label = L["Trail opacity"],
 		type = "number",
 		min = 0.1,
 		max = 1,
@@ -174,7 +183,7 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 	},
 	{
 		path = "shineAlpha",
-		label = L["Shine alpha"],
+		label = L["Shine opacity"],
 		type = "number",
 		min = 0,
 		max = 1,
@@ -186,45 +195,103 @@ Section(schema, L["Cursor trail"], "cursorTrail", {
 	{ path = "hideInCombat", label = L["Hide in combat"], type = "toggle" },
 }, nil, nil, "arrow-pointer")
 
-for _, element in ipairs({
-	{ "blizzardFrames.captureBarPoint", L["Capture bars"], "flag" },
-	{ "blizzardFrames.vehicleSeatPoint", L["Vehicle seats"], "car-side" },
-	{ "blizzardFrames.errorsPoint", L["Error messages"], "circle-exclamation" },
-	{ "blizzardFrames.raidWarningPoint", L["Raid warnings"], "bullhorn" },
+schema[#schema + 1] = { header = L["Error messages"], glyph = "triangle-exclamation" }
+for _, entry in ipairs({
+	{
+		path = "errorMessages",
+		label = L["Red error messages"],
+		type = "select",
+		values = {
+			{ "all", L["All"] },
+			{
+				"filtered",
+				L["No spam"],
+				L['Hides "not ready yet", "another action is in progress" and "not enough mana / rage / energy". "Out of range", "not in line of sight" and "facing" stay visible.'],
+			},
+			{ "hidden", L["Hide all"] },
+		},
+		desc = L['"Not enough mana", "Out of range" and similar messages at the top of the screen.'],
+	},
 }) do
-	ns.RegisterElement({
-		path = element[1],
-		page = "hud",
-		name = element[2],
-		glyph = element[3],
-		enabledBy = "blizzardFrames.enabled",
-	})
+	entry.path = "tweaks." .. entry.path
+	schema[#schema + 1] = entry
 end
 
-Section(schema, L["Blizzard frames"], "blizzardFrames", {
+ns.RegisterElement({
+	path = "blizzardFrames.errorsPoint",
+	page = "hud",
+	name = L["Error messages"],
+	glyph = "circle-exclamation",
+	enabledBy = "blizzardFrames.enabled",
+})
+
+Section(schema, L["Death recap"], "deathRecap", {
 	{
 		path = "enabled",
 		label = L["Enable"],
 		type = "toggle",
-		reload = true,
-		desc = L["Movable capture bars, vehicle seats, error messages and raid warnings; quest tracker hiding."],
+		desc = L["Record the damage you take and list the last hits before your death. Open with /recap."],
 	},
 	{
-		path = "questTracker",
-		label = L["Hide quest tracker"],
-		type = "multiselect",
-		values = {
-			{ "arena", L["Arena"] },
-			{ "battleground", L["Battleground"] },
-			{ "combat", L["In combat"] },
-		},
-		desc = L["The quest tracker comes back when you leave the arena or battleground and when combat ends."],
+		path = "entries",
+		label = L["Hits shown"],
+		type = "number",
+		min = 1,
+		max = 10,
+		step = 1,
+		advanced = true,
+		desc = L["Hits visible in the recap window at once, scroll to see the rest of the final 10 seconds."],
 	},
-}, nil, "1.4.0", "window-maximize")
+	{
+		path = "heals",
+		label = L["Incoming heals"],
+		type = "toggle",
+		advanced = true,
+		desc = L["Also list the heals you received, with the healed amount without overhealing, in green."],
+	},
+	{
+		path = "control",
+		label = L["Crowd control"],
+		type = "toggle",
+		advanced = true,
+		desc = L["Also list the crowd control put on you, so the chain before the death is visible."],
+	},
+	{
+		path = "chatLink",
+		label = L["Chat link on death"],
+		type = "toggle",
+		advanced = true,
+		desc = L["Print a clickable link to the recap when you die."],
+	},
+	{
+		path = "arenaDeaths",
+		new = "1.5.0",
+		label = L["Every death in arena"],
+		type = "toggle",
+		desc = L["Record the damage taken by every player in an arena and print a link to the recap when anyone dies."],
+	},
+	{
+		path = "autoOpen",
+		label = L["Open in arenas and battlegrounds"],
+		type = "toggle",
+		advanced = true,
+		desc = L["Show the recap window right away when you die in PvP."],
+	},
+	{
+		label = L["Recap window"],
+		type = "execute",
+		text = L["Open"],
+		glyph = "up-right-from-square",
+		func = function()
+			FrostAtomUI.API.RunAction("deathRecap")
+		end,
+	},
+}, nil, "1.4.0", "skull")
 
 ns.RegisterPage({
 	key = "hud",
 	name = L["HUD"],
+	desc = L["Combat alert, FPS and latency, experience bar, error messages and the death recap."],
 	glyph = "gauge",
 	order = 40,
 	group = "interface",

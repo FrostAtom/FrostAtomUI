@@ -3,7 +3,7 @@ local _, ns = ...
 local ui = FrostAtomUI
 local L = ui.L
 local GroupCooldowns = ui.GroupCooldowns
-local Data = ui.CooldownData
+local Data = ui.API.Catalog("cooldowns")
 
 local Section = ns.Section
 local Requires = ns.Requires
@@ -36,9 +36,7 @@ local selectedClass = Data.SPELLS[ui.PLAYER_CLASS] and ui.PLAYER_CLASS or CLASSE
 local function classValues()
 	local values = {}
 	for i, class in ipairs(CLASSES) do
-		local color = RAID_CLASS_COLORS[class]
-		local name = LOCALIZED_CLASS_NAMES_MALE[class] or class
-		values[i] = { class, ("|cff%02x%02x%02x%s|r"):format(color.r * 255, color.g * 255, color.b * 255, name) }
+		values[i] = { class, ui.ClassColorText(class, LOCALIZED_CLASS_NAMES_MALE[class] or class) }
 	end
 	values[#values + 1] = { "COMMON", L["Racials and items"] }
 	return values
@@ -59,6 +57,7 @@ local function sidePanel(side, name, interruptName)
 		disabled = function()
 			return isFramesLayout(side)
 		end,
+		disabledDesc = L['The cooldowns are shown next to the unit frames: pick "One block" in Display.'],
 		schema = {},
 	})
 	ns.RegisterElement({
@@ -88,6 +87,7 @@ local function framePanels(side, prefix, label, count, name)
 			hidden = i ~= 1,
 			enabledBy = enabledBy,
 			disabled = isBlockLayout,
+			disabledDesc = L['The cooldowns are shown as one block: pick "Next to unit frames" in Display.'],
 			schema = Requires(enabledBy, {
 				{
 					description = L["The row of every frame moves on its own; by default it hangs under the frame's corner."],
@@ -97,13 +97,13 @@ local function framePanels(side, prefix, label, count, name)
 	end
 end
 
-framePanels("friendly", "party", "Party", 4, L["Party cooldowns"])
-framePanels("enemy", "arena", "Arena", 3, L["Arena opponent cooldowns"])
+framePanels("friendly", "party", "Party member", 4, L["Party cooldowns"])
+framePanels("enemy", "arena", "Arena opponent", 3, L["Arena opponent cooldowns"])
 
 local function categoryValues()
 	local values = {}
 	for i, category in ipairs(Data.CATEGORIES) do
-		values[i] = { category, GroupCooldowns.CATEGORY_NAMES[category] }
+		values[i] = { category, L[GroupCooldowns.CATEGORY_NAMES[category]] }
 	end
 	return values
 end
@@ -203,7 +203,7 @@ local function sideTab(side, name, glyph, toggleLabel, toggleDesc, framesDesc, t
 		},
 		{
 			path = prefix .. "SeparateTrinket",
-			label = L["Trinket separately"],
+			label = L["Separate trinket icon"],
 			type = "toggle",
 			enabledBy = { enabledBy, prefix .. "Categories.trinket" },
 			desc = trinketDesc,
@@ -264,7 +264,7 @@ end
 
 local function spellToggle(id)
 	local path = "groupCooldowns.spells." .. id
-	local info = ui:GetModule("CooldownTracker"):GetInfo(id)
+	local info = ui.API.RunAction("cooldownInfo", id)
 	local name, _, icon = GetSpellInfo(id)
 	return {
 		label = ICON_FORMAT:format(info.icon or icon or QUESTION_MARK, name or tostring(id)),
@@ -307,7 +307,7 @@ local function spellEntries(schema)
 		if ids then
 			local toggles = {}
 			schema[#schema + 1] = {
-				header = GroupCooldowns.CATEGORY_NAMES[category],
+				header = L[GroupCooldowns.CATEGORY_NAMES[category]],
 				toggles = toggles,
 				toggleDesc = L["Show or hide every spell of this category."],
 			}
@@ -326,6 +326,18 @@ local function generalSchema()
 		},
 	}
 	Section(schema, L["General"], "groupCooldowns", {
+		{
+			path = "zones",
+			new = "1.5.0",
+			label = L["Show in"],
+			type = "multiselect",
+			values = {
+				{ "arena", L["Arena"] },
+				{ "battleground", L["Battlegrounds"] },
+				{ "world", L["World and dungeons"] },
+			},
+			desc = L["Unit frame test mode shows them everywhere."],
+		},
 		{
 			path = "labels",
 			label = L["Category labels"],
@@ -395,20 +407,21 @@ local function buildGeneralSchema()
 end
 
 local function setPreview(shown)
-	local UnitFrames = ui:GetModule("UnitFrames")
-	GroupCooldowns.SetPreview(shown or UnitFrames.testing)
+	GroupCooldowns.SetPreview(shown or ui.API.IsPreviewActive("unitFrames"))
 end
 
 local generalTabSchema = generalSchema()
-generalTabSchema[#generalTabSchema + 1] = { path = "groupCooldowns.spells", hidden = true }
+generalTabSchema[#generalTabSchema + 1] =
+	{ path = "groupCooldowns.spells", hidden = true, userContent = true, label = L["Spell list"] }
 
 ns.RegisterPage({
 	key = "cooldowns",
 	name = L["Cooldowns"],
+	desc = L["Cooldowns of allies and enemies next to their frames."],
 	glyph = "hourglass-half",
 	order = 32,
 	group = "pvp",
-	new = "1.4.1",
+	new = "1.5.0",
 	enable = "groupCooldowns.enabled",
 	schema = {
 		{ path = "groupCooldowns.enabled", label = L["Enable"], type = "toggle" },

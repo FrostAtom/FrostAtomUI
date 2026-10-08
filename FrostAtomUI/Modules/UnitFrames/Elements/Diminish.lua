@@ -6,7 +6,7 @@ local UnitGUID = UnitGUID
 local GameTooltip = GameTooltip
 local GetTime = GetTime
 local min, huge, random = math.min, math.huge, math.random
-local unpack, wipe = unpack, wipe
+local unpack, wipe, sort, tremove = unpack, wipe, table.sort, table.remove
 
 local SpellTexture = ns.SpellTexture
 
@@ -15,6 +15,13 @@ local RESET_TIME = Data.RESET_TIME
 local AURA_TIMEOUT = Data.AURA_TIMEOUT
 local CATEGORY_NAMES = Data.CATEGORY_NAMES
 local TEST_SPELLS = Data.TEST_SPELLS
+local FILTER_GROUPS = Data.FILTER_GROUPS
+local SEVERITY_LABELS = { "½", "¼" }
+
+local categoryRank = {}
+for index, category in ipairs(Data.CATEGORY_ORDER) do
+	categoryRank[category] = index
+end
 
 local DR = ns:GetModule("DiminishingReturns")
 local CooldownTimer = ns:GetModule("CooldownTimer")
@@ -22,11 +29,13 @@ local CooldownTimer = ns:GetModule("CooldownTimer")
 local CHECK_INTERVAL = 0.1
 local FONT_SCALE = 0.4
 local BADGE_SCALE = 0.5
+local SEVERITY_SCALE = 0.36
 local IMMUNE_BADGE = "Interface\\RaidFrame\\ReadyCheck-NotReady"
 local IMMUNE_STACKS = 3
 local SEVERITY_KEYS = { "halfColor", "quarterColor", "immuneColor" }
 local SEVERITY_TEXT = { "Next: 50% duration", "Next: 25% duration", "Next: immune" }
-local GROW_LEFT_SIDES = { LEFT = true, TOP = true, BOTTOM = true }
+local OPPOSITE = { TOP = "BOTTOM", BOTTOM = "TOP", LEFT = "RIGHT", RIGHT = "LEFT" }
+local GROWTH_STEPS = { LEFT = { -1, 0 }, RIGHT = { 1, 0 }, UP = { 0, 1 }, DOWN = { 0, -1 } }
 local ARENA_PET_GAP = 2
 local PLAYER_SLOTS = 3
 
@@ -47,6 +56,7 @@ end
 local function setIconSize(icon, size)
 	icon:SetSize(size, size)
 	ns.SetFont(icon.cooldown.timer, size * FONT_SCALE, "OUTLINE")
+	ns.SetFont(icon.severity, size * SEVERITY_SCALE, "OUTLINE")
 	icon.badge:SetSize(size * BADGE_SCALE, size * BADGE_SCALE)
 end
 
@@ -58,40 +68,28 @@ local function placeIcon(container, icon, index)
 		icon:SetPoint("CENTER", container, "CENTER", (index - 1 - (shown - 1) / 2) * step, 0)
 		return
 	end
-	local point = container.growLeft and "RIGHT" or "LEFT"
 	step = (index - 1) * step
-	icon:SetPoint(point, container, point, container.growLeft and -step or step, 0)
+	icon:SetPoint("CENTER", container, "CENTER", container.stepX * step, container.stepY * step)
 end
 
 local function createIcon(container, index)
-	local icon = CreateFrame("Frame", nil, container)
+	local icon = CooldownTimer:CreateIcon(
+		container,
+		{ borderAbove = true, reverse = true, fontSize = container.size * FONT_SCALE }
+	)
 	icon:SetFrameLevel(container:GetFrameLevel() + 1)
 	icon:EnableMouse(not ns.Config.diminishingReturns.clickThrough)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
+	local overlay = icon.overlay
 
-	icon.texture = icon:CreateTexture(nil, "BORDER")
-	icon.texture:SetNonBlocking(true)
-	icon.texture:SetAllPoints()
-
-	icon.cooldown = CreateFrame("Cooldown", nil, icon)
-	icon.cooldown:SetAllPoints()
-	icon.cooldown:SetReverse(true)
-
-	local overlay = CreateFrame("Frame", nil, icon)
-	overlay:SetAllPoints()
-	overlay:SetFrameLevel(icon.cooldown:GetFrameLevel() + 1)
-
-	icon.border = overlay:CreateTexture(nil, "ARTWORK")
-	icon.border:SetTexture(ns.Media.buttonNormal)
-	icon.border:SetAllPoints()
+	icon.severity = overlay:CreateFontString(nil, "OVERLAY")
+	icon.severity:SetPoint("BOTTOMLEFT", 1, 1)
 
 	icon.badge = overlay:CreateTexture(nil, "OVERLAY")
 	icon.badge:SetTexture(IMMUNE_BADGE)
 	icon.badge:SetPoint("TOPRIGHT", 2, 2)
 	icon.badge:Hide()
-
-	CooldownTimer:Attach(icon.cooldown, container.size * FONT_SCALE, overlay)
 
 	setIconSize(icon, container.size)
 	placeIcon(container, icon, index)
@@ -106,6 +104,11 @@ local function setIcon(container, index, category, spellId, stacks)
 	icon.texture:SetTexture(SpellTexture(spellId))
 	icon.border:SetVertexColor(unpack(ns.Config.diminishingReturns[SEVERITY_KEYS[stacks]]))
 	ns.SetShown(icon.badge, stacks >= IMMUNE_STACKS)
+	local label = ns.Config.diminishingReturns.severityText and SEVERITY_LABELS[stacks]
+	icon.severity:SetText(label or "")
+	if label then
+		icon.severity:SetTextColor(unpack(ns.Config.diminishingReturns[SEVERITY_KEYS[stacks]]))
+	end
 	icon:Show()
 	return icon
 end
@@ -130,6 +133,30 @@ local function hideFrom(container, shown)
 end
 
 local refresh
+local collected = {}
+local pool = {}
+
+local function byRank(a, b)
+	return (categoryRank[a.category] or 99) < (categoryRank[b.category] or 99)
+end
+
+local function collect(guid)
+	for i = #collected, 1, -1 do
+		pool[#pool + 1] = collected[i]
+		collected[i] = nil
+	end
+	local filter = ns.Config.diminishingReturns.categories
+	for category, stacks, expires, auraActive, spellId, appliedAt in DR:IterateCategories(guid) do
+		if filter[FILTER_GROUPS[category] or ""] ~= false then
+			local item = tremove(pool) or {}
+			item.category, item.stacks, item.expires = category, stacks, expires
+			item.auraActive, item.spellId, item.appliedAt = auraActive, spellId, appliedAt
+			collected[#collected + 1] = item
+		end
+	end
+	sort(collected, byRank)
+	return collected
+end
 
 local function onContainerUpdate(container, elapsed)
 	container.untilCheck = container.untilCheck - elapsed
@@ -143,27 +170,26 @@ local function onContainerUpdate(container, elapsed)
 end
 
 function refresh(container)
-	local guid = UnitGUID(container.unit)
+	local guid = UnitGUID(container.unit) or UF.GhostGUID and UF.GhostGUID(container.frame)
 	container.guid = guid
 
-	local state = container.enabled and DR:Get(guid)
 	local shown = 0
 	local nextCheck = huge
-	if state then
-		local now = GetTime()
-		local order = state.order
-		for i = 1, #order do
-			local category = order[i]
-			local entry = state[category]
+	if container.enabled then
+		local list = collect(guid)
+		for i = 1, #list do
+			local item = list[i]
+			local category, stacks, expires, auraActive, spellId, appliedAt =
+				item.category, item.stacks, item.expires, item.auraActive, item.spellId, item.appliedAt
 			shown = shown + 1
-			local icon = setIcon(container, shown, category, entry.spellId, entry.stacks)
-			if DR:IsAuraActive(entry, now) then
+			local icon = setIcon(container, shown, category, spellId, stacks)
+			if auraActive then
 				setIconCooldown(icon, nil)
-				nextCheck = min(nextCheck, entry.appliedAt + AURA_TIMEOUT)
+				nextCheck = min(nextCheck, appliedAt + AURA_TIMEOUT)
 			else
-				setIconCooldown(icon, entry.expires - RESET_TIME, RESET_TIME)
+				setIconCooldown(icon, expires - RESET_TIME, RESET_TIME)
 			end
-			nextCheck = min(nextCheck, entry.expires)
+			nextCheck = min(nextCheck, expires)
 		end
 	end
 	hideFrom(container, shown)
@@ -189,7 +215,8 @@ local function fillTest(container)
 		for _ = 1, random(container.kind == "player" and 1 or 0, 4) do
 			local spellId = TEST_SPELLS[random(#TEST_SPELLS)]
 			local category = Data.SPELLS[spellId]
-			if not testCategories[category] then
+			local filtered = ns.Config.diminishingReturns.categories[FILTER_GROUPS[category] or ""] == false
+			if not testCategories[category] and not filtered then
 				testCategories[category] = true
 				shown = shown + 1
 				local icon = setIcon(container, shown, category, spellId, random(3))
@@ -210,7 +237,7 @@ end
 
 local function onUpdated(frame, guid)
 	local container = frame.diminish
-	if frame:IsShown() and (guid == nil or guid == container.guid) then
+	if container:IsVisible() and (guid == nil or guid == container.guid) then
 		refresh(container)
 	end
 end
@@ -221,31 +248,50 @@ local function castbarAttached(frame)
 	return point ~= nil and point[4] == frame.moverPath
 end
 
+local function splitPoint(point)
+	return point:match("^TOP") or point:match("^BOTTOM") or "", point:match("LEFT$") or point:match("RIGHT$") or ""
+end
+
+local function iconPoint(anchor, growth)
+	local anchorV, anchorH = splitPoint(anchor)
+	local iconV, iconH
+	if growth == "LEFT" or growth == "RIGHT" then
+		iconV = OPPOSITE[anchorV] or ""
+		iconH = anchorV == "" and OPPOSITE[anchorH] or OPPOSITE[growth]
+	else
+		iconH = OPPOSITE[anchorH] or ""
+		iconV = anchorH == "" and OPPOSITE[anchorV] or (growth == "UP" and "BOTTOM" or "TOP")
+	end
+	local point = iconV .. iconH
+	return point ~= "" and point or "CENTER", anchorV, anchorH, iconV, iconH
+end
+
 local function anchorContainer(container)
 	local config = ns.Config.diminishingReturns
 	local frame = container:GetParent()
-	local arena = container.kind == "arena"
-	local side = arena and config.arenaSide or config.targetSide
-	local x = arena and config.arenaOffsetX or config.targetOffsetX
-	local y = arena and config.arenaOffsetY or config.targetOffsetY
+	local kind = container.kind
+	local prefix = (kind == "arena" or kind == "party") and kind or "target"
+	local anchor, growth = config[prefix .. "Anchor"], config[prefix .. "Growth"]
+	local x, y = config[prefix .. "OffsetX"], config[prefix .. "OffsetY"]
+	local point, anchorV, anchorH, iconV, iconH = iconPoint(anchor, growth)
+
+	local relative = frame
+	if anchor == "LEFT" and kind == "arena" and castbarAttached(frame) then
+		relative = frame.castbar.icon
+	elseif anchor == "RIGHT" and kind == "arena" and frame.trinket and UF.IsTrinketSeparate("enemy") then
+		relative = frame.trinket
+	elseif anchor == "RIGHT" and prefix ~= "target" then
+		relative = UF.GroupChainEnd(frame)
+		x = x + (relative == frame and 0 or ARENA_PET_GAP)
+	end
+	if anchorV ~= "" and iconV == OPPOSITE[anchorV] and (anchorH == "" or iconH ~= OPPOSITE[anchorH]) then
+		y = y + UF.CastbarClearance(frame, anchorV)
+	end
 
 	container:ClearAllPoints()
-	if side == "LEFT" then
-		local relative = arena and castbarAttached(frame) and frame.castbar.icon or frame
-		container:SetPoint("RIGHT", relative, "LEFT", x, y)
-	elseif side == "TOP" then
-		container:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", x, y)
-	elseif side == "BOTTOM" then
-		container:SetPoint("TOPRIGHT", frame, "BOTTOMRIGHT", x, y)
-	elseif arena and frame.trinket and UF.IsTrinketSeparate("enemy") then
-		container:SetPoint("LEFT", frame.trinket, "RIGHT", x, y)
-	elseif arena then
-		local relative = UF.GroupChainEnd(frame)
-		container:SetPoint("LEFT", relative, "RIGHT", (relative == frame and 0 or ARENA_PET_GAP) + x, y)
-	else
-		container:SetPoint("LEFT", frame, "RIGHT", x, y)
-	end
-	container.growLeft = GROW_LEFT_SIDES[side] or false
+	container:SetPoint(point, relative, anchor, x, y)
+	local step = GROWTH_STEPS[growth] or GROWTH_STEPS.RIGHT
+	container.stepX, container.stepY = step[1], step[2]
 end
 
 local SIZE_KEYS = { arena = "arenaSize", player = "playerSize" }
@@ -313,7 +359,7 @@ local function createPlayerBlock()
 	})
 
 	local events = ns.Mixin({}, ns.EventMixin)
-	events:RegisterEvent(ns.DR_UPDATED, function(_, guid)
+	events:RegisterEvent(ns.E.DR_UPDATED, function(_, guid)
 		if guid == nil or guid == UnitGUID("player") then
 			updatePlayerBlock()
 		end
@@ -328,22 +374,30 @@ local function create(frame)
 	local container = CreateFrame("Frame", nil, frame)
 	container:SetFrameLevel(frame:GetFrameLevel() + 1)
 	container.unit = frame.unit
-	container.kind = frame.unit:find("^arena%d$") and "arena" or frame.unit
+	container.frame = frame
+	container.kind = frame.unit:find("^arena%d$") and "arena" or frame.unit:find("^party%d$") and "party" or frame.unit
 	container.untilCheck = 0
 	container.nextCheck = huge
+	container.stepX, container.stepY = 1, 0
 	applyContainerSettings(container, ns.Config.diminishingReturns)
 	containers[#containers + 1] = container
 
-	frame:RegisterEvent(ns.DR_UPDATED, onUpdated)
+	frame:RegisterEvent(ns.E.DR_UPDATED, onUpdated)
 	frame:RegisterUnitEvent("UNIT_NAME_UPDATE", update)
 	frame:RegisterEvent("ARENA_OPPONENT_UPDATE", update)
 
 	return container
 end
 
-UF:RegisterElement("diminish", create, update, test)
+UF:RegisterElement({ name = "diminish", Create = create, Update = update, Test = test })
+
+local function applyDemand()
+	DR:SetDemand("unitFrames", ns.Config.diminishingReturns.enabled)
+end
 
 UF:OnInitialize(function(self)
+	applyDemand()
+	self:WatchConfig("diminishingReturns.enabled", applyDemand)
 	playerBlock = createPlayerBlock()
 	applyConfig()
 	self:WatchConfig("diminishingReturns", applyConfig)

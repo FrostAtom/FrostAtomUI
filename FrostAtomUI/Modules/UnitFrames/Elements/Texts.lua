@@ -9,10 +9,13 @@ local BARS = {
 	{
 		key = "health",
 		settings = "healthTexts",
+		own = "HealthTexts",
 		points = { "TOPLEFT", "TOP", "TOPRIGHT", "LEFT", "CENTER", "RIGHT", "BOTTOMLEFT", "BOTTOM", "BOTTOMRIGHT" },
 	},
-	{ key = "power", settings = "powerTexts", points = { "LEFT", "RIGHT" } },
+	{ key = "power", settings = "powerTexts", own = "PowerTexts", points = { "LEFT", "RIGHT" } },
 }
+
+local OWN_TEXT_KEYS = { player = true, target = true, focus = true, party = true, arena = true }
 
 local function placeText(text, bar, point)
 	local horizontal = point:match("LEFT") or point:match("RIGHT") or "CENTER"
@@ -29,10 +32,11 @@ function UF.CreateTexts(owner)
 	for _, bar in ipairs(BARS) do
 		local parent = owner[bar.key]
 		for _, point in ipairs(bar.points) do
-			local text = UF.CreateText(parent)
+			local text = UF.CreateText(parent, owner.textKey)
 			placeText(text, parent, point)
 			text.bar = bar.key
 			text.settings = bar.settings
+			text.own = bar.own
 			text.point = point
 			texts[#texts + 1] = text
 		end
@@ -40,12 +44,21 @@ function UF.CreateTexts(owner)
 	return texts
 end
 
-local function textTemplate(text, hovered)
-	local slot = config[text.settings][text.point]
+local function textTemplate(text, hovered, key)
+	local settings = key and config[key .. "OwnTexts"] and config[key .. text.own] or config[text.settings]
+	local slot = settings[text.point]
 	if hovered and slot.hover ~= "" then
 		return slot.hover
 	end
 	return slot.text
+end
+
+local function setText(text, value)
+	value = value or false
+	if text.shownValue ~= value then
+		text.shownValue = value
+		text:SetText(value or nil)
+	end
 end
 
 function UF.UpdateTexts(owner, key, data)
@@ -57,14 +70,14 @@ function UF.UpdateTexts(owner, key, data)
 	local placeholder, empty = owner.health.placeholder, owner.power.empty
 	for i = 1, #texts do
 		local text = texts[i]
-		local template = textTemplate(text, owner.hovered)
+		local template = textTemplate(text, owner.hovered, owner.textKey)
 		if not key or text.bar == key or templateUses(template, key) then
 			if template == "" or text.bar == "power" and empty then
-				text:SetText(nil)
+				setText(text, nil)
 			elseif placeholder and text.bar == "health" and templateUses(template, "health") then
-				text:SetText(placeholder)
+				setText(text, placeholder)
 			else
-				text:SetText(renderTags(template, owner.unit, data))
+				setText(text, renderTags(template, owner.unit, data))
 			end
 		end
 	end
@@ -75,6 +88,8 @@ local function update(frame)
 end
 
 local function create(frame)
+	local key = (frame.baseUnit or frame.unit):match("^%a+")
+	frame.textKey = OWN_TEXT_KEYS[key] and key or nil
 	local texts = UF.CreateTexts(frame)
 	for i = 1, #UF.NAME_EVENTS do
 		frame:RegisterUnitEvent(UF.NAME_EVENTS[i], update)
@@ -82,4 +97,4 @@ local function create(frame)
 	return texts
 end
 
-UF:RegisterElement("texts", create, update, update)
+UF:RegisterElement({ name = "texts", Create = create, Update = update, Test = update })

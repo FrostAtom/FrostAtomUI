@@ -12,7 +12,6 @@ local min, max = math.min, math.max
 local TemporaryEnchant = ns:NewModule("TemporaryEnchant")
 TemporaryEnchant.configKey = "temporaryEnchant"
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
-local UF = ns:GetModule("UnitFrames")
 
 local MAIN_HAND_SLOT = 16
 local MAX_ICONS = 2
@@ -30,7 +29,7 @@ local knownDurations = {}
 local nextExpiry
 
 local function inAuras()
-	return ns.Config.temporaryEnchant.showInAuras and UF.HasWeaponEnchantAuras()
+	return ns.Config.temporaryEnchant.showInAuras and ns.FrameBridge.HasWeaponEnchantAuras()
 end
 
 local function standaloneVisible()
@@ -191,9 +190,9 @@ function TemporaryEnchant:Update()
 
 	if inAuras() then
 		holder:Hide()
-		UF.SetWeaponEnchants(enchants, enchantCount)
+		ns.FrameBridge.SetWeaponEnchants(enchants, enchantCount)
 	else
-		UF.SetWeaponEnchants(nil, 0)
+		ns.FrameBridge.SetWeaponEnchants(nil, 0)
 		holder:Show()
 		showStandalone()
 	end

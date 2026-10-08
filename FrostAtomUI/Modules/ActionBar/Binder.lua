@@ -173,6 +173,7 @@ end
 
 local function createBinder()
 	binder = CreateFrame("Frame")
+	ActionBar.bindFrame = binder
 	binder:Hide()
 	binder:SetFrameStrata("DIALOG")
 	binder:EnableMouse(true)
@@ -208,10 +209,6 @@ local function createBinder()
 	}
 end
 
-function ActionBar:IsBindMode()
-	return binder ~= nil and binder:IsShown()
-end
-
 function ActionBar:ToggleBindMode()
 	if not binder then
 		createBinder()
@@ -234,6 +231,7 @@ SlashCmdList.FROSTATOMUI_BIND = function()
 end
 SLASH_FROSTATOMUI_BIND1 = "/b"
 SLASH_FROSTATOMUI_BIND2 = "/bind"
+SLASH_FROSTATOMUI_BIND3 = "/kb"
 
 local combatWatcher = CreateFrame("Frame")
 combatWatcher:RegisterEvent("PLAYER_REGEN_DISABLED")

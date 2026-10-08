@@ -165,6 +165,7 @@ ns.OnLocaleReady(function()
 end)
 
 UF:OnInitialize(function()
+	-- FrameXML: Set Focus in a unit menu opened from addon frames is tainted and blocked
 	for _, key in ipairs({ "SET_FOCUS", "CLEAR_FOCUS", "LOCK_FOCUS_FRAME", "UNLOCK_FOCUS_FRAME" }) do
 		UnitPopupButtons[key] = nil
 		for _, menu in pairs(UnitPopupMenus) do

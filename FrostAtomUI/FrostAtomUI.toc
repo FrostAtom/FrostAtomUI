@@ -4,45 +4,87 @@
 ## Title-ruRU: FrostAtom UI
 ## Notes-ruRU: Замена интерфейса: панели команд, рамки юнитов, индикаторы имён, чат, мини-карта и PvP-помощники.
 ## Author: frostatom
-## Version: 1.4.0
-## X-Build: 2026-10-07
+## Version: 1.5.0
+## X-Build: 2026-10-08
 ## SavedVariables: FrostAtomUIDB
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.lua
 Libs\ChatThrottleLib\ChatThrottleLib.lua
 Libs\LibHealComm-4.0\LibHealComm-4.0.lua
 
-# Core: namespace, utilities, event dispatcher, saved variables, settings
+# Platform: namespace, locale, events, combat log, scheduler, pixels, media, saved variables
 Core\Init.lua
 Core\Locale.lua
 Locales\ruRU.lua
 Core\Util.lua
 Core\Skin.lua
 Core\Events.lua
+Core\CombatLog.lua
+Core\Demand.lua
 Core\Pixel.lua
 Core\Scheduler.lua
 Core\Auras.lua
 Core\Media.lua
+Core\UIKit.lua
 Core\GlyphData.lua
 Core\Glyphs.lua
 Core\Encode.lua
-Core\DB.lua
+Core\Platform\Serialize.lua
+Core\Storage.lua
+Core\Realm.lua
 Core\CVars.lua
-Core\Config.lua
+Core\UIScale.lua
+
+# Settings: defaults, store, profiles, migrations, undo, reload contract
+Core\Settings\Defaults.lua
+Core\Settings\Defaults\General.lua
+Core\Settings\Defaults\UnitFrames.lua
+Core\Settings\Defaults\NamePlates.lua
+Core\Settings\Defaults\Combat.lua
+Core\Settings\Store.lua
+Core\Settings\Profiles.lua
+Core\Settings\Migrations.lua
+Core\Settings\Ladder.lua
+Core\Settings\Watch.lua
+Core\API.lua
+Core\Undo.lua
+Core\Reload.lua
+
+# Layout: positions, layouts, move editor, setup
 Core\LayoutPresets.lua
-Core\Movers.lua
+Core\Layout\Position.lua
+Core\Layout\Layouts.lua
+Core\Layout\Reset.lua
+Core\Layout\Editor\Overlay.lua
+Core\Layout\Editor\Snap.lua
+Core\Layout\Editor\Menu.lua
+Core\Layout\Editor\Grid.lua
+Core\Layout\Editor\Conflicts.lua
+Core\Layout\Editor\Panel.lua
+Core\SetupPresets.lua
+
+# World layers and diagnostics
 Core\WorldChildren.lua
 Core\PlateLayer.lua
 Core\BubbleLayer.lua
+Core\Diagnostics.lua
 
-# Shared widgets
+# Spell data
+Data\Effects.lua
+Data\Abilities.lua
+Core\SpellDB.lua
+
+# Services: cooldowns, DR, casts, player control, data used by several features
 Modules\CooldownTimer.lua
-Modules\CooldownData.lua
-Modules\Inspect.lua
+Modules\Inspect\Inspect.lua
+Modules\Inspect\ItemLevel.lua
 Modules\Talents.lua
 Modules\CooldownTracker.lua
 Modules\DRData.lua
+Modules\CastShared.lua
+Modules\PlayerControl.lua
 Modules\LoseControlData.lua
 Modules\SpellAlertData.lua
 Modules\ProcData.lua
@@ -50,6 +92,7 @@ Modules\TotemData.lua
 Modules\InternalCooldowns.lua
 Modules\DiminishingReturns.lua
 Modules\HealPrediction.lua
+Modules\SoloQueueWatcher.lua
 
 # Action bars
 Modules\ActionBar\ActionBar.lua
@@ -82,6 +125,7 @@ Modules\UnitFrames\Elements\Dispel.lua
 Modules\UnitFrames\Elements\Status.lua
 Modules\UnitFrames\Elements\Auras.lua
 Modules\UnitFrames\Elements\Cast.lua
+Modules\UnitFrames\Elements\Gcd.lua
 Modules\UnitFrames\Elements\LoseControl.lua
 Modules\UnitFrames\Elements\Diminish.lua
 Modules\UnitFrames\Elements\Procs.lua
@@ -115,13 +159,16 @@ Modules\ExperienceBar.lua
 Modules\Minimap.lua
 Modules\BagItems.lua
 Modules\Bags.lua
+Modules\BagSearch.lua
+Modules\BagButtons.lua
+Modules\BagContainer.lua
 Modules\BagSort.lua
-Modules\CombatLogFix.lua
 
 # Macros
 Modules\Macros\Parser.lua
 Modules\Macros\Macros.lua
 Modules\Macros\SecureList.lua
+Modules\Macros\Sharing.lua
 Modules\Macros\Window.lua
 
 # Chat
@@ -134,51 +181,57 @@ Modules\Chat\ChannelColors.lua
 Modules\Chat\ScrollButton.lua
 
 # Everything else
-Modules\Misc\Tweaks.lua
-Modules\Misc\Popups.lua
-Modules\Misc\Version.lua
-Modules\Misc\Conflicts.lua
-Modules\Misc\AddonList.lua
-Modules\Misc\TooltipSkin.lua
-Modules\Misc\Tooltips.lua
-Modules\Misc\WheelPaging.lua
-Modules\Misc\CursorTrail.lua
-Modules\Misc\LowHealthFlash.lua
-Modules\Misc\QueuePopFlash.lua
-Modules\Misc\QueueInvite.lua
-Modules\Misc\Arena.lua
-Modules\Misc\ArenaCountdown.lua
-Modules\Misc\ArenaHistory.lua
-Modules\Misc\MatchResults.lua
-Modules\Misc\DeathRecap.lua
-Modules\Misc\SoloQueue.lua
-Modules\Misc\GossipCards.lua
-Modules\Misc\ArenaSpectator.lua
-Modules\Misc\SoloBattlemaster.lua
-Modules\Misc\SoloCheckman.lua
-Modules\Misc\TopKillers.lua
-Modules\Misc\Announcers.lua
-Modules\Misc\InterruptAnnounce.lua
-Modules\Misc\SoundAlerts.lua
-Modules\Misc\SpellAlerts.lua
-Modules\Misc\Battleground.lua
-Modules\Misc\Merchant.lua
-Modules\Misc\Equipment.lua
-Modules\Misc\ModelControls.lua
-Modules\Misc\CombatAlert.lua
-Modules\Misc\ShieldIndicator.lua
-Modules\Misc\Performance.lua
-Modules\Misc\WorldMap.lua
-Modules\Misc\HideBlizzard.lua
-Modules\Misc\BlizzardFrames.lua
-Modules\Misc\SpellBook.lua
-Modules\Misc\TalentFrame.lua
-Modules\Misc\InspectTalentData.lua
-Modules\Misc\InspectStatData.lua
-Modules\Misc\InspectGear.lua
-Modules\Misc\InspectFrame.lua
-Modules\Misc\TransferData.lua
-Modules\Misc\Transfer.lua
+Modules\Interface\Tweaks.lua
+Modules\Interface\Popups.lua
+Modules\Interface\Version.lua
+Modules\Interface\Conflicts.lua
+Modules\Interface\AddonList.lua
+Modules\Tooltip\TooltipSkin.lua
+Modules\Tooltip\Tooltips.lua
+Modules\Interface\WheelPaging.lua
+Modules\Interface\CursorTrail.lua
+Modules\Alerts\LowHealthFlash.lua
+Modules\Arena\QueuePopFlash.lua
+Modules\Arena\QueueInvite.lua
+Modules\Arena\Arena.lua
+Modules\Arena\ArenaCountdown.lua
+Modules\Arena\ArenaHistory.lua
+Modules\Arena\MatchResults.lua
+Modules\Arena\DeathRecap.lua
+Modules\Alerts\Announcers.lua
+Modules\Alerts\InterruptAnnounce.lua
+Modules\Alerts\SoundAlerts.lua
+Modules\Alerts\SpellAlerts.lua
+Modules\Arena\Battleground.lua
+Modules\Merchant.lua
+Modules\Inspect\Equipment.lua
+Modules\Interface\ModelControls.lua
+Modules\Alerts\CombatAlert.lua
+Modules\Interface\ShieldIndicator.lua
+Modules\Interface\Performance.lua
+Modules\Interface\WorldMap.lua
+Modules\Interface\HideBlizzard.lua
+Modules\Interface\BlizzardFrames.lua
+Modules\Interface\ClassNames.lua
+Modules\Books\SpellBook.lua
+Modules\Books\TalentFrame.lua
+Data\InspectTalentData.lua
+Data\InspectStatData.lua
+Modules\Inspect\InspectGear.lua
+Modules\Inspect\InspectStats.lua
+Modules\Inspect\InspectFrame.lua
+Modules\Inspect\TalentStats.lua
+Data\TransferData.lua
+Modules\Transfer\Transfer.lua
+
+# Server: WoW Circle (runs when the server is WoW Circle)
+Realm\WoWCircle\CombatLogFix.lua
+Realm\WoWCircle\GossipCards.lua
+Realm\WoWCircle\ArenaSpectator.lua
+Realm\WoWCircle\SoloBattlemaster.lua
+Realm\WoWCircle\SoloCheckman.lua
+Realm\WoWCircle\SoloQueue.lua
+Realm\WoWCircle\TopKillers.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua

@@ -6,20 +6,36 @@ local UnitIsUnit = UnitIsUnit
 local UnitInParty = UnitInParty
 local UnitInRaid = UnitInRaid
 local CheckInteractDistance = CheckInteractDistance
+local IsSpellInRange = IsSpellInRange
+local UnitCanAttack = UnitCanAttack
 local GetTime = GetTime
+
+local UPDATE_INTERVAL = 0.25
+local config = ns.Config.unitFrames
+
+local function spellRange(spell, unit)
+	if spell and spell ~= "" then
+		local result = IsSpellInRange(spell, unit)
+		if result ~= nil then
+			return result == 1
+		end
+	end
+end
 
 local function isInRange(unit)
 	if UnitIsUnit(unit, "player") then
 		return true
+	end
+	local bySpell =
+		spellRange(UnitCanAttack("player", unit) and config.rangeSpellHostile or config.rangeSpellFriendly, unit)
+	if bySpell ~= nil then
+		return bySpell
 	elseif UnitInParty(unit) or UnitInRaid(unit) then
 		return UnitInRange(unit)
 	else
 		return CheckInteractDistance(unit, 4)
 	end
 end
-
-local UPDATE_INTERVAL = 0.25
-local config = ns.Config.unitFrames
 
 local function update(frame)
 	frame.range.nextCheck = GetTime() + UPDATE_INTERVAL
@@ -45,4 +61,4 @@ local function create(frame)
 	return range
 end
 
-UF:RegisterElement("range", create, update, test)
+UF:RegisterElement({ name = "range", Create = create, Update = update, Test = test })

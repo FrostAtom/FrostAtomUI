@@ -8,7 +8,7 @@ local abs = math.abs
 local MAX_AURAS = 40
 local DURATION_TOLERANCE = 0.2
 
-local Auras = ns.Mixin({}, ns.EventMixin)
+local Auras = ns.Mixin({ name = "Auras" }, ns.EventMixin)
 ns.Auras = Auras
 
 local cache = {}
@@ -45,6 +45,7 @@ local function observe(set, aura, now)
 	else
 		start = now
 	end
+	-- 3.3.5: UnitAura can report a wrong duration for player auras; it is measured from the aura's appearance
 	if duration > 0 and abs(expires - start - duration) <= DURATION_TOLERANCE then
 		start = expires - duration
 	else

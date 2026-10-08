@@ -12,6 +12,7 @@ local AURA_GROWTH_ANCHORS = { LEFT = "TOPRIGHT", RIGHT = "TOPLEFT" }
 local player, castbar, pet, target, focus
 local party, arena = {}, {}
 UF.groupFrames = { party = party, arena = arena }
+ns.FrameBridge.groupFrames = UF.groupFrames
 local partyPets, arenaPets = {}, {}
 local partyTargets, arenaTargets = {}, {}
 local squares = {}
@@ -65,28 +66,49 @@ local function gridCapacity(grid)
 	return rows * (size + grid.gap) - grid.gap
 end
 
-local function auraInsets(frame, fixedGap, gapKey)
-	return function()
-		local gap = fixedGap or ns.Config.unitFrames[gapKey]
-		local left, right, top, bottom, leftHeight, rightHeight = 0, 0, 0, 0, -gap, -gap
-		for _, grid in ipairs({ frame.debuffs, frame.buffs }) do
-			local capacity = gridCapacity(grid)
-			if capacity > 0 then
-				local position = grid.position
-				if position == "LEFT" then
-					left = max(left, gap + grid:GetWidth())
-					leftHeight = leftHeight + gap + capacity
-				elseif position == "RIGHT" then
-					right = max(right, gap + grid:GetWidth())
-					rightHeight = rightHeight + gap + capacity
-				elseif position == "TOP" then
-					top = top + gap + capacity
-				else
-					bottom = bottom + gap + capacity
-				end
+local function auraExtents(frame, gap)
+	local left, right, top, bottom, leftHeight, rightHeight = 0, 0, 0, 0, -gap, -gap
+	for _, grid in ipairs({ frame.debuffs, frame.buffs }) do
+		local capacity = gridCapacity(grid)
+		if capacity > 0 then
+			local position = grid.position
+			if position == "LEFT" then
+				left = max(left, gap + grid:GetWidth())
+				leftHeight = leftHeight + gap + capacity
+			elseif position == "RIGHT" then
+				right = max(right, gap + grid:GetWidth())
+				rightHeight = rightHeight + gap + capacity
+			elseif position == "TOP" then
+				top = top + gap + capacity
+			else
+				bottom = bottom + gap + capacity
 			end
 		end
+	end
+	return left, right, top, bottom, leftHeight, rightHeight
+end
+
+local function auraInsets(frame, fixedGap, gapKey)
+	return function()
+		local left, right, top, bottom, leftHeight, rightHeight =
+			auraExtents(frame, fixedGap or ns.Config.unitFrames[gapKey])
 		return left, right, top, max(bottom, max(leftHeight, rightHeight) - frame:GetHeight())
+	end
+end
+
+local function auraParts(frame, fixedGap, gapKey)
+	return function()
+		local left, right, top, bottom, leftHeight, rightHeight =
+			auraExtents(frame, fixedGap or ns.Config.unitFrames[gapKey])
+		local width, height = frame:GetSize()
+		local parts = { { 0, 0, top, bottom } }
+		if left > 0 then
+			parts[#parts + 1] = { left, -width, 0, leftHeight - height }
+		end
+		if right > 0 then
+			parts[#parts + 1] = { -width, right, 0, rightHeight - height }
+		end
+		return parts
 	end
 end
 
@@ -218,9 +240,42 @@ local function applyVisibility()
 	setGroupWatched(arenaTargets, config.showArena and config.showArenaTarget)
 end
 
+local OPPOSITE_SIDES = { TOP = "BOTTOM", BOTTOM = "TOP" }
+
+function UF.CastbarClearance(frame, side)
+	local castbar = frame.castbar
+	local point = castbar and castbar.moverPath and ns:GetConfig(castbar.moverPath)
+	if
+		not point
+		or point[4] ~= frame.moverPath
+		or not (point[5] or ""):find("^" .. side)
+		or not point[1]:find("^" .. OPPOSITE_SIDES[side])
+	then
+		return 0
+	end
+	local config = ns.Config.unitFrames
+	local keys = UF.CategoryKeys((frame.baseUnit or frame.unit):gsub("%d+$", ""))
+	if not config[keys.castbar] then
+		return 0
+	end
+	local height = config[keys.castbarHeight] or castbar:GetHeight()
+	return side == "TOP" and point[3] + height or point[3] - height
+end
+
+local function anchorAboveTargets()
+	for _, frame in ipairs({ target, focus }) do
+		local clearance = UF.CastbarClearance(frame, "TOP")
+		frame.raidicon:ClearAllPoints()
+		frame.raidicon:SetPoint("BOTTOM", frame, "TOP", 0, clearance > 0 and clearance + 2 or -4)
+	end
+	target.combopoints:ClearAllPoints()
+	target.combopoints:SetPoint("BOTTOMLEFT", target, "TOPLEFT", 2, 2 + UF.CastbarClearance(target, "TOP"))
+end
+
 local function applyGroupAnchors()
 	anchorGroupTrinkets(party, "LEFT")
 	anchorGroupTrinkets(arena, "RIGHT")
+	anchorAboveTargets()
 end
 
 local function applyGroupElements(frames, keys, config)
@@ -290,12 +345,12 @@ local function applyElements()
 	UF.SetPollingActive(polling)
 end
 
-local function frameResize(widthKey, heightKey, minWidth, minHeight)
+local function frameResize(widthKey, heightKey, limits)
 	return {
-		minWidth = minWidth,
-		maxWidth = 500,
-		minHeight = minHeight,
-		maxHeight = 200,
+		minWidth = limits.width[1],
+		maxWidth = limits.width[2],
+		minHeight = limits.height[1],
+		maxHeight = limits.height[2],
 		get = function()
 			local config = ns.Config.unitFrames
 			return config[widthKey], config[heightKey]
@@ -357,6 +412,7 @@ local function createPlayer(self, config)
 		gap = 2,
 		perRow = config.playerAuraPerRow,
 		anchor = growthAnchor(config.playerAuraGrowth),
+		max = BUFF_MAX_DISPLAY,
 	})
 	ns.ApplyPoint(buffs, "unitFrames.playerAuras")
 
@@ -365,11 +421,13 @@ local function createPlayer(self, config)
 		gap = 2,
 		perRow = config.playerDebuffPerRow,
 		anchor = growthAnchor(config.playerDebuffGrowth),
+		max = DEBUFF_MAX_DISPLAY,
 	})
 
 	castbar = self:AddElement(player, "castbar")
 	sizePlayerCastbar(config)
 	ns.ApplyPoint(castbar, "unitFrames.playerCastbar")
+	self:AddElement(player, "gcd")
 
 	addRaidIconAbove(self, player)
 
@@ -402,8 +460,7 @@ local function createTargets(self, config)
 	self:AddElement(targetOfTarget, "hideself")
 	addSquareParts(self, targetOfTarget, squareCategory("targetOfTarget", false, true), "unitFrames.targetOfTarget")
 
-	local combo = self:AddElement(target, "combopoints", { gap = 2 })
-	combo:SetPoint("BOTTOMLEFT", target, "TOPLEFT", 2, 2)
+	self:AddElement(target, "combopoints", { gap = 2 })
 
 	local focusTarget
 	focus, focusTarget = self:CreateTarget("focus", config.focusWidth, config.focusHeight)
@@ -414,6 +471,8 @@ local function createTargets(self, config)
 	focusTarget:RegisterEvent("PLAYER_FOCUS_CHANGED", "QueueUpdate")
 	addSquareParts(self, focusTarget, squareCategory("focusTarget", false, true), "unitFrames.focusTarget")
 
+	target.moverPath, target.castbar.moverPath = "unitFrames.target", "unitFrames.targetCastbar"
+	focus.moverPath, focus.castbar.moverPath = "unitFrames.focus", "unitFrames.focusCastbar"
 	for _, frame in ipairs({ target, focus }) do
 		addRaidIconAbove(self, frame)
 		addPvp(self, frame)
@@ -494,6 +553,7 @@ local function createParty(self, config)
 		partyPets[i], partyTargets[i] = pet, unitTarget
 
 		self:AddElement(frame, "trinket", { size = ns.Config.arenaTrinket.size, arenaOnly = true })
+		self:AddElement(frame, "diminish")
 	end
 end
 
@@ -534,11 +594,11 @@ local function createArena(self, config)
 end
 
 local function castbarResizer(prefix)
-	return frameResize(prefix .. "CastbarWidth", prefix .. "CastbarHeight", 60, 10)
+	return frameResize(prefix .. "CastbarWidth", prefix .. "CastbarHeight", ns.Limits.castbar)
 end
 
 local function squareResizer(key)
-	return frameResize(key .. "Width", key .. "Height", 20, 20)
+	return frameResize(key .. "Width", key .. "Height", ns.Limits.square)
 end
 
 local function registerSquareMovers(self, frame, key, label, shownPaths, context)
@@ -549,6 +609,7 @@ local function registerSquareMovers(self, frame, key, label, shownPaths, context
 		enabledPath = shownPaths,
 		resize = squareResizer(key),
 		insets = auraInsets(frame, SQUARE_AURA_GAP),
+		parts = auraParts(frame, SQUARE_AURA_GAP),
 		context = context,
 	})
 	self:RegisterMover(frame.castbar, frame.castbar.moverPath, label .. " castbar", {
@@ -559,22 +620,26 @@ local function registerSquareMovers(self, frame, key, label, shownPaths, context
 	})
 end
 
+local GROUP_LABELS = { Party = "Party member", Arena = "Arena opponent" }
+
 local function registerGroupMovers(self, frames, prefix, name, context)
+	local label = GROUP_LABELS[name]
 	local shownPath = "unitFrames.show" .. name
 	local castbarShownPath = "unitFrames.show" .. name .. "Castbar"
-	local resize = frameResize(prefix .. "Width", prefix .. "Height", 80, 20)
+	local resize = frameResize(prefix .. "Width", prefix .. "Height", ns.Limits.frame)
 	local castbarResize = castbarResizer(prefix)
 	local keys = UF.CategoryKeys(prefix)
 	for i = 1, #frames do
 		local frame = frames[i]
-		self:RegisterMover(frame, frame.moverPath, name .. " " .. i, {
+		self:RegisterMover(frame, frame.moverPath, label .. " " .. i, {
 			secure = true,
 			resize = resize,
 			enabledPath = shownPath,
 			insets = auraInsets(frame, nil, keys.auraSpacing),
+			parts = auraParts(frame, nil, keys.auraSpacing),
 			context = context,
 		})
-		self:RegisterMover(frame.castbar, frame.castbar.moverPath, name .. " " .. i .. " castbar", {
+		self:RegisterMover(frame.castbar, frame.castbar.moverPath, label .. " " .. i .. " castbar", {
 			enabledPath = { shownPath, castbarShownPath },
 			insets = castbarInsets(frame.castbar),
 			resize = castbarResize,
@@ -584,7 +649,7 @@ local function registerGroupMovers(self, frames, prefix, name, context)
 			self,
 			frame.pet,
 			prefix .. "Pet",
-			name .. " " .. i .. " pet",
+			label .. " " .. i .. " pet",
 			{ shownPath, "unitFrames." .. frame.pet.shownKey },
 			context
 		)
@@ -592,7 +657,7 @@ local function registerGroupMovers(self, frames, prefix, name, context)
 			self,
 			frame.unitTarget,
 			prefix .. "Target",
-			name .. " " .. i .. " target",
+			label .. " " .. i .. " target",
 			{ shownPath, "unitFrames." .. frame.unitTarget.shownKey },
 			context
 		)
@@ -635,17 +700,19 @@ function UF:Initialize()
 
 	self:RegisterMover(player, "unitFrames.player", "Player", {
 		secure = true,
-		resize = frameResize("playerWidth", "playerHeight", 80, 20),
+		resize = frameResize("playerWidth", "playerHeight", ns.Limits.frame),
 	})
 	self:RegisterMover(target, "unitFrames.target", "Target", {
 		secure = true,
-		resize = frameResize("targetWidth", "targetHeight", 80, 20),
+		resize = frameResize("targetWidth", "targetHeight", ns.Limits.frame),
 		insets = auraInsets(target, UF.CASTBAR_GAP),
+		parts = auraParts(target, UF.CASTBAR_GAP),
 	})
 	self:RegisterMover(focus, "unitFrames.focus", "Focus", {
 		secure = true,
-		resize = frameResize("focusWidth", "focusHeight", 80, 20),
+		resize = frameResize("focusWidth", "focusHeight", ns.Limits.frame),
 		insets = auraInsets(focus, UF.CASTBAR_GAP),
+		parts = auraParts(focus, UF.CASTBAR_GAP),
 	})
 	self:RegisterMover(target.castbar, "unitFrames.targetCastbar", "Target castbar", {
 		enabledPath = "unitFrames.showTargetCastbar",
@@ -667,7 +734,7 @@ function UF:Initialize()
 	)
 	registerSquareMovers(self, focus.targetOfTarget, "focusTarget", "Target of focus", { "unitFrames.showFocusTarget" })
 	self:RegisterMover(castbar, "unitFrames.playerCastbar", "Player castbar", {
-		resize = frameResize("playerCastbarWidth", "playerCastbarHeight", 60, 10),
+		resize = frameResize("playerCastbarWidth", "playerCastbarHeight", ns.Limits.castbar),
 	})
 	self:RegisterMover(player.buffs, "unitFrames.playerAuras", "Player buffs", { size = playerAuraSize(player.buffs) })
 	self:RegisterMover(player.debuffs, "unitFrames.playerDebuffs", "Player debuffs", {
@@ -680,6 +747,9 @@ function UF:Initialize()
 	applyGroupAnchors()
 	applyFrameSizes(self)
 	applyElements()
+	if not InCombatLockdown() then
+		self:ApplyClicks()
+	end
 
 	self:WatchConfig("unitFrames", applyPositions, true)
 	self:WatchConfig("unitFrames", applyGroupAnchors)
@@ -689,7 +759,12 @@ function UF:Initialize()
 	self:WatchConfig("unitFrames", applyElements)
 	self:WatchConfig("unitFrames.rightClick", self.ApplyClicks, true)
 	self:WatchConfig("unitFrames.middleClick", self.ApplyClicks, true)
+	self:WatchConfig("unitFrames.arenaShiftClick", self.ApplyClicks, true)
+	self:WatchConfig("unitFrames.arenaCtrlClick", self.ApplyClicks, true)
+	self:WatchConfig("unitFrames.arenaAltClick", self.ApplyClicks, true)
 	self:WatchConfig("unitFrames", self.ApplyColors)
+	self:WatchConfig("theme", self.ApplyColors)
+	self:WatchConfig("castbar", self.ApplyColors)
 	self:WatchConfig("unitFrames", refreshMovers)
 	self:WatchConfig("arenaTrinket", applyTrinkets)
 	self:WatchConfig("groupCooldowns", applyTrinkets)

@@ -19,4 +19,4 @@ local function create(frame, template)
 	return name
 end
 
-UF:RegisterElement("name", create, update, update)
+UF:RegisterElement({ name = "name", Create = create, Update = update, Test = update })

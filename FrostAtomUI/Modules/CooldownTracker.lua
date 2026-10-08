@@ -16,6 +16,7 @@ local FORBEARANCE_DURATION = 120
 local bit_band = bit.band
 local strsub = string.sub
 local min = math.min
+local max = math.max
 local GetTime = GetTime
 local UnitGUID = UnitGUID
 local UnitClass = UnitClass
@@ -23,9 +24,8 @@ local UnitRace = UnitRace
 local COMBATLOG_OBJECT_TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local COMBATLOG_OBJECT_TYPE_PET = COMBATLOG_OBJECT_TYPE_PET
 
-ns.COOLDOWN_UPDATED = "FrostAtomUI_COOLDOWN_UPDATED"
-
 local CooldownTracker = ns:NewModule("CooldownTracker")
+ns.Mixin(CooldownTracker, ns.Demand)
 local Talents = ns:GetModule("Talents")
 
 local spellInfo = {}
@@ -104,7 +104,7 @@ local function hasTalent(guid, id, info, talents, entries, strict)
 end
 
 local trackedList = {}
-function CooldownTracker:GetTrackedFor(guid, class, race, strict)
+function CooldownTracker:GetTrackedFor(guid, class, race, strict, out)
 	local spells = class and SPELLS[class]
 	if not spells then
 		return
@@ -113,17 +113,18 @@ function CooldownTracker:GetTrackedFor(guid, class, race, strict)
 	local talents = guid and Talents:Get(guid)
 	local entries = guid and cooldowns[guid]
 
-	wipe(trackedList)
+	local list = out or trackedList
+	wipe(list)
 	for i = 1, #spells do
 		local id = spells[i][1]
 		if hasTalent(guid, id, spellInfo[id], talents, entries, strict) then
-			trackedList[#trackedList + 1] = id
+			list[#list + 1] = id
 		end
 	end
-	trackedList[#trackedList + 1] = PVP_TRINKET
+	list[#list + 1] = PVP_TRINKET
 	local racial = RACIALS[race]
 	if racial then
-		trackedList[#trackedList + 1] = racial
+		list[#list + 1] = racial
 	end
 	if entries then
 		local common = SPELLS.COMMON
@@ -131,11 +132,11 @@ function CooldownTracker:GetTrackedFor(guid, class, race, strict)
 			local entry = common[i]
 			local id = entry[1]
 			if entry.dynamic and entries[id] then
-				trackedList[#trackedList + 1] = id
+				list[#list + 1] = id
 			end
 		end
 	end
-	return trackedList
+	return list
 end
 
 function CooldownTracker:GetTracked(unit)
@@ -143,6 +144,10 @@ function CooldownTracker:GetTracked(unit)
 	local _, race = UnitRace(unit)
 	return self:GetTrackedFor(UnitGUID(unit), class, race)
 end
+
+ns.API.RegisterAction("cooldownInfo", function(id)
+	return CooldownTracker:GetInfo(id)
+end)
 
 function CooldownTracker:GetInfo(id)
 	return spellInfo[id]
@@ -168,7 +173,7 @@ local function hasModifier(guid, talents, id)
 	end
 	local talent = MOD_TALENTS[id]
 	if not talent then
-		return false
+		return true, true
 	end
 	local reachable = Talents:GetReachableRanks(guid, talent.tree, talent.points)
 	return talent.rank <= reachable and (talent.rank == talent.maxRank or talent.rank + 1 > reachable)
@@ -176,24 +181,50 @@ end
 
 function CooldownTracker:GetDuration(guid, id)
 	local duration = spellInfo[id].cooldown
+	local longest = duration
 	local talents = Talents:Get(guid)
+	local assumed = false
 	local mod = CDMOD[id]
 	if mod then
 		for i = 1, #mod, 2 do
-			if hasModifier(guid, talents, mod[i]) then
+			local has, guessed = hasModifier(guid, talents, mod[i])
+			if has and (not guessed or mod[i + 1] > 0) then
 				duration = duration - mod[i + 1]
+				assumed = assumed or guessed or false
+			end
+			if has and not guessed then
+				longest = longest - mod[i + 1]
 			end
 		end
 	end
 	local mult = CDMOD_MULT[id]
 	if mult then
 		for i = 1, #mult, 2 do
-			if hasModifier(guid, talents, mult[i]) then
+			local has, guessed = hasModifier(guid, talents, mult[i])
+			if has and (not guessed or mult[i + 1] < 1) then
 				duration = duration * mult[i + 1]
+				assumed = assumed or guessed or false
+			end
+			if has and not guessed then
+				longest = longest * mult[i + 1]
 			end
 		end
 	end
-	return duration
+	duration = duration > 0 and duration or 0
+	return duration, assumed, assumed and max(longest, duration) or duration
+end
+
+function CooldownTracker:GetMaybeReady(guid, id)
+	local entries = guid and cooldowns[guid]
+	local entry = entries and entries[id]
+	if not (entry and entry.assumed and entry.start and entry.longest) then
+		return
+	end
+	local readyAt, lastReady = entry.start + entry.duration, entry.start + entry.longest
+	local now = GetTime()
+	if now >= readyAt and now < lastReady then
+		return lastReady
+	end
 end
 
 local function startCooldown(entries, id, duration, now)
@@ -202,6 +233,7 @@ local function startCooldown(entries, id, duration, now)
 	entry.duration = duration
 	entry.pending = nil
 	entry.forbearance = nil
+	entry.assumed, entry.longest = nil, nil
 	return entry
 end
 
@@ -209,6 +241,7 @@ local function clearCooldown(entry)
 	entry.start = nil
 	entry.duration = nil
 	entry.forbearance = nil
+	entry.assumed, entry.longest = nil, nil
 end
 
 local function clearCooldowns(entries, ids)
@@ -223,14 +256,6 @@ end
 local function applyResets(guid, id, entries)
 	local resets = RESETS[id]
 	if not resets then
-		return
-	end
-	if resets.all then
-		for other, entry in pairs(entries) do
-			if other ~= id then
-				clearCooldown(entry)
-			end
-		end
 		return
 	end
 	clearCooldowns(entries, resets)
@@ -262,11 +287,14 @@ function CooldownTracker:OnCast(guid, id, isDuplicateEvent)
 		clearCooldown(entry)
 		entry.pending = true
 		entry.pendingAt = now
-		ns:Fire(ns.COOLDOWN_UPDATED, guid)
+		ns:Fire(ns.E.COOLDOWN_UPDATED, guid)
 		return true
 	end
 
-	startCooldown(entries, id, self:GetDuration(guid, id), now)
+	local duration, assumed, longest = self:GetDuration(guid, id)
+	local entry = startCooldown(entries, id, duration, now)
+	entry.assumed = assumed or nil
+	entry.longest = assumed and longest or nil
 
 	local shared = SHARED_COOLDOWNS[id]
 	if shared then
@@ -280,13 +308,19 @@ function CooldownTracker:OnCast(guid, id, isDuplicateEvent)
 
 	applyResets(guid, id, entries)
 
-	ns:Fire(ns.COOLDOWN_UPDATED, guid)
+	ns:Fire(ns.E.COOLDOWN_UPDATED, guid)
 	return true
 end
 
 local function auraToSpell(spellId)
 	local base = baseSpell[spellId]
 	return auraSpell[spellId] or (base and auraSpell[base])
+end
+
+function CooldownTracker:AuraCategory(spellId)
+	local id = auraToSpell(spellId)
+	local info = id and spellInfo[id]
+	return info and info.category
 end
 
 local function onAuraApplied(guid, spellId, destGUID)
@@ -299,7 +333,7 @@ local function onAuraApplied(guid, spellId, destGUID)
 		local entry = getEntry(getEntries(guid), id)
 		if not entry.active then
 			entry.active = true
-			ns:Fire(ns.COOLDOWN_UPDATED, guid)
+			ns:Fire(ns.E.COOLDOWN_UPDATED, guid)
 		end
 	end
 end
@@ -328,7 +362,7 @@ local function onAuraRemoved(guid, spellId, destGUID)
 	end
 
 	if changed then
-		ns:Fire(ns.COOLDOWN_UPDATED, guid)
+		ns:Fire(ns.E.COOLDOWN_UPDATED, guid)
 	end
 end
 
@@ -352,7 +386,7 @@ local function onForbearanceApplied(guid)
 			startCooldown(entries, id, duration, now).forbearance = true
 		end
 	end
-	ns:Fire(ns.COOLDOWN_UPDATED, guid)
+	ns:Fire(ns.E.COOLDOWN_UPDATED, guid)
 end
 
 local function onForbearanceRemoved(guid)
@@ -366,7 +400,7 @@ local function onForbearanceRemoved(guid)
 			clearCooldown(entry)
 		end
 	end
-	ns:Fire(ns.COOLDOWN_UPDATED, guid)
+	ns:Fire(ns.E.COOLDOWN_UPDATED, guid)
 end
 
 function CooldownTracker:Reset(guid)
@@ -375,7 +409,7 @@ function CooldownTracker:Reset(guid)
 	else
 		wipe(cooldowns)
 	end
-	ns:Fire(ns.COOLDOWN_UPDATED, guid)
+	ns:Fire(ns.E.COOLDOWN_UPDATED, guid)
 end
 
 local OWNER_PETS = {
@@ -494,12 +528,22 @@ function CooldownTracker:UNIT_PET(unit)
 	end
 end
 
-function CooldownTracker:Initialize()
-	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
+function CooldownTracker:OnDemandStart()
+	ns.CombatLog.Register(self, ns.CombatLog.ALL, onCombatLogEvent)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 	self:RegisterEvent("UNIT_PET")
 	self:RegisterEvent("PARTY_MEMBERS_CHANGED", rebuildPetOwners)
 	self:RegisterEvent("ARENA_OPPONENT_UPDATE", rebuildPetOwners)
+	rebuildPetOwners()
+end
+
+function CooldownTracker:OnDemandStop()
+	ns.CombatLog.Unregister(self, onCombatLogEvent)
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+	self:UnregisterEvent("UNIT_PET")
+	self:UnregisterEvent("PARTY_MEMBERS_CHANGED")
+	self:UnregisterEvent("ARENA_OPPONENT_UPDATE")
+	self:Reset()
 end
 
 local TEST_UNITS = { "party1", "party2", "party3", "party4", "arena1", "arena2", "arena3" }

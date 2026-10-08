@@ -4,16 +4,119 @@ local L = FrostAtomUI.L
 
 local Section = ns.Section
 
-local NEW = "1.4.1"
+local NEW = "1.5.0"
+local ui = FrostAtomUI
+local DIALOG_WIDTH, PADDING, LINE = 460, 20, 24
+
+local dialog
+
+local function itemText(item)
+	if item.binding then
+		return L["Mouse button 5: focus mouseover set by FrostAtom UI, will be unbound"]
+	elseif item.key == "uiScale" then
+		return L["UI scale: %s now, %s before"]:format(item.now, tostring(item.was))
+	end
+	return L["%s (%s): %s now, %s before"]:format(ns.SettingLabel(item.path), item.name, item.now, item.was)
+end
+
+local function createDialog()
+	dialog = ns.CreateWindow(nil, {
+		width = DIALOG_WIDTH,
+		height = 200,
+		header = true,
+		strata = "FULLSCREEN_DIALOG",
+		noClose = true,
+		movable = false,
+	})
+	dialog:SetPoint("CENTER")
+	dialog.heading:SetText(L["Restore game settings"])
+	local shade = dialog:CreateTexture(nil, "BACKGROUND")
+	shade:SetTexture(0, 0, 0, 0.92)
+	shade:SetPoint("TOPLEFT", 4, -4)
+	shade:SetPoint("BOTTOMRIGHT", -4, 4)
+	local text = dialog:CreateFontString(nil, "ARTWORK")
+	text:SetFontObject(ns.Font("GameFontHighlight"))
+	text:SetPoint("TOPLEFT", PADDING, -42)
+	text:SetWidth(DIALOG_WIDTH - PADDING * 2)
+	text:SetJustifyH("LEFT")
+	text:SetText(
+		L["Checked settings go back to what they were before FrostAtom UI, and the options that set them are turned off. A backup is saved first."]
+	)
+	dialog.text = text
+	dialog.checks = {}
+	local cancel = ns.CreateButton(dialog, CANCEL, 96)
+	cancel:SetPoint("BOTTOMRIGHT", -PADDING, 16)
+	cancel:SetScript("OnClick", function()
+		dialog:Hide()
+	end)
+	local accept = ns.CreateButton(dialog, L["Restore"], 120)
+	accept:SetPoint("RIGHT", cancel, "LEFT", -4, 0)
+	accept:SetScript("OnClick", function()
+		local keys = {}
+		for _, check in ipairs(dialog.checks) do
+			if check:IsShown() and check:GetChecked() then
+				keys[check.key] = true
+			end
+		end
+		if ui.RestoreGameSettings(keys) then
+			dialog:Hide()
+		end
+	end)
+end
+
+local function showRestoreDialog()
+	local list = ui.GetGameSettingChanges()
+	if #list == 0 then
+		ui.Print(L["game settings are already as before FrostAtom UI"])
+		return
+	end
+	if not dialog then
+		createDialog()
+	end
+	for _, check in ipairs(dialog.checks) do
+		check:Hide()
+	end
+	dialog:Show()
+	local top = 42 + dialog.text:GetStringHeight() + 10
+	for index, item in ipairs(list) do
+		local check = dialog.checks[index]
+		if not check then
+			check = ui.CreateCheckButton(dialog, "", nil, true)
+			dialog.checks[index] = check
+		end
+		check.key = item.key
+		check:SetLabel(itemText(item))
+		check:SetChecked(true)
+		check:ClearAllPoints()
+		check:SetPoint("TOPLEFT", PADDING - 4, -top - (index - 1) * LINE)
+		check:Show()
+	end
+	dialog:SetHeight(top + #list * LINE + 60)
+end
 
 local schema = {
 	{
 		path = "tweaks.enabled",
 		label = L["Enable tweaks"],
 		type = "toggle",
-		reload = true,
 		noReset = true,
-		desc = L["The same switch as Quality of life > Tweaks > Enable. Every setting on this page needs it."],
+		desc = L["Hidden game settings: camera, controls, graphics, sound. Turning this off restores the values you had before FrostAtom UI."],
+	},
+	{
+		path = "tweaks.disableTutorials",
+		new = "1.5.0",
+		label = L["Disable Blizzard tutorials"],
+		type = "toggle",
+		enabledBy = "tweaks.enabled",
+		desc = L["Turns off the game's tutorial tips. The game keeps this for every character on this computer; unticking turns them back on."],
+	},
+	{
+		label = L["Restore game settings"],
+		type = "execute",
+		text = L["Restore..."],
+		glyph = "clock-rotate-left",
+		func = showRestoreDialog,
+		desc = L["Game settings (CVars), the UI scale and mouse button 5 go back to what they were before FrostAtom UI. Before removing the addon, press this: the grass, Blizzard tips, the UI scale and the side mouse button come back."],
 	},
 }
 
@@ -73,6 +176,7 @@ Section(schema, L["Camera"], "tweaks", {
 	},
 	{
 		path = "cameraFollowStyle",
+		advanced = true,
 		new = NEW,
 		label = L["Camera following style"],
 		type = "select",
@@ -128,6 +232,7 @@ for _, preset in ipairs({
 }) do
 	cameraPresets[#cameraPresets + 1] = {
 		path = "cameraDistance" .. preset[1],
+		advanced = true,
 		label = preset[2],
 		type = "number",
 		min = 0,
@@ -135,10 +240,13 @@ for _, preset in ipairs({
 		step = 1,
 		desc = preset[3],
 	}
-	cameraPresets[#cameraPresets + 1] = cameraKey("FROSTATOMUI_CAMERA_" .. preset[1]:upper())
+	local key = cameraKey("FROSTATOMUI_CAMERA_" .. preset[1]:upper())
+	key.advanced = true
+	cameraPresets[#cameraPresets + 1] = key
 end
 cameraPresets[#cameraPresets + 1] = {
 	path = "instantCameraCollision",
+	advanced = true,
 	label = L["Instant return after collision"],
 	type = "toggle",
 	new = NEW,
@@ -175,6 +283,7 @@ Section(schema, L["Controls"], "tweaks", {
 		max = 2,
 		step = 0.1,
 		disabled = customMouseSpeedOff,
+		disabledDesc = L['Pick "Custom" in Mouse speed.'],
 		desc = L["1 is the Windows default. The game options limit it to 0.5 - 1.5."],
 	},
 	{
@@ -193,10 +302,22 @@ Section(schema, L["Controls"], "tweaks", {
 	},
 	{
 		path = "keepSitting",
+		advanced = true,
 		new = NEW,
 		label = L["Keep sitting on cast"],
 		type = "toggle",
 		desc = L["Casting while sitting shows an error instead of standing up, so a misclick doesn't interrupt eating or drinking."],
+	},
+	{
+		type = "keybind",
+		binding = FrostAtomUI.FOCUS_BINDING,
+		label = L["Focus mouseover"],
+		new = NEW,
+		desc = L["Sets focus to the unit under the cursor, also in combat."]
+			.. "\n"
+			.. L["Left-click, then press a key or mouse button to bind it."]
+			.. "\n"
+			.. L["Right-click to clear."],
 	},
 }, nil, NEW, "computer-mouse")
 
@@ -218,6 +339,7 @@ Section(schema, L["Graphics"], "tweaks", {
 	},
 	{
 		path = "characterAmbient",
+		advanced = true,
 		new = NEW,
 		label = L["Character brightness"],
 		type = "number",
@@ -274,6 +396,22 @@ Section(schema, L["Graphics"], "tweaks", {
 }, nil, NEW, "image")
 
 Section(schema, L["Performance"], "tweaks", {
+	{
+		label = L["Arena performance"],
+		type = "execute",
+		text = L["Apply"],
+		glyph = "bolt",
+		new = NEW,
+		enabledBy = "tweaks.enabled",
+		desc = L["Models load in 25 ms per frame (no freeze when players appear), grass and full screen glow are hidden. One step of Undo; the model loading time needs a game restart."],
+		func = function()
+			ui.Undo.Run(L["Arena performance"], function()
+				ui:SetConfig("tweaks.assetLoadTime", 25)
+				ui:SetConfig("tweaks.hideGroundClutter", true)
+				ui:SetConfig("tweaks.hideScreenEffects", true)
+			end)
+		end,
+	},
 	{
 		path = "maxFPS",
 		new = NEW,
@@ -340,12 +478,23 @@ Section(schema, L["Sound"], "tweaks", {
 	},
 }, nil, NEW, "volume-high")
 
+schema[#schema + 1] = { header = L["Reliability"], glyph = "screwdriver-wrench", hidden = not ui.IS_WOWCIRCLE }
+if ui.IS_WOWCIRCLE then
+	schema[#schema + 1] = {
+		path = "combatLogFix.enabled",
+		label = L["Fix stalled combat log"],
+		type = "toggle",
+		desc = L["Clear the combat log when it stops delivering events inside instances."],
+	}
+end
+
 ns.RegisterPage({
 	key = "client",
 	name = L["Game client"],
+	desc = L["Game settings FrostAtom UI can change, and how to bring them back."],
 	glyph = "display",
 	new = NEW,
-	order = 62,
+	order = 64,
 	group = "system",
 	schema = schema,
 })

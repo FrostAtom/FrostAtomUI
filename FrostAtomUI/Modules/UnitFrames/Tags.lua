@@ -7,6 +7,7 @@ local UnitPower, UnitPowerMax, UnitPowerType = UnitPower, UnitPowerMax, UnitPowe
 local UnitIsAFK, UnitIsDND = UnitIsAFK, UnitIsDND
 local UnitIsConnected, UnitIsDeadOrGhost = UnitIsConnected, UnitIsDeadOrGhost
 local UnitIsPlayer, UnitReaction = UnitIsPlayer, UnitReaction
+local UnitCanAttack, UnitExists = UnitCanAttack, UnitExists
 local GetGuildInfo = GetGuildInfo
 local floor, tonumber, tostring = math.floor, tonumber, tostring
 local concat = table.concat
@@ -20,8 +21,12 @@ local HP_GRADIENT = { 1, 0.2, 0.2, 1, 0.85, 0.2, 0.3, 1, 0.3 }
 local REACTION_COLORS = { hostile = { 1, 0.3, 0.3 }, neutral = { 1, 0.85, 0.3 }, friendly = { 0.3, 1, 0.3 } }
 local WHITE = { 1, 1, 1 }
 
-local function percent(current, max)
-	return max > 0 and floor(current / max * 100 + 0.5) or 0
+local function percent(current, max, down)
+	if max <= 0 then
+		return 0
+	end
+	local share = current / max * 100
+	return down and floor(share) or floor(share + 0.5)
 end
 
 local function value(raw, amount)
@@ -78,8 +83,28 @@ local tags = {
 	},
 	perhp = {
 		health = true,
+		func = function(unit, data, _, down)
+			local current, max = health(unit, data)
+			return percent(current, max, down)
+		end,
+	},
+	smarthp = {
+		health = true,
+		func = function(unit, data, raw)
+			local current, max = health(unit, data)
+			if data and data.enemy or not data and UnitCanAttack("player", unit) then
+				return percent(current, max) .. "%"
+			end
+			return value(raw, current)
+		end,
+	},
+	targetname = {
 		func = function(unit, data)
-			return percent(health(unit, data))
+			if data then
+				return data.target or ""
+			end
+			local target = unit .. "target"
+			return UnitExists(target) and UnitName(target) or ""
 		end,
 	},
 	curpp = {
@@ -96,8 +121,9 @@ local tags = {
 	},
 	perpp = {
 		power = true,
-		func = function(unit, data)
-			return percent(power(unit, data))
+		func = function(unit, data, _, down)
+			local current, max = power(unit, data)
+			return percent(current, max, down)
 		end,
 	},
 	druidmana = {
@@ -207,14 +233,20 @@ local function parseTag(body)
 				return
 			end
 			part = { tag = token }
+		elseif token:find("^%x%x%x%x%x%x$") then
+			part.code = "|cff" .. token:lower()
 		elseif tonumber(token) then
 			part.length = tonumber(token)
 		elseif token == "raw" then
 			part.raw = true
+		elseif token == "nofull" then
+			part.nofull = true
+		elseif token == "neg" then
+			part.neg = true
+		elseif token == "floor" then
+			part.floor = true
 		elseif colors[token] then
 			part.color = colors[token]
-		elseif token:find("^%x%x%x%x%x%x$") then
-			part.code = "|cff" .. token:lower()
 		end
 	end
 	return part
@@ -253,7 +285,19 @@ local compiled = setmetatable({}, {
 
 local buffer = {}
 
-local function renderTags(template, unit, data)
+local function isFull(info, unit, data)
+	local current, max
+	if info.health then
+		current, max = health(unit, data)
+	elseif info.power then
+		current, max = power(unit, data)
+	else
+		return false
+	end
+	return max > 0 and current >= max
+end
+
+local function renderTags(template, unit, data, healthOnly)
 	local parts = compiled[template]
 	local n = 0
 	for i = 1, #parts do
@@ -262,11 +306,24 @@ local function renderTags(template, unit, data)
 			n = n + 1
 			buffer[n] = part
 		else
-			local text = tags[part.tag].func(unit, data, part.raw)
+			local info = tags[part.tag]
+			local text = ""
+			if not healthOnly or info.health then
+				text = info.func(unit, data, part.raw, part.floor)
+				if part.nofull and isFull(info, unit, data) then
+					text = ""
+				elseif part.neg then
+					text = (text == 0 or text == "0" or text == "") and "" or "-" .. text
+				end
+			end
 			if part.length then
 				text = TruncateUTF8(tostring(text), part.length)
 			end
-			local code = part.code or (part.color and colorCode(part.color(unit, data)))
+			local color = part.color
+			if healthOnly and color ~= colors.hp then
+				color = nil
+			end
+			local code = part.code or (color and colorCode(color(unit, data)))
 			if code then
 				buffer[n + 1] = code
 				buffer[n + 2] = text
@@ -281,7 +338,19 @@ local function renderTags(template, unit, data)
 	return concat(buffer, "", 1, n)
 end
 
+local healthData = { health = 0, healthMax = 0, dead = false, enemy = false }
+
+local function renderHealthTags(template, current, max, enemy)
+	healthData.health, healthData.healthMax = current, max
+	healthData.dead = current <= 0
+	healthData.enemy = enemy or false
+	return renderTags(template, nil, healthData, true)
+end
+
 UF.RenderTags = renderTags
+ns.Tags = { Render = renderTags, RenderHealth = renderHealthTags }
+ns.API.RegisterAction("renderTags", renderTags)
+ns.API.RegisterAction("renderHealthTags", renderHealthTags)
 
 function UF.CheckTag(body)
 	local name
@@ -291,7 +360,17 @@ function UF.CheckTag(body)
 				return token
 			end
 			name = token
-		elseif not (tonumber(token) or token == "raw" or colors[token] or token:find("^%x%x%x%x%x%x$")) then
+		elseif
+			not (
+				tonumber(token)
+				or token == "raw"
+				or token == "nofull"
+				or token == "neg"
+				or token == "floor"
+				or colors[token]
+				or token:find("^%x%x%x%x%x%x$")
+			)
+		then
 			return token, true
 		end
 	end
@@ -299,6 +378,7 @@ function UF.CheckTag(body)
 		return body
 	end
 end
+ns.API.RegisterAction("checkTag", UF.CheckTag)
 
 function UF.TemplateUses(template, key)
 	return compiled[template][key]

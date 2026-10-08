@@ -8,7 +8,8 @@ local config = ns.Config.unitFrames
 local BORDER_COLOR_KEYS = { target = "targetBorderColor", focus = "focusBorderColor" }
 
 local function setHighlight(frame, kind)
-	local color = config[BORDER_COLOR_KEYS[kind] or "borderColor"]
+	local key = BORDER_COLOR_KEYS[kind]
+	local color = key and config[key] or ns.Config.theme.borderColor
 	frame:SetBackdropBorderColor(color[1], color[2], color[3], color[4])
 end
 
@@ -35,4 +36,4 @@ local function create(frame)
 	return true
 end
 
-UF:RegisterElement("highlight", create, update, test)
+UF:RegisterElement({ name = "highlight", Create = create, Update = update, Test = test })

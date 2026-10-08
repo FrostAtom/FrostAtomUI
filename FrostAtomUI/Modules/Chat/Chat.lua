@@ -18,7 +18,10 @@ local find, match, gsub, format, lower, sub =
 local tconcat, sort = table.concat, table.sort
 local max = math.max
 
+local SoloQueueWatcher = ns:GetModule("SoloQueueWatcher")
+
 local Chat = ns:NewModule("Chat")
+ns:RegisterReloadPaths("chat.skin", "chat.lockFrames", "chat.maxLines")
 Chat.configKey = "chat"
 local config = ns.Config.chat
 
@@ -70,9 +73,14 @@ local tabs = {}
 local fader
 local updateTabColors, updateOverflowColors, chatInsets, createHoverZone
 
+local chatGrip, placeGrip
+
 local function applyPosition()
 	ns.ApplyPoint(ChatFrame1, "chat.point")
 	ChatFrame1:SetSize(config.width, config.height)
+	if chatGrip then
+		placeGrip(chatGrip)
+	end
 end
 
 local function applyFrameConfig()
@@ -108,6 +116,64 @@ local function initializeTabDropDown(...)
 	UIDropDownMenu_AddButton = blizzardAddButton
 end
 
+local function gripCorner()
+	local point = ChatFrame1:GetPoint(1) or "BOTTOMLEFT"
+	return (point:find("BOTTOM") and "TOP" or "BOTTOM") .. (point:find("RIGHT") and "LEFT" or "RIGHT")
+end
+
+function placeGrip(button)
+	local corner = gripCorner()
+	local top, left = corner:find("TOP") ~= nil, corner:find("LEFT") ~= nil
+	button:ClearAllPoints()
+	button:SetPoint(corner, ChatFrame1, corner, left and -4 or 4, top and 4 or -4)
+	local x1, x2 = left and 1 or 0, left and 0 or 1
+	local y1, y2 = top and 1 or 0, top and 0 or 1
+	for _, texture in ipairs({ button:GetNormalTexture(), button:GetPushedTexture(), button:GetHighlightTexture() }) do
+		texture:SetTexCoord(x1, x2, y1, y2)
+	end
+end
+
+local function keepResizable(button)
+	ChatFrame1:SetResizable(true)
+	ChatFrame1:SetMinResize(200, 60)
+	ChatFrame1:SetMaxResize(1200, 800)
+	button:SetAlpha(0)
+	button:SetScript("OnShow", nil)
+	button:SetScript("OnEnter", function(self)
+		self:SetAlpha(1)
+	end)
+	button:SetScript("OnLeave", function(self)
+		if not self.sizing then
+			self:SetAlpha(0)
+		end
+	end)
+	button:SetScript("OnMouseDown", function(self)
+		if InCombatLockdown() then
+			return
+		end
+		self.sizing = true
+		ChatFrame1:StartSizing(gripCorner())
+	end)
+	button:SetScript("OnMouseUp", function(self)
+		if not self.sizing then
+			return
+		end
+		self.sizing = nil
+		ChatFrame1:StopMovingOrSizing()
+		local width, height = ChatFrame1:GetSize()
+		ns:SetConfig("chat.width", floor(width + 0.5))
+		ns:SetConfig("chat.height", floor(height + 0.5))
+		applyPosition()
+		if not self:IsMouseOver() then
+			self:SetAlpha(0)
+		end
+	end)
+	chatGrip = button
+	placeGrip(button)
+	hooksecurefunc(button, "Hide", button.Show)
+	button:Show()
+end
+
 local function lockChatFrames()
 	FCF_ToggleLock = ns.noop
 	for i = 1, NUM_CHAT_WINDOWS do
@@ -122,8 +188,12 @@ local function lockChatFrames()
 		_G[name .. "TabDropDown"].initialize = initializeTabDropDown
 
 		local resizeButton = _G[name .. "ResizeButton"]
-		resizeButton:Hide()
-		resizeButton:SetScript("OnShow", resizeButton.Hide)
+		if chatFrame == ChatFrame1 then
+			keepResizable(resizeButton)
+		else
+			resizeButton:Hide()
+			resizeButton:SetScript("OnShow", resizeButton.Hide)
+		end
 	end
 	hooksecurefunc("FCF_RestorePositionAndDimensions", function(chatFrame)
 		if chatFrame == ChatFrame1 then
@@ -202,15 +272,7 @@ function Chat:Initialize()
 end
 
 local function groupChatType()
-	local _, instanceType = IsInInstance()
-	if instanceType == "pvp" then
-		return "BATTLEGROUND"
-	elseif GetNumRaidMembers() > 0 then
-		return "RAID"
-	elseif GetNumPartyMembers() > 0 then
-		return "PARTY"
-	end
-	return "SAY"
+	return ns.GroupChannel() or "SAY"
 end
 
 SlashCmdList.FROSTATOMUI_GROUP = function(text)
@@ -454,11 +516,6 @@ local QUEUE_COUNT_PATTERNS = {
 	{ "^Healers: (%d+)$", "healers" },
 }
 local QUEUE_MIXED_PATTERN = "^Possibility of selecting a mixed arena team %(ignoring specializations%): (%a+)$"
-local QUEUE_SEARCHING_PATTERN = "^We are looking for the best team for you on the selection rating %[(%d+)%-(%d+)%]$"
-local QUEUE_TEAM_FOUND_PATTERN =
-	"^Team to fight found! Team rating (%d+), looking for suitable opponents on the rating %[(%d+)%-(%d+)%]$"
-
-ns.SOLOQ_SEARCHING = "FrostAtomUI_SOLOQ_SEARCHING"
 
 local queueCounts = {}
 
@@ -490,16 +547,8 @@ local function filterQueueSpam(message)
 		return false, text
 	end
 
-	local low, high = match(message, QUEUE_SEARCHING_PATTERN)
-	if low then
-		ns:Fire(ns.SOLOQ_SEARCHING, tonumber(low), tonumber(high))
-		return true
-	end
-
-	local teamRating, teamLow, teamHigh = match(message, QUEUE_TEAM_FOUND_PATTERN)
+	local low, high, teamRating = SoloQueueWatcher.Parse(message)
 	if teamRating then
-		low, high = tonumber(teamLow), tonumber(teamHigh)
-		ns:Fire(ns.SOLOQ_SEARCHING, low, high, tonumber(teamRating))
 		return false,
 			L["Team found (%s), searching opponents: %d |cff7f7f7f[%d-%d]|r"]:format(
 				teamRating,
@@ -507,6 +556,8 @@ local function filterQueueSpam(message)
 				low,
 				high
 			)
+	elseif low then
+		return true
 	end
 end
 
@@ -556,29 +607,37 @@ local function filterAutoReply(_, event, message, author, _, _, _, _, _, _, _, _
 end
 
 local CHANNEL_GETS = {
-	CHAT_GUILD_GET = "|Hchannel:GUILD|h[G]|h %s:\32",
-	CHAT_OFFICER_GET = "|Hchannel:OFFICER|h[O]|h %s:\32",
-	CHAT_PARTY_GET = "|Hchannel:PARTY|h[P]|h %s:\32",
-	CHAT_PARTY_LEADER_GET = "|Hchannel:PARTY|h[PL]|h %s:\32",
-	CHAT_PARTY_GUIDE_GET = "|Hchannel:PARTY|h[PG]|h %s:\32",
-	CHAT_RAID_GET = "|Hchannel:RAID|h[R]|h %s:\32",
-	CHAT_RAID_LEADER_GET = "|Hchannel:RAID|h[RL]|h %s:\32",
-	CHAT_RAID_WARNING_GET = "[RW] %s:\32",
-	CHAT_BATTLEGROUND_GET = "|Hchannel:BATTLEGROUND|h[BG]|h %s:\32",
-	CHAT_BATTLEGROUND_LEADER_GET = "|Hchannel:BATTLEGROUND|h[BL]|h %s:\32",
-	CHAT_SAY_GET = "[S] %s:\32",
-	CHAT_YELL_GET = "[Y] %s:\32",
-	CHAT_WHISPER_GET = "[W from] %s:\32",
-	CHAT_WHISPER_INFORM_GET = "[W to] %s:\32",
-	CHAT_BN_WHISPER_GET = "[BN from] %s:\32",
-	CHAT_BN_WHISPER_INFORM_GET = "[BN to] %s:\32",
+	CHAT_GUILD_GET = { "GUILD", "[G]" },
+	CHAT_OFFICER_GET = { "OFFICER", "[O]" },
+	CHAT_PARTY_GET = { "PARTY", "[P]" },
+	CHAT_PARTY_LEADER_GET = { "PARTY", "[PL]" },
+	CHAT_PARTY_GUIDE_GET = { "PARTY", "[PG]" },
+	CHAT_RAID_GET = { "RAID", "[R]" },
+	CHAT_RAID_LEADER_GET = { "RAID", "[RL]" },
+	CHAT_RAID_WARNING_GET = { nil, "[RW]" },
+	CHAT_BATTLEGROUND_GET = { "BATTLEGROUND", "[BG]" },
+	CHAT_BATTLEGROUND_LEADER_GET = { "BATTLEGROUND", "[BL]" },
+	CHAT_SAY_GET = { nil, "[S]" },
+	CHAT_YELL_GET = { nil, "[Y]" },
+	CHAT_WHISPER_GET = { nil, "[W from]" },
+	CHAT_WHISPER_INFORM_GET = { nil, "[W to]" },
+	CHAT_BN_WHISPER_GET = { nil, "[BN from]" },
+	CHAT_BN_WHISPER_INFORM_GET = { nil, "[BN to]" },
 }
+
+local function channelGet(info)
+	local channel, tag = info[1], L[info[2]]
+	if channel then
+		return "|Hchannel:" .. channel .. "|h" .. tag .. "|h %s:\32"
+	end
+	return tag .. " %s:\32"
+end
 
 local blizzardGets = {}
 
 local function applyChannelGets()
 	for key, value in pairs(CHANNEL_GETS) do
-		_G[key] = config.shortChannelNames and value or blizzardGets[key]
+		_G[key] = config.shortChannelNames and channelGet(value) or blizzardGets[key]
 	end
 end
 
@@ -593,7 +652,7 @@ local function shortenChannelName(text)
 	if not config.shortChannelNames then
 		return text
 	end
-	return (gsub(text, "%[(%d+)%. [^%]]+%]", "[%1]", 1))
+	return (gsub(text, "%[(%d+)%. ([^%]%s]+)[^%]]*%]", "[%1 %2]", 1))
 end
 
 local URL_LINK = "|cff3399ff|Hurl:%s|h[%s]|h|r"
@@ -713,16 +772,6 @@ function ns.ShowCopyPopup(text)
 	end
 end
 
-local blizzardSetItemRef
-
-local function setItemRef(link, ...)
-	local url = match(link, "^url:(.+)$")
-	if not url then
-		return blizzardSetItemRef(link, ...)
-	end
-	ns.ShowCopyPopup(url)
-end
-
 local maxLines = 1000
 
 Chat.lines = {}
@@ -757,9 +806,17 @@ function Chat.GetLine(chatFrame, index)
 	return lines[(lines.head + index - 2) % maxLines + 1]
 end
 
-function Chat.AddStoredLine(chatFrame, text, r, g, b)
-	rawAddMessage[chatFrame](chatFrame, text, r, g, b)
+function Chat.AddStoredLine(chatFrame, text, r, g, b, dim)
+	if dim and r and g and b then
+		rawAddMessage[chatFrame](chatFrame, text, r * dim, g * dim, b * dim)
+	else
+		rawAddMessage[chatFrame](chatFrame, text, r, g, b)
+	end
 	storeLine(chatFrame, text, r, g, b)
+end
+
+function Chat.AddDisplayLine(chatFrame, text, r, g, b)
+	rawAddMessage[chatFrame](chatFrame, text, r, g, b)
 end
 
 local function hookAddMessage(chatFrame)
@@ -1197,8 +1254,7 @@ function Chat:HookMessages()
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_AFK", filterAutoReply)
 	ChatFrame_AddMessageEventFilter("CHAT_MSG_DND", filterAutoReply)
 
-	blizzardSetItemRef = SetItemRef
-	SetItemRef = setItemRef
+	ns.RegisterLink("url", ns.ShowCopyPopup)
 
 	maxLines = config.maxLines
 	for i = 1, NUM_CHAT_WINDOWS do

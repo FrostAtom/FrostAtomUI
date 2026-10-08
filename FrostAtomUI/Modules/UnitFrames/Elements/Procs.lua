@@ -67,20 +67,14 @@ local function onIconLeave()
 end
 
 local function createIcon(container, index)
-	local icon = CreateFrame("Frame", nil, container)
+	local icon = CooldownTimer:CreateIcon(
+		container,
+		{ fontSize = container.size * FONT_SCALE, timerOnIcon = true, flash = true }
+	)
 	icon:SetFrameLevel(container:GetFrameLevel() + 1)
 	icon:EnableMouse(not ns.Config.internalCooldowns.clickThrough)
 	icon:SetScript("OnEnter", onIconEnter)
 	icon:SetScript("OnLeave", onIconLeave)
-
-	icon.texture = icon:CreateTexture(nil, "BORDER")
-	icon.texture:SetNonBlocking(true)
-	UF.SkinIcon(icon, icon.texture)
-
-	icon.cooldown = CreateFrame("Cooldown", nil, icon)
-	icon.cooldown:SetAllPoints()
-	CooldownTimer:Attach(icon.cooldown, container.size * FONT_SCALE, icon)
-	CooldownTimer:AttachFlash(icon.cooldown, icon.texture)
 
 	icon.glow = icon:CreateTexture(nil, "OVERLAY")
 	icon.glow:SetPoint("CENTER")
@@ -267,9 +261,24 @@ local function onUpdated(frame, guid)
 	end
 end
 
+local DR_PREFIXES = { arena = "arena", party = "party", target = "target", focus = "target" }
+
+local function diminishAbove(container)
+	local config = ns.Config.diminishingReturns
+	local prefix = DR_PREFIXES[container.kind]
+	local anchor = prefix and config[prefix .. "Anchor"]
+	if not (config.enabled and config[container.kind] and anchor and anchor:find("^TOP")) or anchor == "TOPLEFT" then
+		return 0
+	end
+	local size = container.kind == "arena" and config.arenaSize or config.size
+	return config[prefix .. "OffsetY"] + size
+end
+
 local function anchorContainer(container, config)
+	local frame = container:GetParent()
+	local y = config.offsetY + diminishAbove(container) + UF.CastbarClearance(frame, "TOP")
 	container:ClearAllPoints()
-	container:SetPoint("BOTTOMRIGHT", container:GetParent(), "TOPRIGHT", config.offsetX, config.offsetY)
+	container:SetPoint("BOTTOMRIGHT", frame, "TOPRIGHT", config.offsetX, y)
 end
 
 local function applyContainerSettings(container, config)
@@ -341,7 +350,7 @@ local function createPlayerBlock()
 	})
 
 	local events = ns.Mixin({}, ns.EventMixin)
-	events:RegisterEvent(ns.PROC_COOLDOWN_UPDATED, function(_, guid)
+	events:RegisterEvent(ns.E.PROC_COOLDOWN_UPDATED, function(_, guid)
 		if guid == nil or guid == UnitGUID("player") then
 			updatePlayerBlock()
 		end
@@ -365,17 +374,24 @@ local function create(frame)
 	applyContainerSettings(container, ns.Config.internalCooldowns)
 	containers[#containers + 1] = container
 
-	frame:RegisterEvent(ns.PROC_COOLDOWN_UPDATED, onUpdated)
+	frame:RegisterEvent(ns.E.PROC_COOLDOWN_UPDATED, onUpdated)
 	frame:RegisterUnitEvent("UNIT_NAME_UPDATE", update)
 	frame:RegisterEvent("ARENA_OPPONENT_UPDATE", update)
 
 	return container
 end
 
-UF:RegisterElement("procs", create, update, test)
+UF:RegisterElement({ name = "procs", Create = create, Update = update, Test = test })
 
 UF:OnInitialize(function(self)
 	playerBlock = createPlayerBlock()
 	applyConfig()
 	self:WatchConfig("internalCooldowns", applyConfig)
+	local function reanchor()
+		for i = 1, #containers do
+			anchorContainer(containers[i], ns.Config.internalCooldowns)
+		end
+	end
+	self:WatchConfig("unitFrames", reanchor)
+	self:WatchConfig("diminishingReturns", reanchor)
 end)

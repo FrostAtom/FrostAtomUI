@@ -89,7 +89,7 @@ local function create(frame)
 	return power
 end
 
-UF:RegisterElement("power", create, update, test)
+UF:RegisterElement({ name = "power", Create = create, Update = update, Test = test })
 
 local MANA = 0
 local MANA_TEXT_COLOR = { 0.35, 0.6, 1 }
@@ -150,4 +150,4 @@ local function createDruidMana(frame)
 	return druidMana
 end
 
-UF:RegisterElement("druidmana", createDruidMana, updateDruidMana, testDruidMana)
+UF:RegisterElement({ name = "druidmana", Create = createDruidMana, Update = updateDruidMana, Test = testDruidMana })

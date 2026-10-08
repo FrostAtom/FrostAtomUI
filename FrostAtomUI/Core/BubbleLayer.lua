@@ -66,6 +66,7 @@ end
 local function onShow(bubble)
 	local info = infos[bubble]
 	local message = info.text:GetText()
+	-- 3.3.5: a bubble does not expose its speaker; the chat event always comes right before it
 	local entry = message and takePending(message, GetTime())
 	if entry or message ~= info.shownMessage then
 		info.message = message

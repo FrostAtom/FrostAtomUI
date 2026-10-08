@@ -161,10 +161,11 @@ local function applyWhisperSound()
 	end
 end
 
+local messagesSlot = ns.Storage.Claim("pm_messages", "Chat", "settings")
+
 Chat:OnInitialize(function(self)
-	local db = ns.db
-	blockedMessages = db.pm_messages or blockedMessages
-	db.pm_messages = blockedMessages
+	blockedMessages = messagesSlot:Get() or blockedMessages
+	messagesSlot:Set(blockedMessages)
 
 	if config.enabled then
 		applyConfig()

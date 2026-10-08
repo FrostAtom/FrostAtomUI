@@ -4,12 +4,27 @@
 ## Title-ruRU: FrostAtom UI Config
 ## Notes-ruRU: Панель настроек FrostAtom UI, загружается по команде /fui.
 ## Author: frostatom
-## Version: 1.4.0
+## Version: 1.5.0
 ## Dependencies: FrostAtomUI
 ## LoadOnDemand: 1
 
+SearchSynonyms.lua
+Search.lua
 Core.lua
+Widgets.lua
+Values.lua
+Rows.lua
+Schema.lua
+PageView.lua
+Footer.lua
+Tabs.lua
+SearchBox.lua
+Navigation.lua
+History.lua
+Window.lua
 Controls.lua
+Pages\QuickSetup.lua
+Pages\Help.lua
 Pages\General.lua
 Pages\Layouts.lua
 Pages\ActionBar.lua
@@ -24,11 +39,15 @@ Pages\Trackers.lua
 Pages\Hud.lua
 Pages\Arena.lua
 Pages\Cooldowns.lua
-Pages\PvP.lua
+Pages\CrowdControl.lua
+Pages\Alerts.lua
 Pages\SpellAlerts.lua
-Pages\QualityOfLife.lua
+Pages\Automation.lua
 Pages\Client.lua
 Pages\BlizzardUI.lua
 Pages\Bags.lua
 Pages\Profiles.lua
+Pages\Backups.lua
 Pages\Transfer.lua
+Setup.lua
+Tour.lua

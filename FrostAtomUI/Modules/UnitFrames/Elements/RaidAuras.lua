@@ -11,8 +11,8 @@ local Auras = ns.Auras
 local CooldownTimer = ns:GetModule("CooldownTimer")
 local config = ns.Config.raidFrames
 local debuffColors = UF.debuffColors
-local ccSpellNames = UF.ccSpellNames
-local drSpells = ns.DRData.SPELLS
+local SpellDB = ns.SpellDB
+local CONTROL_PRIORITY = ns.LoseControlData.PRIORITY
 
 local CC_TIMER_FONT_SIZE = 10
 local COUNT_FONT_SCALE = 0.7
@@ -21,12 +21,7 @@ local BUFF_INSET = 1
 local BORDER_EDGE = 10
 local DEFAULT_PRIORITY = 4
 
-local CC_PRIORITY = {
-	root = 1,
-	randomroot = 1,
-	disarm = 2,
-	silence = 3,
-}
+local IMMUNITIES = { immune = true, magicImmune = true, physicalImmune = true }
 
 local HOT_SPELLS = {
 	139, -- Renew
@@ -64,10 +59,10 @@ for i = 1, #HOT_SPELLS do
 end
 
 local function ccPriority(aura)
-	local category = drSpells[aura.spellId]
-	if category then
-		return CC_PRIORITY[category] or DEFAULT_PRIORITY
-	elseif ccSpellNames[aura.name] then
+	local control = SpellDB.Control(aura.spellId)
+	if control then
+		return not IMMUNITIES[control] and CONTROL_PRIORITY[control] or nil
+	elseif SpellDB.DR(aura.spellId) or SpellDB.IsCCName(aura.name) then
 		return DEFAULT_PRIORITY
 	end
 end
@@ -349,7 +344,7 @@ function UF.LayoutRaidAuras(frame)
 	end
 end
 
-UF:RegisterElement("raidauras", create, update, test)
+UF:RegisterElement({ name = "raidauras", Create = create, Update = update, Test = test })
 
 local UnitIsPartyLeader, UnitIsRaidOfficer = UnitIsPartyLeader, UnitIsRaidOfficer
 local GetNumRaidMembers = GetNumRaidMembers
@@ -393,4 +388,4 @@ local function createLeader(frame)
 	return icon
 end
 
-UF:RegisterElement("raidleader", createLeader, updateLeader, testLeader)
+UF:RegisterElement({ name = "raidleader", Create = createLeader, Update = updateLeader, Test = testLeader })

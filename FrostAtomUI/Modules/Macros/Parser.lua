@@ -21,6 +21,8 @@ local BYTE_PIPE, BYTE_C, BYTE_R = strbyte("|"), strbyte("c"), strbyte("r")
 Parser.RUN_LIMIT = 1023
 Parser.MACRO_LIMIT = 255
 
+local MAX_EMOTE_INDEX = 452
+
 Parser.ERROR, Parser.WARNING, Parser.INFO = 1, 2, 3
 
 local COLORS = {
@@ -155,7 +157,7 @@ local function buildCommands()
 	end
 	local i, j = 1, 1
 	local cmd = _G["EMOTE1_CMD1"]
-	while i <= (MAXEMOTEINDEX or 0) do
+	while i <= MAX_EMOTE_INDEX do
 		if cmd then
 			local upper = strupper(cmd)
 			if not map[upper] then
@@ -579,6 +581,11 @@ local function checkSequence(text, from, to)
 	splitRanges(text, from, to, ",", checkAction)
 end
 
+local function isPage(value)
+	local page = value and tonumber(value)
+	return page and page >= 1 and page <= NUM_ACTIONBAR_PAGES
+end
+
 local function checkArgs(kind, text, from, to)
 	local trimmedFrom, trimmedTo = trimRange(text, from, to)
 	local value = strsub(text, trimmedFrom, trimmedTo)
@@ -604,11 +611,16 @@ local function checkArgs(kind, text, from, to)
 		span(trimmedFrom, trimmedFrom + #slot - 1, COLORS.arg)
 		checkItem(strsub(value, itemFrom), trimmedFrom + itemFrom - 1, trimmedTo, true)
 	elseif kind == "page" or kind == "pages" then
-		local ok = kind == "page" and strfind(value, "^%d+$") or kind == "pages" and strfind(value, "^%d+%s+%d+$")
 		if value == "" then
 			return
 		end
-		if ok then
+		local first, second
+		if kind == "page" then
+			first = strmatch(value, "^(%d+)$")
+		else
+			first, second = strmatch(value, "^(%d+)%s+(%d+)$")
+		end
+		if isPage(first) and (kind == "page" or isPage(second)) then
 			span(trimmedFrom, trimmedTo, COLORS.arg)
 		else
 			span(trimmedFrom, trimmedTo, COLORS.error)

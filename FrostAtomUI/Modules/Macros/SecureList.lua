@@ -179,6 +179,7 @@ end
 
 function SecureList.CreateExitButton(name, text, width, height)
 	exitButton = CreateFrame("Button", name, window, "UIPanelButtonTemplate,SecureHandlerClickTemplate")
+	ns.SkinPanelButton(exitButton)
 	exitButton:SetSize(width, height)
 	exitButton:SetText(text)
 	exitButton:SetFrameRef("window", window)

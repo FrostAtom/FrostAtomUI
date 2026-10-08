@@ -57,14 +57,11 @@ for _, option in ipairs(ANCHOR_GRID) do
 	ANCHOR_NAMES[option[1]] = option[2]
 end
 
-ns.UNITS = {
-	s = L["%s s"],
-	ms = L["%s ms"],
-	min = L["%s min"],
-}
-
-local measure = CreateFrame("Frame")
-measure:Hide()
+-- Shown but transparent: text under a hidden frame is measured without the UI scale
+local measure = CreateFrame("Frame", nil, UIParent)
+measure:SetSize(1, 1)
+measure:SetPoint("TOPLEFT")
+measure:SetAlpha(0)
 local measureText = measure:CreateFontString(nil, "ARTWORK")
 local measureGlyph = measure:CreateFontString(nil, "ARTWORK")
 
@@ -615,6 +612,42 @@ function creators.anchor(parent, entry)
 	return row
 end
 
+local attachMenu
+
+local function showAttachMenu(owner, path, row)
+	if not attachMenu then
+		attachMenu = CreateFrame("Frame", "FrostAtomUI_ConfigAttachMenu", UIParent, "UIDropDownMenuTemplate")
+	end
+	local targets = ui.Movers.AttachTargets(path)
+	UIDropDownMenu_Initialize(attachMenu, function()
+		local title = UIDropDownMenu_CreateInfo()
+		title.text = L["Attach to"]
+		title.isTitle = 1
+		title.notCheckable = 1
+		UIDropDownMenu_AddButton(title)
+		if #targets == 0 then
+			local empty = UIDropDownMenu_CreateInfo()
+			empty.text = L["No visible frames nearby"]
+			empty.disabled = 1
+			empty.notCheckable = 1
+			UIDropDownMenu_AddButton(empty)
+		end
+		for _, target in ipairs(targets) do
+			local info = UIDropDownMenu_CreateInfo()
+			info.text = target.label
+			info.notCheckable = 1
+			info.func = function()
+				CloseDropDownMenus()
+				if ui.Movers.AttachTo(path, target.path) then
+					row.Refresh()
+				end
+			end
+			UIDropDownMenu_AddButton(info)
+		end
+	end, "MENU")
+	ToggleDropDownMenu(1, nil, attachMenu, owner, 0, 0)
+end
+
 function creators.point(parent, entry)
 	local row = ns.CreateRow(parent, entry)
 	row:SetHeight(max(row:GetHeight(), GRID_ROW_HEIGHT))
@@ -629,7 +662,9 @@ function creators.point(parent, entry)
 		x, y = floor(x + 0.5), floor(y + 0.5)
 		local value = ns.Get(entry)
 		local point = grid.value
-		if point ~= value[1] or x ~= value[2] or y ~= value[3] then
+		if point ~= value[1] then
+			ui.Movers.ChangePoint(entry.path, point)
+		elseif x ~= value[2] or y ~= value[3] then
 			ui:SetConfig(entry.path, { point, x, y, value[4], value[5] })
 		end
 	end
@@ -648,8 +683,16 @@ function creators.point(parent, entry)
 	anchor:SetJustifyH("RIGHT")
 	anchor:SetPoint("RIGHT", row, "LEFT", CONTROL_X - 16, 0)
 
+	local attach = ui.CreateGlyphButton(row, "link", GLYPH_SIZE, L["Attach to..."])
+	attach.tooltipText = L["Attach this frame to a nearby frame; it stays where it is and then moves with that frame."]
+	attach:SetPoint("LEFT", yBox, "RIGHT", 6, 0)
+	attach:SetScript("OnClick", function(self)
+		showAttachMenu(self, entry.path, row)
+	end)
+	ns.BindHighlight(attach, row)
+
 	local detach = ui.CreateGlyphButton(row, "link-slash", GLYPH_SIZE, L["Detach"])
-	detach:SetPoint("LEFT", yBox, "RIGHT", 6, 0)
+	detach:SetPoint("LEFT", attach, "RIGHT", 4, 0)
 	detach:SetScript("OnClick", function()
 		ui.Movers.Detach(entry.path)
 		row.Refresh()
@@ -681,6 +724,7 @@ function creators.point(parent, entry)
 		setAxisEnabled(xLabel, xBox, enabled)
 		setAxisEnabled(yLabel, yBox, enabled)
 		ns.SetControlEnabled(detach, enabled)
+		ns.SetControlEnabled(attach, enabled)
 	end
 	return row
 end
@@ -908,67 +952,6 @@ function creators.header(parent, entry)
 		addMoveButton(header, entry)
 	end
 	return header
-end
-
-local LAYOUT_TYPES = { point = true, offset = true }
-local LAYOUT_KEYS = {
-	"size",
-	"width",
-	"height",
-	"scale",
-	"spacing",
-	"padding",
-	"gap",
-	"column",
-	"perrow",
-	"rows?$",
-	"^buttons$",
-	"max$",
-	"^max",
-	"grow",
-	"direction",
-	"orientation",
-	"anchor",
-	"offset",
-	"attach",
-	"position",
-}
-local NOT_LAYOUT_KEYS = { "font", "text", "border" }
-
-function ns.IsLayoutEntry(entry)
-	if entry.layout ~= nil then
-		return entry.layout
-	elseif LAYOUT_TYPES[entry.type] then
-		return true
-	elseif not entry.path or entry.type == "font" or entry.type == "color" then
-		return false
-	end
-	local key = entry.path:match("[^.]+$"):lower()
-	for _, word in ipairs(NOT_LAYOUT_KEYS) do
-		if key:find(word) then
-			return false
-		end
-	end
-	for _, word in ipairs(LAYOUT_KEYS) do
-		if key:find(word) then
-			return true
-		end
-	end
-	return false
-end
-
-function ns.FindEntry(page, path)
-	local schemas = { page.schema }
-	for _, tab in ipairs(page.tabs or {}) do
-		schemas[#schemas + 1] = tab.schema
-	end
-	for _, schema in ipairs(schemas) do
-		for _, entry in ipairs(schema) do
-			if entry.path == path then
-				return entry
-			end
-		end
-	end
 end
 
 local TAG_BUTTON_GAP = 8

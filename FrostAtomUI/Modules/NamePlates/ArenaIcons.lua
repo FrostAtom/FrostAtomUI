@@ -1,6 +1,5 @@
 local _, ns = ...
 local NamePlates = ns:GetModule("NamePlates")
-local UF = ns:GetModule("UnitFrames")
 
 local UnitName, UnitClass, UnitCreatureFamily = UnitName, UnitClass, UnitCreatureFamily
 local GetSpellInfo = GetSpellInfo
@@ -192,9 +191,9 @@ function ArenaIcons.Identify(plate)
 	local side = friendly and "friendly" or "hostile"
 	if player then
 		local class = classes[side][name] or not friendly and info.class
-		local coords = class and UF.classCoords[class]
+		local coords = class and ns.ClassIcons.coords[class]
 		if coords then
-			return UF.CLASS_ICONS, coords
+			return ns.ClassIcons.TEXTURE, coords
 		end
 		return
 	end

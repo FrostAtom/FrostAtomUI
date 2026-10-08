@@ -170,6 +170,7 @@ function HitRect.Update(plate, width, height, hidden)
 		plate.hitIndex = plateIndex(plate)
 	end
 	plate.hitWidth, plate.hitHeight, plate.hitHidden = width, height, hidden
+	-- 3.3.5: nameplates are protected; in combat the size reaches secure code through a marker's clamp rect
 	if InCombatLockdown() then
 		write(plate)
 		pending[plate] = true

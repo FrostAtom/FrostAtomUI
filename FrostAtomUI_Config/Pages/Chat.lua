@@ -3,31 +3,12 @@ local _, ns = ...
 local L = FrostAtomUI.L
 
 local Section = ns.Section
-local NotClass = ns.NotClass
-
-local MAX_MESSAGE_ARGUMENTS = 2
-
-local function validateInterruptMessage(text)
-	local count = 0
-	for spec in text:gmatch("%%(.?)") do
-		if spec == "s" then
-			count = count + 1
-		elseif spec ~= "%" then
-			return false, L["Only %s placeholders are allowed; write %% for a percent sign."]
-		end
-	end
-	if count > MAX_MESSAGE_ARGUMENTS then
-		return false, L["At most two %s placeholders: the target and the spell."]
-	end
-	return true
-end
 
 local function skinEntry()
 	return {
 		path = "chat.skin",
 		label = L["Skin chat frames"],
 		type = "toggle",
-		reload = true,
 		desc = L["Flat backdrop, hidden buttons, auto-hiding tabs. Message features below work either way."],
 	}
 end
@@ -35,10 +16,9 @@ end
 local function lockEntry()
 	return {
 		path = "chat.lockFrames",
-		label = L["Lock frames"],
+		label = L["Lock chat windows"],
 		type = "toggle",
-		reload = true,
-		desc = L["Tabs cannot be dragged and frames cannot be resized; the main frame uses the position and size set in its frame settings. Off leaves positions to Blizzard's chat settings."],
+		desc = L["Tabs cannot be dragged and windows stay in place; the main window uses the position and size from its frame settings, and its corner still resizes it. Off leaves positions to Blizzard's chat settings."],
 	}
 end
 
@@ -47,7 +27,6 @@ local schema = {
 		path = "chat.enabled",
 		label = L["Enable"],
 		type = "toggle",
-		reload = true,
 		desc = L["Chat skin, message processing, filters, bubbles, history and whisper blocking."],
 	},
 	{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
@@ -57,7 +36,7 @@ local schema = {
 	lockEntry(),
 	{
 		path = "chat.hideCombatLog",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Remove combat log window"],
 		type = "toggle",
 		desc = L["Close the Combat Log chat window and its tab; Blizzard's combat log is not loaded either way."],
@@ -96,7 +75,11 @@ local schema = {
 		path = "chat.shortChannelNames",
 		label = L["Short channel names"],
 		type = "toggle",
-		desc = L["[P], [R], [G] instead of full channel names."],
+		desc = L["%s, %s, %s instead of full channel names; a numbered channel keeps the first word of its name: [2 Trade]."]:format(
+			L["[P]"],
+			L["[R]"],
+			L["[G]"]
+		),
 	},
 	{
 		path = "chat.classColorNames",
@@ -172,7 +155,6 @@ local schema = {
 		min = 100,
 		max = 5000,
 		step = 100,
-		reload = true,
 		desc = L["Scrollback and /copy buffer size."],
 	},
 	{
@@ -199,7 +181,7 @@ local schema = {
 	{ header = L["Chat bubbles"], glyph = "comment-dots" },
 	{
 		path = "chat.bubbleShowSender",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Show sender"],
 		type = "toggle",
 		desc = L["Name of the speaker above the text, in class color for players."],
@@ -216,7 +198,7 @@ local schema = {
 	{ path = "chat.bubbleFont", label = L["Font"], type = "font", advanced = true },
 	{
 		path = "chat.bubbleTypeBorder",
-		new = "1.4.1",
+		new = "1.5.0",
 		advanced = true,
 		label = L["Border in message color"],
 		type = "toggle",
@@ -248,51 +230,6 @@ Section(schema, L["Whisper block"], "chat.whisperBlock", {
 	},
 }, nil, nil, "comment-slash")
 
-Section(schema, L["Announcements"], "announce", {
-	{ path = "enabled", label = L["Enable"], type = "toggle", desc = L["Messages sent to group chat on your behalf."] },
-	{
-		path = "interrupts",
-		label = L["Announce interrupts"],
-		type = "toggle",
-		desc = L["Report your interrupts to party, raid or battleground chat. Toggle with /ia."],
-	},
-	{
-		path = "interruptMessage",
-		advanced = true,
-		label = L["Interrupt message"],
-		type = "string",
-		width = 240,
-		maxLetters = 80,
-		enabledBy = "announce.interrupts",
-		validate = validateInterruptMessage,
-		desc = L["First %s is the target, second %s is the interrupted spell."],
-	},
-	{
-		path = "arenaResultToParty",
-		label = L["Arena rating summary"],
-		type = "toggle",
-		desc = L["Post both teams' rating and change to party chat when an arena ends."],
-	},
-	{
-		path = "auraMastery",
-		label = L["Announce Aura Mastery"],
-		type = "toggle",
-		hidden = NotClass("PALADIN"),
-		desc = L["Raid warning / party message when Aura Mastery is used with Concentration Aura."],
-	},
-	{
-		path = "auraMasteryMessage",
-		advanced = true,
-		label = L["Aura Mastery message"],
-		type = "string",
-		width = 240,
-		maxLetters = 80,
-		hidden = NotClass("PALADIN"),
-		enabledBy = "announce.auraMastery",
-		desc = L["Sent twice to raid warning or party chat."],
-	},
-}, nil, nil, "bullhorn")
-
 local chatFrame = {
 	{ header = L["Layout"], glyph = "up-down-left-right" },
 	lockEntry(),
@@ -319,7 +256,7 @@ local chatFrame = {
 	{
 		path = "chat.backgroundAlpha",
 		advanced = true,
-		label = L["Background alpha"],
+		label = L["Background opacity"],
 		type = "number",
 		min = 0,
 		max = 1,
@@ -340,7 +277,7 @@ local chatFrame = {
 	{
 		path = "chat.editBoxPosition",
 		advanced = true,
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Edit box position"],
 		type = "select",
 		enabledBy = "chat.skin",
@@ -371,14 +308,14 @@ local chatFrame = {
 	{
 		path = "chat.fadeAlpha",
 		advanced = true,
-		label = L["Faded alpha"],
+		label = L["Faded opacity"],
 		type = "number",
 		min = 0,
 		max = 1,
 		step = 0.05,
 		percent = true,
 		enabledBy = "chat.mouseover",
-		desc = L["Alpha of the chat while the cursor is away from it."],
+		desc = L["Opacity of the chat while the cursor is away from it."],
 	},
 }
 
@@ -397,6 +334,7 @@ requireChat(chatFrame)
 ns.RegisterPage({
 	key = "chat",
 	name = L["Chat"],
+	desc = L["Chat window, channel names, filters, history and bubbles."],
 	glyph = "comments",
 	order = 42,
 	group = "interface",

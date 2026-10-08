@@ -228,5 +228,5 @@ function Runes:Initialize()
 
 	applyConfig()
 	self:WatchConfig("runes", applyConfig)
-	self:RegisterEvent(ns.PIXEL_CHANGED, applyConfig)
+	self:RegisterEvent(ns.E.PIXEL_CHANGED, applyConfig)
 end

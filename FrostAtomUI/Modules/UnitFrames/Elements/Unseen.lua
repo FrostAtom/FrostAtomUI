@@ -71,7 +71,6 @@ local function createIcon(parent, texture)
 end
 
 local function layout(ghost)
-	local config = ns.Config.unitFrames
 	local height = ghost.frame:GetHeight()
 	ghost.innerHeight = height - BORDER_INSET * 2
 
@@ -81,16 +80,21 @@ local function layout(ghost)
 	local icon = ghost.classicon
 	icon:SetSize(size, size)
 	icon:ClearAllPoints()
-	icon:SetPoint("TOP" .. side, side == "LEFT" and CLASS_ICON_INSET or -CLASS_ICON_INSET, -CLASS_ICON_INSET)
-	ns.SetShown(icon, config.showClassIcon)
-	SetContentInset(ghost, config.showClassIcon and UF.ClassIconInset(size) or 0)
+	if side == "RIGHT" then
+		icon:SetPoint("TOPRIGHT", -CLASS_ICON_INSET, -CLASS_ICON_INSET)
+	else
+		icon:SetPoint("TOPLEFT", CLASS_ICON_INSET, -CLASS_ICON_INSET)
+	end
+	local shown = UF.ClassIconShown(ghost)
+	ns.SetShown(icon, shown)
+	SetContentInset(ghost, shown and UF.ClassIconInset(size) or 0)
 
 	ghost.stealth:SetSize(height, height)
 	UF.SetBackdropColors(ghost)
 
 	local texts = ghost.texts
 	for i = 1, #texts do
-		UF.StyleText(texts[i])
+		UF.StyleText(texts[i], ghost.textKey)
 	end
 end
 
@@ -170,8 +174,30 @@ local function renderUnseen(ghost, info)
 	ghost.stealth:Show()
 end
 
+local KEPT_ELEMENTS = { "diminish", "trinket" }
+
+local function adoptKept(ghost, adopt)
+	local frame = ghost.frame
+	for i = 1, #KEPT_ELEMENTS do
+		local child = frame[KEPT_ELEMENTS[i]]
+		if child then
+			local parent = adopt and ghost or frame
+			if child:GetParent() ~= parent then
+				child:SetParent(parent)
+				child:SetFrameLevel(parent:GetFrameLevel() + 1)
+			end
+		end
+	end
+end
+
+function UF.GhostGUID(frame)
+	local ghost = frame and frame.unseen
+	return ghost and ghost.state == "unseen" and ghost.info.guid or nil
+end
+
 local function render(ghost)
 	local state = ghost.state
+	adoptKept(ghost, state == "unseen")
 	if not state then
 		ghost:Hide()
 		ghost.stealth:Hide()
@@ -334,6 +360,7 @@ local function create(frame)
 	classicon.texture:SetAllPoints()
 	ghost.classicon = classicon
 
+	ghost.textKey = "arena"
 	ghost.texts = UF.CreateTexts(ghost)
 	ghost.data = {}
 
@@ -351,7 +378,7 @@ local function create(frame)
 	return ghost
 end
 
-UF:RegisterElement("unseen", create, update, test)
+UF:RegisterElement({ name = "unseen", Create = create, Update = update, Test = test })
 
 local function onEnteringWorld()
 	inArena = select(2, IsInInstance()) == "arena"
@@ -474,7 +501,7 @@ UF:OnInitialize(function(self)
 	watcher:RegisterUnitEvent("UNIT_AURA", "player", onAura)
 	watcher:RegisterEvent("PARTY_MEMBERS_CHANGED", onPrepChanged)
 	watcher:RegisterEvent("UPDATE_BATTLEFIELD_STATUS", onPrepChanged)
-	watcher:RegisterEvent(ns.TALENTS_UPDATED, onTalents)
+	watcher:RegisterEvent(ns.E.TALENTS_UPDATED, onTalents)
 	hooksecurefunc(self, "SetTestMode", onTestMode)
 
 	self:WatchConfig("arenaUnseen", onConfigChanged)

@@ -1717,6 +1717,7 @@ local function createDetail()
 	frame.runSlot = runSlot
 
 	local run = CreateFrame("Button", FRAME_NAME .. "Run", UIParent, "SecureActionButtonTemplate,UIPanelButtonTemplate")
+	ns.SkinPanelButton(run)
 	run:Hide()
 	run:SetFrameStrata("DIALOG")
 	run:RegisterForClicks("LeftButtonUp")
@@ -1725,177 +1726,20 @@ local function createDetail()
 	frame.run = run
 end
 
-local exportItem, scopeItems = Macros.ExportItem, Macros.ScopeItems
-
-local function transferSummary(items)
-	local counts = {}
-	for i = 1, #items do
-		local scope = items[i].scope
-		counts[scope] = (counts[scope] or 0) + 1
-	end
-	local parts = {}
-	for i = 1, #TABS do
-		local count = counts[TABS[i].key]
-		if count then
-			parts[#parts + 1] = ("%s: %d"):format(L[TABS[i].label], count)
-		end
-	end
-	return L["%d macros"]:format(#items) .. " - " .. tconcat(parts, ", ")
+local P = Macros.windowShared
+P.TABS = TABS
+P.FRAME_NAME = FRAME_NAME
+P.BUTTON_HEIGHT = BUTTON_HEIGHT
+P.TOOLTIP_BACKDROP = TOOLTIP_BACKDROP
+P.applyTooltipColors = applyTooltipColors
+P.selectTab = selectTab
+P.selectEntry = selectEntry
+P.selected = selected
+P.stubTarget = stubTarget
+P.displayName = displayName
+P.currentTab = function()
+	return tab
 end
-
-local transfer
-
-local function createTransfer()
-	transfer = ns.CreateWindow(
-		FRAME_NAME .. "Transfer",
-		{ width = 520, height = 340, header = true, strata = "DIALOG", movable = false }
-	)
-	transfer:SetPoint("CENTER")
-
-	local holder = CreateFrame("Frame", nil, transfer)
-	holder:SetPoint("TOPLEFT", 16, -30)
-	holder:SetPoint("BOTTOMRIGHT", -16, 16 + BUTTON_HEIGHT + 24)
-	holder:SetBackdrop(TOOLTIP_BACKDROP)
-	applyTooltipColors(holder)
-
-	local scroll = CreateFrame("ScrollFrame", FRAME_NAME .. "TransferScroll", holder, "UIPanelScrollFrameTemplate")
-	scroll:SetPoint("TOPLEFT", 9, -6)
-	scroll:SetPoint("BOTTOMRIGHT", -30, 6)
-	ns.SkinSlimScrollBar(_G[scroll:GetName() .. "ScrollBar"])
-
-	local box = CreateFrame("EditBox", nil, scroll)
-	box:SetMultiLine(true)
-	box:SetAutoFocus(false)
-	box:SetMaxLetters(0)
-	box:SetMaxBytes(0)
-	box:SetWidth(520 - 32 - 39)
-	box:SetFontObject(GameFontHighlightSmall)
-	box:SetTextInsets(2, 2, 2, 2)
-	box:SetScript("OnEscapePressed", box.ClearFocus)
-	box:SetScript("OnTextChanged", function(self)
-		scroll:UpdateScrollChildRect()
-		if transfer.importing then
-			local items, err = Macros.DecodeExport(self:GetText())
-			transfer.items = items
-			local color
-			if items then
-				transfer.summary:SetText(transferSummary(items))
-				color = GREEN_FONT_COLOR
-			else
-				transfer.summary:SetText(strtrim(self:GetText()) == "" and "" or err)
-				color = RED_FONT_COLOR
-			end
-			transfer.summary:SetTextColor(color.r, color.g, color.b)
-			ns.SetShown(transfer.action, items ~= nil)
-		end
-	end)
-	scroll:SetScrollChild(box)
-	holder:EnableMouse(true)
-	holder:SetScript("OnMouseDown", function()
-		box:SetFocus()
-	end)
-	transfer.box = box
-
-	local summary = transfer:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-	summary:SetPoint("TOPLEFT", holder, "BOTTOMLEFT", 6, -6)
-	summary:SetPoint("RIGHT", holder, -6, 0)
-	summary:SetJustifyH("LEFT")
-	transfer.summary = summary
-
-	local close = ns.CreateButton(transfer, CLOSE, 90, BUTTON_HEIGHT, FRAME_NAME .. "TransferClose")
-	close:SetPoint("BOTTOMRIGHT", -16, 16)
-	close:SetScript("OnClick", function()
-		transfer:Hide()
-	end)
-
-	local action = ns.CreateButton(transfer, L["Import"], 90, BUTTON_HEIGHT, FRAME_NAME .. "TransferImport")
-	action:SetPoint("RIGHT", close, "LEFT", -2, 0)
-	transfer.action = action
-end
-
-local function showExport(heading, items)
-	if #items == 0 then
-		ns.Print(L["nothing to export"])
-		return
-	end
-	if not transfer then
-		createTransfer()
-	end
-	transfer.importing = false
-	transfer.title:SetText(heading)
-	transfer.action:Hide()
-	transfer.summary:SetText(transferSummary(items))
-	transfer.summary:SetTextColor(1, 1, 1)
-	transfer.box:SetText(Macros.Export(items))
-	transfer:Show()
-	transfer.box:SetFocus()
-	transfer.box:HighlightText()
-end
-
-local function importItems()
-	local items = transfer.items
-	if not items then
-		return
-	end
-	local count, converted, scope, entry = Macros.Import(items)
-	transfer:Hide()
-	ns.Print(L["%d macros imported"], count)
-	if converted > 0 then
-		ns.Print(
-			L["%d game macros did not fit (no free slot, longer than 255 characters or in combat) and became unlimited ones"],
-			converted
-		)
-	end
-	if scope and not InCombatLockdown() then
-		selectTab(scope)
-		selectEntry(entry)
-	end
-end
-
-local function showImport()
-	if not transfer then
-		createTransfer()
-	end
-	transfer.importing = true
-	transfer.items = nil
-	transfer.title:SetText(L["Import macros"])
-	transfer.action:SetScript("OnClick", importItems)
-	transfer.box:SetText("")
-	transfer:Show()
-	transfer.box:SetFocus()
-end
-
-local function exportSelected()
-	local entry = selected()
-	if not entry then
-		return
-	end
-	local target = stubTarget(entry)
-	local item = target and exportItem(Macros.ScopeOf(target), target) or exportItem(tab, entry)
-	showExport(L["Export macro: %s"]:format((displayName(target or entry))), { item })
-end
-
-local function exportTab()
-	for i = 1, #TABS do
-		if TABS[i].key == tab then
-			showExport(L["Export: %s"]:format(L[TABS[i].label]), scopeItems(tab, {}))
-		end
-	end
-end
-
-local function exportAll()
-	local items = {}
-	for i = 1, #TABS do
-		scopeItems(TABS[i].key, items)
-	end
-	showExport(L["Export all macros"], items)
-end
-
-local EXPORT_CHOICES = {
-	{ label = "Selected macro", func = exportSelected },
-	{ label = "This tab", func = exportTab },
-	{ label = "All macros", func = exportAll },
-}
 
 local function onMenuUpdate(menu, elapsed)
 	if menu:IsMouseOver() or menu.owner and menu.owner:IsMouseOver() then
@@ -1996,7 +1840,7 @@ local function openEntryMenu(cell)
 	if virtual then
 		items[#items + 1] = { text = L["Copy"], func = copySelected }
 	end
-	items[#items + 1] = { text = L["Export"], func = exportSelected }
+	items[#items + 1] = { text = L["Export"], func = P.exportSelected }
 	items[#items + 1] = { text = DELETE, func = deleteSelected }
 	items[#items + 1] = { text = CANCEL }
 	local x, y = GetCursorPosition()
@@ -2059,8 +1903,8 @@ local function createButtonBar()
 	frame.new:SetScript("OnClick", createNew)
 
 	local exportItems = {}
-	for i = 1, #EXPORT_CHOICES do
-		exportItems[i] = { text = L[EXPORT_CHOICES[i].label], func = EXPORT_CHOICES[i].func }
+	for i = 1, #P.EXPORT_CHOICES do
+		exportItems[i] = { text = L[P.EXPORT_CHOICES[i].label], func = P.EXPORT_CHOICES[i].func }
 	end
 	frame.exportMenu = createMenu("dark")
 	local export = ns.CreateButton(frame, L["Export"], 80, BUTTON_HEIGHT, FRAME_NAME .. "ExportButton")
@@ -2075,7 +1919,7 @@ local function createButtonBar()
 
 	local import = ns.CreateButton(frame, L["Import"], 80, BUTTON_HEIGHT, FRAME_NAME .. "ImportButton")
 	import:SetPoint("RIGHT", export, "LEFT", -1, 0)
-	import:SetScript("OnClick", showImport)
+	import:SetScript("OnClick", P.showImport)
 end
 
 local function createFrame()
@@ -2156,9 +2000,7 @@ local function createFrame()
 		if frame.entryMenu then
 			frame.entryMenu:Hide()
 		end
-		if transfer then
-			transfer:Hide()
-		end
+		P.hideTransfer()
 		if not InCombatLockdown() then
 			frame.run:Hide()
 		end
@@ -2206,7 +2048,7 @@ Macros:OnInitialize(function(self)
 	ShowMacroFrame = Macros.Show
 	SlashCmdList.MACRO = Macros.Toggle
 
-	self:RegisterEvent(Macros.CHANGED, onMacrosChanged)
+	self:RegisterEvent(ns.E.MACROS_CHANGED, onMacrosChanged)
 	self:RegisterEvent("UPDATE_MACROS", function()
 		if not frame or not frame:IsShown() then
 			return

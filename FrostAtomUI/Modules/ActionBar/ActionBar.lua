@@ -2,6 +2,7 @@ local _, ns = ...
 local L = ns.L
 
 local RegisterStateDriver = RegisterStateDriver
+local UnregisterStateDriver = UnregisterStateDriver
 local GameTooltip = GameTooltip
 local GetNumShapeshiftForms = GetNumShapeshiftForms
 local GetCursorInfo = GetCursorInfo
@@ -10,6 +11,10 @@ local max, min, ceil, floor = math.max, math.min, math.ceil, math.floor
 
 local Media = ns.Media
 local ActionBar = ns:NewModule("ActionBar")
+
+function ActionBar:IsBindMode()
+	return self.bindFrame ~= nil and self.bindFrame:IsShown()
+end
 ActionBar.configKey = "actionBar"
 ns.ActionBar = ActionBar
 
@@ -77,9 +82,21 @@ local DRAG_MODIFIERS = {
 	alt = IsAltKeyDown,
 }
 
+local DRAG_MODIFIER_NAMES = { shift = "Shift", ctrl = "Ctrl", alt = "Alt" }
+local DRAG_BUTTON_NAMES = { LeftButton = "Left button", RightButton = "Right button", MiddleButton = "Middle button" }
+
 function ActionBar.CanDrag()
 	local modifier = DRAG_MODIFIERS[config.dragModifier]
 	return (not modifier or modifier()) and not InCombatLockdown()
+end
+
+function ActionBar.DragHint()
+	local keys = L[DRAG_BUTTON_NAMES[config.dragButton] or config.dragButton]
+	local modifier = DRAG_MODIFIER_NAMES[config.dragModifier]
+	if modifier then
+		keys = L[modifier] .. " + " .. keys
+	end
+	return L["%s - remove from the bar"]:format(keys)
 end
 
 function ActionBar:StyleHotkey(hotkey)
@@ -161,9 +178,15 @@ local CLASS_PAGE_CONDITIONS = {
 }
 
 local classPageCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
+-- 3.3.5 has no [possessbar] (unknown macro option error); possess is [bonusbar:5]
 local PAGE_DRIVER_CONDITION = "[vehicleui] 11; [bonusbar:5] 11; [bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
 	.. (classPageCondition and classPageCondition .. " " or "")
 	.. "1"
+
+local function pageCondition()
+	local custom = config.bar1.paging and strtrim(config.bar1.paging) or ""
+	return custom ~= "" and custom or PAGE_DRIVER_CONDITION
+end
 
 local PAGE_CHANGED_SNIPPET = [[
 	local action = (message - 1) * 12 + self:GetAttribute("id")
@@ -228,6 +251,19 @@ local function layoutBar(bar, barConfig, count, path, growRight)
 	end
 	ns.ApplyPoint(bar, path)
 	bar.fader:Configure(barConfig.mouseover, barConfig.fadeAlpha, barConfig.combat)
+	local condition = barConfig.visibility and strtrim(barConfig.visibility) or ""
+	if condition ~= "" and barConfig.enabled ~= false then
+		if bar.visibilityCondition ~= condition then
+			RegisterStateDriver(bar, "visibility", condition)
+			bar.visibilityCondition = condition
+		end
+		return
+	end
+	if bar.visibilityCondition then
+		UnregisterStateDriver(bar, "visibility")
+		bar.visibilityCondition = nil
+		bar:Show()
+	end
 	if barConfig.enabled ~= nil then
 		ns.SetShown(bar, barConfig.enabled)
 	end
@@ -245,8 +281,13 @@ function ActionBar:LayoutBar(key)
 	elseif key == "stance" then
 		layoutBar(self.stanceBar, barConfig, GetNumShapeshiftForms(), path, true)
 	else
-		local bar = self.bars[tonumber(key:match("%d+"))]
+		local page = tonumber(key:match("%d+"))
+		local bar = self.bars[page]
 		layoutBar(bar, barConfig, barConfig.buttons, path)
+		if page == 1 and bar.pageCondition ~= pageCondition() then
+			bar.pageCondition = pageCondition()
+			RegisterStateDriver(bar, "page", bar.pageCondition)
+		end
 	end
 end
 
@@ -289,6 +330,7 @@ function ActionBar.NewExtraBar(page)
 		mouseover = false,
 		combat = "any",
 		fadeAlpha = 0.1,
+		visibility = "",
 	}
 end
 
@@ -310,7 +352,12 @@ function ActionBar:UpdateExtraBar(page)
 		if not bar.active then
 			bar.active = true
 			setButtonsActive(bar, true)
-			self:RegisterMover(bar, path .. ".point", L["Action bar %d"]:format(page), { secure = true })
+			self:RegisterMover(
+				bar,
+				path .. ".point",
+				L["Action bar %d"]:format(page),
+				{ secure = true, defaultPoint = self.NewExtraBar(page).point }
+			)
 		end
 		layoutBar(bar, barConfig, barConfig.buttons, path .. ".point")
 	elseif bar and bar.active then
@@ -351,10 +398,11 @@ end
 function ActionBar:Initialize()
 	local bar1 = self:CreateBar(1, setupPagedButton)
 	bar1:SetAttribute("_onstate-page", [[ control:ChildUpdate("page", newstate) ]])
-	RegisterStateDriver(bar1, "page", PAGE_DRIVER_CONDITION)
+	bar1.pageCondition = pageCondition()
+	RegisterStateDriver(bar1, "page", bar1.pageCondition)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 		if not InCombatLockdown() then
-			RegisterStateDriver(bar1, "page", PAGE_DRIVER_CONDITION)
+			RegisterStateDriver(bar1, "page", bar1.pageCondition)
 		end
 	end)
 

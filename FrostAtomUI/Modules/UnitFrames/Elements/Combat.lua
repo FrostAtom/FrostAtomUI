@@ -27,7 +27,7 @@ local function create(frame)
 	return combat
 end
 
-UF:RegisterElement("combat", create, update, test)
+UF:RegisterElement({ name = "combat", Create = create, Update = update, Test = test })
 
 local GLOW_SIZE = 6
 
@@ -39,7 +39,7 @@ local function setGlow(frame, shown)
 	end
 	local color = config.combatGlowColor
 	if not glow:IsShown() or glow.r ~= color[1] or glow.g ~= color[2] or glow.b ~= color[3] then
-		UF.StartCastGlow(glow, color)
+		ns.Cast.StartGlow(glow, color)
 	end
 end
 
@@ -60,8 +60,8 @@ local function onCombatEnd(frame)
 end
 
 local function createGlow(frame)
-	local glow = UF.CreateCastGlow(frame, frame, GLOW_SIZE)
-	glow:SetScript("OnUpdate", UF.PulseCastGlow)
+	local glow = ns.Cast.CreateGlow(frame, frame, GLOW_SIZE)
+	glow:SetScript("OnUpdate", ns.Cast.PulseGlow)
 
 	frame:RegisterEvent("PLAYER_REGEN_DISABLED", onCombatStart)
 	frame:RegisterEvent("PLAYER_REGEN_ENABLED", onCombatEnd)
@@ -69,4 +69,4 @@ local function createGlow(frame)
 	return glow
 end
 
-UF:RegisterElement("combatglow", createGlow, updateGlow, testGlow)
+UF:RegisterElement({ name = "combatglow", Create = createGlow, Update = updateGlow, Test = testGlow })

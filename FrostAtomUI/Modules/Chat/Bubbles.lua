@@ -9,10 +9,10 @@ local min, max = math.min, math.max
 local Chat = ns:GetModule("Chat")
 local BubbleLayer = ns.BubbleLayer
 local PlateLayer = ns.PlateLayer
-local classColors = ns:GetModule("UnitFrames").classColors
+local classColors = ns.Colors.class
 
 local config = ns.Config.chat
-local frameConfig = ns.Config.unitFrames
+local themeConfig = ns.Config.theme
 local plateConfig = ns.Config.namePlates
 local BACKDROP = ns.CreateBackdrop(8, 2)
 local BORDER_INSET = 3
@@ -60,16 +60,17 @@ local function layout(bubble, info)
 	text:SetWidth(max(min(text:GetStringWidth(), config.bubbleMaxWidth), senderWidth))
 
 	local inset = PADDING + BORDER_INSET
+	-- 3.3.5: the client sets the bubble's points only once and afterwards moves just the text
 	bubble:ClearAllPoints()
 	bubble:SetPoint("BOTTOMLEFT", text, -inset, -inset)
 	bubble:SetPoint("TOPRIGHT", text, inset, inset + senderHeight)
 
-	local backdrop = frameConfig.backdropColor
+	local backdrop = themeConfig.backdropColor
 	bubble:SetBackdropColor(backdrop[1], backdrop[2], backdrop[3], backdrop[4])
 	if config.bubbleTypeBorder then
 		bubble:SetBackdropBorderColor(r, g, b)
 	else
-		local color = frameConfig.borderColor
+		local color = themeConfig.borderColor
 		bubble:SetBackdropBorderColor(color[1], color[2], color[3])
 	end
 end
@@ -92,6 +93,7 @@ local function setupBubble(bubble, info)
 		info.tail:SetTexture(nil)
 		info.tail:Hide()
 	end
+	-- 3.3.5: SetBackdrop destroys the client's backdrop regions; info.background and info.edges die
 	bubble:SetBackdrop(BACKDROP)
 
 	text:SetShadowColor(0, 0, 0, 1)
@@ -122,6 +124,6 @@ end
 Chat:OnInitialize(function(self)
 	BubbleLayer.Register({ created = setupBubble, shown = onShown })
 	self:WatchConfig("chat", relayout)
-	self:WatchConfig("unitFrames", relayout)
+	self:WatchConfig("theme", relayout)
 	self:WatchConfig("namePlates.nameFont", relayout)
 end)

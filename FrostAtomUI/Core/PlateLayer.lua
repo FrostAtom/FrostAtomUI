@@ -15,6 +15,7 @@ PlateLayer.HOSTILE, PlateLayer.NEUTRAL, PlateLayer.FRIENDLY = HOSTILE, NEUTRAL, 
 local TARGET_ALPHA = 0.99
 local GUID_PLAYER_BYTE = 48
 
+-- 3.3.5: GetStatusBarColor returns byte * 0.00392156, not byte / 255, so colors are compared as bytes
 local function toByte(value)
 	if value <= 0 then
 		return 0
@@ -89,6 +90,7 @@ local function readColor(info)
 end
 
 local function readTarget(plate, info)
+	-- 3.3.5: a plate has no target flag; the client sets alpha 1 on the target plate and 0.5 on the rest
 	info.isTarget = targetExists and plate:GetAlpha() > TARGET_ALPHA
 	info.targetSerial = targetSerial
 end
@@ -133,6 +135,7 @@ local function resolveHover()
 end
 
 local function isMouseover(info)
+	-- 3.3.5: a recycled plate can keep the mouseover glow shown, so the glow alone is not trusted
 	return info.shown and info.highlight:IsShown() == 1 and resolveHover() == info.plate
 end
 PlateLayer.IsMouseover = isMouseover
@@ -146,6 +149,7 @@ local function onShow(plate)
 	info.shown = true
 	info.name = info.nameText:GetText()
 	info.colorKey = nil
+	-- 3.3.5: right after OnShow the alpha still belongs to the pooled plate's previous unit
 	info.isTarget = false
 	info.targetSerial = -1
 	info.isMouseover = false
@@ -165,6 +169,7 @@ local function onUpdate(plate, elapsed)
 	local info = infos[plate]
 	readTarget(plate, info)
 	readMouseover(info)
+	-- 3.3.5: the client renames and recolors a plate from C++ without any event or Lua hook
 	local name = info.nameText:GetText()
 	if name ~= info.name then
 		info.name = name
@@ -263,6 +268,7 @@ end
 
 function PlateLayer.SetHealthColor(info, r, g, b)
 	local rb, gb, bb = toByte(r), toByte(g), toByte(b)
+	-- a paint equal to a client color would hide the client's next recolor of the bar
 	if CLIENT_COLORS[byteKey(rb, gb, bb)] then
 		bb = bb < 255 and bb + 1 or bb - 1
 	end

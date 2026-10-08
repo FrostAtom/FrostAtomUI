@@ -1,0 +1,259 @@
+local ADDON_NAME, ns = ...
+
+local L = ns.L
+
+local GetAddOnMetadata = GetAddOnMetadata
+local ChatThrottleLib = ChatThrottleLib
+local GetNumRaidMembers = GetNumRaidMembers
+local GetNumPartyMembers = GetNumPartyMembers
+local IsInInstance = IsInInstance
+local IsInGuild = IsInGuild
+local UnitName = UnitName
+local UnitLevel = UnitLevel
+local GetRealmName = GetRealmName
+local UnitIsPlayer = UnitIsPlayer
+local UnitIsUnit = UnitIsUnit
+local UnitFactionGroup = UnitFactionGroup
+local UnitIsConnected = UnitIsConnected
+local UnitIsEnemy = UnitIsEnemy
+local UnitCanAttack = UnitCanAttack
+local GetTime = GetTime
+local UNKNOWNOBJECT = UNKNOWNOBJECT
+local UNKNOWN = UNKNOWN
+
+local VersionModule = ns:NewModule("Version")
+
+local PREFIX = "FAUI"
+local ANNOUNCE_DELAY = 10
+local PROBE_INTERVAL = 300
+local PRIORITY = "BULK"
+local BUILD_PATTERN = "^%d%d%d%d%-%d%d%-%d%d$"
+local VERSION_PATTERN = "^%d+%.%d+[%.%d]*$"
+local MAX_VERSION_LENGTH = 16
+local NEW_PLAYER_LEVEL = 10
+local NEW_PLAYER_LOGINS = 3
+
+local version = GetAddOnMetadata(ADDON_NAME, "Version") or "0"
+local build = GetAddOnMetadata(ADDON_NAME, "X-Build") or "0"
+local payload = version .. ":" .. build
+local ANNOUNCE_MESSAGE = "V:" .. payload
+local PROBE_MESSAGE = "Q:" .. payload
+
+local playerName = UnitName("player")
+local playerFaction = UnitFactionGroup("player")
+
+local users = {}
+local probed = {}
+local announcePending, groupSize, newerReported = false, 0, false
+
+local Version = {}
+ns.Version = Version
+
+function Version.GetUser(name)
+	if name == playerName then
+		return version, build
+	end
+	local user = users[name]
+	if user then
+		return user.version, user.build
+	end
+end
+
+function Version.Label(ver, bld)
+	return ("%s |cff808080(%s)|r"):format(ver, bld)
+end
+
+local function groupChannel()
+	if GetNumRaidMembers() > 1 then
+		local _, instanceType = IsInInstance()
+		return instanceType == "pvp" and "BATTLEGROUND" or "RAID"
+	elseif GetNumPartyMembers() > 0 then
+		return "PARTY"
+	elseif IsInGuild() then
+		return "GUILD"
+	end
+end
+
+local function send(message, channel, target)
+	ChatThrottleLib:SendAddonMessage(PRIORITY, PREFIX, message, channel, target)
+end
+
+local function announce()
+	announcePending = false
+	local channel = groupChannel()
+	if channel then
+		send(ANNOUNCE_MESSAGE, channel)
+	end
+end
+
+local function queueAnnounce()
+	if not announcePending then
+		announcePending = true
+		ns.After(ANNOUNCE_DELAY, announce)
+	end
+end
+
+local function isGroupMember(name)
+	local prefix, count = "raid", GetNumRaidMembers()
+	if count == 0 then
+		prefix, count = "party", GetNumPartyMembers()
+	end
+	for i = 1, count do
+		if UnitName(prefix .. i) == name then
+			return true
+		end
+	end
+	return false
+end
+
+local function isTalkable(name)
+	local _, instanceType = IsInInstance()
+	if instanceType == "arena" or instanceType == "pvp" then
+		return isGroupMember(name)
+	end
+	return true
+end
+
+function Version.Probe(unit)
+	if not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") or not UnitIsConnected(unit) then
+		return
+	end
+	if UnitFactionGroup(unit) ~= playerFaction then
+		return
+	end
+	if UnitIsEnemy("player", unit) or UnitCanAttack("player", unit) then
+		return
+	end
+	local name = UnitName(unit)
+	if not name or name == "" or name == UNKNOWNOBJECT or name == UNKNOWN or users[name] or not isTalkable(name) then
+		return
+	end
+	local now = GetTime()
+	local last = probed[name]
+	if last and now - last < PROBE_INTERVAL then
+		return
+	end
+	probed[name] = now
+	send(PROBE_MESSAGE, "WHISPER", name)
+end
+
+local function isValid(theirVersion, theirBuild)
+	return #theirVersion <= MAX_VERSION_LENGTH
+		and theirVersion:find(VERSION_PATTERN) ~= nil
+		and theirBuild:find(BUILD_PATTERN) ~= nil
+end
+
+local function versionParts(ver)
+	local major, minor, patch = ver:match("^(%d+)%.(%d+)%.?(%d*)")
+	return tonumber(major) or 0, tonumber(minor) or 0, tonumber(patch) or 0
+end
+
+local ownValid = version:find(VERSION_PATTERN) ~= nil
+local ownMajor, ownMinor, ownPatch = versionParts(version)
+
+local function isNewer(theirVersion)
+	if not ownValid then
+		return false
+	end
+	local major, minor, patch = versionParts(theirVersion)
+	if major ~= ownMajor then
+		return major > ownMajor
+	elseif minor ~= ownMinor then
+		return minor > ownMinor
+	end
+	return patch > ownPatch
+end
+
+local function reportNewer(theirVersion, theirBuild)
+	if newerReported then
+		return
+	end
+	newerReported = true
+	ns.Print(
+		L["A newer version is available: %s (yours: %s)"],
+		Version.Label(theirVersion, theirBuild),
+		Version.Label(version, build)
+	)
+end
+
+VersionModule:RegisterEvent("CHAT_MSG_ADDON", function(_, prefix, message, channel, sender)
+	if prefix ~= PREFIX or not sender or sender == playerName then
+		return
+	end
+	local kind, theirVersion, theirBuild = message:match("^([VQ]):([^:]+):(.+)$")
+	if not kind or not isValid(theirVersion, theirBuild) then
+		return
+	end
+
+	local user = users[sender]
+	if not user then
+		user = {}
+		users[sender] = user
+	end
+	user.version, user.build = theirVersion, theirBuild
+
+	if isNewer(theirVersion) then
+		reportNewer(theirVersion, theirBuild)
+	end
+	if kind == "Q" and channel == "WHISPER" and isTalkable(sender) then
+		send(ANNOUNCE_MESSAGE, "WHISPER", sender)
+	end
+
+	if GameTooltip:IsShown() then
+		local name, unit = GameTooltip:GetUnit()
+		if name == sender and unit then
+			GameTooltip:SetUnit(unit)
+		end
+	end
+end)
+
+local function onGroupChanged()
+	local numRaid = GetNumRaidMembers()
+	local size = numRaid > 0 and numRaid or GetNumPartyMembers() + 1
+	if size > groupSize and size > 1 then
+		queueAnnounce()
+	end
+	groupSize = size
+end
+
+VersionModule:RegisterEvent("PARTY_MEMBERS_CHANGED", onGroupChanged)
+VersionModule:RegisterEvent("RAID_ROSTER_UPDATE", onGroupChanged)
+local loginsSlot = ns.Storage.Claim("newPlayerLogins", "Version", "state")
+local lastSlot = ns.Storage.Claim("lastVersion", "Version", "state")
+local seenSlot = ns.Storage.Claim("seenRelease", "Version", "ui")
+
+local function newPlayerLogin()
+	local key = UnitName("player") .. " - " .. GetRealmName()
+	local logins = loginsSlot:Table()
+	if UnitLevel("player") >= NEW_PLAYER_LEVEL then
+		logins[key] = nil
+		return false
+	end
+	local count = (logins[key] or 0) + 1
+	logins[key] = count
+	return count <= NEW_PLAYER_LOGINS
+end
+
+local function shouldGreet()
+	if ns:IsFreshInstall() and not seenSlot:Get() then
+		seenSlot:Set(version)
+	end
+	local changed = lastSlot:Get() ~= version
+	lastSlot:Set(version)
+	local newPlayer = newPlayerLogin()
+	return changed or newPlayer
+end
+
+local function onEnteringWorld()
+	VersionModule:UnregisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
+	VersionModule:RegisterEvent("PLAYER_ENTERING_WORLD", queueAnnounce)
+	if shouldGreet() then
+		ns.Print(
+			L['v%s, settings: |cffffffff/fui|r or the "FrostAtom UI" button in the Esc menu'],
+			Version.Label(version, build)
+		)
+	end
+	queueAnnounce()
+end
+
+VersionModule:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)

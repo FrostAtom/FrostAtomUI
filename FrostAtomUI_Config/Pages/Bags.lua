@@ -24,6 +24,7 @@ bagWindow("bank", L["Bank"], "building-columns")
 ns.RegisterPage({
 	key = "bags",
 	name = L["Bags"],
+	desc = L["Bags and bank in one window with search and sorting."],
 	glyph = "bag-shopping",
 	order = 48,
 	group = "interface",
@@ -33,7 +34,6 @@ ns.RegisterPage({
 			path = "bags.enabled",
 			label = L["Enable"],
 			type = "toggle",
-			reload = true,
 			desc = L["Replace Blizzard bags."],
 		},
 		{ header = L["Frames"], glyph = "arrows-up-down-left-right" },
@@ -47,7 +47,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.movable",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Movable"],
 			type = "toggle",
 			desc = L["Drag the inventory and bank windows by their free space; the position is saved."],
@@ -61,14 +61,14 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.offlineBank",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Offline bank"],
 			type = "toggle",
 			desc = L["Bank button in the inventory header shows the bank contents saved at your last visit, from anywhere."],
 		},
 		{
 			path = "bags.altGold",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Gold of other characters"],
 			type = "toggle",
 			desc = L["Hovering the money lists the gold of every character on this realm with the total."],
@@ -107,7 +107,7 @@ ns.RegisterPage({
 		{
 			path = "bags.backgroundAlpha",
 			advanced = true,
-			label = L["Background alpha"],
+			label = L["Background opacity"],
 			type = "number",
 			min = 0,
 			max = 1,
@@ -130,7 +130,7 @@ ns.RegisterPage({
 		},
 		{
 			path = "bags.tintUnusable",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Tint unusable items red"],
 			type = "toggle",
 			desc = L["Items your character cannot use: armor or weapon type, level, class or skill requirements."],
@@ -138,18 +138,18 @@ ns.RegisterPage({
 		{
 			path = "bags.showBagFreeSlots",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Free slots on bag buttons"],
 			type = "toggle",
 			desc = L["Number of empty slots on each bag button."],
 		},
-		{ header = L["Sorting"], new = "1.4.1", glyph = "arrow-down-short-wide" },
+		{ header = L["Sorting"], new = "1.5.0", glyph = "arrow-down-short-wide" },
 		{
 			description = L["/sort sorts the bags, /sortbank the bank. Sorting the bank first tops up its stacks from your bags."],
 		},
 		{
 			path = "bags.lockModifier",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Slot lock click"],
 			type = "select",
 			values = {
@@ -162,19 +162,19 @@ ns.RegisterPage({
 		},
 		{
 			type = "execute",
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Locked slots"],
 			text = L["Unlock all"],
 			glyph = "lock-open",
 			confirm = L["Unlock every locked bag and bank slot of this character?"],
 			func = function()
-				FrostAtomUI:GetModule("Bags"):ClearSlotLocks()
+				FrostAtomUI.API.RunAction("bagsClearSlotLocks")
 			end,
 		},
 		{
 			path = "bags.sortReverse",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Fill from the end"],
 			type = "toggle",
 			desc = L["Sorted items go to the last slots and empty slots stay first."],
@@ -182,7 +182,7 @@ ns.RegisterPage({
 		{
 			path = "bags.sortMessages",
 			advanced = true,
-			new = "1.4.1",
+			new = "1.5.0",
 			label = L["Sort messages"],
 			type = "toggle",
 			desc = L['"Sorting complete" and "already sorted" in chat.'],

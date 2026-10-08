@@ -33,15 +33,35 @@ local HEALTH_TEXT_VALUES = {
 	{ "all", L["Always"] },
 }
 
-local HEALTH_TEXT_FORMAT_VALUES = {
-	{ "percent", L["Percent"] },
-	{ "value", L["Value"] },
-	{ "both", L["Value and percent"] },
+local NEW = "1.5.0"
+
+local HEALTH_TAG_PRESETS = {
+	{ "[perhp:floor]%", L["Percent"] },
+	{ "[curhp]", L["Value"] },
+	{ "[curhp] | [perhp:floor]%", L["Value and percent"] },
 }
 
-local NEW = "1.4.1"
+local healthTagPreset, healthTag = ns.HealthTagEntries("namePlates.healthTag", HEALTH_TAG_PRESETS, {
+	plates = true,
+	label = L["Health text format"],
+	presetDesc = L["Where the health text is shown is set per nameplate type."],
+	desc = L["Only health tags work on nameplates: the game gives them no unit to read a name, class or power from. Empty: no health text."],
+})
 
-local COPY_FIELDS = { "width", "height", "showName", "healthText", "showCastbar", "castbarHeight", "showAuras" }
+local COPY_FIELDS = {
+	"width",
+	"height",
+	"targetScale",
+	"showName",
+	"healthText",
+	"showCastbar",
+	"castbarHeight",
+	"showAuras",
+	"auraMax",
+	"auraSize",
+	"ownBorderColor",
+	"borderColor",
+}
 
 local function arenaIconEntries(prefix, owner)
 	if owner then
@@ -116,6 +136,17 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc, aren
 			max = 30,
 			step = 1,
 		},
+		{
+			path = prefix .. "targetScale",
+			new = "1.5.0",
+			label = L["Target size"],
+			type = "number",
+			min = 1,
+			max = 2,
+			step = 0.05,
+			percent = true,
+			desc = L["The nameplate of your target is this much larger. 100% keeps it like the others."],
+		},
 		{ header = L["Display"], glyph = "bars-staggered" },
 		{ path = prefix .. "showName", new = NEW, label = L["Name"], type = "toggle" },
 		{
@@ -151,6 +182,30 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc, aren
 			type = "toggle",
 			desc = L["CC and other tracked auras above the nameplate. Which auras are shown is set on the General tab."],
 		},
+		{
+			path = prefix .. "auraMax",
+			label = L["Aura limit"],
+			type = "number",
+			min = 0,
+			max = 12,
+			step = 1,
+			zeroText = L["As on General"],
+			advanced = true,
+			enabledBy = prefix .. "showAuras",
+			desc = L["Most aura icons on this type of nameplate. 0 keeps the number from the General tab."],
+		},
+		{
+			path = prefix .. "auraSize",
+			label = L["Aura size"],
+			type = "number",
+			min = 0,
+			max = 50,
+			step = 1,
+			zeroText = L["As on General"],
+			advanced = true,
+			enabledBy = prefix .. "showAuras",
+			desc = L["Aura icon size on this type of nameplate, crowd control keeps its own size. 0 keeps the size from the General tab."],
+		},
 		{ header = L["Colors"], glyph = "palette" },
 		{
 			path = modePath,
@@ -169,6 +224,7 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc, aren
 			disabled = function()
 				return ui:GetConfig(modePath) ~= "custom"
 			end,
+			disabledDesc = L['Pick "Fixed color" in the color mode.'],
 		},
 		{
 			path = prefix .. "nameColorMode",
@@ -178,6 +234,22 @@ local function categoryTab(key, name, glyph, classColors, about, colorDesc, aren
 			type = "select",
 			values = classColors and PLAYER_NAME_COLOR_VALUES or NPC_NAME_COLOR_VALUES,
 			enabledBy = prefix .. "showName",
+		},
+		{
+			path = prefix .. "ownBorderColor",
+			new = "1.5.0",
+			advanced = true,
+			label = L["Own border color"],
+			type = "toggle",
+			desc = L["A border color for this type of nameplate instead of the one from Unit frames. Threat and the target highlight still recolor it."],
+		},
+		{
+			path = prefix .. "borderColor",
+			new = "1.5.0",
+			advanced = true,
+			label = L["Border color"],
+			type = "color",
+			enabledBy = prefix .. "ownBorderColor",
 		},
 		{ header = L["Arena"], glyph = "trophy" },
 	}
@@ -246,8 +318,24 @@ local generalEntries = {
 		desc = L["Replace totem nameplates with the totem's spell icon, framed in the reaction color."],
 	},
 	{
+		path = "namePlates.totemFilter",
+		new = "1.5.0",
+		label = L["Totems shown"],
+		type = "select",
+		enabledBy = "namePlates.totemIcons",
+		values = {
+			{
+				"important",
+				L["Important"],
+				L["Earthbind, Tremor, Grounding, Cleansing, Mana Tide and the elementals. Other totems get no nameplate."],
+			},
+			{ "all", L["All"] },
+		},
+		keywords = L["totem filter"],
+	},
+	{
 		path = "namePlates.totemTimer",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Totem timer"],
 		type = "toggle",
 		enabledBy = "namePlates.totemIcons",
@@ -255,7 +343,7 @@ local generalEntries = {
 	},
 	{
 		path = "namePlates.totemPulse",
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Totem pulse bar"],
 		type = "toggle",
 		enabledBy = "namePlates.totemIcons",
@@ -264,7 +352,7 @@ local generalEntries = {
 	{
 		path = "namePlates.totemPulseHeight",
 		advanced = true,
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Totem pulse bar height"],
 		type = "number",
 		min = 2,
@@ -275,7 +363,7 @@ local generalEntries = {
 	{
 		path = "namePlates.totemPulseColor",
 		advanced = true,
-		new = "1.4.1",
+		new = "1.5.0",
 		label = L["Totem pulse bar color"],
 		type = "color",
 		enabledBy = "namePlates.totemPulse",
@@ -291,14 +379,8 @@ local generalEntries = {
 		enabledBy = "namePlates.totemIcons",
 	},
 	{ header = L["Text"], glyph = "font" },
-	{
-		path = "namePlates.healthTextFormat",
-		new = NEW,
-		label = L["Health text format"],
-		type = "select",
-		values = HEALTH_TEXT_FORMAT_VALUES,
-		desc = L["Where the health text is shown is set per nameplate type."],
-	},
+	healthTagPreset,
+	healthTag,
 	{ path = "namePlates.nameFont", label = L["Name font"], type = "font" },
 	{ path = "namePlates.percentFont", label = L["Health text font"], type = "font" },
 	{
@@ -432,6 +514,36 @@ local auraEntries = {
 		max = 12,
 		step = 1,
 	},
+	{ header = L["Control icon"], glyph = "lock" },
+	{
+		path = "namePlates.ccIcon",
+		new = NEW,
+		label = L["Control icon on the right"],
+		type = "toggle",
+		desc = L["The strongest crowd control on the unit gets its own icon on the right of the nameplate, apart from the aura row. Other crowd control stays in the row."],
+	},
+	{
+		path = "namePlates.ccIconSize",
+		new = NEW,
+		label = L["Control icon size"],
+		type = "number",
+		min = 12,
+		max = 48,
+		step = 1,
+		enabledBy = "namePlates.ccIcon",
+	},
+	{
+		path = "namePlates.ccIconGap",
+		advanced = true,
+		new = NEW,
+		label = L["Control icon offset"],
+		type = "number",
+		min = 0,
+		max = 20,
+		step = 1,
+		desc = L["Gap between the health bar and the control icon."],
+		enabledBy = "namePlates.ccIcon",
+	},
 	{ header = L["Aura icons"], glyph = "table-cells" },
 	{
 		path = "namePlates.auraSize",
@@ -491,7 +603,7 @@ local auraEntries = {
 		path = "namePlates.showHealers",
 		label = L["Enable"],
 		type = "toggle",
-		desc = L["Large healer role icon above the nameplate of enemy healers in battlegrounds."],
+		desc = L["Large healer role icon above the nameplate of enemy healers: in battlegrounds by the scoreboard, in arenas once a spell proves the healing spec."],
 	},
 	{
 		path = "namePlates.healerCrossSize",
@@ -546,7 +658,7 @@ local NAME_BUTTON_WIDTH = 64
 local NAME_BUTTON_HEIGHT = 20
 
 local function hiddenNames()
-	return ui.Config.namePlates.hiddenNames
+	return ui:GetConfig("namePlates.hiddenNames")
 end
 
 local function addHiddenName(name)
@@ -554,9 +666,9 @@ local function addHiddenName(name)
 	if not name or name == "" then
 		return
 	end
-	local lower = strlower(name)
+	local lower = ui.Lower(name)
 	for _, existing in ipairs(hiddenNames()) do
-		if strlower(existing) == lower then
+		if ui.Lower(existing) == lower then
 			return
 		end
 	end
@@ -650,6 +762,7 @@ end
 ns.RegisterPage({
 	key = "nameplates",
 	name = L["Nameplates"],
+	desc = L["Nameplates above characters: colors, castbars, auras, totems."],
 	glyph = "id-card",
 	order = 22,
 	group = "frames",
@@ -659,7 +772,6 @@ ns.RegisterPage({
 			path = "namePlates.enabled",
 			label = L["Enable"],
 			type = "toggle",
-			reload = true,
 			desc = L["Restyle Blizzard nameplates."],
 		},
 	},
@@ -703,7 +815,10 @@ ns.RegisterPage({
 			key = "hidden",
 			name = L["Hidden"],
 			glyph = "eye-slash",
-			schema = { { path = HIDE_ENABLE, hidden = true }, { path = HIDDEN_PATH, hidden = true } },
+			schema = {
+				{ path = HIDE_ENABLE, hidden = true },
+				{ path = HIDDEN_PATH, hidden = true, userContent = true, label = L["Hidden names"] },
+			},
 			buildSchema = buildHiddenSchema,
 			signature = hiddenSignature,
 		},

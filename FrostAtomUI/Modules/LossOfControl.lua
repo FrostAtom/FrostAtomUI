@@ -6,13 +6,11 @@ local GetSpellInfo = GetSpellInfo
 local GetSpellName = GetSpellName
 local GetSpellCooldown = GetSpellCooldown
 local GetTime = GetTime
-local UnitGUID = UnitGUID
 local BOOKTYPE_SPELL = BOOKTYPE_SPELL
 local abs, huge, random = math.abs, math.huge, math.random
 
 local Auras = ns.Auras
 local LossOfControl = ns:NewModule("LossOfControl")
-local UF = ns:GetModule("UnitFrames")
 
 local FRAME_WIDTH, FRAME_HEIGHT = 256, 58
 local LINE_WIDTH, LINE_HEIGHT = 236, 2
@@ -65,132 +63,6 @@ local TEXT = {
 	root = "Rooted",
 }
 
-local CC_BY_NAME_IDS = {
-	[33786] = "cyclone", -- Cyclone
-	[853] = "stun", -- Hammer of Justice
-	[2812] = "stun", -- Holy Wrath
-	[20170] = "stun", -- Stun
-	[408] = "stun", -- Kidney Shot
-	[1833] = "stun", -- Cheap Shot
-	[5211] = "stun", -- Bash
-	[9005] = "stun", -- Pounce
-	[22570] = "stun", -- Maim
-	[12809] = "stun", -- Concussion Blow
-	[7922] = "stun", -- Charge Stun
-	[20253] = "stun", -- Intercept
-	[46968] = "stun", -- Shockwave
-	[44572] = "stun", -- Deep Freeze
-	[12355] = "stun", -- Impact
-	[30283] = "stun", -- Shadowfury
-	[22703] = "stun", -- Inferno Effect
-	[60995] = "stun", -- Demon Charge
-	[47481] = "stun", -- Gnaw
-	[24394] = "stun", -- Intimidation
-	[50519] = "stun", -- Sonic Blast
-	[50518] = "stun", -- Ravage
-	[53148] = "stun", -- Charge
-	[58861] = "stun", -- Bash
-	[20549] = "stun", -- War Stomp
-	[39796] = "stun", -- Stoneclaw Stun
-	[31367] = "stun", -- Netherweave Net
-	[31368] = "stun", -- Heavy Netherweave Net
-	[46567] = "stun", -- Rocket Launch
-	[30216] = "incapacitate", -- Fel Iron Bomb
-	[30217] = "incapacitate", -- Adamantite Grenade
-	[30461] = "incapacitate", -- The Bigger One
-	[67769] = "incapacitate", -- Cobalt Frag Bomb
-	[56350] = "incapacitate", -- Saronite Bomb
-	[71988] = "incapacitate", -- Vile Fumes
-	[5782] = "fear", -- Fear
-	[5484] = "fear", -- Howl of Terror
-	[8122] = "fear", -- Psychic Scream
-	[5246] = "fear", -- Intimidating Shout
-	[1513] = "fear", -- Scare Beast
-	[10326] = "fear", -- Turn Evil
-	[35474] = "fear", -- Drums of Panic
-	[6789] = "horror", -- Death Coil
-	[64044] = "horror", -- Psychic Horror
-	[605] = "charm", -- Mind Control
-	[13181] = "charm", -- Gnomish Mind Control Cap
-	[6358] = "seduce", -- Seduction
-	[2637] = "sleep", -- Hibernate
-	[19386] = "sleep", -- Wyvern Sting
-	[118] = "polymorph", -- Polymorph
-	[51514] = "polymorph", -- Hex
-	[30501] = "polymorph", -- Poultryized!
-	[6770] = "incapacitate", -- Sap
-	[1776] = "incapacitate", -- Gouge
-	[20066] = "incapacitate", -- Repentance
-	[51209] = "incapacitate", -- Hungering Cold
-	[3355] = "incapacitate", -- Freezing Trap Effect
-	[60210] = "incapacitate", -- Freezing Arrow Effect
-	[9484] = "incapacitate", -- Shackle Undead
-	[2094] = "disorient", -- Blind
-	[19503] = "disorient", -- Scatter Shot
-	[31661] = "disorient", -- Dragon's Breath
-	[710] = "banish", -- Banish
-	[15487] = "silence", -- Silence
-	[1330] = "silence", -- Garrote - Silence
-	[34490] = "silence", -- Silencing Shot
-	[28730] = "silence", -- Arcane Torrent
-	[47476] = "silence", -- Strangulate
-	[24259] = "silence", -- Spell Lock
-	[18469] = "silence", -- Silenced - Improved Counterspell
-	[18498] = "silence", -- Silenced - Gag Order
-	[18425] = "silence", -- Silenced - Improved Kick
-	[63529] = "silence", -- Silenced - Shield of the Templar
-	[19821] = "silence", -- Arcane Bomb
-	[676] = "disarm", -- Disarm
-	[51722] = "disarm", -- Dismantle
-	[50541] = "disarm", -- Snatch
-	[53359] = "disarm", -- Chimera Shot - Scorpid
-	[64346] = "disarm", -- Fiery Payback
-	[339] = "root", -- Entangling Roots
-	[122] = "root", -- Frost Nova
-	[33395] = "root", -- Freeze
-	[12494] = "root", -- Frostbite
-	[55080] = "root", -- Shattered Barrier
-	[23694] = "root", -- Improved Hamstring
-	[58373] = "root", -- Glyph of Hamstring
-	[50245] = "root", -- Pin
-	[54706] = "root", -- Venom Web Spray
-	[4167] = "root", -- Web
-	[19185] = "root", -- Entrapment
-	[45334] = "root", -- Feral Charge Effect
-	[19306] = "root", -- Counterattack
-	[64695] = "root", -- Earthgrab
-	[39965] = "root", -- Frost Grenade
-	[55536] = "root", -- Frostweave Net
-}
-
-local CC_BY_ID = {
-	[31117] = "silence", -- Unstable Affliction
-	[64058] = "disarm", -- Psychic Horror
-}
-
-local LOCKOUTS = {
-	[1766] = 5, -- Kick
-	[1767] = 5, -- Kick
-	[1768] = 5, -- Kick
-	[1769] = 5, -- Kick
-	[38768] = 5, -- Kick
-	[6552] = 4, -- Pummel
-	[6554] = 4, -- Pummel
-	[72] = 6, -- Shield Bash
-	[1671] = 6, -- Shield Bash
-	[1672] = 6, -- Shield Bash
-	[29704] = 6, -- Shield Bash
-	[2139] = 8, -- Counterspell
-	[57994] = 2, -- Wind Shear
-	[47528] = 4, -- Mind Freeze
-	[19244] = 5, -- Spell Lock
-	[19647] = 6, -- Spell Lock
-	[16979] = 4, -- Feral Charge - Bear
-	[19675] = 4, -- Feral Charge Effect
-	[62347] = 2, -- Nether Shock
-	[26090] = 2, -- Pummel
-}
-
 local function schoolString(name)
 	return _G["STRING_SCHOOL_" .. name]
 end
@@ -241,19 +113,10 @@ local TEST_SPELLS = {
 	{ 122, "root" }, -- Frost Nova
 }
 
-local CC_BY_NAME = {}
-for spellId, category in pairs(CC_BY_NAME_IDS) do
-	local name = GetSpellInfo(spellId)
-	if name then
-		CC_BY_NAME[name] = category
-	end
-end
-
 local frame, icon, cooldown, nameText, timeText
 local lines = {}
 local shadows = {}
 
-local playerGUID
 local lockout = { category = "lockout", expires = 0 }
 local testEntry = { expires = 0 }
 local testIndex = 0
@@ -422,7 +285,7 @@ local function refresh()
 			local auras, count = Auras.Get("player", "HARMFUL")
 			for i = 1, count do
 				local aura = auras[i]
-				local category = CC_BY_ID[aura.spellId] or CC_BY_NAME[aura.name]
+				local category = ns.SpellDB.LossOfControl(aura.spellId, aura.name)
 				local expires = aura.expires
 				if category and config.categories[category] ~= false and (expires == 0 or expires > now) then
 					consider(category, aura.spellId, aura.icon, expires - aura.duration, aura.duration, expires)
@@ -492,11 +355,8 @@ local function onCooldownUpdate()
 	refresh()
 end
 
-local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, _, spellId, _, _, _, _, extraSchool)
-	if event ~= "SPELL_INTERRUPT" or destGUID ~= playerGUID then
-		return
-	end
-	local duration = LOCKOUTS[spellId]
+local function onInterrupted(_, spellId, extraSchool)
+	local duration = ns.SpellDB.Lockout(spellId)
 	if not duration then
 		return
 	end
@@ -514,7 +374,6 @@ local function onCombatLogEvent(_, _, event, _, _, _, destGUID, _, _, spellId, _
 end
 
 local function onEnteringWorld()
-	playerGUID = UnitGUID("player")
 	lockout.expires = 0
 	refresh()
 end
@@ -593,13 +452,14 @@ local function applyConfig()
 		LossOfControl:UnregisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 	end
 	if config.enabled and config.lockouts then
-		LossOfControl:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
+		ns.PlayerControl:Acquire("lossOfControl")
+		LossOfControl:RegisterEvent(ns.E.PLAYER_INTERRUPTED, onInterrupted)
 	else
-		LossOfControl:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
+		ns.PlayerControl:Release("lossOfControl")
+		LossOfControl:UnregisterEvent(ns.E.PLAYER_INTERRUPTED, onInterrupted)
 		LossOfControl:UnregisterEvent("SPELL_UPDATE_COOLDOWN", onCooldownUpdate)
 		lockout.expires = 0
 	end
-	playerGUID = UnitGUID("player")
 	shownDuration = nil
 	refresh()
 end
@@ -623,10 +483,20 @@ end
 
 function LossOfControl:Initialize()
 	createFrame()
-	self:AnchorToConfig(frame, "lossOfControl.point", "Loss of control", { floating = true })
+	self:AnchorToConfig(frame, "lossOfControl.point", "CC alert", { floating = true })
 	applyConfig()
 	self:WatchConfig("lossOfControl", applyConfig)
-	hooksecurefunc(UF, "SetTestMode", function()
-		LossOfControl:SetTestMode(UF.testing)
+	self:RegisterEvent(ns.E.PREVIEW_CHANGED, function(_, name, active)
+		if name == "unitFrames" then
+			LossOfControl:SetTestMode(active)
+		end
 	end)
+	ns.API.RegisterPreview("lossOfControl", {
+		Set = function(active)
+			LossOfControl:SetTestMode(active)
+		end,
+		IsActive = function()
+			return LossOfControl:IsTesting()
+		end,
+	})
 end

@@ -189,9 +189,18 @@ local function create(frame)
 
 	health:SetScript("OnUpdate", onUpdate)
 	frame:RegisterUnitEvent("UNIT_MAXHEALTH", update)
-	frame:RegisterEvent(Prediction.CHANGED, onPredictionChanged)
+	frame:RegisterEvent(ns.E.PREDICTION_CHANGED, onPredictionChanged)
 
 	return health
 end
 
-UF:RegisterElement("health", create, update, test)
+UF:RegisterElement({ name = "health", Create = create, Update = update, Test = test })
+
+local function applyDemand()
+	Prediction:SetDemand("unitFrames", config.healPrediction or config.absorbs)
+end
+
+UF:OnInitialize(function(self)
+	applyDemand()
+	self:WatchConfig("unitFrames", applyDemand)
+end)

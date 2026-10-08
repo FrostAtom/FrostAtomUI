@@ -4,13 +4,13 @@ local RegisterUnitWatch, UnregisterUnitWatch = RegisterUnitWatch, UnregisterUnit
 local UnitHasVehicleUI, UnitIsConnected, UnitIsUnit = UnitHasVehicleUI, UnitIsConnected, UnitIsUnit
 local UnitFrame_OnEnter = UnitFrame_OnEnter
 local UnitFrame_OnLeave = UnitFrame_OnLeave
-local min, max, floor, ceil = math.min, math.max, math.floor, math.ceil
+local max, floor, ceil = math.max, math.floor, math.ceil
 
 local UF = ns:NewModule("UnitFrames")
 UF.configKey = "unitFrames"
 
 local FRAME_NAME = ADDON_NAME .. "%sUnitFrame"
-local BORDER_INSET = 4
+local BORDER_INSET = ns.UIKit.BORDER_INSET
 local CLASS_ICON_INSET = BORDER_INSET
 local CLASS_ICON_GAP = 2
 local CASTBAR_GAP = 4
@@ -25,37 +25,48 @@ UF.CLASS_ICON_INSET = CLASS_ICON_INSET
 UF.CASTBAR_ICON_GAP = CASTBAR_ICON_GAP
 UF.CASTBAR_GAP = CASTBAR_GAP
 UF.BAR_BACKGROUND_DIM = BAR_BACKGROUND_DIM
-UF.backdrop = ns.CreateBackdrop(14, 3)
+UF.backdrop = ns.UIKit.backdrop
 
-UF.classColors = {}
-UF.classBarColors = {}
-UF.classList = {}
-for class, color in pairs(RAID_CLASS_COLORS) do
-	UF.classColors[class] = { min(color.r * 1.25, 1), min(color.g * 1.25, 1), min(color.b * 1.25, 1) }
-	UF.classBarColors[class] = { color.r * 0.75, color.g * 0.75, color.b * 0.75 }
-	UF.classList[#UF.classList + 1] = class
-end
-table.sort(UF.classList)
+UF.classColors = ns.Colors.class
+UF.classBarColors = ns.Colors.classBar
+UF.classList = ns.Colors.classList
+UF.powerColors = ns.Colors.power
+UF.debuffColors = ns.Colors.debuff
 
-UF.powerColors = {}
-for powerType = 0, #PowerBarColor do
-	local color = PowerBarColor[powerType]
-	UF.powerColors[powerType] = { color.r * 0.66, color.g * 0.66, color.b * 0.66 }
-end
-
-UF.debuffColors = {}
-for debuffType, color in pairs(DebuffTypeColor) do
-	UF.debuffColors[debuffType] = { color.r, color.g, color.b }
-end
-
-UF.textColor = config.textColor
+UF.textColor = ns.Config.theme.textColor
 UF.frames = {}
 
-local elements = {}
-UF.elements = elements
+UF:OnInitialize(function()
+	ns.FrameBridge.SetReady()
+end)
 
-function UF:RegisterElement(name, create, update, test, poll)
-	elements[name] = { create = create, update = update, test = test, poll = poll }
+local elements = {}
+local elementOrder = {}
+UF.elements = elements
+UF.elementOrder = elementOrder
+
+function UF:RegisterElement(spec, create, update, test, poll)
+	if type(spec) ~= "table" then
+		spec = { name = spec, Create = create, Update = update, Test = test, Poll = poll }
+	end
+	local name = spec.name
+	assert(type(name) == "string", "unit frame element needs a name")
+	assert(
+		type(spec.Create) == "function" and type(spec.Update) == "function",
+		("element [%s] needs Create and Update"):format(name)
+	)
+	local element = { name = name, create = spec.Create, update = spec.Update, test = spec.Test, poll = spec.Poll }
+	local previous = elements[name]
+	if previous then
+		for i = 1, #elementOrder do
+			if elementOrder[i] == previous then
+				elementOrder[i] = element
+			end
+		end
+	else
+		elementOrder[#elementOrder + 1] = element
+	end
+	elements[name] = element
 end
 
 function UF:AddElement(frame, name, ...)
@@ -69,27 +80,25 @@ function UF:AddElement(frame, name, ...)
 	return widget
 end
 
-function UF.SkinIcon(icon, texture)
-	texture:SetAllPoints()
-	icon.border = icon:CreateTexture(nil, "ARTWORK")
-	icon.border:SetTexture(ns.Media.buttonNormal)
-	icon.border:SetAllPoints()
-end
+UF.SkinIcon = ns.UIKit.SkinIcon
 
-function UF.StyleText(text)
-	ns.SetFont(text, config.textFont.size, config.textFont.outline)
+function UF.StyleText(text, key)
+	local size = key and config[key .. "TextSize"] or 0
+	ns.SetFont(text, size > 0 and size or config.textFont.size, config.textFont.outline)
 	text:SetTextColor(unpack(UF.textColor))
 end
 
-function UF.CreateText(parent)
+function UF.CreateText(parent, key)
 	local text = parent:CreateFontString(nil, "OVERLAY")
-	UF.StyleText(text)
+	UF.StyleText(text, key)
 	return text
 end
 
-function UF.SetBackdropColors(frame)
-	frame:SetBackdropColor(unpack(config.backdropColor))
-	frame:SetBackdropBorderColor(unpack(config.borderColor))
+UF.SetBackdropColors = ns.UIKit.SetBackdropColors
+
+function UF.SetBorder(frame)
+	frame:SetBackdrop(UF.backdrop)
+	UF.SetBackdropColors(frame)
 end
 
 function UF.SetBarColor(bar, r, g, b)
@@ -304,8 +313,9 @@ function UnitFrameMixin:UpdateAll()
 		self:SetDisplayUnit(vehicleDisplayUnit(self))
 	end
 
-	for name, element in pairs(elements) do
-		if self[name] then
+	for i = 1, #elementOrder do
+		local element = elementOrder[i]
+		if self[element.name] then
 			element.update(self)
 		end
 	end
@@ -391,7 +401,8 @@ function UnitFrameMixin:SetDisplayUnit(unit)
 			RegisterUnitEvent(self, entry.event, unit, entry.handler)
 		end
 	end
-	for name in pairs(elements) do
+	for i = 1, #elementOrder do
+		local name = elementOrder[i].name
 		if not (fixed and fixed[name]) then
 			retarget(self[name], from, unit)
 		end
@@ -482,8 +493,9 @@ end)
 
 function UF.EnablePolling(frame)
 	local polls = {}
-	for name, element in pairs(elements) do
-		if frame[name] and element.poll then
+	for i = 1, #elementOrder do
+		local element = elementOrder[i]
+		if frame[element.name] and element.poll then
 			polls[#polls + 1] = element.poll
 		end
 	end
@@ -531,8 +543,7 @@ function UF:CreateBase(unit, parent)
 	frame.unitEvents = {}
 
 	frame:RegisterForClicks("AnyDown")
-	frame:SetBackdrop(UF.backdrop)
-	UF.SetBackdropColors(frame)
+	UF.SetBorder(frame)
 	UF.frames[#UF.frames + 1] = frame
 
 	frame:SetAttribute("unit", unit)
@@ -596,7 +607,7 @@ function UF:ApplyColors()
 		local texts = frame.texts
 		if texts then
 			for j = 1, #texts do
-				UF.StyleText(texts[j])
+				UF.StyleText(texts[j], frame.textKey)
 			end
 		end
 		local castbar = frame.castbar
@@ -615,6 +626,26 @@ function UF:ApplyColors()
 	end
 end
 
+local ARENA_CLICKS = { shift = "arenaShiftClick", ctrl = "arenaCtrlClick", alt = "arenaAltClick" }
+
+local function setArenaClick(frame, modifier, text)
+	text = strtrim(text or "")
+	local prefix = modifier .. "-"
+	if text == "" then
+		frame:SetAttribute(prefix .. "type1", nil)
+		frame:SetAttribute(prefix .. "spell1", nil)
+		frame:SetAttribute(prefix .. "macrotext1", nil)
+	elseif text:sub(1, 1) == "/" then
+		frame:SetAttribute(prefix .. "type1", "macro")
+		frame:SetAttribute(prefix .. "spell1", nil)
+		frame:SetAttribute(prefix .. "macrotext1", (text:gsub("%%u", frame.unit)))
+	else
+		frame:SetAttribute(prefix .. "type1", "spell")
+		frame:SetAttribute(prefix .. "spell1", text)
+		frame:SetAttribute(prefix .. "macrotext1", nil)
+	end
+end
+
 function UF:ApplyClicks()
 	local rightAction = RIGHT_CLICK_ACTIONS[config.rightClick]
 	local middleAction = RIGHT_CLICK_ACTIONS[config.middleClick]
@@ -623,6 +654,10 @@ function UF:ApplyClicks()
 		if not isArenaUnit(frame.unit) then
 			frame:SetAttribute("*type2", rightAction)
 			setMiddleClick(frame, middleAction)
+		elseif frame.unit:find("^arena%d$") then
+			for modifier, key in pairs(ARENA_CLICKS) do
+				setArenaClick(frame, modifier, config[key])
+			end
 		end
 	end
 end
@@ -656,7 +691,13 @@ end
 
 function UnitFrameMixin:UpdateContentInset()
 	local icon = self.classicon
-	self:SetContentInset(icon and icon:IsShown() and config.showClassIcon and UF.ClassIconInset(icon:GetWidth()) or 0)
+	self:SetContentInset(
+		icon and icon:IsShown() and UF.ClassIconShown(self) and UF.ClassIconInset(icon:GetWidth()) or 0
+	)
+end
+
+function UF.ClassIconShown(frame)
+	return config.showClassIcon and frame.iconSide ~= "NONE"
 end
 
 function UnitFrameMixin:SetIconSide(side)
@@ -664,10 +705,22 @@ function UnitFrameMixin:SetIconSide(side)
 	if not icon or self.iconSide == side then
 		return
 	end
+	local previous = self.iconSide
 	self.iconSide = side
 	icon:ClearAllPoints()
-	icon:SetPoint("TOP" .. side, side == "LEFT" and CLASS_ICON_INSET or -CLASS_ICON_INSET, -CLASS_ICON_INSET)
+	if side == "RIGHT" then
+		icon:SetPoint("TOPRIGHT", -CLASS_ICON_INSET, -CLASS_ICON_INSET)
+	else
+		icon:SetPoint("TOPLEFT", CLASS_ICON_INSET, -CLASS_ICON_INSET)
+	end
 	self:UpdateContentInset()
+	if previous and (previous == "NONE" or side == "NONE") then
+		if UF.testing then
+			UF:RunTest(self)
+		else
+			self:QueueUpdate()
+		end
+	end
 end
 
 function UF.ClassIconInset(size)
@@ -753,9 +806,14 @@ local function testHideSelf(frame)
 	frame:SetAlpha(1)
 end
 
-UF:RegisterElement("hideself", function()
-	return true
-end, updateHideSelf, testHideSelf)
+UF:RegisterElement({
+	name = "hideself",
+	Create = function()
+		return true
+	end,
+	Update = updateHideSelf,
+	Test = testHideSelf,
+})
 
 function UF:CreateTargetOfTarget(unit, size, parent)
 	local frame = self:CreateSquare(unit, size, parent)

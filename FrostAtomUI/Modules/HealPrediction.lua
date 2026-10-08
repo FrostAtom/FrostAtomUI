@@ -10,7 +10,7 @@ local HealComm = LibStub("LibHealComm-4.0", true)
 
 local Prediction = ns:NewModule("HealPrediction")
 ns.HealPrediction = Prediction
-Prediction.CHANGED = "FrostAtomUI_PREDICTION_CHANGED"
+ns.Mixin(Prediction, ns.Demand)
 
 local HEALCOMM_WINDOW = 3
 local HEALCOMM_CALLBACKS = {
@@ -101,7 +101,7 @@ ticker:Hide()
 
 local function changed(guid)
 	if guid then
-		ns:Fire(Prediction.CHANGED, guid)
+		ns:Fire(ns.E.PREDICTION_CHANGED, guid)
 	end
 end
 
@@ -485,10 +485,11 @@ local function setEnabled(value)
 		for event, handler in pairs(CAST_EVENTS) do
 			events:RegisterEvent(event, handler)
 		end
-		events:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
+		ns.CombatLog.Register(events, cleuHandlers, onCombatLog)
 		events:RegisterEvent("PLAYER_ENTERING_WORLD", reset)
 	else
 		events:UnregisterAllEvents()
+		ns.CombatLog.Unregister(events, onCombatLog)
 		reset()
 	end
 	setHealComm(value)
@@ -617,7 +618,7 @@ local function layout(bar)
 end
 
 local function applyColors(bar)
-	local config = ns.Config.unitFrames
+	local config = ns.Config.theme
 	local p = bar.prediction
 	p.heal:SetVertexColor(unpack(config.healPredictionColor))
 	p.ownHeal:SetVertexColor(unpack(config.healPredictionOwnColor))
@@ -697,17 +698,18 @@ function Prediction.Follow(bar)
 	end
 end
 
+function Prediction:OnDemandStart()
+	setEnabled(true)
+end
+
+function Prediction:OnDemandStop()
+	setEnabled(false)
+end
+
 local function applyConfig()
-	local frames, plate = ns.Config.unitFrames, ns.Config.playerPlate
-	setEnabled(
-		frames.enabled and (frames.healPrediction or frames.absorbs)
-			or plate.enabled and (plate.healPrediction or plate.absorbs)
-			or false
-	)
 	for i = 1, #bars do
 		applyColors(bars[i])
 	end
 end
 
-Prediction:WatchConfig("unitFrames", applyConfig)
-Prediction:WatchConfig("playerPlate", applyConfig)
+Prediction:WatchConfig("theme", applyConfig)

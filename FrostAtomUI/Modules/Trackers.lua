@@ -45,7 +45,7 @@ end
 
 local lowered = setmetatable({}, {
 	__index = function(cache, text)
-		local value = text:lower()
+		local value = ns.Lower(text)
 		cache[text] = value
 		return value
 	end,
@@ -62,7 +62,7 @@ for id, proc in pairs(PROC_DATA) do
 	local name = cooldown > 0 and GetSpellInfo(id)
 	if name then
 		icdBySpell[id] = cooldown
-		name = name:lower()
+		name = ns.Lower(name)
 		icdByName[name] = max(icdByName[name] or 0, cooldown)
 	end
 end
@@ -234,7 +234,7 @@ local parsedCache = {}
 local function addSpellName(list, id, strict)
 	local name, _, texture = GetSpellInfo(id)
 	if name then
-		local key = name:lower()
+		local key = ns.Lower(name)
 		list.names[key] = true
 		if strict and texture then
 			local icons = list.icons[key] or {}
@@ -285,8 +285,8 @@ local function parseList(text)
 				addSpellId(list, id)
 				list.entries[#list.entries + 1] = { id = id, name = GetSpellInfo(id) }
 			else
-				list.names[token:lower()] = true
-				list.loose[token:lower()] = true
+				list.names[ns.Lower(token)] = true
+				list.loose[ns.Lower(token)] = true
 				list.entries[#list.entries + 1] = { name = token }
 				list.first = list.first or { name = token }
 			end
@@ -584,18 +584,17 @@ function evaluators.dr(icon, data)
 	if iconSpell then
 		texture = ns.SpellTexture(iconSpell)
 	end
-	local state = DR:Get(UnitGUID(unit))
-	local entry = state and state[category]
-	if not entry or entry.stacks == 0 then
+	local stacks, expires, auraActive, spellId = DR:GetCategory(UnitGUID(unit), category)
+	if not stacks then
 		return false, texture
 	end
-	local borderColor = ns.Config.diminishingReturns[DR_COLOR_KEYS[entry.stacks]]
-	texture = ns.SpellTexture(entry.spellId) or texture
-	if DR:IsAuraActive(entry, GetTime()) then
-		return true, texture, nil, nil, DR_TEXT[entry.stacks], nil, borderColor
+	local borderColor = ns.Config.diminishingReturns[DR_COLOR_KEYS[stacks]]
+	texture = ns.SpellTexture(spellId) or texture
+	if auraActive then
+		return true, texture, nil, nil, DR_TEXT[stacks], nil, borderColor
 	end
 	local reset = DRData.RESET_TIME
-	return true, texture, entry.expires - reset, reset, DR_TEXT[entry.stacks], nil, borderColor
+	return true, texture, expires - reset, reset, DR_TEXT[stacks], nil, borderColor
 end
 
 local groups = {}
@@ -608,31 +607,11 @@ ticker:Hide()
 ticker.untilTick = 0
 
 local function createIcon(group)
-	local icon = CreateFrame("Frame", nil, group)
+	local icon = CooldownTimer:CreateIcon(group, { borderAbove = true, inset = 1, fontSize = 12 })
 	icon:Hide()
-
-	icon.texture = icon:CreateTexture(nil, "BORDER")
-	icon.texture:SetNonBlocking(true)
-	icon.texture:SetPoint("TOPLEFT", 1, -1)
-	icon.texture:SetPoint("BOTTOMRIGHT", -1, 1)
-	icon.texture:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-
-	icon.cooldown = CreateFrame("Cooldown", nil, icon)
-	icon.cooldown:SetAllPoints(icon.texture)
-
-	local overlay = CreateFrame("Frame", nil, icon)
-	overlay:SetAllPoints()
-	overlay:SetFrameLevel(icon.cooldown:GetFrameLevel() + 1)
-
-	icon.border = overlay:CreateTexture(nil, "ARTWORK")
-	icon.border:SetTexture(ns.Media.buttonNormal)
-	icon.border:SetAllPoints()
-
-	icon.count = overlay:CreateFontString(nil, "OVERLAY")
+	icon.count = icon.overlay:CreateFontString(nil, "OVERLAY")
 	icon.count:SetPoint("BOTTOMRIGHT", -1, 2)
 	icon.count:SetJustifyH("RIGHT")
-
-	CooldownTimer:Attach(icon.cooldown, 12, overlay)
 	return icon
 end
 
@@ -862,6 +841,17 @@ local function createGroup(index)
 	return group
 end
 
+local function defaultGroupPoint(data)
+	local defaults = ns.Defaults.trackers.groups
+	for i = 1, #defaults do
+		local default = defaults[i]
+		if default.name == data.name and default.class == data.class then
+			return default.point
+		end
+	end
+	return GROUP_DEFAULTS.point
+end
+
 local function applyGroup(group, data, index)
 	group.data = data
 	local path = ("trackers.groups.%d.point"):format(index)
@@ -894,7 +884,7 @@ local function applyGroup(group, data, index)
 	ns.SetShown(group, groupVisible(data))
 	local class = field(data, "class", GROUP_DEFAULTS)
 	if class == "" or class == ns.PLAYER_CLASS then
-		ns.Movers.Register(group, path, field(data, "name", GROUP_DEFAULTS))
+		ns.Movers.Register(group, path, field(data, "name", GROUP_DEFAULTS), { defaultPoint = defaultGroupPoint(data) })
 	else
 		ns.Movers.Unregister(group)
 	end
@@ -995,6 +985,16 @@ local isItem, isTotem, isDR = iconType("item"), iconType("totem"), iconType("dr"
 local isUnitCooldown, isICD = iconType("unitcd"), iconType("icd")
 
 local playerGUID
+local onCombatLog
+
+local function anyIcon(test)
+	for i = 1, #allIcons do
+		if test(allIcons[i].data) then
+			return true
+		end
+	end
+	return false
+end
 
 local ICD_EVENTS = {
 	SPELL_AURA_APPLIED = true,
@@ -1005,7 +1005,7 @@ local ICD_EVENTS = {
 	SPELL_HEAL = true,
 }
 
-local function onCombatLog(_, _, event, sourceGUID, _, _, destGUID, _, _, spellId, spellName)
+function onCombatLog(_, _, event, sourceGUID, _, _, destGUID, _, _, spellId, spellName)
 	if not ICD_EVENTS[event] then
 		return
 	end
@@ -1033,9 +1033,21 @@ local function onCombatLog(_, _, event, sourceGUID, _, _, destGUID, _, _, spellI
 	end
 end
 
+local function applyDemand()
+	DR:SetDemand("trackers", anyIcon(isDR))
+	CooldownTracker:SetDemand("trackers", anyIcon(isUnitCooldown))
+	if anyIcon(isICD) then
+		ns.CombatLog.Register(Trackers, ICD_EVENTS, onCombatLog)
+	else
+		ns.CombatLog.Unregister(Trackers, onCombatLog)
+	end
+end
+
 function Trackers:Initialize()
 	applyConfig()
+	applyDemand()
 	self:WatchConfig("trackers", applyConfig)
+	self:WatchConfig("trackers", applyDemand)
 	self:WatchConfig("diminishingReturns", function()
 		updateWhere(isDR)
 	end)
@@ -1071,13 +1083,12 @@ function Trackers:Initialize()
 	self:RegisterEvent("PLAYER_TOTEM_UPDATE", function()
 		updateWhere(isTotem)
 	end)
-	self:RegisterEvent(ns.DR_UPDATED, function()
+	self:RegisterEvent(ns.E.DR_UPDATED, function()
 		updateWhere(isDR)
 	end)
-	self:RegisterEvent(ns.COOLDOWN_UPDATED, function()
+	self:RegisterEvent(ns.E.COOLDOWN_UPDATED, function()
 		updateWhere(isUnitCooldown)
 	end)
-	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
 	self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
 		inCombat = true
 		updateVisibility()

@@ -11,7 +11,7 @@ local select = select
 local wipe = wipe
 
 local config = ns.Config.namePlates
-local frameConfig = ns.Config.unitFrames
+local themeConfig = ns.Config.theme
 local plates = NamePlates.plates
 local guidPlates = NamePlates.guidPlates
 local WorldChildren = ns.WorldChildren
@@ -47,7 +47,7 @@ register(GENERATORS, 1, 1752, 1757, 1758, 1759, 1760, 8621, 11293, 11294, 26861,
 register(GENERATORS, 1, 53, 2589, 2590, 2591, 8721, 11279, 11280, 11281, 25300, 26863, 48656, 48657) -- Backstab
 register(GENERATORS, 1, 16511, 17347, 17348, 26864, 48660) -- Hemorrhage
 register(GENERATORS, 1, 14278) -- Ghostly Strike
-register(GENERATORS, 1, 1776, 1777, 8629, 11285, 11286, 38764) -- Gouge
+register(GENERATORS, 1, 1776) -- Gouge
 register(GENERATORS, 1, 14251) -- Riposte
 registerOpener(2, 8676, 8724, 8725, 11267, 11268, 11269, 27441, 48689, 48690, 48691) -- Ambush
 registerOpener(1, 703, 8631, 8632, 8633, 11289, 11290, 26839, 26884, 48675, 48676) -- Garrote
@@ -142,7 +142,7 @@ local function layoutRow(row, anchor)
 end
 
 local function colorRow(row, points)
-	local color = points == MAX_POINTS and frameConfig.comboPointColor or frameConfig.comboPointPartialColor
+	local color = points == MAX_POINTS and themeConfig.comboPointColor or themeConfig.comboPointPartialColor
 	for i = 1, MAX_POINTS do
 		local c = i <= points and color or EMPTY_COLOR
 		row[i]:SetTexture(c[1], c[2], c[3])
@@ -345,19 +345,24 @@ NamePlates:OnInitialize(function(self)
 	if not config.enabled then
 		return
 	end
-	NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = updatePlate
-	NamePlates.onPlateHide[#NamePlates.onPlateHide + 1] = onPlateHide
-	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = updatePlate
-	NamePlates.AddLogHandler("SPELL_CAST_SUCCESS", onCastSuccess)
-	NamePlates.AddLogHandler("SPELL_MISSED", onMissed)
-	NamePlates.AddLogHandler("SPELL_DAMAGE", onDamage)
-	NamePlates.AddLogHandler("SPELL_AURA_APPLIED", onAuraApplied)
-	NamePlates.AddLogHandler("SPELL_AURA_REMOVED", onAuraRemoved)
-	NamePlates.AddLogHandler("UNIT_DIED", onDied)
+	NamePlates.RegisterPlugin({
+		name = "comboPoints",
+		Show = updatePlate,
+		Hide = onPlateHide,
+		Identity = updatePlate,
+		Log = {
+			SPELL_CAST_SUCCESS = onCastSuccess,
+			SPELL_MISSED = onMissed,
+			SPELL_DAMAGE = onDamage,
+			SPELL_AURA_APPLIED = onAuraApplied,
+			SPELL_AURA_REMOVED = onAuraRemoved,
+			UNIT_DIED = onDied,
+		},
+	})
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
-	self:RegisterEvent(ns.TALENTS_UPDATED, function(_, guid)
+	self:RegisterEvent(ns.E.TALENTS_UPDATED, function(_, guid)
 		refresh(guid)
 	end)
 	self:WatchConfig("namePlates", refreshAll)
-	self:WatchConfig("unitFrames", refreshAll)
+	self:WatchConfig("theme", refreshAll)
 end)

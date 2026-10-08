@@ -5,22 +5,28 @@ local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
 local UnitPowerType = UnitPowerType
 local UnitAffectingCombat = UnitAffectingCombat
 local UnitGUID, UnitIsDeadOrGhost = UnitGUID, UnitIsDeadOrGhost
+local GetComboPoints = GetComboPoints
 local floor, max = math.floor, math.max
 
 local PlayerPlate = ns:NewModule("PlayerPlate")
-local UF = ns:GetModule("UnitFrames")
 local Prediction = ns.HealPrediction
+local renderTags = ns.Tags.Render
 
 local TEXT_INSET = 2
 local MANA = 0
+local ENERGY = 3
 local MANA_HEIGHT_SCALE = 0.5
+local MAX_COMBO_POINTS = MAX_COMBO_POINTS or 5
+local COMBO_GAP = 2
+local COMBO_EMPTY_COLOR = { 0.2, 0.2, 0.2 }
 local IS_DRUID = ns.PLAYER_CLASS == "DRUID"
-local BORDER_INSET = UF.BORDER_INSET
-local frameConfig = ns.Config.unitFrames
+local HAS_COMBO_POINTS = IS_DRUID or ns.PLAYER_CLASS == "ROGUE"
+local BORDER_INSET = ns.UIKit.BORDER_INSET
+local themeConfig = ns.Config.theme
 
 local plate = CreateFrame("Frame", "FrostAtomUIPlayerPlate", UIParent)
 PlayerPlate:AnchorToConfig(plate, "playerPlate.point", "Player plate")
-plate:SetBackdrop(UF.backdrop)
+plate:SetBackdrop(ns.UIKit.backdrop)
 plate:Hide()
 
 local function createBar()
@@ -55,16 +61,54 @@ local function setBarColor(bar, r, g, b)
 	bar.bg:SetVertexColor(r * 0.3, g * 0.3, b * 0.3)
 end
 
-setBarColor(mana, unpack(UF.powerColors[MANA]))
+setBarColor(mana, unpack(ns.Colors.power[MANA]))
+
+local combo = CreateFrame("Frame", nil, plate)
+combo:Hide()
+combo.points = 0
+for i = 1, MAX_COMBO_POINTS do
+	combo[i] = combo:CreateTexture(nil, "ARTWORK")
+end
 
 local function manaWanted()
 	return IS_DRUID and ns.Config.playerPlate.druidMana and UnitPowerType("player") ~= MANA
 end
 
+local function comboAvailable()
+	return HAS_COMBO_POINTS
+		and ns.Config.playerPlate.comboPoints
+		and not (IS_DRUID and UnitPowerType("player") ~= ENERGY)
+end
+
+local function comboPoints()
+	return comboAvailable() and GetComboPoints("player", "target") or 0
+end
+
+local function colorCombo()
+	local points = combo.points
+	local color = points == MAX_COMBO_POINTS and themeConfig.comboPointColor or themeConfig.comboPointPartialColor
+	for i = 1, MAX_COMBO_POINTS do
+		local c = i <= points and color or COMBO_EMPTY_COLOR
+		combo[i]:SetTexture(c[1], c[2], c[3])
+	end
+end
+
+local function layoutCombo(width, height)
+	combo:SetSize(width, height)
+	local step = (width + COMBO_GAP) / MAX_COMBO_POINTS
+	for i = 1, MAX_COMBO_POINTS do
+		local left = floor((i - 1) * step + 0.5)
+		local pip = combo[i]
+		pip:ClearAllPoints()
+		pip:SetPoint("TOPLEFT", left, 0)
+		pip:SetSize(floor(i * step + 0.5) - COMBO_GAP - left, height)
+	end
+end
+
 local function healthColor()
 	local config = ns.Config.playerPlate
 	if config.healthColorMode == "class" then
-		return unpack(UF.classBarColors[ns.PLAYER_CLASS])
+		return unpack(ns.Colors.classBar[ns.PLAYER_CLASS])
 	elseif config.healthColorMode == "health" then
 		local max = UnitHealthMax("player")
 		return ns.HealthColor(max > 0 and UnitHealth("player") / max or 0)
@@ -86,11 +130,7 @@ local function updateHealth()
 	local current, max = UnitHealth("player"), UnitHealthMax("player")
 	health:SetMinMaxValues(0, max)
 	health:SetValue(current)
-	if config.healthText == "value" then
-		health.text:SetText(ns.FormatValue(current))
-	else
-		health.text:SetFormattedText("%d%%", max > 0 and current / max * 100 or 0)
-	end
+	health.text:SetText(renderTags(config.healthTag, "player"))
 	if config.healthColorMode == "health" then
 		setBarColor(health, healthColor())
 	end
@@ -106,7 +146,7 @@ local function updatePower()
 	local powerType = UnitPowerType("player")
 	if powerType ~= power.powerType then
 		power.powerType = powerType
-		setBarColor(power, unpack(UF.powerColors[powerType]))
+		setBarColor(power, unpack(ns.Colors.power[powerType]))
 	end
 end
 
@@ -176,7 +216,7 @@ end
 
 local function styleText(text, font, shown)
 	ns.SetFont(text, font.size, font.outline)
-	text:SetTextColor(unpack(frameConfig.textColor))
+	text:SetTextColor(unpack(themeConfig.textColor))
 	ns.SetShown(text, shown)
 end
 
@@ -186,7 +226,13 @@ local function layout()
 	local manaHeight = max(floor(config.powerHeight * MANA_HEIGHT_SCALE), 2)
 	local showMana = manaWanted()
 	local manaSpace = showMana and config.gap + manaHeight or 0
-	plate:SetSize(config.width + BORDER_INSET * 2, config.healthHeight + powerSpace + manaSpace + BORDER_INSET * 2)
+	local showCombo = comboAvailable()
+	combo.available = showCombo
+	local comboSpace = showCombo and config.gap + config.comboPointHeight or 0
+	plate:SetSize(
+		config.width + BORDER_INSET * 2,
+		config.healthHeight + powerSpace + manaSpace + comboSpace + BORDER_INSET * 2
+	)
 	health:SetSize(config.width, config.healthHeight)
 	power:SetSize(config.width, config.powerHeight)
 	power:ClearAllPoints()
@@ -200,12 +246,37 @@ local function layout()
 		mana:SnapValue(UnitPower("player", MANA))
 	end
 	ns.SetShown(mana, showMana)
+	if showCombo then
+		layoutCombo(config.width, config.comboPointHeight)
+		combo:ClearAllPoints()
+		combo:SetPoint("TOP", showMana and mana or config.showPower and power or health, "BOTTOM", 0, -config.gap)
+	end
+	ns.SetShown(combo, showCombo)
+end
+
+local function updateCombo()
+	if comboAvailable() ~= combo.available then
+		layout()
+	end
+	local points = comboPoints()
+	if points ~= combo.points then
+		combo.points = points
+		colorCombo()
+	end
+end
+
+local function onDisplayPower()
+	layout()
+	updateCombo()
 end
 
 local function applyConfig()
 	local config = ns.Config.playerPlate
+	Prediction:SetDemand("playerPlate", config.enabled and (config.healPrediction or config.absorbs))
+	combo.points = comboPoints()
+	colorCombo()
 	layout()
-	UF.SetBackdropColors(plate)
+	ns.UIKit.SetBackdropColors(plate)
 	plate.lastHealth = nil
 
 	styleText(health.text, config.font, config.showText)
@@ -225,14 +296,14 @@ end
 function PlayerPlate:Initialize()
 	applyConfig()
 	self:WatchConfig("playerPlate", applyConfig)
-	self:WatchConfig("unitFrames", applyConfig)
+	self:WatchConfig("theme", applyConfig)
 
 	self:RegisterEvent("PLAYER_REGEN_DISABLED", function()
 		if ns.Config.playerPlate.enabled then
 			show()
 		end
 	end)
-	self:RegisterEvent(Prediction.CHANGED, function(_, guid)
+	self:RegisterEvent(ns.E.PREDICTION_CHANGED, function(_, guid)
 		if plate:IsShown() and guid == UnitGUID("player") then
 			updatePrediction()
 		end
@@ -241,6 +312,12 @@ function PlayerPlate:Initialize()
 	self:RegisterEvent("UNIT_MAXHEALTH", onPlayerEvent)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", showIfWanted)
 	if IS_DRUID then
-		self:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player", layout)
+		self:RegisterUnitEvent("UNIT_DISPLAYPOWER", "player", onDisplayPower)
+		self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", updateCombo)
+	end
+	if HAS_COMBO_POINTS then
+		self:RegisterEvent("UNIT_COMBO_POINTS", updateCombo)
+		self:RegisterEvent("PLAYER_TARGET_CHANGED", updateCombo)
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", updateCombo)
 	end
 end

@@ -2,6 +2,7 @@ local _, ns = ...
 
 local WorldFrame = WorldFrame
 local floor = math.floor
+local SafeCall = ns.SafeCall
 
 local WorldChildren = {}
 ns.WorldChildren = WorldChildren
@@ -30,6 +31,7 @@ function WorldChildren.SnapY(value)
 	return (floor(value / pixelY - gridY + 0.5) + gridY) * pixelY
 end
 
+-- 3.3.5: nameplates and chat bubbles are unnamed WorldFrame children; only the first region tells them apart
 local KIND_BY_TEXTURE = {
 	["Interface\\TargetingFrame\\UI-TargetingFrame-Flash"] = "NamePlate",
 	["Interface\\Tooltips\\ChatBubble-Background"] = "ChatBubble",
@@ -46,13 +48,6 @@ local function identify(frame)
 	end
 	local region = frame:GetRegions()
 	return region and region.GetTexture and KIND_BY_TEXTURE[region:GetTexture()]
-end
-
-local function dispatch(handler, frame)
-	local ok, err = pcall(handler, frame)
-	if not ok then
-		geterrorhandler()(err)
-	end
 end
 
 local function add(frame)
@@ -73,7 +68,7 @@ local function add(frame)
 	local callbacks = handlers[kind]
 	if callbacks then
 		for i = 1, #callbacks do
-			dispatch(callbacks[i], frame)
+			SafeCall(callbacks[i], frame)
 		end
 	end
 end
@@ -109,16 +104,17 @@ function WorldChildren.Register(kind, handler)
 	local list = frames[kind]
 	if list then
 		for i = 1, #list do
-			dispatch(handler, list[i])
+			SafeCall(handler, list[i])
 		end
 	end
 end
 
+-- 3.3.5: no event announces a new nameplate or bubble, so WorldFrame children are polled
 local scanner = CreateFrame("Frame")
 scanner:SetScript("OnUpdate", scanNewChildren)
 
 local pixelWatcher = ns.Mixin({}, ns.EventMixin)
 pixelWatcher:RegisterEvent("PLAYER_LOGIN", WorldChildren.UpdatePixel)
 pixelWatcher:RegisterEvent("DISPLAY_SIZE_CHANGED", WorldChildren.UpdatePixel)
-pixelWatcher:RegisterEvent(ns.PIXEL_CHANGED, WorldChildren.UpdatePixel)
+pixelWatcher:RegisterEvent(ns.E.PIXEL_CHANGED, WorldChildren.UpdatePixel)
 WorldChildren.UpdatePixel()

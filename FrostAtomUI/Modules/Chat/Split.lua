@@ -8,6 +8,7 @@ local Chat = ns:GetModule("Chat")
 
 local MAX_LETTERS = 1024
 local MESSAGE_BYTES = 255
+-- the server's flood protection mutes chat messages sent in a burst
 local SEND_INTERVAL = 1.5
 local LINK_PATTERN = "|c%x%x%x%x%x%x%x%x|H.-|h.-|h|r"
 

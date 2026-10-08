@@ -14,17 +14,7 @@ local NAME_HEIGHT = 22
 local CARD_X = 8
 local MAX_DEPTH = 12
 
-local POINT_PARTS = {
-	BOTTOMLEFT = { 1, 1 },
-	BOTTOM = { 2, 1 },
-	BOTTOMRIGHT = { 3, 1 },
-	LEFT = { 1, 2 },
-	CENTER = { 2, 2 },
-	RIGHT = { 3, 2 },
-	TOPLEFT = { 1, 3 },
-	TOP = { 2, 3 },
-	TOPRIGHT = { 3, 3 },
-}
+local POINT_PARTS = ui.POINT_PARTS
 
 local COLORS = {
 	info = { 0.45, 0.5, 0.58, 0.55 },
@@ -40,6 +30,11 @@ local CARD_COLOR = { 0, 0, 0, 0.45 }
 local BORDER_COLOR = { 0.4, 0.4, 0.4 }
 local HOVER_BORDER_COLOR = { 0.8, 0.8, 0.8 }
 local ACTIVE_BORDER_COLOR = { 1, 0.82, 0 }
+local BADGE_COLOR = { 0, 0, 0, 0.8 }
+local BADGE_TEXT_COLOR = { 0.85, 0.85, 0.85 }
+local BADGE_INSET, BADGE_PADDING = 2, 3
+local BADGE_FONT, BADGE_SMALL_FONT, BADGE_SMALL_THUMB = 10, 8, 70
+local UI_BASE_HEIGHT = 768
 
 local layoutSettings = {}
 for _, path in ipairs(ui.LayoutSettings) do
@@ -47,14 +42,8 @@ for _, path in ipairs(ui.LayoutSettings) do
 end
 
 local function defaultValue(path)
-	local node = ui.Defaults
-	for key in path:gmatch("[^.]+") do
-		if type(node) ~= "table" then
-			return nil
-		end
-		node = node[key]
-	end
-	return node
+	local _, value = ui.API.FactoryValue(path)
+	return value
 end
 
 local function enabled(path)
@@ -148,10 +137,18 @@ for _, element in ipairs(ELEMENTS) do
 	SIZES[element[1]] = element[3]
 end
 
-local function previewRects(preset)
-	local points, settings = ui.Movers.GetPresetLayout(preset.key)
+local function screenSize(scale)
+	local width, height = UIParent:GetWidth(), UIParent:GetHeight()
+	if not scale then
+		return width, height
+	end
+	return UI_BASE_HEIGHT / scale * width / height, UI_BASE_HEIGHT / scale
+end
+
+local function previewRects(preset, scale)
+	local screenWidth, screenHeight = screenSize(scale)
+	local points, settings = ui.Movers.GetPresetLayout(preset.key, screenHeight)
 	settings = settings or {}
-	local screenWidth, screenHeight = UIParent:GetWidth(), UIParent:GetHeight()
 	local rects = {}
 
 	local function setting(path)
@@ -209,12 +206,94 @@ local function previewRects(preset)
 	return result, screenWidth, screenHeight
 end
 
-local function drawThumbnail(thumb, preset)
+local function isCompactScreen(scale)
+	local _, height = screenSize(scale)
+	return height < ui.COMPACT_SCREEN_HEIGHT
+end
+
+local function fullScalePercent()
+	return floor(UI_BASE_HEIGHT / ui.COMPACT_SCREEN_HEIGHT * 100)
+end
+
+local function variantText(scale)
+	local percent = fullScalePercent()
+	if isCompactScreen(scale) then
+		return L["above %d%%"]:format(percent),
+			L["Compact variant: the UI scale is above %d%%, the screen is less than 1000 interface units high. At %d%% or lower the full variant is applied."]:format(
+				percent,
+				percent
+			)
+	end
+	return L["up to %d%%"]:format(percent),
+		L["Full variant: the UI scale is %d%% or lower, the screen is at least 1000 interface units high. Above %d%% the compact variant is applied."]:format(
+			percent,
+			percent
+		)
+end
+
+local function layoutFitText(preset, scale)
+	if not preset.compact then
+		return nil, L["The same on any screen and at any UI scale."]
+	end
+	local short, long = variantText(scale)
+	if preset.key == "fullhd" then
+		return L["1080p"], L["Made for a 1920x1080 screen or a smaller one."] .. " " .. long
+	end
+	return short, long
+end
+
+local function createBadge(thumb)
+	local badge = CreateFrame("Frame", nil, thumb)
+	badge:SetFrameLevel(thumb:GetFrameLevel() + 2)
+	local text = badge:CreateFontString(nil, "OVERLAY")
+	text:SetTextColor(unpack(BADGE_TEXT_COLOR))
+	text:SetPoint("BOTTOMRIGHT", thumb, "BOTTOMRIGHT", -BADGE_INSET - BADGE_PADDING, BADGE_INSET + 1)
+	badge:SetPoint("TOPLEFT", text, "TOPLEFT", -BADGE_PADDING, 1)
+	badge:SetPoint("BOTTOMRIGHT", text, "BOTTOMRIGHT", BADGE_PADDING, -1)
+	local background = badge:CreateTexture(nil, "BACKGROUND")
+	background:SetTexture(ui.Media.blank)
+	background:SetVertexColor(unpack(BADGE_COLOR))
+	background:SetAllPoints()
+	badge.text = text
+	return badge
+end
+
+local function drawBadge(thumb, preset, scale)
+	local short = layoutFitText(preset, scale)
+	if not short then
+		if thumb.badge then
+			thumb.badge:Hide()
+		end
+		return
+	end
+	thumb.badge = thumb.badge or createBadge(thumb)
+	local badge = thumb.badge
+	local font, _, flags = ns.Font("GameFontHighlightSmall"):GetFont()
+	badge.text:SetFont(font, thumb:GetHeight() < BADGE_SMALL_THUMB and BADGE_SMALL_FONT or BADGE_FONT, flags)
+	badge.text:SetText(short)
+	badge:Show()
+end
+
+local function drawThumbnail(thumb, preset, noBadge, scale)
+	if not thumb.screen then
+		local screen = thumb:CreateTexture(nil, "BACKGROUND")
+		screen:SetTexture(ui.Media.blank)
+		screen:SetVertexColor(unpack(SCREEN_COLOR))
+		screen:SetAllPoints()
+		thumb.screen = screen
+	end
 	thumb.textures = thumb.textures or {}
 	for _, texture in ipairs(thumb.textures) do
 		texture:Hide()
 	end
-	local rects, screenWidth, screenHeight = previewRects(preset)
+	if noBadge then
+		if thumb.badge then
+			thumb.badge:Hide()
+		end
+	else
+		drawBadge(thumb, preset, scale)
+	end
+	local rects, screenWidth, screenHeight = previewRects(preset, scale)
 	local thumbWidth, thumbHeight = thumb:GetWidth(), thumb:GetHeight()
 	local scaleX, scaleY = thumbWidth / screenWidth, thumbHeight / screenHeight
 	for i, item in ipairs(rects) do
@@ -262,6 +341,8 @@ local function cardEnter(card)
 	GameTooltip:SetOwner(card, "ANCHOR_RIGHT")
 	GameTooltip:SetText(L[preset.name], HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 	GameTooltip:AddLine(L[preset.desc], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b, true)
+	local _, fit = layoutFitText(preset)
+	GameTooltip:AddLine(fit, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b, true)
 	if card.active then
 		GameTooltip:AddLine(L["Active layout"], GREEN_FONT_COLOR.r, GREEN_FONT_COLOR.g, GREEN_FONT_COLOR.b)
 	else
@@ -310,10 +391,6 @@ local function createCard(row, preset, index, height)
 	local thumb = CreateFrame("Frame", nil, card)
 	thumb:SetPoint("TOPLEFT", CARD_PADDING, -CARD_PADDING)
 	thumb:SetSize(THUMB_WIDTH, height - CARD_PADDING * 2 - NAME_HEIGHT)
-	local screen = thumb:CreateTexture(nil, "BACKGROUND")
-	screen:SetTexture(ui.Media.blank)
-	screen:SetVertexColor(unpack(SCREEN_COLOR))
-	screen:SetAllPoints()
 	card.thumb = thumb
 
 	local name = card:CreateFontString(nil, "OVERLAY")
@@ -366,10 +443,17 @@ local function noLayouts()
 end
 
 local function saveLayout(name)
-	local ok, saved = ui.Movers.SaveLayout(name)
-	if ok then
-		ui.Print(L["layout %q saved"], saved)
-		ns.RefreshPage()
+	local function save()
+		local ok, saved = ui.Movers.SaveLayout(name)
+		if ok then
+			ui.Print(L["layout %q saved"], saved)
+			ns.RefreshPage()
+		end
+	end
+	if ui.Movers.LayoutExists(name) then
+		ns.Confirm(L['Replace the layout "%s"? The old one can be restored on the Backups page.']:format(name), save)
+	else
+		save()
 	end
 end
 
@@ -387,6 +471,9 @@ local function showLayoutImport()
 			ns.HideTextWindow()
 			ui.Print(L["layout %q imported"], result)
 			ns.RefreshPage()
+			ns.Confirm(L['Layout "%s" is imported. Load it now?']:format(result), function()
+				ui.Movers.LoadLayout(result)
+			end)
 		else
 			ui.Print(L["import failed: %s"], result)
 		end
@@ -394,12 +481,14 @@ local function showLayoutImport()
 end
 
 local schema = {
-	{ header = L["Presets"], new = "1.4.1", glyph = "table-cells-large" },
+	{ header = L["Presets"], new = "1.5.0", glyph = "table-cells-large" },
 	{
 		description = L["Ready-made arrangements of the action bars, unit frames, castbars and cooldowns. A preset moves the frames and sets bar columns, frame and castbar sizes; colors, texts and everything else stay."],
 	},
 	{
-		description = L["Presets are built for a screen at least 1000 interface units high. Below that (UI scale above about 0.77 on a 16:9 screen) they use a compact variant; Defaults stays the same on any screen."],
+		description = L["Presets have a full variant for a UI scale of %d%% or lower (a screen at least 1000 interface units high) and a compact one for a larger scale. The badge on a card shows the UI scale of the variant that applies on this screen. FullHD is made for 1920x1080 and smaller screens. Standard is the same on any screen."]:format(
+			fullScalePercent()
+		),
 	},
 	{
 		type = "custom",
@@ -415,7 +504,7 @@ local schema = {
 		type = "execute",
 		text = L["Unlock"],
 		glyph = "up-down-left-right",
-		desc = L["Drag frames to move them, drag the bottom-right corner of a frame to resize it. Frames snap to each other, to screen edges and to screen center lines, and stay attached to the frame they snapped to. Hold Shift to drop snapping and detach."],
+		desc = L["Drag frames to move them, drag the bottom-right corner of a frame to resize it. Frames snap to each other, to screen edges and to screen center lines, and stay attached to the frame they snapped to. Hold Shift to move without snapping; the attachment is kept."],
 		func = function()
 			ui.Movers.Unlock()
 			if ui.Movers.IsUnlocked() then
@@ -427,7 +516,7 @@ local schema = {
 		path = "general.showGrid",
 		label = L["Alignment grid"],
 		type = "toggle",
-		desc = L["Grid over the screen while frames are unlocked. Screen center lines are always drawn."],
+		desc = L["Grid over the screen while frames are unlocked; dragged frames snap to its lines. Screen center lines are always drawn."],
 	},
 	{
 		path = "general.gridSize",
@@ -439,39 +528,63 @@ local schema = {
 		enabledBy = "general.showGrid",
 	},
 	{
+		path = "general.snapGap",
+		new = "1.5.0",
+		label = L["Gap when snapping"],
+		type = "number",
+		min = 0,
+		max = 20,
+		step = 1,
+		advanced = true,
+		desc = L["Space left between two frames that snap side by side. 0 puts them edge to edge."],
+	},
+	{
+		path = "general.snapDistance",
+		new = "1.5.0",
+		label = L["Snapping distance"],
+		type = "number",
+		min = 0,
+		max = 30,
+		step = 1,
+		zeroText = L["Off"],
+		advanced = true,
+		desc = L["How close a dragged frame must come to an edge or center line to snap to it."],
+	},
+	{
 		label = L["Reset positions"],
-		new = "1.4.1",
+		new = "1.5.0",
 		type = "execute",
 		text = L["Reset"],
 		glyph = "rotate-left",
-		confirm = L["Reset the positions of all frames to defaults?"],
+		confirm = ui.Movers.GetResetPositionsText,
 		func = function()
 			ui.Movers.ResetPositions()
 		end,
-		desc = L["Move every frame back to its default position. Other settings stay. Also: /fui reset"],
+		desc = L["Move every frame back to its place in the last applied or loaded layout. Other settings stay. Also: /fui reset"],
 	},
-	{ header = L["Saved layouts"], new = "1.4.1", glyph = "layer-group" },
+	{ header = L["Saved layouts"], new = "1.5.0", glyph = "layer-group" },
 	{
 		description = L["A saved layout keeps frame positions together with bar columns, frame and castbar sizes, shared by all characters. Loading one changes only those in the active profile."],
 	},
 	{
 		label = L["Save layout"],
-		new = "1.4.1",
+		new = "1.5.0",
 		type = "input",
 		text = L["Save"],
 		glyph = "floppy-disk",
 		width = 160,
 		maxLetters = 32,
 		func = saveLayout,
-		desc = L["Type a name and press Enter to save the current layout. An existing layout with that name is overwritten."],
+		desc = L["Type a name and press Enter to save the current layout. Saving under an existing name asks first."],
 	},
 	{
 		label = L["Saved layout"],
-		new = "1.4.1",
+		new = "1.5.0",
 		type = "choice",
 		placeholder = L["Select layout..."],
 		values = layoutOptions,
 		disabled = noLayouts,
+		disabledDesc = L["No saved layouts yet."],
 		actions = {
 			{
 				text = L["Load layout"],
@@ -488,7 +601,7 @@ local schema = {
 			{
 				text = L["Delete layout"],
 				glyph = "trash-can",
-				confirm = L["Delete layout %q?"],
+				confirm = L["Delete layout %q? It can be restored on the Backups page until another layout is deleted or replaced."],
 				func = ui.Movers.DeleteLayout,
 			},
 		},
@@ -496,7 +609,7 @@ local schema = {
 	},
 	{
 		label = L["Import layout"],
-		new = "1.4.1",
+		new = "1.5.0",
 		type = "execute",
 		text = L["Import"],
 		glyph = "file-import",
@@ -505,12 +618,16 @@ local schema = {
 	},
 }
 
+ns.DrawLayoutThumbnail = drawThumbnail
+ns.LayoutFitText = layoutFitText
+
 ns.RegisterPage({
 	key = "layouts",
 	name = L["Layouts"],
+	desc = L["Ready-made frame layouts and your saved ones."],
 	glyph = "table-cells-large",
 	order = 12,
-	group = "core",
+	group = "start",
 	schema = schema,
 	noReset = true,
 })

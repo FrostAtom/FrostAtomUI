@@ -22,12 +22,12 @@ local max, min, floor, huge = math.max, math.min, math.floor, math.huge
 local NUM_TREES = 3
 local POINTS_PER_TIER = 5
 local DEPTH_ODDS = { 1.2, 1.5, 2, 3, 5, 10, 40, 200, 1000 }
+local SPEC_MIN_DEPTH = 31
+local SPEC_MIN_SHARE = 0.8
 local NUM_GLYPH_SOCKETS = 6
 local MAX_AURAS = 40
 local HOSTILE_SCAN_UNITS =
 	{ arena1 = true, arena2 = true, arena3 = true, arena4 = true, arena5 = true, target = true, focus = true }
-
-ns.TALENTS_UPDATED = "FrostAtomUI_TALENTS_UPDATED"
 
 local Inspect = ns:GetModule("Inspect")
 local Talents = ns:NewModule("Talents")
@@ -126,7 +126,7 @@ local function storeTalents(guid, talents, spec)
 	data[guid] = talents
 	specs[guid] = spec
 	points[guid] = table.concat(treePoints, "/")
-	ns:Fire(ns.TALENTS_UPDATED, guid)
+	ns:Fire(ns.E.TALENTS_UPDATED, guid)
 end
 
 local function readPlayer()
@@ -168,7 +168,9 @@ function Talents:GetSpec(guid)
 			bestTree = tree
 		end
 	end
-	return bestTree
+	if guess.proven[bestTree] >= SPEC_MIN_DEPTH or main[bestTree] >= SPEC_MIN_SHARE then
+		return bestTree
+	end
 end
 
 function Talents:GetPoints(guid)
@@ -242,7 +244,7 @@ function Talents:Observe(guid, hint)
 	local tree = hint.tree
 	guess.proven[tree] = max(guess.proven[tree], hint.points + 1)
 	weigh(guess)
-	ns:Fire(ns.TALENTS_UPDATED, guid)
+	ns:Fire(ns.E.TALENTS_UPDATED, guid)
 end
 
 function Talents:GetProven(guid, tree)
@@ -276,7 +278,7 @@ function Talents:Invalidate(guid)
 	if unit then
 		Inspect:Request(unit)
 	end
-	ns:Fire(ns.TALENTS_UPDATED, guid)
+	ns:Fire(ns.E.TALENTS_UPDATED, guid)
 end
 
 local function onTalentsReady(_, guid)
@@ -333,7 +335,7 @@ function Talents:Initialize()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 	self:RegisterEvent("PLAYER_TARGET_CHANGED")
 	self:RegisterEvent("PLAYER_FOCUS_CHANGED")
-	self:RegisterEvent(ns.INSPECT_TALENTS_READY, onTalentsReady)
+	self:RegisterEvent(ns.E.INSPECT_TALENTS_READY, onTalentsReady)
 	self:RegisterEvent("UNIT_AURA")
 	self:RegisterEvent("ARENA_OPPONENT_UPDATE")
 	for _, event in ipairs({

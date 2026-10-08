@@ -35,4 +35,4 @@ local function create(frame)
 	return leader
 end
 
-UF:RegisterElement("leader", create, update, test)
+UF:RegisterElement({ name = "leader", Create = create, Update = update, Test = test })

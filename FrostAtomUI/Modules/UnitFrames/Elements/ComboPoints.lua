@@ -6,6 +6,7 @@ local UnitHasVehicleUI = UnitHasVehicleUI
 local MAX_COMBO_POINTS = MAX_COMBO_POINTS or 5
 
 local config = ns.Config.unitFrames
+local themeConfig = ns.Config.theme
 
 local EMPTY_COLOR = { 0.2, 0.2, 0.2 }
 
@@ -15,7 +16,7 @@ local function setPoints(combo, points)
 		return
 	end
 
-	local color = points == MAX_COMBO_POINTS and config.comboPointColor or config.comboPointPartialColor
+	local color = points == MAX_COMBO_POINTS and themeConfig.comboPointColor or themeConfig.comboPointPartialColor
 	for i = 1, MAX_COMBO_POINTS do
 		local point = combo[i]
 		if i <= points then
@@ -66,4 +67,4 @@ local function create(frame, options)
 	return combo
 end
 
-UF:RegisterElement("combopoints", create, update, test)
+UF:RegisterElement({ name = "combopoints", Create = create, Update = update, Test = test })

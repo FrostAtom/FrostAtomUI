@@ -10,7 +10,7 @@ local snap, snapX, snapY = ns.WorldChildren.Snap, ns.WorldChildren.SnapX, ns.Wor
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 
 local config = ns.Config.namePlates
-local frameConfig = ns.Config.unitFrames
+local themeConfig, castConfig = ns.Config.theme, ns.Config.castbar
 
 local Totems = {}
 NamePlates.Totems = Totems
@@ -377,7 +377,7 @@ function Totems.ApplyStyle(plate)
 	local totem = plate.totem
 	NamePlates.StyleHolder(totem)
 	ns.SetFont(totem.timer, config.totemTimerFont.size, config.totemTimerFont.outline)
-	local color = frameConfig.castbarColor
+	local color = castConfig.color
 	totem.bar:SetVertexColor(color[1], color[2], color[3])
 	totem.borderColor = nil
 	NamePlates.StyleHolder(totem.pulse)
@@ -499,7 +499,7 @@ function Totems.Update(plate, isTarget)
 		local alpha = targeted and 0 or 1
 		totem:SetBackdropBorderColor(color[1], color[2], color[3], alpha)
 		totem.edge:SetBackdropBorderColor(color[1], color[2], color[3], alpha)
-		local background = targeted and TARGET_BACKGROUND or frameConfig.backdropColor
+		local background = targeted and TARGET_BACKGROUND or themeConfig.backdropColor
 		totem:SetBackdropColor(background[1], background[2], background[3], background[4] or 1)
 	end
 	local hovered = config.hoverHighlight and plate.info.isMouseover or false
@@ -509,10 +509,16 @@ function Totems.Update(plate, isTarget)
 	end
 end
 
+NamePlates.RegisterPlugin({ name = "totems", Setup = Totems.Setup })
+
 NamePlates:OnInitialize(function(self)
 	if not config.enabled then
 		return
 	end
-	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
+	local logEvents = { SPELL_SUMMON = true, UNIT_DIED = true, UNIT_DESTROYED = true }
+	for event in pairs(TICK_EVENTS) do
+		logEvents[event] = true
+	end
+	ns.CombatLog.Register(self, logEvents, onCombatLog)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 end)

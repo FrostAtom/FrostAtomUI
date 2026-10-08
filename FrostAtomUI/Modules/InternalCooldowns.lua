@@ -20,6 +20,7 @@ local LAST_SLOT = 18
 local TRINKET_SLOTS = { [13] = true, [14] = true }
 local MAX_TRINKETS = 2
 local MEMORY_TIME = 30 * 86400
+local MAX_REMEMBERED = 1000
 local COMBATLOG_OBJECT_TYPE_PLAYER = 0x400
 local QUESTION_MARK = "Interface\\Icons\\INV_Misc_QuestionMark"
 local KIND_ORDER = { i = 1, e = 2, g = 3, s = 4 }
@@ -61,8 +62,6 @@ local EVENT_TYPES = {
 }
 local AURA_EVENTS = { buff = true, stack = true }
 local MAX_AURAS = 40
-
-ns.PROC_COOLDOWN_UPDATED = "FrostAtomUI_PROC_COOLDOWN_UPDATED"
 
 local InternalCooldowns = ns:NewModule("InternalCooldowns")
 InternalCooldowns.UNKNOWN = "?"
@@ -216,10 +215,40 @@ local function sameGear(a, b)
 	return true
 end
 
-local function remember(guid, list)
-	if guid ~= playerGUID then
-		memory[guid] = #list > 0 and { seen = time(), keys = list } or nil
+local rememberedCount = 0
+
+local function forgetOldest()
+	local oldest, oldestSeen
+	for guid, record in pairs(memory) do
+		if not oldestSeen or record.seen < oldestSeen then
+			oldest, oldestSeen = guid, record.seen
+		end
 	end
+	if oldest then
+		memory[oldest] = nil
+		rememberedCount = rememberedCount - 1
+	end
+end
+
+local function remember(guid, list)
+	if guid == playerGUID then
+		return
+	end
+	local known = memory[guid] ~= nil
+	if #list == 0 then
+		if known then
+			memory[guid] = nil
+			rememberedCount = rememberedCount - 1
+		end
+		return
+	end
+	if not known then
+		if rememberedCount >= MAX_REMEMBERED then
+			forgetOldest()
+		end
+		rememberedCount = rememberedCount + 1
+	end
+	memory[guid] = { seen = time(), keys = list }
 end
 
 local function moveTimer(guid, from, to)
@@ -272,7 +301,7 @@ local function setGear(guid, found, changedSlot)
 	end
 	gear[guid] = found
 	trustGear(guid, found, not changedSlot)
-	ns:Fire(ns.PROC_COOLDOWN_UPDATED, guid)
+	ns:Fire(ns.E.PROC_COOLDOWN_UPDATED, guid)
 end
 
 local function isLearned(list, key)
@@ -399,7 +428,7 @@ local function onAuraRemoved(guid, spellId)
 	local key = findAura(guid, spellId)
 	if key then
 		auras[guid][key] = nil
-		ns:Fire(ns.PROC_COOLDOWN_UPDATED, guid)
+		ns:Fire(ns.E.PROC_COOLDOWN_UPDATED, guid)
 	end
 end
 
@@ -424,7 +453,7 @@ local function onCombatLogEvent(_, _, event, sourceGUID, _, sourceFlags, destGUI
 		local activeKey = proc.aura and findAura(sourceGUID, spellId)
 		if activeKey then
 			setAura(sourceGUID, activeKey, spellId, destGUID, proc, now)
-			ns:Fire(ns.PROC_COOLDOWN_UPDATED, sourceGUID)
+			ns:Fire(ns.E.PROC_COOLDOWN_UPDATED, sourceGUID)
 		end
 		return
 	end
@@ -445,7 +474,7 @@ local function onCombatLogEvent(_, _, event, sourceGUID, _, sourceFlags, destGUI
 		end
 		learn(sourceGUID, key)
 	end
-	ns:Fire(ns.PROC_COOLDOWN_UPDATED, sourceGUID)
+	ns:Fire(ns.E.PROC_COOLDOWN_UPDATED, sourceGUID)
 end
 
 local function readPlayer(changedSlot)
@@ -614,18 +643,17 @@ local function onEnteringWorld()
 	if instanceType == "arena" then
 		wipe(starts)
 		wipe(auras)
-		ns:Fire(ns.PROC_COOLDOWN_UPDATED)
+		ns:Fire(ns.E.PROC_COOLDOWN_UPDATED)
 	end
 	readPlayer()
 end
 
+local sourcesSlot = ns.Storage.Claim("procSources", "InternalCooldowns", "state")
+
 local function loadMemory()
-	local store = ns.db.procSources
-	if not store then
-		store = {}
-		ns.db.procSources = store
-	end
+	local store = sourcesSlot:Table()
 	memory = store
+	rememberedCount = 0
 	local now = time()
 	for guid, record in pairs(store) do
 		local keys = type(record) == "table" and record.keys
@@ -649,29 +677,48 @@ local function loadMemory()
 				store[guid] = nil
 			else
 				learned[guid] = keys
+				rememberedCount = rememberedCount + 1
 			end
 		end
 	end
+	if rememberedCount > MAX_REMEMBERED then
+		local guids = {}
+		for guid in pairs(store) do
+			guids[#guids + 1] = guid
+		end
+		table.sort(guids, function(a, b)
+			return store[a].seen > store[b].seen
+		end)
+		for k = MAX_REMEMBERED + 1, #guids do
+			store[guids[k]] = nil
+		end
+		rememberedCount = MAX_REMEMBERED
+	end
+end
+
+local LOG_EVENTS = { SPELL_AURA_REMOVED = true }
+for event in pairs(EVENT_TYPES) do
+	LOG_EVENTS[event] = true
 end
 
 local function applyEnabled(self)
 	if ns.Config.internalCooldowns.enabled then
-		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLogEvent)
+		ns.CombatLog.Register(self, LOG_EVENTS, onCombatLogEvent)
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 		self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", onEquipmentChanged)
 		self:RegisterEvent("UNIT_INVENTORY_CHANGED", onInventoryChanged)
-		self:RegisterEvent(ns.INSPECT_GEAR_READY, onGearReady)
+		self:RegisterEvent(ns.E.INSPECT_GEAR_READY, onGearReady)
 		readPlayer()
 	else
-		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+		ns.CombatLog.Unregister(self, onCombatLogEvent)
 		self:UnregisterEvent("PLAYER_ENTERING_WORLD")
 		self:UnregisterEvent("PLAYER_EQUIPMENT_CHANGED")
 		self:UnregisterEvent("UNIT_INVENTORY_CHANGED")
-		self:UnregisterEvent(ns.INSPECT_GEAR_READY)
+		self:UnregisterEvent(ns.E.INSPECT_GEAR_READY)
 		wipe(starts)
 		wipe(auras)
 		wipe(gear)
-		ns:Fire(ns.PROC_COOLDOWN_UPDATED)
+		ns:Fire(ns.E.PROC_COOLDOWN_UPDATED)
 	end
 end
 

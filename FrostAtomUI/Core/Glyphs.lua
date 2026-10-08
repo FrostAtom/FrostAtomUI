@@ -37,6 +37,7 @@ end
 function ns.SetGlyph(region, name, size, outline)
 	if size then
 		region:SetFont(Media.glyphFont, size, outline or "")
+		-- 3.3.5: fonts are rasterized up to 32 physical pixels; SetTextHeight keeps larger glyphs big
 		region:SetTextHeight(size)
 	end
 	region:SetText(name and ns.Glyph(name) or "")

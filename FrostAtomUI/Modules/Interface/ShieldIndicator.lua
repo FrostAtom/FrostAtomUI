@@ -1,0 +1,46 @@
+local _, ns = ...
+
+if ns.PLAYER_CLASS ~= "WARRIOR" then
+	return
+end
+
+local GetInventoryItemLink = GetInventoryItemLink
+local GetInventoryItemTexture = GetInventoryItemTexture
+local GetItemInfo = GetItemInfo
+
+local ShieldIndicator = ns:NewModule("ShieldIndicator")
+
+local OFFHAND_SLOT = 17
+
+local icon = CreateFrame("Frame", nil, UIParent)
+ShieldIndicator:AnchorToConfig(icon, "shieldIndicator.point", "Shield indicator")
+icon:Hide()
+
+local texture = icon:CreateTexture(nil, "BORDER")
+ns.UIKit.SkinIcon(icon, texture)
+
+local function update()
+	local link = ns.Config.shieldIndicator.enabled and GetInventoryItemLink("player", OFFHAND_SLOT)
+	local equipLoc = link and select(9, GetItemInfo(link))
+	if equipLoc == "INVTYPE_SHIELD" then
+		texture:SetTexture(GetInventoryItemTexture("player", OFFHAND_SLOT))
+		icon:Show()
+	else
+		icon:Hide()
+	end
+end
+
+local function applyConfig()
+	local size = ns.Config.shieldIndicator.size
+	icon:SetSize(size, size)
+	update()
+end
+
+applyConfig()
+ShieldIndicator:WatchConfig("shieldIndicator", applyConfig)
+ShieldIndicator:RegisterEvent("PLAYER_ENTERING_WORLD", update)
+ShieldIndicator:RegisterEvent("PLAYER_EQUIPMENT_CHANGED", function(_, slot)
+	if slot == OFFHAND_SLOT then
+		update()
+	end
+end)

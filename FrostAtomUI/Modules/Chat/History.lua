@@ -14,6 +14,8 @@ local COPY_GLYPH = "copy"
 local COPY_GLYPH_SIZE = 11
 local COPY_BUTTON_SIZE = 16
 local COPY_BUTTON_ALPHA = 0.4
+local RESTORED_DIM = 0.6
+local SEPARATOR = { 0.5, 0.5, 0.5 }
 
 local commandHistory = {}
 
@@ -33,16 +35,30 @@ local function historyFrames()
 end
 
 local function restoreFrame(chatFrame, saved)
+	local restored = false
 	for i = 1, #saved do
 		local line = saved[i]
 		if not isOwnPrint(line[1]) then
-			Chat.AddStoredLine(chatFrame, line[1], line[2], line[3], line[4])
+			Chat.AddStoredLine(chatFrame, line[1], line[2], line[3], line[4], RESTORED_DIM)
+			restored = true
 		end
+	end
+	if restored then
+		Chat.AddDisplayLine(
+			chatFrame,
+			ns.L["— messages before the reload —"],
+			SEPARATOR[1],
+			SEPARATOR[2],
+			SEPARATOR[3]
+		)
 	end
 end
 
-local function restoreHistory(db)
-	local saved = db.chat_history
+local historySlot = ns.Storage.Claim("chat_history", "Chat", "state")
+local commandSlot = ns.Storage.Claim("command_history", "Chat", "state")
+
+local function restoreHistory()
+	local saved = historySlot:Get()
 	if saved then
 		if saved[1] then
 			saved = { [ChatFrame1:GetName()] = saved }
@@ -55,8 +71,8 @@ local function restoreHistory(db)
 		end
 	end
 
-	commandHistory = db.command_history or commandHistory
-	db.command_history = commandHistory
+	commandHistory = commandSlot:Get() or commandHistory
+	commandSlot:Set(commandHistory)
 
 	for i = #commandHistory, 1, -1 do
 		ChatFrame1EditBox:AddHistoryLine(commandHistory[i])
@@ -83,7 +99,7 @@ local function saveHistory()
 			saved[chatFrame:GetName()] = lines
 		end
 	end
-	ns:SaveVariable("chat_history", saved)
+	historySlot:Set(saved)
 end
 
 local function editBoxCommand(editBox)
@@ -203,7 +219,7 @@ local function onCopyButtonClick(self)
 end
 
 Chat:OnInitialize(function(self)
-	restoreHistory(ns.db)
+	restoreHistory()
 	self:RegisterEvent("PLAYER_LOGOUT", saveHistory)
 	hooksecurefunc(ChatFrame1EditBox, "AddHistoryLine", onHistoryLine)
 

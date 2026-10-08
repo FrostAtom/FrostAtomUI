@@ -4,7 +4,7 @@ local L = ns.L
 
 local RegisterUnitWatch, UnregisterUnitWatch = RegisterUnitWatch, UnregisterUnitWatch
 local InCombatLockdown = InCombatLockdown
-local random, floor = math.random, math.floor
+local random, floor, tremove, wipe = math.random, math.floor, table.remove, wipe
 
 local NAMES = {
 	"Frostatom",
@@ -21,6 +21,32 @@ local NAMES = {
 	"Orinthal",
 	"Ravenna",
 	"Grimshaw",
+	"Aldric",
+	"Brynja",
+	"Corvin",
+	"Darika",
+	"Elowen",
+	"Fenrick",
+	"Galena",
+	"Hroth",
+	"Isolde",
+	"Jorvik",
+	"Kestra",
+	"Lothar",
+	"Maelis",
+	"Norvak",
+	"Oriel",
+	"Perrin",
+	"Quilla",
+	"Rurik",
+	"Seraphine",
+	"Tamsin",
+	"Ulfgar",
+	"Velka",
+	"Wrenna",
+	"Xandor",
+	"Yselle",
+	"Zarek",
 }
 local PET_NAMES = { "Voidwalker", "Felhunter", "Wolf", "Ghoul", "Cat", "Succubus", "Bear", "Imp", "Treant" }
 
@@ -28,19 +54,33 @@ local CLASS_POWER = { WARRIOR = 1, ROGUE = 3, DEATHKNIGHT = 6 }
 local DRUID_POWER = { 0, 1, 3 }
 local POWER_MAX = { [0] = 24000, [1] = 100, [2] = 100, [3] = 100, [6] = 100 }
 
+local namePool = {}
+
+local function takeName(names)
+	local pool = namePool[names]
+	if not pool or #pool == 0 then
+		pool = {}
+		for i = 1, #names do
+			pool[i] = names[i]
+		end
+		namePool[names] = pool
+	end
+	return tremove(pool, random(#pool))
+end
+
 local function makeData(frame)
 	local unit = frame.baseUnit
 	local data = {}
 
 	if unit:find("pet") then
-		data.name = PET_NAMES[random(#PET_NAMES)]
+		data.name = takeName(PET_NAMES)
 		data.healthMax = random(8000, 18000)
 		data.powerType = random(2) == 1 and 0 or 2
 	else
 		local class = UF.classList[random(#UF.classList)]
 		data.class = class
 		data.spec = random(4) ~= 1 and random(3) or nil
-		data.name = NAMES[random(#NAMES)]
+		data.name = takeName(NAMES)
 		data.healthMax = random(22000, 36000)
 		data.powerType = class == "DRUID" and DRUID_POWER[random(#DRUID_POWER)] or CLASS_POWER[class] or 0
 		data.leader = random(4) == 1
@@ -61,8 +101,8 @@ function UF:RunTest(frame)
 	if not frame.test then
 		return
 	end
-	for name, element in pairs(self.elements) do
-		if frame[name] and element.test then
+	for _, element in ipairs(self.elementOrder) do
+		if frame[element.name] and element.test then
 			element.test(frame)
 		end
 	end
@@ -101,6 +141,7 @@ function UF:SetTestMode(enabled)
 	end
 
 	self.testing = enabled
+	wipe(namePool)
 	for i = 1, #self.frames do
 		local frame = self.frames[i]
 		if enabled then
@@ -110,9 +151,25 @@ function UF:SetTestMode(enabled)
 		end
 	end
 	ns.Print(L["unit frame test mode %s"], enabled and L["on"] or L["off"])
+	ns.API.PreviewChanged("unitFrames")
 end
 
-SlashCmdList.FROSTATOMUI_UNITFRAME_TEST = function()
+local function toggleTest()
 	UF:SetTestMode(not UF.testing)
 end
+
+ns.API.RegisterPreview("unitFrames", {
+	Set = function(active)
+		UF:SetTestMode(active)
+	end,
+	IsActive = function()
+		return UF.testing
+	end,
+	IsAvailable = function()
+		return UF.frames ~= nil and #UF.frames > 0
+	end,
+})
+ns.API.RegisterAction("unitFrameTest", toggleTest)
+
+SlashCmdList.FROSTATOMUI_UNITFRAME_TEST = toggleTest
 SLASH_FROSTATOMUI_UNITFRAME_TEST1 = "/uftest"

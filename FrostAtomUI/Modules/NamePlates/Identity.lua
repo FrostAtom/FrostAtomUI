@@ -79,16 +79,12 @@ local guidPlates = {}
 local unitPlates = {}
 local enemyPlayers = {}
 local knownGUIDs = {}
-local onIdentity = {}
-local onUnitAdded = {}
-local onUnitRemoved = {}
-local onPass = {}
+local onIdentity = NamePlates.onIdentity
+local onUnitAdded = NamePlates.onUnitAdded
+local onUnitRemoved = NamePlates.onUnitRemoved
+local onPass = NamePlates.onPass
 NamePlates.guidPlates = guidPlates
 NamePlates.unitPlates = unitPlates
-NamePlates.onIdentity = onIdentity
-NamePlates.onUnitAdded = onUnitAdded
-NamePlates.onUnitRemoved = onUnitRemoved
-NamePlates.onPass = onPass
 
 local units, priority = {}, {}
 local nameIndex = {}
@@ -213,11 +209,6 @@ function NamePlates.GetPlateUnit(plate)
 			return other
 		end
 	end
-end
-
-function NamePlates.PlateHasUnit(plate, unit)
-	local set = plate.units
-	return set ~= nil and set[unit] == true and UnitGUID(unit) == plate.guid
 end
 
 local function healthMatches(plate, unit)
@@ -447,17 +438,6 @@ local function rememberEnemy(guid, name, flags)
 	enemyPlayers[match(name, "^[^%-]+")] = guid
 end
 
-local logHandlers = {}
-
-function NamePlates.AddLogHandler(event, handler)
-	local list = logHandlers[event]
-	if not list then
-		list = {}
-		logHandlers[event] = list
-	end
-	list[#list + 1] = handler
-end
-
 local NAME_EVENTS = {
 	SWING_DAMAGE = true,
 	RANGE_DAMAGE = true,
@@ -472,7 +452,35 @@ local NAME_EVENTS = {
 	SPELL_MISSED = true,
 }
 
-local function onCombatLog(_, _, event, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, ...)
+local logHandlers = {}
+local onCombatLog
+local listening = false
+
+local function subscribe()
+	local events = {}
+	for event in pairs(NAME_EVENTS) do
+		events[event] = true
+	end
+	for event in pairs(logHandlers) do
+		events[event] = true
+	end
+	listening = true
+	ns.CombatLog.Register(NamePlates, events, onCombatLog)
+end
+
+function NamePlates.AddLogHandler(event, handler)
+	local list = logHandlers[event]
+	if not list then
+		list = {}
+		logHandlers[event] = list
+	end
+	list[#list + 1] = handler
+	if listening then
+		subscribe()
+	end
+end
+
+function onCombatLog(_, _, event, srcGUID, srcName, srcFlags, dstGUID, dstName, dstFlags, ...)
 	if NAME_EVENTS[event] then
 		if srcName then
 			rememberEnemy(srcGUID, srcName, srcFlags)
@@ -518,9 +526,12 @@ NamePlates:OnInitialize(function(self)
 	if not config.enabled then
 		return
 	end
-	NamePlates.onPlateShow[#NamePlates.onPlateShow + 1] = onPlateShow
-	NamePlates.onPlateHide[#NamePlates.onPlateHide + 1] = onPlateHide
-	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
+	NamePlates.RegisterPlugin({
+		name = "identity",
+		Show = onPlateShow,
+		Hide = onPlateHide,
+	})
+	subscribe()
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 	self:RegisterEvent("PARTY_MEMBERS_CHANGED", updateRoster)
 	self:RegisterEvent("RAID_ROSTER_UPDATE", updateRoster)

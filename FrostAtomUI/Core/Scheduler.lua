@@ -1,6 +1,7 @@
 local _, ns = ...
 
 local GetTime = GetTime
+local SafeCall = ns.SafeCall
 local tremove = table.remove
 
 local Scheduler = {}
@@ -14,6 +15,7 @@ local tickerIndex = {}
 
 local timers, timerCount = {}, 0
 local timerPool = {}
+local keyedTimers = {}
 
 local deferred, deferredCount = {}, 0
 local deferredIndex = {}
@@ -54,6 +56,26 @@ function Scheduler.After(delay, callback, arg)
 	wake()
 end
 
+function Scheduler.At(key, at, callback)
+	local timer = keyedTimers[key]
+	if timer then
+		if at < timer.at then
+			timer.at = at
+		end
+		timer.callback = callback
+		return
+	end
+	timer = tremove(timerPool) or {}
+	timer.at = at
+	timer.callback = callback
+	timer.arg = key
+	timer.key = key
+	keyedTimers[key] = timer
+	timerCount = timerCount + 1
+	timers[timerCount] = timer
+	wake()
+end
+
 function Scheduler.Defer(key, callback)
 	if deferredIndex[key] then
 		return
@@ -75,7 +97,7 @@ local function runTickers(now)
 		else
 			if now >= entry.nextTick then
 				entry.nextTick = now + entry.interval
-				entry.callback(entry.key, now)
+				SafeCall(entry.callback, entry.key, now)
 			end
 			i = i + 1
 		end
@@ -91,9 +113,13 @@ local function runTimers(now)
 			timers[timerCount] = nil
 			timerCount = timerCount - 1
 			local callback, arg = timer.callback, timer.arg
+			if timer.key ~= nil then
+				keyedTimers[timer.key] = nil
+				timer.key = nil
+			end
 			timer.callback, timer.arg = nil, nil
 			timerPool[#timerPool + 1] = timer
-			callback(arg)
+			SafeCall(callback, arg)
 		else
 			i = i + 1
 		end
@@ -112,7 +138,7 @@ local function runDeferred()
 		local callback = deferredIndex[key]
 		if callback then
 			deferredIndex[key] = nil
-			callback(key)
+			SafeCall(callback, key)
 		end
 	end
 end

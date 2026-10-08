@@ -1,24 +1,23 @@
 local _, ns = ...
 local NamePlates = ns:GetModule("NamePlates")
-local UF = ns:GetModule("UnitFrames")
 
-local UnitGUID, UnitName, UnitIsUnit, UnitCanAttack = UnitGUID, UnitName, UnitIsUnit, UnitCanAttack
+local UnitGUID, UnitIsUnit, UnitCanAttack = UnitGUID, UnitIsUnit, UnitCanAttack
 local UnitCastingInfo, UnitChannelInfo = UnitCastingInfo, UnitChannelInfo
 local GetTime = GetTime
 
 local config = ns.Config.namePlates
-local frameConfig = ns.Config.unitFrames
+local themeConfig, castConfig = ns.Config.theme, ns.Config.castbar
 local plates = NamePlates.plates
 local guidPlates = NamePlates.guidPlates
 local targetOf = NamePlates.targetOf
 local EVENT_UNITS = NamePlates.EVENT_UNITS
-local importantCasts = UF.importantCasts
+local importantCasts = ns.Cast.importantCasts
 
 local BORDER_INSET = NamePlates.BORDER_INSET
 local ICON_GAP = NamePlates.ICON_GAP
 local FINISH_WINDOW = NamePlates.CAST_FINISH_WINDOW
 local LATE_INTERRUPT = NamePlates.CAST_LATE_INTERRUPT
-local STOP_TIMEOUT = 0.5
+local STOP_TIMEOUT = ns.Cast.TIMING.STOP_TIMEOUT
 local CANCELLED = {}
 
 local casts = {}
@@ -127,20 +126,16 @@ local layoutBar = NamePlates.LayoutCastbar
 
 local function updateBarTarget(bar, unit)
 	local targetUnit = unit and targetOf[unit]
-	local name = targetUnit
-		and frameConfig.castbarTargetName
-		and not UnitIsUnit(targetUnit, unit)
-		and UnitName(targetUnit)
-	if name then
-		UF.SetCastTargetText(bar.targetText, targetUnit, name)
+	if targetUnit and bar.entry then
+		ns.Cast.ShowCastTarget(bar.targetText, unit, targetUnit, bar.entry.name)
 	else
 		bar.targetText:SetText("")
 	end
 	local targetingYou = targetUnit
-		and frameConfig.castbarTargetingYou
+		and castConfig.targetingYou
 		and UnitIsUnit(targetUnit, "player")
 		and UnitCanAttack("player", unit)
-	local color = targetingYou and frameConfig.castbarTargetingYouColor or frameConfig.borderColor
+	local color = targetingYou and castConfig.targetingYouColor or themeConfig.borderColor
 	bar.holder:SetBackdropBorderColor(color[1], color[2], color[3])
 end
 
@@ -163,7 +158,7 @@ local function onBarUpdate(bar, elapsed)
 		bar:SetValue(now)
 	end
 	if bar.important then
-		UF.PulseCastGlow(bar.glow, elapsed)
+		ns.Cast.PulseGlow(bar.glow, elapsed)
 	end
 end
 
@@ -194,7 +189,7 @@ local function createBar(plate)
 
 	NamePlates.CreateCastTexts(bar)
 
-	bar.glow = UF.CreateCastGlow(bar, holder, NamePlates.CAST_GLOW_SIZE)
+	bar.glow = ns.Cast.CreateGlow(bar, holder, NamePlates.CAST_GLOW_SIZE)
 	bar:SetScript("OnUpdate", onBarUpdate)
 	plate.vcast = bar
 	if plate.stackLevel then
@@ -233,9 +228,9 @@ function updatePlate(plate)
 		layoutBar(bar)
 		bar.icon:SetTexture(entry.texture)
 		bar.spellText:SetText(config.castbarSpellName and entry.name or "")
-		bar.important = frameConfig.castbarImportant and importantCasts[entry.name] or false
+		bar.important = castConfig.important and importantCasts[entry.name] or false
 		if bar.important then
-			UF.StartCastGlow(bar.glow, frameConfig.castbarImportantColor)
+			ns.Cast.StartGlow(bar.glow, castConfig.importantColor)
 		else
 			bar.glow:Hide()
 		end
@@ -270,7 +265,7 @@ end
 local function onCastInterrupted(_, unit, _, _, castId)
 	local guid, entry = unitCast(unit)
 	if entry and (entry.isChannel or entry.castId == castId) then
-		removeCast(guid, frameConfig.castbarInterrupter and (UF.RecentSilence(guid) or CANCELLED) or nil)
+		removeCast(guid, castConfig.interrupter and (ns.Cast.RecentSilence(guid) or CANCELLED) or nil)
 	end
 end
 
@@ -302,7 +297,7 @@ local function onUnitAura(_, unit)
 end
 
 local function onInterrupter(_, guid, text)
-	if not frameConfig.castbarInterrupter then
+	if not castConfig.interrupter then
 		return
 	end
 	local plate = guidPlates[guid]
@@ -322,7 +317,7 @@ local function onInterrupter(_, guid, text)
 end
 
 local function onSilenced(_, guid, text)
-	if not frameConfig.castbarInterrupter or casts[guid] then
+	if not castConfig.interrupter or casts[guid] then
 		return
 	end
 	local plate = guidPlates[guid]
@@ -433,14 +428,18 @@ NamePlates:OnInitialize(function(self)
 			self:RegisterUnitEvent(event, LOCK_UNITS[i], handler)
 		end
 	end
-	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = updatePlate
-	NamePlates.onUnitAdded[#NamePlates.onUnitAdded + 1] = onUnitAdded
-	NamePlates.onUnitRemoved[#NamePlates.onUnitRemoved + 1] = onUnitRemoved
-	NamePlates.onPass[#NamePlates.onPass + 1] = onPass
-	NamePlates.onPlateLayout[#NamePlates.onPlateLayout + 1] = relayout
-	self:RegisterEvent(UF.CAST_INTERRUPTED, onInterrupter)
-	self:RegisterEvent(UF.CAST_SILENCED, onSilenced)
+	NamePlates.RegisterPlugin({
+		name = "casts",
+		Identity = updatePlate,
+		UnitAdded = onUnitAdded,
+		UnitRemoved = onUnitRemoved,
+		Pass = onPass,
+		Layout = relayout,
+	})
+	self:RegisterEvent(ns.E.CAST_INTERRUPTED, onInterrupter)
+	self:RegisterEvent(ns.E.CAST_SILENCED, onSilenced)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 	self:WatchConfig("namePlates", applyConfig)
-	self:WatchConfig("unitFrames", applyConfig)
+	self:WatchConfig("theme", applyConfig)
+	self:WatchConfig("castbar", applyConfig)
 end)

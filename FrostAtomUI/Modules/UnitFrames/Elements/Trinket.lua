@@ -1,30 +1,18 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
 
-local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
+local UnitGUID = UnitGUID
 local IsInInstance = IsInInstance
 local random = math.random
 
 local CooldownTimer = ns:GetModule("CooldownTimer")
+local CooldownTracker = ns:GetModule("CooldownTracker")
 
+local PVP_TRINKET = ns.CooldownData.PVP_TRINKET
 local TRINKET_ICON = "Interface\\Icons\\INV_Jewelry_TrinketPVP_02"
 local DEFAULT_SIZE = 30
 local TIMER_FONT_SCALE = 0.4
-
-local TRINKET_SPELLS = {
-	[42292] = 120, -- PvP Trinket
-	[59752] = 120, -- Every Man for Himself
-	[7744] = 45, -- Will of the Forsaken
-}
-
-local cooldownBySpellName = {}
-for spellId, cooldown in pairs(TRINKET_SPELLS) do
-	local name = GetSpellInfo(spellId)
-	if name then
-		cooldownBySpellName[name] = cooldown
-	end
-end
 
 function UF.IsTrinketSeparate(side)
 	local config = ns.Config.groupCooldowns
@@ -42,12 +30,24 @@ local function isShown(frame)
 	return UF.IsTrinketSeparate("friendly") and (frame.test ~= nil or select(2, IsInInstance()) == "arena")
 end
 
+local function guidOf(frame)
+	return UnitGUID(frame.unit) or UF.GhostGUID and UF.GhostGUID(frame)
+end
+
+local function refresh(frame)
+	local start, duration = CooldownTracker:GetCooldown(guidOf(frame), PVP_TRINKET)
+	frame.trinket.cooldown:SetCooldown(start or 0, duration or 0)
+end
+
 local function update(frame)
 	ns.SetShown(frame.trinket, isShown(frame))
+	if not frame.test then
+		refresh(frame)
+	end
 end
 
 local function test(frame)
-	update(frame)
+	ns.SetShown(frame.trinket, isShown(frame))
 	if random(3) == 1 then
 		frame.trinket.cooldown:SetCooldown(0, 0)
 	else
@@ -55,25 +55,15 @@ local function test(frame)
 	end
 end
 
-local function onSpellSucceeded(frame, spellName)
-	local cooldown = cooldownBySpellName[spellName]
-	if cooldown then
-		frame.trinket.cooldown:SetCooldown(GetTime(), cooldown)
+local function onCooldownUpdated(frame, guid)
+	if not frame.test and (guid == nil or guid == guidOf(frame)) then
+		refresh(frame)
 	end
 end
 
-local function reset(frame)
-	frame.trinket.cooldown:SetCooldown(0, 0)
-end
-
-local function onEnteringWorld(frame)
-	reset(frame)
-	update(frame)
-end
-
-local function onOpponentUpdate(frame, unit, reason)
-	if unit == frame.unit and reason == "cleared" then
-		reset(frame)
+local function onOpponentUpdate(frame, unit)
+	if unit == frame.unit and not frame.test then
+		refresh(frame)
 	end
 end
 
@@ -101,11 +91,11 @@ local function create(frame, options)
 	trinket.cooldown:SetAllPoints()
 	CooldownTimer:Attach(trinket.cooldown, size * TIMER_FONT_SCALE)
 
-	frame:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", onSpellSucceeded)
+	frame:RegisterEvent(ns.E.COOLDOWN_UPDATED, onCooldownUpdated)
 	frame:RegisterEvent("ARENA_OPPONENT_UPDATE", onOpponentUpdate)
-	frame:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
+	frame:RegisterEvent("PLAYER_ENTERING_WORLD", update)
 
 	return trinket
 end
 
-UF:RegisterElement("trinket", create, update, test)
+UF:RegisterElement({ name = "trinket", Create = create, Update = update, Test = test })

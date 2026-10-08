@@ -11,99 +11,16 @@ local SetPortraitTexture = SetPortraitTexture
 local Talents = ns:GetModule("Talents")
 local config = ns.Config.unitFrames
 
-local CLASS_ICONS = "Interface\\Glues\\CharacterCreate\\UI-CharacterCreate-Classes"
-local TRIM = 0.07
-
-local SPEC_ICONS = {
-	DEATHKNIGHT = {
-		"Spell_Deathknight_BloodPresence",
-		"Spell_Deathknight_FrostPresence",
-		"Spell_Deathknight_UnholyPresence",
-	},
-	DRUID = { "Spell_Nature_StarFall", "Ability_Racial_BearForm", "Spell_Nature_HealingTouch" },
-	HUNTER = { "Ability_Hunter_BeastTaming", "Ability_Marksmanship", "Ability_Hunter_SwiftStrike" },
-	MAGE = { "Spell_Holy_MagicalSentry", "Spell_Fire_FlameBolt", "Spell_Frost_FrostBolt02" },
-	PALADIN = { "Spell_Holy_HolyBolt", "Spell_Holy_DevotionAura", "Spell_Holy_AuraOfLight" },
-	PRIEST = { "Spell_Holy_WordFortitude", "Spell_Holy_HolyBolt", "Spell_Shadow_ShadowWordPain" },
-	ROGUE = { "Ability_Rogue_Eviscerate", "Ability_BackStab", "Ability_Stealth" },
-	SHAMAN = { "Spell_Nature_Lightning", "Spell_Nature_LightningShield", "Spell_Nature_MagicImmunity" },
-	WARLOCK = { "Spell_Shadow_DeathCoil", "Spell_Shadow_Metamorphosis", "Spell_Shadow_RainOfFire" },
-	WARRIOR = { "Ability_Rogue_Eviscerate", "Ability_Warrior_InnerRage", "Ability_Warrior_DefensiveStance" },
-}
-for _, icons in pairs(SPEC_ICONS) do
-	for i = 1, #icons do
-		icons[i] = "Interface\\Icons\\" .. icons[i]
-	end
-end
-
-local CLASS_TRIM = 0.1
-local SPELL_TRIM = 0.08
+local ClassIcons = ns.ClassIcons
 local PORTRAIT_TRIM = 0.15
-local BADGE_SIZE = 0.45
 
-local function trimCoords(trim)
-	local result = {}
-	for class, coords in pairs(CLASS_ICON_TCOORDS) do
-		local l, r, t, b = unpack(coords)
-		local w, h = (r - l) * trim, (b - t) * trim
-		result[class] = { l + w, r - w, t + h, b - h }
-	end
-	return result
-end
-
-local classCoords = trimCoords(TRIM)
-local innerClassCoords = trimCoords(CLASS_TRIM)
-
-UF.CLASS_ICONS = CLASS_ICONS
-UF.ICON_TRIM = TRIM
-UF.SPELL_TRIM = SPELL_TRIM
-UF.classCoords = classCoords
-UF.specIcons = SPEC_ICONS
-
-local function specIconFor(class, spec)
-	local icons = class and spec and SPEC_ICONS[class]
-	return icons and icons[spec]
-end
-
-function UF.SetClassTexture(texture, class, spec)
-	local coords = class and innerClassCoords[class]
-	if not coords then
-		return false
-	end
-	local specIcon = specIconFor(class, spec)
-	if specIcon then
-		texture:SetTexture(specIcon)
-		texture:SetTexCoord(SPELL_TRIM, 1 - SPELL_TRIM, SPELL_TRIM, 1 - SPELL_TRIM)
-	else
-		texture:SetTexture(CLASS_ICONS)
-		texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
-	end
-	return true
-end
-
-function UF.SetSpecBadge(icon, class, spec)
-	local specIcon = specIconFor(class, spec)
-	local badge = icon.badge
-	if not specIcon then
-		if badge then
-			badge:Hide()
-		end
-		return
-	end
-	if not badge then
-		badge = CreateFrame("Frame", nil, icon)
-		badge:SetFrameLevel(icon:GetFrameLevel() + 2)
-		badge:SetPoint("BOTTOMRIGHT")
-		badge.texture = badge:CreateTexture(nil, "BORDER")
-		UF.SkinIcon(badge, badge.texture)
-		badge.texture:SetTexCoord(TRIM, 1 - TRIM, TRIM, 1 - TRIM)
-		icon.badge = badge
-	end
-	local size = icon:GetWidth() * BADGE_SIZE
-	badge:SetSize(size, size)
-	badge.texture:SetTexture(specIcon)
-	badge:Show()
-end
+UF.CLASS_ICONS = ClassIcons.TEXTURE
+UF.ICON_TRIM = ClassIcons.TRIM
+UF.SPELL_TRIM = ClassIcons.SPELL_TRIM
+UF.classCoords = ClassIcons.coords
+UF.specIcons = ClassIcons.specIcons
+UF.SetClassTexture = ClassIcons.SetClassTexture
+UF.SetSpecBadge = ClassIcons.SetSpecBadge
 
 local function applyModel(model)
 	local guid = UnitGUID(model.unit)
@@ -115,6 +32,7 @@ local function applyModel(model)
 	model:SetCamera(0)
 end
 
+-- 3.3.5: a reloaded model (gear, form, late loading) falls back to the full-body camera
 local function onModelUpdate(model)
 	model:SetCamera(0)
 end
@@ -163,11 +81,11 @@ end
 
 local function setIcon(frame, icon, unit, class, spec)
 	icon:Show()
-	local shown = config.showClassIcon
+	local shown = UF.ClassIconShown(frame)
 	local style = config.classIconStyle
 	local model = shown and style == "model" and UnitIsVisible(unit)
 	ns.SetShown(icon.texture, shown and not model)
-	UF.SetSpecBadge(icon, shown and style == "badge" and class, spec)
+	ClassIcons.SetSpecBadge(icon, shown and style == "badge" and class, spec)
 	if not model then
 		hideModel(icon)
 	end
@@ -178,7 +96,7 @@ local function setIcon(frame, icon, unit, class, spec)
 
 	if model then
 		setModel(icon, unit)
-	elseif style == "portrait" or not UF.SetClassTexture(icon.texture, class, style == "spec" and spec) then
+	elseif style == "portrait" or not ClassIcons.SetClassTexture(icon.texture, class, style == "spec" and spec) then
 		SetPortraitTexture(icon.texture, unit)
 		icon.texture:SetTexCoord(PORTRAIT_TRIM, 1 - PORTRAIT_TRIM, PORTRAIT_TRIM, 1 - PORTRAIT_TRIM)
 	end
@@ -218,11 +136,11 @@ local function create(frame, size)
 	icon.texture = icon:CreateTexture(nil, "BORDER")
 	icon.texture:SetAllPoints()
 
-	frame:RegisterEvent(ns.TALENTS_UPDATED, onTalentsUpdated)
+	frame:RegisterEvent(ns.E.TALENTS_UPDATED, onTalentsUpdated)
 	frame:RegisterUnitEvent("UNIT_PORTRAIT_UPDATE", update)
 	frame:RegisterUnitEvent("UNIT_MODEL_CHANGED", update)
 
 	return icon
 end
 
-UF:RegisterElement("classicon", create, update, test)
+UF:RegisterElement({ name = "classicon", Create = create, Update = update, Test = test })

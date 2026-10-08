@@ -1,12 +1,50 @@
-local _, ns = ...
+local ADDON_NAME, ns = ...
 
-local IsAddOnLoaded = IsAddOnLoaded
+local IsAddOnLoaded, debugprofilestop = IsAddOnLoaded, debugprofilestop
+local SafeCall = ns.SafeCall
+
+local EVENT_PREFIX = ADDON_NAME .. "_"
+
+local customEvents = {}
+ns.E = {}
+for _, key in ipairs({
+	"DB_LOADED",
+	"CONFIG_CHANGED",
+	"PROFILES_CHANGED",
+	"HISTORY_CHANGED",
+	"RELOAD_REQUIRED",
+	"PREVIEW_CHANGED",
+	"POSITION_INVALIDATED",
+	"PIXEL_CHANGED",
+	"INSPECT_TALENTS_READY",
+	"INSPECT_GEAR_READY",
+	"INSPECT_TEAMS_READY",
+	"TALENTS_UPDATED",
+	"COOLDOWN_UPDATED",
+	"DR_UPDATED",
+	"PROC_COOLDOWN_UPDATED",
+	"PREDICTION_CHANGED",
+	"CAST_INTERRUPTED",
+	"CAST_SILENCED",
+	"PLAYER_INTERRUPTED",
+	"SOLOQ_SEARCHING",
+	"MACROS_CHANGED",
+}) do
+	local event = EVENT_PREFIX .. key
+	ns.E[key] = event
+	customEvents[event] = true
+end
 
 local eventFrame = CreateFrame("Frame")
 
 local callbacks = {}
 local unitCallbacks = {}
 local registrations = {}
+
+local function checkEvent(event)
+	assert(type(event) == "string", "event name must be a string")
+	assert(customEvents[event] or event:sub(1, #EVENT_PREFIX) ~= EVENT_PREFIX, ("unknown event %s"):format(event))
+end
 
 local function resolveHandler(owner, event, handler)
 	handler = handler or event
@@ -20,7 +58,7 @@ end
 
 local function retain(event)
 	local count = registrations[event] or 0
-	if count == 0 then
+	if count == 0 and not customEvents[event] then
 		eventFrame:RegisterEvent(event)
 	end
 	registrations[event] = count + 1
@@ -32,7 +70,7 @@ local function release(event, count)
 	end
 	local remaining = registrations[event] - count
 	registrations[event] = remaining
-	if remaining == 0 then
+	if remaining == 0 and not customEvents[event] then
 		eventFrame:UnregisterEvent(event)
 	end
 end
@@ -111,7 +149,58 @@ local function removeFromList(list, owner, event, handler)
 	return removeOwner(list, owner)
 end
 
-local function fireList(list, ...)
+local profile
+local nestedMs = 0
+
+local function profiledCall(event, record, ...)
+	local outerNested = nestedMs
+	nestedMs = 0
+	local start = debugprofilestop()
+	SafeCall(record.handler, record.owner, ...)
+	local total = debugprofilestop() - start
+	local elapsed = total - nestedMs
+	nestedMs = outerNested + total
+	if not profile then
+		return
+	end
+	local byOwner = profile[event]
+	if not byOwner then
+		byOwner = {}
+		profile[event] = byOwner
+	end
+	local owner = record.owner
+	local entry = byOwner[owner]
+	if not entry then
+		entry = { calls = 0, ms = 0, max = 0 }
+		byOwner[owner] = entry
+	end
+	entry.calls = entry.calls + 1
+	entry.ms = entry.ms + elapsed
+	if elapsed > entry.max then
+		entry.max = elapsed
+	end
+end
+
+function ns.StartEventProfile()
+	profile = {}
+	nestedMs = 0
+end
+
+function ns.StopEventProfile()
+	local result = profile
+	profile = nil
+	return result
+end
+
+function ns.CallHandler(event, record, ...)
+	if profile then
+		profiledCall(event, record, ...)
+	else
+		SafeCall(record.handler, record.owner, ...)
+	end
+end
+
+local function fireList(event, list, ...)
 	local n = #list
 	if n == 0 then
 		return
@@ -120,7 +209,11 @@ local function fireList(list, ...)
 	for i = 1, n do
 		local record = list[i]
 		if not record.removed then
-			record.handler(record.owner, ...)
+			if profile then
+				profiledCall(event, record, ...)
+			else
+				SafeCall(record.handler, record.owner, ...)
+			end
 		end
 	end
 	list.firing = list.firing - 1
@@ -133,7 +226,7 @@ local EventMixin = {}
 ns.EventMixin = EventMixin
 
 function EventMixin:RegisterEvent(event, handler)
-	assert(type(event) == "string", "event name must be a string")
+	checkEvent(event)
 	handler = resolveHandler(self, event, handler)
 
 	local list = callbacks[event]
@@ -152,7 +245,7 @@ function EventMixin:UnregisterEvent(event, handler)
 end
 
 function EventMixin:RegisterUnitEvent(event, unit, handler)
-	assert(type(event) == "string", "event name must be a string")
+	checkEvent(event)
 	assert(type(unit) == "string", "unit must be a string")
 	handler = resolveHandler(self, event, handler)
 
@@ -204,13 +297,13 @@ end
 function ns:Fire(event, ...)
 	local list = callbacks[event]
 	if list then
-		fireList(list, ...)
+		fireList(event, list, ...)
 	end
 	local byUnit = unitCallbacks[event]
 	if byUnit then
 		local unitList = byUnit[(...)]
 		if unitList then
-			fireList(unitList, ...)
+			fireList(event, unitList, ...)
 		end
 	end
 end
@@ -229,7 +322,7 @@ local function onAddonLoaded(_, addon)
 	end
 	addonWaiters[addon] = nil
 	for i = 1, #waiters do
-		waiters[i]()
+		SafeCall(waiters[i])
 	end
 	if not next(addonWaiters) then
 		addonWatcher:UnregisterEvent("ADDON_LOADED")

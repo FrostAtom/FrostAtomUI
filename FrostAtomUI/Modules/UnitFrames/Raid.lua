@@ -7,7 +7,7 @@ local UnitPowerType, UnitClass, UnitGUID = UnitPowerType, UnitClass, UnitGUID
 local IsInInstance = IsInInstance
 local GetNumRaidMembers, GetNumPartyMembers = GetNumRaidMembers, GetNumPartyMembers
 local UnitFrame_OnEnter, UnitFrame_OnLeave = UnitFrame_OnEnter, UnitFrame_OnLeave
-local floor, ceil, min, random = math.floor, math.ceil, math.min, math.random
+local ceil, min, random = math.ceil, math.min, math.random
 
 local HEADER_NAME = ADDON_NAME .. "RaidHeader"
 local HOLDER_NAME = ADDON_NAME .. "RaidFrames"
@@ -42,6 +42,7 @@ local POWER_EVENTS = { "UNIT_MANA", "UNIT_RAGE", "UNIT_ENERGY", "UNIT_FOCUS", "U
 local config = ns.Config.raidFrames
 local ufConfig = ns.Config.unitFrames
 local elements = UF.elements
+local renderTags = UF.RenderTags
 local buttons = {}
 local drivers = {}
 local holder, header, Talents
@@ -99,9 +100,14 @@ local function updatePowerLayout(frame)
 	end
 end
 
-UF:RegisterElement("raidpower", function()
-	return true
-end, updatePowerLayout, updatePowerLayout)
+UF:RegisterElement({
+	name = "raidpower",
+	Create = function()
+		return true
+	end,
+	Update = updatePowerLayout,
+	Test = updatePowerLayout,
+})
 
 local function updatePower(frame)
 	if frame.powerShown then
@@ -109,16 +115,15 @@ local function updatePower(frame)
 	end
 end
 
-local function updateHealthText(frame, current, max)
+local function updateHealthText(frame, _, max)
 	local text = frame.health.text
-	local mode = config.healthText
-	if mode == "percent" and max > 0 then
-		text:SetFormattedText("%d%%", floor(current / max * 100 + 0.5))
-	elseif mode == "deficit" and current < max then
-		text:SetFormattedText("-%s", ns.FormatValue(max - current))
-	else
+	local template = config.healthTag
+	if template == "" or max <= 0 then
 		text:SetText(nil)
+		return
 	end
+	local value = renderTags(template, frame.unit, frame.test)
+	text:SetText(value ~= "" and value or nil)
 end
 
 local function onEnter(frame)
@@ -173,7 +178,7 @@ end
 
 local function colorButton(frame)
 	UF.SetBackdropColors(frame)
-	local r, g, b = unpack(ufConfig.textColor)
+	local r, g, b = unpack(ns.Config.theme.textColor)
 	frame.health.text:SetTextColor(r, g, b)
 	frame.name:SetTextColor(r, g, b)
 	frame.hover.texture:SetVertexColor(1, 1, 1, ufConfig.hoverAlpha)
@@ -398,6 +403,7 @@ local function createHeader()
 	header.initialConfigFunction = setupButton
 	setLayout()
 	header:Show()
+	-- SecureGroupHeader creates buttons lazily, in combat too; all are made here so none is created in combat
 	header:SetAttribute("startingIndex", 1 - MAX_UNITS)
 	header:Hide()
 	header:SetAttribute("startingIndex", 1)
@@ -508,6 +514,7 @@ UF:OnInitialize(function(self)
 	applyHeader()
 	self:WatchConfig("raidFrames", applyHeader, true)
 	self:WatchConfig("unitFrames", applyColors)
+	self:WatchConfig("theme", applyColors)
 	self:WatchConfig("dispelHighlightAlpha", applyColors)
 	self:WatchConfig("unitFrames.rightClick", applyClicks, true)
 	self:WatchConfig("unitFrames.middleClick", applyClicks, true)

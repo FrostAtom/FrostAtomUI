@@ -7,24 +7,21 @@ local random = math.random
 local Auras = ns.Auras
 local config = ns.Config
 local debuffColors = UF.debuffColors
+local CONTROL = ns.LoseControlData.BY_ID
 
-local DISPEL_TYPES = {
-	PRIEST = { Magic = true, Disease = true },
-	PALADIN = { Magic = true, Poison = true, Disease = true },
-	SHAMAN = { Poison = true, Disease = true, Curse = true },
-	DRUID = { Curse = true, Poison = true },
-	MAGE = { Curse = true },
-	WARLOCK = { Magic = true },
-}
-
-local canDispel = DISPEL_TYPES[ns.PLAYER_CLASS]
+local canDispel = ns.PlayerDispel
 UF.canDispel = canDispel
+ns.API.RegisterAction("canDispel", function()
+	return canDispel ~= nil
+end)
 
 local function firstDispellable(unit)
+	local controlOnly = config.dispelHighlightMode == "control"
 	local auras, count = Auras.Get(unit, "HARMFUL")
 	for i = 1, count do
-		local debuffType = auras[i].debuffType
-		if debuffType and canDispel[debuffType] then
+		local aura = auras[i]
+		local debuffType = aura.debuffType
+		if debuffType and canDispel[debuffType] and (not controlOnly or CONTROL[aura.spellId]) then
 			return debuffType
 		end
 	end
@@ -64,4 +61,4 @@ local function create(frame)
 	return overlay
 end
 
-UF:RegisterElement("dispel", create, update, test)
+UF:RegisterElement({ name = "dispel", Create = create, Update = update, Test = test })

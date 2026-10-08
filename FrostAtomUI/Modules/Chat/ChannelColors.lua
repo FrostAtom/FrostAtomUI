@@ -41,10 +41,10 @@ local function onColorChanged(_, chatType, r, g, b)
 	end
 end
 
+local colorsSlot = ns.Storage.Claim("channel_colors", "Chat", "state")
+
 Chat:OnInitialize(function(self)
-	local db = ns.db
-	savedColors = db.channel_colors or {}
-	db.channel_colors = savedColors
+	savedColors = colorsSlot:Table()
 
 	self:RegisterEvent("UPDATE_CHAT_COLOR", onColorChanged)
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", restoreColors)

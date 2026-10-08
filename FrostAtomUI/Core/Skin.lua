@@ -47,6 +47,12 @@ local INSET_STYLES = {
 
 local LIST_HIGHLIGHT = "Interface\\QuestFrame\\UI-QuestTitleHighlight"
 
+local PANEL_BUTTON = "Interface\\Buttons\\UI-Panel-Button-"
+local PANEL_BUTTON_SIZE = { 128, 32 }
+local PANEL_BUTTON_COLUMNS = { 0, 12, 68, 80 }
+local PANEL_BUTTON_ROWS = { 0, 7, 15, 22 }
+local PANEL_BUTTON_CAP, PANEL_BUTTON_EDGE = 12, 7
+
 local SLOT_BACKGROUNDS = {
 	empty = { "Interface\\Buttons\\UI-EmptySlot-Disabled", 45 / 36, 0, -1, 0.140625, 0.84375, 0.140625, 0.84375 },
 	slot = { "Interface\\Buttons\\UI-EmptySlot", 64 / 37, 0, 0 },
@@ -246,9 +252,93 @@ function ns.CreateInset(parent, style, title)
 	return inset
 end
 
+local SLICE_X = {
+	{ "LEFT", 0, "LEFT", PANEL_BUTTON_CAP },
+	{ "LEFT", PANEL_BUTTON_CAP, "RIGHT", -PANEL_BUTTON_CAP },
+	{ "RIGHT", -PANEL_BUTTON_CAP, "RIGHT", 0 },
+}
+local SLICE_Y = {
+	{ "TOP", 0, "TOP", -PANEL_BUTTON_EDGE },
+	{ "TOP", -PANEL_BUTTON_EDGE, "BOTTOM", PANEL_BUTTON_EDGE },
+	{ "BOTTOM", PANEL_BUTTON_EDGE, "BOTTOM", 0 },
+}
+
+local function sliceTextures(button, layer, blend)
+	local parts = {}
+	local width, height = PANEL_BUTTON_SIZE[1], PANEL_BUTTON_SIZE[2]
+	for row = 1, 3 do
+		for column = 1, 3 do
+			local texture = button:CreateTexture(nil, layer)
+			texture:SetTexCoord(
+				PANEL_BUTTON_COLUMNS[column] / width,
+				PANEL_BUTTON_COLUMNS[column + 1] / width,
+				PANEL_BUTTON_ROWS[row] / height,
+				PANEL_BUTTON_ROWS[row + 1] / height
+			)
+			local x, y = SLICE_X[column], SLICE_Y[row]
+			texture:SetPoint("TOPLEFT", button, y[1] .. x[1], x[2], y[2])
+			texture:SetPoint("BOTTOMRIGHT", button, y[3] .. x[3], x[4], y[4])
+			if blend then
+				texture:SetBlendMode(blend)
+			end
+			parts[#parts + 1] = texture
+		end
+	end
+	return parts
+end
+
+local function setSlices(parts, file)
+	for _, texture in ipairs(parts) do
+		texture:SetTexture(file)
+	end
+end
+
+local function paintPanelButton(button)
+	local state
+	if not button:IsEnabled() then
+		state = "Disabled"
+	elseif button.sliceDown then
+		state = button.sliceGray and "Disabled-Down" or "Down"
+	else
+		state = button.sliceGray and "Disabled" or "Up"
+	end
+	setSlices(button.slices, PANEL_BUTTON .. state)
+end
+
+local function pressPanelButton(button)
+	button.sliceDown = button:IsEnabled() and true or nil
+	paintPanelButton(button)
+end
+
+local function releasePanelButton(button)
+	button.sliceDown = nil
+	paintPanelButton(button)
+end
+
+function ns.SkinPanelButton(button, gray)
+	for _, texture in ipairs({
+		button:GetNormalTexture(),
+		button:GetPushedTexture(),
+		button:GetDisabledTexture(),
+		button:GetHighlightTexture(),
+	}) do
+		texture:SetTexture(nil)
+	end
+	button.sliceGray = gray
+	button.slices = sliceTextures(button, "BACKGROUND")
+	setSlices(sliceTextures(button, "HIGHLIGHT", "ADD"), PANEL_BUTTON .. "Highlight")
+	button:HookScript("OnMouseDown", pressPanelButton)
+	button:HookScript("OnMouseUp", releasePanelButton)
+	button:HookScript("OnShow", releasePanelButton)
+	button:HookScript("OnEnable", paintPanelButton)
+	button:HookScript("OnDisable", paintPanelButton)
+	paintPanelButton(button)
+end
+
 function ns.CreateButton(parent, text, width, height, name, gray)
 	local button =
 		CreateFrame("Button", widgetName(name), parent, gray and "UIPanelButtonGrayTemplate" or "UIPanelButtonTemplate")
+	ns.SkinPanelButton(button, gray)
 	button:SetSize(width or 100, height or 22)
 	button:SetText(text or "")
 	button.text = button:GetFontString()

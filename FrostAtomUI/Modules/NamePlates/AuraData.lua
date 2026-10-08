@@ -3,104 +3,12 @@ local NamePlates = ns:GetModule("NamePlates")
 
 local GetSpellInfo = GetSpellInfo
 
-local CC_DURATIONS = {
-	[118] = 10, -- Polymorph
-	[6770] = 10, -- Sap
-	[1776] = 4, -- Gouge
-	[2094] = 10, -- Blind
-	[1833] = 4, -- Cheap Shot
-	[408] = 6, -- Kidney Shot
-	[1330] = 3, -- Garrote - Silence
-	[18425] = 2, -- Silenced - Improved Kick
-	[51722] = 10, -- Dismantle
-	[5782] = 10, -- Fear
-	[5484] = 8, -- Howl of Terror
-	[6358] = 10, -- Seduction
-	[6789] = 3, -- Death Coil
-	[30283] = 3, -- Shadowfury
-	[24259] = 3, -- Spell Lock
-	[31117] = 5, -- Unstable Affliction
-	[710] = 6, -- Banish
-	[8122] = 8, -- Psychic Scream
-	[64044] = 3, -- Psychic Horror
-	[64058] = 10, -- Psychic Horror
-	[15487] = 5, -- Silence
-	[9484] = 10, -- Shackle Undead
-	[853] = 6, -- Hammer of Justice
-	[20066] = 6, -- Repentance
-	[10326] = 10, -- Turn Evil
-	[2812] = 3, -- Holy Wrath
-	[63529] = 3, -- Silenced - Shield of the Templar
-	[20170] = 2, -- Stun
-	[33786] = 6, -- Cyclone
-	[5211] = 4, -- Bash
-	[22570] = 5, -- Maim
-	[9005] = 3, -- Pounce
-	[2637] = 10, -- Hibernate
-	[339] = 10, -- Entangling Roots
-	[45334] = 4, -- Feral Charge Effect
-	[19503] = 4, -- Scatter Shot
-	[3355] = 10, -- Freezing Trap Effect
-	[60210] = 10, -- Freezing Arrow Effect
-	[19386] = 6, -- Wyvern Sting
-	[34490] = 3, -- Silencing Shot
-	[24394] = 3, -- Intimidation
-	[53359] = 10, -- Chimera Shot - Scorpid
-	[19306] = 5, -- Counterattack
-	[19185] = 2, -- Entrapment
-	[64803] = 3, -- Entrapment
-	[64804] = 4, -- Entrapment
-	[50519] = 2, -- Sonic Blast
-	[50518] = 2, -- Ravage
-	[50541] = 6, -- Snatch
-	[53148] = 1, -- Charge
-	[50245] = 4, -- Pin
-	[54706] = 4, -- Venom Web Spray
-	[4167] = 4, -- Web
-	[1513] = 10, -- Scare Beast
-	[12355] = 2, -- Impact
-	[44572] = 5, -- Deep Freeze
-	[31661] = 5, -- Dragon's Breath
-	[122] = 8, -- Frost Nova
-	[33395] = 8, -- Freeze
-	[18469] = 2, -- Silenced - Improved Counterspell
-	[55021] = 4, -- Silenced - Improved Counterspell
-	[55080] = 8, -- Shattered Barrier
-	[12494] = 5, -- Frostbite
-	[64346] = 6, -- Fiery Payback
-	[5246] = 8, -- Intimidating Shout
-	[20511] = 8, -- Intimidating Shout
-	[676] = 10, -- Disarm
-	[12809] = 5, -- Concussion Blow
-	[46968] = 4, -- Shockwave
-	[7922] = 1.5, -- Charge Stun
-	[20253] = 3, -- Intercept
-	[30153] = 3, -- Intercept
-	[23694] = 5, -- Improved Hamstring
-	[58373] = 5, -- Glyph of Hamstring
-	[18498] = 3, -- Silenced - Gag Order
-	[47476] = 5, -- Strangulate
-	[49203] = 10, -- Hungering Cold
-	[47481] = 3, -- Gnaw
-	[51514] = 10, -- Hex
-	[39796] = 3, -- Stoneclaw Stun
-	[58861] = 2, -- Bash
-	[64695] = 5, -- Earthgrab
-	[63685] = 5, -- Freeze
-	[60995] = 3, -- Demon Charge
-	[22703] = 2, -- Inferno Effect
-	[605] = 10, -- Mind Control
-	[20549] = 2, -- War Stomp
-	[25046] = 2, -- Arcane Torrent
-	[28730] = 2, -- Arcane Torrent
-	[50613] = 2, -- Arcane Torrent
-	[39965] = 5, -- Frost Grenade
-	[55536] = 3, -- Frostweave Net
-	[30216] = 3, -- Fel Iron Bomb
-	[30217] = 3, -- Adamantite Grenade
-	[67769] = 3, -- Cobalt Frag Bomb
-	[13181] = 10, -- Gnomish Mind Control Cap
-}
+local CC_DURATIONS = {}
+for _, effect in ns.SpellDB.IterateEffects() do
+	for i = 1, #effect do
+		CC_DURATIONS[effect[i]] = ns.SpellDB.Duration(effect[i])
+	end
+end
 
 local DEBUFF_DURATIONS = {
 	[1715] = 10, -- Hamstring
@@ -241,7 +149,18 @@ for spellId in pairs(ns.DRData.SPELLS) do
 	ccSpells[spellId] = true
 end
 
-local ccSpellNames = ns:GetModule("UnitFrames").ccSpellNames
+for spellId, spell in pairs(ns.LoseControlData.BY_ID) do
+	if spell.byId then
+		ccSpells[spellId] = true
+		local name = GetSpellInfo(spellId)
+		if name then
+			ccNames[name] = nil
+			durationsByName[name] = nil
+		end
+	end
+end
+
+local ccSpellNames = ns.LoseControlData.CONTROL_NAMES
 
 function Data.Duration(spellId, name, learned)
 	return learned and learned[spellId] or durations[spellId] or durationsByName[name]

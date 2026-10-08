@@ -12,7 +12,10 @@ local min, max, floor, ceil, huge, random = math.min, math.max, math.floor, math
 local sort = table.sort
 
 local Auras = ns.Auras
+local SpellDB = ns.SpellDB
+local Scheduler = ns.Scheduler
 local CooldownTimer = ns:GetModule("CooldownTimer")
+local CooldownTracker = ns:GetModule("CooldownTracker")
 local config = ns.Config.unitFrames
 
 local MAX_AURAS = 40
@@ -33,6 +36,9 @@ local CLICK_THROUGH_PATTERNS = {
 	{ "^party%d$", "party" },
 	{ "^arena%d$", "arena" },
 }
+
+local FILTER_CATEGORIES = { target = true, focus = true, party = true, arena = true }
+local IMPORTANT_BUFF_CATEGORIES = { defensive = true, offensive = true }
 
 local debuffColors = UF.debuffColors
 local NO_TYPE_COLOR = debuffColors[""]
@@ -90,6 +96,44 @@ local TEST_DEBUFFS = {
 local TEST_DEBUFF_TYPES = { "Magic", "Curse", "Poison", "Disease", false }
 
 local containers = {}
+local hiddenAuras, importantAuras = {}, {}
+
+local function parseSpellList(text, set)
+	wipe(set)
+	for item in tostring(text or ""):gmatch("[^,]+") do
+		item = strtrim(item)
+		if item ~= "" then
+			set[tonumber(item) or ns.Lower(item)] = true
+		end
+	end
+end
+
+local function inList(set, aura)
+	return set[aura.spellId] or (aura.name and set[ns.Lower(aura.name)]) or false
+end
+
+local function isImportant(container, aura)
+	if inList(importantAuras, aura) or OWN_CASTERS[aura.caster] then
+		return true
+	end
+	if container.isDebuff then
+		return SpellDB.Control(aura.spellId) ~= nil or SpellDB.IsCCName(aura.name)
+	end
+	return aura.stealable or IMPORTANT_BUFF_CATEGORIES[CooldownTracker:AuraCategory(aura.spellId)] or false
+end
+
+local function accepts(container, aura)
+	if next(hiddenAuras) and inList(hiddenAuras, aura) then
+		return false
+	end
+	local mode = container.filterKey and config[container.filterKey]
+	if mode == "mine" then
+		return OWN_CASTERS[aura.caster] or false
+	elseif mode == "important" then
+		return isImportant(container, aura)
+	end
+	return true
+end
 local cancelContainers = {}
 local hoveredIcon
 
@@ -517,6 +561,23 @@ function sorters.own(a, b)
 	return a < b
 end
 
+local function priorityOf(aura)
+	if OWN_CASTERS[aura.caster] then
+		return 1
+	elseif SpellDB.Control(aura.spellId) or SpellDB.IsCCName(aura.name) then
+		return 2
+	end
+	return 3
+end
+
+function sorters.priority(a, b)
+	local priorityA, priorityB = priorityOf(sortSet[a]), priorityOf(sortSet[b])
+	if priorityA ~= priorityB then
+		return priorityA < priorityB
+	end
+	return a < b
+end
+
 local function expiresOf(aura)
 	local duration = aura.duration
 	return duration and duration > 0 and aura.expires or huge
@@ -532,6 +593,7 @@ end
 
 local function sortedOrder(container, auras, count)
 	local sorter = container.sortable and sorters[config.playerBuffSort]
+		or container.prioritized and count > container.limit and sorters.priority
 	if not sorter then
 		return nil
 	end
@@ -586,25 +648,22 @@ end
 local updateContainer
 
 local function onExpireCheck(container)
-	container.checkAt = nil
 	local expireAt = container.expireAt
 	if not expireAt or UF.testing or not container:IsVisible() then
 		return
 	end
 	if GetTime() < expireAt then
-		container.checkAt = expireAt
-		ns.After(expireAt - GetTime() + EXPIRE_CHECK_DELAY, onExpireCheck, container)
+		Scheduler.At(container, expireAt + EXPIRE_CHECK_DELAY, onExpireCheck)
 		return
 	end
 	Auras.Invalidate(container.unit)
 	updateContainer(container)
 end
 
-local function scheduleExpireCheck(container, expireAt, now)
+local function scheduleExpireCheck(container, expireAt)
 	container.expireAt = expireAt
-	if expireAt and not (container.checkAt and container.checkAt <= expireAt) then
-		container.checkAt = expireAt
-		ns.After(expireAt - now + EXPIRE_CHECK_DELAY, onExpireCheck, container)
+	if expireAt then
+		Scheduler.At(container, expireAt + EXPIRE_CHECK_DELAY, onExpireCheck)
 	end
 end
 
@@ -643,7 +702,7 @@ function updateContainer(container)
 		local aura = auras[index]
 		local duration, expires = aura.duration, aura.expires
 		local timed = duration and duration > 0
-		if not timed or expires > now or keepExpired then
+		if (not timed or expires > now or keepExpired) and accepts(container, aura) then
 			if timed and expires > now and not (expireAt and expireAt <= expires) then
 				expireAt = expires
 			end
@@ -656,7 +715,7 @@ function updateContainer(container)
 			setIcon(icon, aura.icon, aura.count, aura.debuffType, duration, expires, aura.stealable)
 		end
 	end
-	scheduleExpireCheck(container, expireAt, now)
+	scheduleExpireCheck(container, expireAt)
 
 	for i = lead + 1, enchantCount do
 		if shown == limit then
@@ -682,6 +741,8 @@ function UF.SetWeaponEnchants(enchants, count)
 		updateContainer(enchantContainer)
 	end
 end
+ns.FrameBridge.HasWeaponEnchantAuras = UF.HasWeaponEnchantAuras
+ns.FrameBridge.SetWeaponEnchants = UF.SetWeaponEnchants
 
 local function testContainer(container, spells)
 	local now = GetTime()
@@ -755,6 +816,10 @@ local function createContainer(frame, options, filter, isDebuff)
 	container.filter = filter
 	container.isDebuff = isDebuff
 	container.clickThroughKey = clickThroughKey(frame.baseUnit or unit)
+	local category = container.clickThroughKey:match("^(%a-)AuraClickThrough$")
+	if FILTER_CATEGORIES[category] then
+		container.filterKey = category .. (isDebuff and "DebuffFilter" or "BuffFilter")
+	end
 	applyMouse(container)
 	if unit == "target" or unit == "focus" then
 		container.ownScaleKey = unit .. "OwnAuraScale"
@@ -763,10 +828,11 @@ local function createContainer(frame, options, filter, isDebuff)
 	container.limit = -1
 	container.SetLimit = setLimit
 	container.RowSize = rowSize
+	container.order = {}
+	container.orderCount = 0
+	container.prioritized = isDebuff and unit:find("^arena%d$") ~= nil
 	if unit == "player" and not isDebuff then
 		container.sortable = true
-		container.order = {}
-		container.orderCount = 0
 		container.cancellable = true
 		container.catchers = {}
 		cancelContainers[#cancelContainers + 1] = container
@@ -788,7 +854,7 @@ local function registerAuraElement(key, filter, isDebuff, testSpells, poll)
 	local function test(frame)
 		testContainer(frame[key], testSpells)
 	end
-	UF:RegisterElement(key, create, update, test, poll)
+	UF:RegisterElement({ name = key, Create = create, Update = update, Test = test, Poll = poll })
 end
 
 local function pollAuras(frame)
@@ -815,8 +881,13 @@ local function queueAllCatchers()
 	end
 end
 
+parseSpellList(config.auraHidden, hiddenAuras)
+parseSpellList(config.auraImportant, importantAuras)
+
 UF:WatchConfig("unitFrames", function()
 	timerMaxDuration = timerLimit()
+	parseSpellList(config.auraHidden, hiddenAuras)
+	parseSpellList(config.auraImportant, importantAuras)
 	for i = 1, #containers do
 		local container = containers[i]
 		applyMouse(container)

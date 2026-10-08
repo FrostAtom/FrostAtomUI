@@ -19,7 +19,7 @@ local PickupAction = PickupAction
 local GetActionInfo = GetActionInfo
 local GetMacroSpell = GetMacroSpell
 local GetSpellInfo = GetSpellInfo
-local UnitGUID = UnitGUID
+local GetShapeshiftForm = GetShapeshiftForm
 local UnitExists = UnitExists
 local GetTime = GetTime
 local GameTooltip = GameTooltip
@@ -311,7 +311,6 @@ local actionButtons = {}
 local hasTarget = false
 
 local ACTION_EVENTS = {
-	UPDATE_SHAPESHIFT_FORM = "Update",
 	UPDATE_MACROS = "Update",
 	ACTIONBAR_UPDATE_USABLE = "UpdateUsable",
 	ACTIONBAR_UPDATE_COOLDOWN = "UpdateCooldown",
@@ -563,18 +562,10 @@ function ActionButtonMixin:Update()
 	local action = self.action
 
 	if HasAction(action) then
-		for event, method in pairs(ACTION_EVENTS) do
-			self:RegisterEvent(event, method)
-		end
-
 		self.usable, self.notEnoughMana = IsUsableAction(action)
 		self.outOfRange = hasTarget and IsActionInRange(action) == 0
 		self.hasAction = true
 	elseif self.hasAction then
-		for event, method in pairs(ACTION_EVENTS) do
-			self:UnregisterEvent(event, method)
-		end
-
 		self.usable = true
 		self.notEnoughMana, self.outOfRange = nil, nil
 		self.hasAction = false
@@ -653,15 +644,54 @@ function ActionButtonMixin:OnDragStart()
 	end
 end
 
-function ActionButtonMixin:ACTIONBAR_SLOT_CHANGED(slot)
-	if slot == 0 or slot == self.action then
-		self:Update()
+local buttonEvents = ns.Mixin({ name = "ActionButton" }, ns.EventMixin)
+
+local function forEachAction(method, ...)
+	for i = 1, #actionButtons do
+		local button = actionButtons[i]
+		if button.hasAction then
+			button[method](button, ...)
+		end
 	end
+end
+
+local function onSlotChanged(_, slot)
+	for i = 1, #actionButtons do
+		local button = actionButtons[i]
+		if slot == 0 or slot == button.action then
+			button:Update()
+		end
+	end
+end
+
+local shapeshiftForm
+
+local function onShapeshiftForm()
+	local form = GetShapeshiftForm()
+	if form ~= shapeshiftForm then
+		shapeshiftForm = form
+		forEachAction("Update")
+	end
+end
+
+local function listenButtonEvents()
+	for event, method in pairs(ACTION_EVENTS) do
+		buttonEvents:RegisterEvent(event, function(_, ...)
+			forEachAction(method, ...)
+		end)
+	end
+	buttonEvents:RegisterEvent("ACTIONBAR_SLOT_CHANGED", onSlotChanged)
+	-- Wow.exe fires UPDATE_SHAPESHIFT_FORM whenever an aura with a form spell id comes or goes, also another paladin's aura
+	buttonEvents:RegisterEvent("UPDATE_SHAPESHIFT_FORM", onShapeshiftForm)
 end
 
 function ActionButtonMixin:SetTooltip()
 	if HasAction(self.action) then
 		GameTooltip:SetAction(self.action)
+		if not InCombatLockdown() then
+			GameTooltip:AddLine(ActionBar.DragHint(), 0.5, 0.5, 0.5)
+			GameTooltip:Show()
+		end
 	else
 		GameTooltip:Hide()
 	end
@@ -706,11 +736,11 @@ function ActionBar:CreateActionButton(action, parent)
 	button:SetScript("OnDragStart", button.OnDragStart)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)
 	parent:WrapScript(button, "OnReceiveDrag", RECEIVE_DRAG_SNIPPET)
-	button:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 	button:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 	button:RegisterEvent("UPDATE_BINDINGS", "UpdateBindings")
 	self:AttachTooltip(button, button.SetTooltip)
 
+	-- FrameXML: only ActionBarButtonTemplate shows its grid on drag in combat; a hidden one drives ours
 	local slot = CreateFrame("CheckButton", SLOT_NAME:format(action), nil, "ActionBarButtonTemplate")
 	slot:SetAlpha(0)
 	slot:EnableMouse(false)
@@ -728,6 +758,7 @@ function ActionBar:CreateActionButton(action, parent)
 	button:Update()
 
 	if #actionButtons == 0 then
+		listenButtonEvents()
 		self:RegisterEvent("PLAYER_TARGET_CHANGED", onTargetChanged)
 		self:RegisterEvent("PLAYER_ENTERING_WORLD", onTargetChanged)
 		rangeTicker:Show()
@@ -798,27 +829,20 @@ local function scanLossOfControl()
 	end
 end
 
-local playerGUID
-
-local function onCombatLog(_, _, event, _, _, _, destGUID)
-	if event ~= "SPELL_INTERRUPT" then
-		return
-	end
-	playerGUID = playerGUID or UnitGUID("player")
-	if destGUID == playerGUID then
-		interruptedAt = GetTime()
-		updateCooldowns()
-	end
+local function onInterrupted()
+	interruptedAt = ns.PlayerControl.GetInterruption()
+	updateCooldowns()
 end
 
 function ActionBar:UpdateLockoutTracking()
 	if config.lossOfControl then
 		self:RegisterUnitEvent("UNIT_AURA", "player", scanLossOfControl)
-		self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
+		self:RegisterEvent(ns.E.PLAYER_INTERRUPTED, onInterrupted)
 	else
 		self:UnregisterUnitEvent("UNIT_AURA", "player", scanLossOfControl)
-		self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED", onCombatLog)
+		self:UnregisterEvent(ns.E.PLAYER_INTERRUPTED, onInterrupted)
 	end
+	ns.PlayerControl:SetDemand("actionBars", config.lossOfControl)
 	scanLossOfControl()
 	updateCooldowns()
 end

@@ -40,4 +40,4 @@ local function create(frame)
 	return icon
 end
 
-UF:RegisterElement("raidicon", create, update, test)
+UF:RegisterElement({ name = "raidicon", Create = create, Update = update, Test = test })

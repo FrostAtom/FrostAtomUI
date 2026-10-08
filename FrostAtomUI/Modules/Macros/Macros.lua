@@ -25,7 +25,6 @@ local MAX_CHARACTER = MAX_CHARACTER_MACROS or 18
 
 Macros.MAX_ACCOUNT = MAX_ACCOUNT
 Macros.MAX_CHARACTER = MAX_CHARACTER
-Macros.CHANGED = "FrostAtomUI_MACROS_CHANGED"
 
 local store, lists
 local chunkCounts = {}
@@ -288,7 +287,7 @@ function Macros.Create(scope, name, icon, body)
 	local list = lists[scope]
 	list[#list + 1] = macro
 	Macros.Apply(macro)
-	ns:Fire(Macros.CHANGED)
+	ns:Fire(ns.E.MACROS_CHANGED)
 	return macro
 end
 
@@ -324,7 +323,7 @@ function Macros.Delete(macro)
 			tremove(list, index)
 		end
 	end
-	ns:Fire(Macros.CHANGED)
+	ns:Fire(ns.E.MACROS_CHANGED)
 	return true
 end
 
@@ -499,12 +498,12 @@ local function takenNames(scope)
 		for index = first, first + count - 1 do
 			local name = GetMacroInfo(index)
 			if name then
-				taken[strlower(name)] = true
+				taken[ns.Lower(name)] = true
 			end
 		end
 	else
 		for _, macro in ipairs(lists[scope]) do
-			taken[strlower(macro.name)] = true
+			taken[ns.Lower(macro.name)] = true
 		end
 	end
 	return taken
@@ -512,12 +511,12 @@ end
 
 local function uniqueName(base, taken, limit)
 	local name, suffix = ns.TruncateUTF8(base, limit), 1
-	while base ~= "" and taken[strlower(name)] do
+	while base ~= "" and taken[ns.Lower(name)] do
 		suffix = suffix + 1
 		local tail = " " .. suffix
 		name = ns.TruncateUTF8(base, limit - #tail) .. tail
 	end
-	taken[strlower(name)] = true
+	taken[ns.Lower(name)] = true
 	return name
 end
 
@@ -566,7 +565,7 @@ end
 
 local function onSpellsChanged()
 	Parser.InvalidateSpells()
-	ns:Fire(Macros.CHANGED, "knowledge")
+	ns:Fire(ns.E.MACROS_CHANGED, "knowledge")
 end
 
 local function migrate(saved)
@@ -576,9 +575,11 @@ local function migrate(saved)
 	return saved
 end
 
+local macrosSlot = ns.Storage.Claim("macros", "Macros", "settings")
+
 Macros:OnInitialize(function(self)
-	store = migrate(ns.db.macros or {})
-	ns.db.macros = store
+	store = migrate(macrosSlot:Get() or {})
+	macrosSlot:Set(store)
 	local key = charKey()
 	store.chars[key] = store.chars[key] or {}
 	lists = { account = store.account, char = store.chars[key] }
@@ -592,7 +593,7 @@ Macros:OnInitialize(function(self)
 	self:RegisterEvent("SPELLS_CHANGED", onSpellsChanged)
 	self:RegisterEvent("COMPANION_LEARNED", onSpellsChanged)
 	self:RegisterEvent("BAG_UPDATE", function()
-		ns:Fire(Macros.CHANGED, "knowledge")
+		ns:Fire(ns.E.MACROS_CHANGED, "knowledge")
 	end)
 	self:RegisterUnitEvent("UNIT_PET", "player", onSpellsChanged)
 end)

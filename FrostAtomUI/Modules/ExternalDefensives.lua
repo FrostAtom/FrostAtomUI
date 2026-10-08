@@ -8,7 +8,6 @@ local Auras = ns.Auras
 local Scheduler = ns.Scheduler
 local ExternalDefensives = ns:NewModule("ExternalDefensives")
 local CooldownTimer = ns:GetModule("CooldownTimer")
-local UF = ns:GetModule("UnitFrames")
 
 local MAX_ICONS = 6
 local TEST_INTERVAL = 1
@@ -145,18 +144,8 @@ local function update()
 end
 
 local function createIcon()
-	local icon = CreateFrame("Frame", nil, holder)
+	local icon = CooldownTimer:CreateIcon(holder, { reverse = true })
 	icon:Hide()
-
-	icon.texture = icon:CreateTexture(nil, "BORDER")
-	icon.texture:SetNonBlocking(true)
-	UF.SkinIcon(icon, icon.texture)
-
-	icon.cooldown = CreateFrame("Cooldown", nil, icon)
-	icon.cooldown:SetReverse(true)
-	icon.cooldown:SetAllPoints()
-	CooldownTimer:Attach(icon.cooldown)
-
 	return icon
 end
 
@@ -232,7 +221,17 @@ function ExternalDefensives:Initialize()
 
 	applyConfig()
 	self:WatchConfig("externalDefensives", applyConfig)
-	hooksecurefunc(UF, "SetTestMode", function()
-		ExternalDefensives:SetTestMode(UF.testing)
+	self:RegisterEvent(ns.E.PREVIEW_CHANGED, function(_, name, active)
+		if name == "unitFrames" then
+			ExternalDefensives:SetTestMode(active)
+		end
 	end)
+	ns.API.RegisterPreview("externalDefensives", {
+		Set = function(active)
+			ExternalDefensives:SetTestMode(active)
+		end,
+		IsActive = function()
+			return ExternalDefensives:IsTesting()
+		end,
+	})
 end

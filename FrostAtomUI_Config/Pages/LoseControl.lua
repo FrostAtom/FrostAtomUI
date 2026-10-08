@@ -2,7 +2,7 @@ local _, ns = ...
 
 local ui = FrostAtomUI
 local L = ui.L
-local Data = ui.LoseControlData
+local Data = ui.API.Catalog("control")
 
 local ENABLED = "loseControl.enabled"
 local UNIT_FRAMES = "unitFrames.enabled"
@@ -69,6 +69,9 @@ local function categoryEntries(schema, category)
 		header = L[Data.CATEGORY_NAMES[category]],
 		glyph = CATEGORY_GLYPHS[category],
 		enabledBy = UNIT_FRAMES,
+		advanced = true,
+		extraLabel = L["Spells (%d)"],
+		lessLabel = L["Hide spells"],
 		toggles = toggles,
 		toggleDesc = L["Show or hide every spell of this category."],
 	}
@@ -94,10 +97,10 @@ local schema = {
 		enabledBy = UNIT_FRAMES,
 		desc = L["Show every frame with fake units to preview the layout."],
 		func = function()
-			SlashCmdList.FROSTATOMUI_UNITFRAME_TEST()
+			ui.API.RunAction("unitFrameTest")
 		end,
 	},
-	{ path = "loseControl.spells", hidden = true },
+	{ path = "loseControl.spells", hidden = true, userContent = true, label = L["Spell list"] },
 	{ header = L["General"], glyph = "gear" },
 	{
 		path = "loseControl.frames",
@@ -105,6 +108,14 @@ local schema = {
 		type = "multiselect",
 		values = FRAME_VALUES,
 		enabledBy = UNIT_FRAMES,
+	},
+	{
+		path = "loseControl.lockouts",
+		new = "1.5.0",
+		label = L["Locked school after an interrupt"],
+		type = "toggle",
+		enabledBy = UNIT_FRAMES,
+		desc = L["When someone interrupts an enemy player, the interrupted spell's icon shows how long that school stays locked. Ranks with silences, below stuns and fears."],
 	},
 	{
 		description = L["One effect is shown at a time: the category higher in this list wins (stuns, incapacitates and fears are equal), among equal effects the one lasting longest. Uncheck a spell to ignore it, or the box in a category header to ignore the whole category."],
@@ -115,13 +126,11 @@ for _, category in ipairs(Data.CATEGORIES) do
 	categoryEntries(schema, category)
 end
 
-ns.RegisterPage({
-	key = "losecontrol",
-	name = L["Lose control"],
+ns.AddTab("control", {
+	key = "frames",
+	order = 1,
+	name = L["CC on frames"],
 	glyph = "lock",
-	order = 21,
-	group = "frames",
-	new = "1.4.1",
-	enable = ENABLED,
-	schema = schema,
+	new = "1.5.0",
+	schema = ns.TabRequires(ENABLED, schema),
 })

@@ -15,6 +15,7 @@ local Data = NamePlates.AuraData
 local ClassifyDebuff, ClassifyBuff, Duration = Data.ClassifyDebuff, Data.ClassifyBuff, Data.Duration
 local KIND_OWN_CC, KIND_CC, KIND_DEFENSIVE = Data.KIND_OWN_CC, Data.KIND_CC, Data.KIND_DEFENSIVE
 local KIND_OWN, KIND_PURGE, KIND_OTHER = Data.KIND_OWN, Data.KIND_PURGE, Data.KIND_OTHER
+local CONTROL_BY_ID, CONTROL_PRIORITY = ns.LoseControlData.BY_ID, ns.LoseControlData.PRIORITY
 
 local config = ns.Config.namePlates
 local plates = NamePlates.plates
@@ -27,6 +28,7 @@ local TIMER_INTERVAL = 0.1
 local SWEEP_INTERVAL = 10
 local DR_SETTLE = 0.05
 local CROP_Y = (1 - ICON_RATIO) / 2
+local SQUARE_CROP = 0.07
 local COMBATLOG_OBJECT_CONTROL_PLAYER = 0x100
 local TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
 local REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
@@ -209,13 +211,11 @@ local function pruneUntimed(guid)
 end
 
 local function drFactor(guid, category, now)
-	local state = DR:Get(guid)
-	local entry = state and state[category]
-	if not entry or entry.stacks == 0 then
+	local stacks, _, _, _, appliedAt = DR:GetCategory(guid, category)
+	if not stacks then
 		return 1
 	end
-	local stacks = entry.stacks
-	if now - entry.appliedAt > DR_SETTLE then
+	if now - appliedAt > DR_SETTLE then
 		stacks = stacks + 1
 	end
 	if stacks <= 1 then
@@ -316,7 +316,7 @@ local function createIcon(row, index)
 
 	local bar = row:CreateTexture(nil, "OVERLAY")
 	bar:SetTexture(ns.Media.blank)
-	bar:SetVertexColor(unpack(ns.Config.unitFrames.castbarColor))
+	bar:SetVertexColor(unpack(ns.Config.castbar.color))
 	bar:SetHeight(DURATION_BAR_HEIGHT)
 	bar:SetPoint("BOTTOMLEFT", texture, 1, 1)
 	texture.bar = bar
@@ -366,9 +366,34 @@ local function createRow(plate)
 	return row
 end
 
+local function createControl(plate)
+	local frame = CreateFrame("Frame", nil, plate.overlay)
+	frame:Hide()
+	frame.icons = {}
+	frame.count = 0
+	frame.plate = plate
+	local icon = createIcon(frame, 1)
+	icon:SetTexCoord(SQUARE_CROP, 1 - SQUARE_CROP, SQUARE_CROP, 1 - SQUARE_CROP)
+	icon:SetAllPoints()
+	plate.controlIcon = frame
+	if plate.stackLevel then
+		plate:ApplyStackLevel()
+	end
+	return frame
+end
+
 local function hideRow(row)
 	row:Hide()
 	row.count = 0
+end
+
+local function hideAll(plate)
+	if plate.auraRow then
+		hideRow(plate.auraRow)
+	end
+	if plate.controlIcon then
+		hideRow(plate.controlIcon)
+	end
 end
 
 local function showRow(row)
@@ -404,6 +429,56 @@ local function placeIcon(icon, x, size)
 	return height
 end
 
+local function setIconTimer(icon, entry)
+	local duration, expires = entry.duration, entry.expires
+	if duration > 0 and expires > 0 then
+		icon.duration, icon.endTime = duration, expires
+		ns.SetShown(icon.timer, config.showAuraTimer)
+		icon.bar:Show()
+	else
+		icon.endTime = nil
+		icon.timer:Hide()
+		icon.bar:Hide()
+	end
+end
+
+local function isControl(kind)
+	return kind == KIND_OWN_CC or kind == KIND_CC
+end
+
+local function pickControl(set, now)
+	local best, bestPriority, bestEnd
+	for i = 1, #set do
+		local entry = set[i]
+		local expires = entry.expires
+		if isControl(entry.kind) and (expires == 0 or expires > now) then
+			local spell = CONTROL_BY_ID[entry.spellId]
+			local priority = spell and CONTROL_PRIORITY[spell.category] or 0
+			local ends = expires > 0 and expires or huge
+			if not best or priority > bestPriority or priority == bestPriority and ends > bestEnd then
+				best, bestPriority, bestEnd = entry, priority, ends
+			end
+		end
+	end
+	return best
+end
+
+local function showControl(plate, entry)
+	local frame = plate.controlIcon or createControl(plate)
+	local icon = frame.icons[1]
+	local size = config.ccIconSize
+	if icon.size ~= size then
+		icon.size = size
+		frame:SetSize(size, size)
+	end
+	frame:SetPoint("LEFT", plate.holder, "RIGHT", config.ccIconGap, 0)
+	icon:SetTexture(entry.icon)
+	setIconShown(icon, true)
+	setIconTimer(icon, entry)
+	frame.count = 1
+	showRow(frame)
+end
+
 function updatePlate(plate)
 	local row = plate.auraRow
 	local set = plate.guid and cache[plate.guid]
@@ -412,39 +487,37 @@ function updatePlate(plate)
 		or plate.totem:IsShown()
 		or not (config.aurasAllPlates or plate:IsTarget())
 	then
-		if row then
-			hideRow(row)
-		end
+		hideAll(plate)
 		return
 	end
-	row = row or createRow(plate)
 
 	local now = GetTime()
-	local maxIcons, gap = config.maxAuraIcons, config.auraGap
-	local showTimer, showCount = config.showAuraTimer, config.showAuraCount
+	local control = config.ccIcon and pickControl(set, now)
+	if control then
+		showControl(plate, control)
+	elseif plate.controlIcon then
+		hideRow(plate.controlIcon)
+	end
+
+	local settings = plate.settings
+	local maxIcons = settings.auraMax > 0 and settings.auraMax or config.maxAuraIcons
+	local auraSize = settings.auraSize > 0 and settings.auraSize or config.auraSize
+	local gap = config.auraGap
+	local showCount = config.showAuraCount
 	local shown, x, height = 0, 0, 0
 	for i = 1, #set do
 		local entry = set[i]
 		local expires = entry.expires
-		if (expires == 0 or expires > now) and kindShown(entry.kind) then
+		if entry ~= control and (expires == 0 or expires > now) and kindShown(entry.kind) then
+			row = row or createRow(plate)
 			shown = shown + 1
 			local icon = row.icons[shown] or createIcon(row, shown)
-			local cc = entry.kind == KIND_OWN_CC or entry.kind == KIND_CC
-			local size = cc and config.ccAuraSize or config.auraSize
+			local size = isControl(entry.kind) and config.ccAuraSize or auraSize
 			height = max(height, placeIcon(icon, x, size))
 			x = x + size + gap
 			icon:SetTexture(entry.icon)
 			setIconShown(icon, true)
-			local duration = entry.duration
-			if duration > 0 and expires > 0 then
-				icon.duration, icon.endTime = duration, expires
-				ns.SetShown(icon.timer, showTimer)
-				icon.bar:Show()
-			else
-				icon.endTime = nil
-				icon.timer:Hide()
-				icon.bar:Hide()
-			end
+			setIconTimer(icon, entry)
 			if showCount and entry.count > 1 then
 				icon.count:SetFormattedText("%d", entry.count)
 				icon.count:Show()
@@ -457,6 +530,9 @@ function updatePlate(plate)
 		end
 	end
 
+	if not row then
+		return
+	end
 	local icons = row.icons
 	for i = shown + 1, #icons do
 		setIconShown(icons[i], false)
@@ -565,9 +641,16 @@ local function onPass(now)
 	end
 end
 
-local function onPlateHide(plate)
-	if plate.auraRow then
-		hideRow(plate.auraRow)
+local function resetIcons(row)
+	if not row then
+		return
+	end
+	local icons = row.icons
+	for i = 1, #icons do
+		local icon = icons[i]
+		ns.SetFont(icon.timer, config.auraFont.size, config.auraFont.outline)
+		ns.SetFont(icon.count, config.auraFont.size, config.auraFont.outline)
+		icon.size = nil
 	end
 end
 
@@ -588,46 +671,45 @@ end
 local function applyConfig()
 	for i = 1, #plates do
 		local plate = plates[i]
-		local row = plate.auraRow
-		if row then
-			local icons = row.icons
-			for j = 1, #icons do
-				local icon = icons[j]
-				ns.SetFont(icon.timer, config.auraFont.size, config.auraFont.outline)
-				ns.SetFont(icon.count, config.auraFont.size, config.auraFont.outline)
-				icon.size = nil
-			end
-		end
+		resetIcons(plate.auraRow)
+		resetIcons(plate.controlIcon)
 		updatePlate(plate)
 	end
 end
+
+local durationsSlot = ns.Storage.Claim("namePlateAuraDurations", "NamePlates", "state")
 
 NamePlates:OnInitialize(function(self)
 	if not config.enabled then
 		return
 	end
-	local db = ns.db
-	learned = db.namePlateAuraDurations or learned
-	db.namePlateAuraDurations = learned
+	DR:Acquire("namePlates")
+	learned = durationsSlot:Get() or learned
+	durationsSlot:Set(learned)
 	playerGUID = UnitGUID("player")
 
 	for unit in pairs(EVENT_UNITS) do
 		self:RegisterUnitEvent("UNIT_AURA", unit, onUnitAura)
 	end
-	NamePlates.AddLogHandler("SPELL_AURA_APPLIED", onAuraApplied)
-	NamePlates.AddLogHandler("SPELL_AURA_REFRESH", onAuraApplied)
-	NamePlates.AddLogHandler("SPELL_AURA_APPLIED_DOSE", onAuraDose)
-	NamePlates.AddLogHandler("SPELL_AURA_REMOVED_DOSE", onAuraDose)
-	NamePlates.AddLogHandler("SPELL_AURA_REMOVED", onAuraRemoved)
-	NamePlates.AddLogHandler("SPELL_AURA_BROKEN", onAuraRemoved)
-	NamePlates.AddLogHandler("SPELL_AURA_BROKEN_SPELL", onAuraRemoved)
-	NamePlates.AddLogHandler("UNIT_DIED", onUnitDied)
-	NamePlates.onIdentity[#NamePlates.onIdentity + 1] = updatePlate
-	NamePlates.onUnitAdded[#NamePlates.onUnitAdded + 1] = onUnitAdded
-	NamePlates.onUnitRemoved[#NamePlates.onUnitRemoved + 1] = onUnitRemoved
-	NamePlates.onPass[#NamePlates.onPass + 1] = onPass
-	NamePlates.onPlateHide[#NamePlates.onPlateHide + 1] = onPlateHide
-	NamePlates.onPlateLayout[#NamePlates.onPlateLayout + 1] = updatePlate
+	NamePlates.RegisterPlugin({
+		name = "auras",
+		Identity = updatePlate,
+		UnitAdded = onUnitAdded,
+		UnitRemoved = onUnitRemoved,
+		Pass = onPass,
+		Hide = hideAll,
+		Layout = updatePlate,
+		Log = {
+			SPELL_AURA_APPLIED = onAuraApplied,
+			SPELL_AURA_REFRESH = onAuraApplied,
+			SPELL_AURA_APPLIED_DOSE = onAuraDose,
+			SPELL_AURA_REMOVED_DOSE = onAuraDose,
+			SPELL_AURA_REMOVED = onAuraRemoved,
+			SPELL_AURA_BROKEN = onAuraRemoved,
+			SPELL_AURA_BROKEN_SPELL = onAuraRemoved,
+			UNIT_DIED = onUnitDied,
+		},
+	})
 	self:RegisterEvent("PLAYER_ENTERING_WORLD", onEnteringWorld)
 	self:RegisterUnitEvent("UNIT_PET", "player", onUnitPet)
 	self:WatchConfig("namePlates", applyConfig)

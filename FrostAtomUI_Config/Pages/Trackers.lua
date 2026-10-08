@@ -69,7 +69,7 @@ local SPELLS_DESC = {
 local selectedGroup, selectedIcon
 
 local function groups()
-	return ui.Config.trackers.groups
+	return ui:GetConfig("trackers.groups")
 end
 
 local function groupPath(index)
@@ -147,7 +147,7 @@ ns.RegisterElement({
 			{ header = L["Visibility"], glyph = "eye", advanced = true },
 			entry({
 				path = "inactiveAlpha",
-				label = L["Inactive alpha"],
+				label = L["Inactive opacity"],
 				type = "number",
 				min = 0,
 				max = 1,
@@ -231,7 +231,7 @@ end
 local function describeIcon(icon)
 	local text
 	if icon.type == "dr" then
-		text = L[ui.DRData.CATEGORY_NAMES[icon.category] or "?"]
+		text = L[ui.API.Catalog("diminishing").CATEGORY_NAMES[icon.category] or "?"]
 	else
 		text = spellNames(icon)
 	end
@@ -310,7 +310,7 @@ end
 
 local function categoryValues()
 	local values = {}
-	for key, name in pairs(ui.DRData.CATEGORY_NAMES) do
+	for key, name in pairs(ui.API.Catalog("diminishing").CATEGORY_NAMES) do
 		values[#values + 1] = { key, L[name] }
 	end
 	table.sort(values, function(a, b)
@@ -335,6 +335,59 @@ local function deleteGroup()
 		table.remove(list, selectedGroup)
 		selectedGroup, selectedIcon = nil, nil
 		setGroups(list)
+	end)
+end
+
+local GROUP_PREFIX = "FAUIT1:"
+
+local function exportGroup()
+	local group = selectedGroup and groups()[selectedGroup]
+	if not group then
+		return
+	end
+	local data = CopyTable(group)
+	data.point = nil
+	ns.ShowTextWindow(
+		L["Export tracker group: %s"]:format(group.name or ""),
+		GROUP_PREFIX .. ui.Encode(ui.Serialize(data))
+	)
+end
+
+local function decodeGroup(text)
+	text = strtrim(text or "")
+	if text:sub(1, #GROUP_PREFIX) ~= GROUP_PREFIX then
+		return nil, L["not a tracker group string"]
+	end
+	local decoded, problem = ui.Decode(text:sub(#GROUP_PREFIX + 1))
+	if not decoded then
+		return nil, problem
+	end
+	local group = ui.Deserialize(decoded)
+	if type(group) ~= "table" or type(group.icons) ~= "table" then
+		return nil, L["not a tracker group string"]
+	end
+	local result = Trackers.NewGroup(type(group.name) == "string" and group.name or nil)
+	for key, value in pairs(group) do
+		if key ~= "point" and type(value) == type(result[key] or value) then
+			result[key] = value
+		end
+	end
+	return result
+end
+
+local function importGroup()
+	ns.ShowImportWindow(L["Import tracker group"], function(text)
+		local group, problem = decodeGroup(text)
+		if not group then
+			ui.Print(L["import failed: %s"], problem)
+			return
+		end
+		ns.HideTextWindow()
+		local list = copyGroups()
+		list[#list + 1] = group
+		setGroups(list)
+		selectItem(#list, nil)
+		ui.Print(L["tracker group %q imported"], group.name)
 	end)
 end
 
@@ -588,6 +641,14 @@ local function buildSchema()
 				{ nil, moveGroup(1), arrow = "down" },
 			}),
 		},
+		{
+			type = "custom",
+			label = "",
+			build = buttonRow({
+				{ L["Export group"], exportGroup, 120, gray = true },
+				{ L["Import group"], importGroup, 120, gray = true },
+			}),
+		},
 	}
 
 	local groupIndex = selectedGroup
@@ -614,7 +675,7 @@ local function buildSchema()
 		},
 		{
 			path = "combat",
-			label = L["Visible"],
+			label = L["Show"],
 			type = "select",
 			values = ns.COMBAT_VISIBILITY_VALUES,
 			advanced = true,
@@ -686,12 +747,16 @@ end
 ns.RegisterPage({
 	key = "trackers",
 	name = L["Trackers"],
+	desc = L["Your own icons for buffs, debuffs and cooldowns."],
 	glyph = "list-check",
-	order = 34,
+	order = 38,
 	group = "pvp",
 	new = "1.4.0",
 	enable = "trackers.enabled",
-	schema = { { path = "trackers", hidden = true } },
+	schema = {
+		{ path = "trackers", hidden = true },
+		{ path = "trackers.groups", hidden = true, userContent = true, label = L["Tracker groups"] },
+	},
 	buildSchema = buildSchema,
 	signature = signature,
 	onShow = function()

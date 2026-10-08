@@ -1,40 +1,32 @@
 local _, ns = ...
 local UF = ns:GetModule("UnitFrames")
-local L = ns.L
 
 local UnitCastingInfo = UnitCastingInfo
 local UnitChannelInfo = UnitChannelInfo
-local UnitName = UnitName
-local UnitClass = UnitClass
-local UnitIsPlayer = UnitIsPlayer
 local UnitIsUnit = UnitIsUnit
 local UnitCanAttack = UnitCanAttack
 local UnitGUID = UnitGUID
-local GetPlayerInfoByGUID = GetPlayerInfoByGUID
 local GetSpellInfo = GetSpellInfo
 local GetNetStats = GetNetStats
 local GetTime = GetTime
-local band = bit.band
-local random, floor, min = math.random, math.floor, math.min
-local format = string.format
+local random, min = math.random, math.min
 
 local FADE_SPEED = 1.4
-local STOP_TIMEOUT = 0.5
-local FINISH_WINDOW = 0.5
-local FLASH_TIME = 0.5
-local FLASH_ALPHA = 0.5
-local FINISH_FADE_SPEED = 1 / 0.3
-local INTERRUPT_HOLD = 1
-local INTERRUPT_FADE_SPEED = 1 / 0.3
-local INTERRUPT_COLOR = { 0.8, 0.1, 0.1 }
-local LATE_INTERRUPT = 0.3
-local PULSE_PERIOD = 2
+local TIMING = ns.Cast.TIMING
+local STOP_TIMEOUT = TIMING.STOP_TIMEOUT
+local FINISH_WINDOW = TIMING.FINISH_WINDOW
+local FLASH_TIME = TIMING.FLASH_TIME
+local FLASH_ALPHA = TIMING.FLASH_ALPHA
+local FINISH_FADE_SPEED = TIMING.FADE_SPEED
+local INTERRUPT_HOLD = TIMING.INTERRUPT_HOLD
+local INTERRUPT_FADE_SPEED = TIMING.FADE_SPEED
+local INTERRUPT_COLOR = TIMING.INTERRUPT_COLOR
+local LATE_INTERRUPT = TIMING.LATE_INTERRUPT
 local GLOW_SIZE = 6
 local TEXT_INSET = 3
+local BORDER_INSET = UF.BORDER_INSET
 local FAILED_TEXT = "|cff808080" .. FAILED .. "|r"
 local INTERRUPTED_TEXT = "|cff8B0000" .. INTERRUPTED .. "|r"
-local CANCELLED_TEXT = "|cff808080" .. L["Cancelled"] .. "|r"
-local PLAYER_FLAG = COMBATLOG_OBJECT_TYPE_PLAYER or 0x400
 local TICK_WIDTH = 2
 local TICK_COLOR = { 0, 0, 0, 0.75 }
 local MAX_LATENCY_SHARE = 0.4
@@ -43,56 +35,6 @@ local SPARK_TEXTURE = "Interface\\CastingBar\\UI-CastingBar-Spark"
 local SPARK_WIDTH = 16
 local START_FLASH_TIME = 0.3
 local START_FLASH_ALPHA = 0.7
-
-UF.CAST_INTERRUPTED = "FrostAtomUI_CAST_INTERRUPTED"
-UF.CAST_SILENCED = "FrostAtomUI_CAST_SILENCED"
-UF.CANCELLED_TEXT = CANCELLED_TEXT
-
-ns.OnLocaleReady(function()
-	CANCELLED_TEXT = "|cff808080" .. L["Cancelled"] .. "|r"
-	UF.CANCELLED_TEXT = CANCELLED_TEXT
-end)
-
-local DR_SPELLS = ns.DRData.SPELLS
-
-local IMPORTANT_CASTS = {
-	118, -- Polymorph
-	5782, -- Fear
-	5484, -- Howl of Terror
-	6358, -- Seduction
-	33786, -- Cyclone
-	51514, -- Hex
-	605, -- Mind Control
-	2637, -- Hibernate
-	339, -- Entangling Roots
-	1513, -- Scare Beast
-	10326, -- Turn Evil
-	8129, -- Mana Burn
-	2060, -- Greater Heal
-	2061, -- Flash Heal
-	32546, -- Binding Heal
-	596, -- Prayer of Healing
-	47540, -- Penance
-	64843, -- Divine Hymn
-	635, -- Holy Light
-	19750, -- Flash of Light
-	5185, -- Healing Touch
-	8936, -- Regrowth
-	50464, -- Nourish
-	740, -- Tranquility
-	331, -- Healing Wave
-	8004, -- Lesser Healing Wave
-	1064, -- Chain Heal
-}
-
-local importantCasts = {}
-for i = 1, #IMPORTANT_CASTS do
-	local name = GetSpellInfo(IMPORTANT_CASTS[i])
-	if name then
-		importantCasts[name] = true
-	end
-end
-UF.importantCasts = importantCasts
 
 local CHANNEL_TICKS = {
 	[689] = 5, -- Drain Life
@@ -148,106 +90,8 @@ local TEST_CHANNELS = {
 local TEST_NAMES = { "Frostatom", "Nightshade", "Zephyra", "Thoralf", "Mirelle", "Kaelith", "Dravok", "Sylvara" }
 
 local config = ns.Config.unitFrames
-local BORDER_INSET = UF.BORDER_INSET
+local castConfig = ns.Config.castbar
 local ICON_GAP = UF.CASTBAR_ICON_GAP
-
-function UF.CreateCastGlow(parent, anchor, size)
-	local glow = CreateFrame("Frame", nil, parent)
-	glow:SetFrameLevel(parent:GetFrameLevel())
-	glow:Hide()
-
-	local function edge(texture)
-		local region = glow:CreateTexture(nil, "BACKGROUND")
-		region:SetTexture(texture or ns.Media.blank)
-		region:SetBlendMode("ADD")
-		return region
-	end
-
-	local function corner(point, relativePoint, left, right, top, bottom)
-		local region = edge(ns.Media.glowCorner)
-		region:SetSize(size, size)
-		region:SetPoint(point, anchor, relativePoint)
-		region:SetTexCoord(left, right, top, bottom)
-		return region
-	end
-
-	local top = edge()
-	top:SetPoint("BOTTOMLEFT", anchor, "TOPLEFT")
-	top:SetPoint("BOTTOMRIGHT", anchor, "TOPRIGHT")
-	top:SetHeight(size)
-	local bottom = edge()
-	bottom:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT")
-	bottom:SetPoint("TOPRIGHT", anchor, "BOTTOMRIGHT")
-	bottom:SetHeight(size)
-	local left = edge()
-	left:SetPoint("TOPRIGHT", anchor, "TOPLEFT")
-	left:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMLEFT")
-	left:SetWidth(size)
-	local right = edge()
-	right:SetPoint("TOPLEFT", anchor, "TOPRIGHT")
-	right:SetPoint("BOTTOMLEFT", anchor, "BOTTOMRIGHT")
-	right:SetWidth(size)
-
-	glow.top, glow.bottom, glow.left, glow.right = top, bottom, left, right
-	glow.corners = {
-		corner("BOTTOMRIGHT", "TOPLEFT", 0, 0.5, 0, 0.5),
-		corner("BOTTOMLEFT", "TOPRIGHT", 0.5, 1, 0, 0.5),
-		corner("TOPRIGHT", "BOTTOMLEFT", 0, 0.5, 0.5, 1),
-		corner("TOPLEFT", "BOTTOMRIGHT", 0.5, 1, 0.5, 1),
-	}
-	return glow
-end
-
-function UF.StartCastGlow(glow, color)
-	local r, g, b = color[1], color[2], color[3]
-	if r ~= glow.r or g ~= glow.g or b ~= glow.b then
-		glow.r, glow.g, glow.b = r, g, b
-		glow.top:SetGradientAlpha("VERTICAL", r, g, b, 1, r, g, b, 0)
-		glow.bottom:SetGradientAlpha("VERTICAL", r, g, b, 0, r, g, b, 1)
-		glow.left:SetGradientAlpha("HORIZONTAL", r, g, b, 0, r, g, b, 1)
-		glow.right:SetGradientAlpha("HORIZONTAL", r, g, b, 1, r, g, b, 0)
-		for i = 1, 4 do
-			glow.corners[i]:SetVertexColor(r, g, b)
-		end
-	end
-	glow.elapsed = 0
-	glow:SetAlpha(0)
-	glow:Show()
-end
-
-local function pulseCastGlow(glow, elapsed)
-	local t = (glow.elapsed + elapsed) % PULSE_PERIOD
-	glow.elapsed = t
-	glow:SetAlpha(t < 1 and t or PULSE_PERIOD - t)
-end
-UF.PulseCastGlow = pulseCastGlow
-
-local function interruptedByText(color, name)
-	return format(
-		L["Interrupted by %s"],
-		format("|cff%02x%02x%02x%s|r", floor(color[1] * 255), floor(color[2] * 255), floor(color[3] * 255), name)
-	)
-end
-
-local function interrupterText(sourceGUID, sourceName, sourceFlags)
-	if not sourceName then
-		return INTERRUPTED_TEXT
-	end
-	local color
-	if sourceFlags and band(sourceFlags, PLAYER_FLAG) > 0 then
-		local _, class = GetPlayerInfoByGUID(sourceGUID)
-		color = class and UF.classColors[class]
-	end
-	return interruptedByText(color or config.textColor, sourceName)
-end
-
-local function setUnitNameText(text, unit, name)
-	text:SetText(name)
-	local _, class = UnitClass(unit)
-	local color = UnitIsPlayer(unit) and class and UF.classColors[class] or config.textColor
-	text:SetTextColor(color[1], color[2], color[3])
-end
-UF.SetCastTargetText = setUnitNameText
 
 local function showInterruptible(castbar)
 	local interruptible = castbar.interruptible
@@ -257,10 +101,10 @@ local function showInterruptible(castbar)
 	local color
 	if interruptible or castbar.isPlayer or not castbar.testing and not UnitCanAttack("player", castbar.unit) then
 		castbar.icon:SetDesaturated(nil)
-		color = castbar.isChannel and config.castbarChannelColor or config.castbarColor
+		color = castbar.isChannel and castConfig.channelColor or castConfig.color
 	else
 		castbar.icon:SetDesaturated(1)
-		color = config.castbarLockedColor
+		color = castConfig.lockedColor
 	end
 	UF.SetBarColor(castbar.bar, color[1], color[2], color[3])
 end
@@ -271,12 +115,12 @@ local function setInterruptible(castbar, interruptible)
 end
 
 local function setTargetingYou(castbar, targetingYou)
-	local color = targetingYou and config.castbarTargetingYouColor or config.borderColor
+	local color = targetingYou and castConfig.targetingYouColor or ns.Config.theme.borderColor
 	castbar:SetBackdropBorderColor(color[1], color[2], color[3])
 end
 
 local function layoutText(castbar)
-	local split = config.castbarTargetName
+	local split = castConfig.targetName
 	if castbar.split == split then
 		return
 	end
@@ -300,15 +144,10 @@ local function updateCastTarget(castbar)
 		return
 	end
 	local unit, targetUnit = castbar.unit, castbar.targetUnit
-	local name = config.castbarTargetName and not UnitIsUnit(targetUnit, unit) and UnitName(targetUnit)
-	if name then
-		setUnitNameText(castbar.target, targetUnit, name)
-	else
-		castbar.target:SetText("")
-	end
+	ns.Cast.ShowCastTarget(castbar.target, unit, targetUnit, castbar.spellName)
 	setTargetingYou(
 		castbar,
-		config.castbarTargetingYou
+		castConfig.targetingYou
 			and not castbar.isPlayer
 			and UnitIsUnit(targetUnit, "player")
 			and UnitCanAttack("player", unit)
@@ -447,7 +286,7 @@ local function finishCast(castbar)
 end
 
 local function showInterrupted(castbar, text)
-	if not config.castbarInterrupter then
+	if not castConfig.interrupter then
 		castbar.name:SetText(INTERRUPTED_TEXT)
 		stopCast(castbar)
 		return
@@ -463,13 +302,13 @@ local function showInterrupted(castbar, text)
 end
 
 local function showCancelled(castbar)
-	if config.castbarInterrupter then
+	if castConfig.interrupter then
 		stopCast(castbar, INTERRUPT_HOLD, INTERRUPT_FADE_SPEED)
 	else
 		stopCast(castbar)
 	end
 	castbar.cancelled = true
-	castbar.name:SetText(CANCELLED_TEXT)
+	castbar.name:SetText(ns.Cast.CANCELLED_TEXT)
 end
 
 local testCast, finishTest
@@ -508,7 +347,7 @@ local function onUpdate(castbar, elapsed)
 			end
 		end
 		if castbar.important then
-			pulseCastGlow(castbar.glow, elapsed)
+			ns.Cast.PulseGlow(castbar.glow, elapsed)
 		end
 		return
 	end
@@ -568,9 +407,9 @@ local function startCast(castbar, name, texture, startTime, endTime, isChannel, 
 		castbar.latency:Hide()
 	end
 
-	castbar.important = config.castbarImportant and importantCasts[name] or false
+	castbar.important = castConfig.important and ns.Cast.importantCasts[name] or false
 	if castbar.important then
-		UF.StartCastGlow(castbar.glow, config.castbarImportantColor)
+		ns.Cast.StartGlow(castbar.glow, castConfig.importantColor)
 	else
 		castbar.glow:Hide()
 	end
@@ -616,19 +455,20 @@ function testCast(castbar)
 	setLatency(castbar, random(5, 30) / 100)
 
 	local target = castbar.target
-	if config.castbarTargetName and random(4) ~= 1 then
+	if castConfig.targetName and random(4) ~= 1 then
 		local color = randomClassColor()
 		target:SetText(randomTestName())
+		target:SetAlpha(1)
 		target:SetTextColor(color[1], color[2], color[3])
 	else
 		target:SetText("")
 	end
-	setTargetingYou(castbar, config.castbarTargetingYou and not castbar.isPlayer and random(4) == 1)
+	setTargetingYou(castbar, castConfig.targetingYou and not castbar.isPlayer and random(4) == 1)
 end
 
 function finishTest(castbar)
 	if random(4) == 1 then
-		showInterrupted(castbar, interruptedByText(randomClassColor(), randomTestName()))
+		showInterrupted(castbar, ns.Cast.InterruptedByText(randomClassColor(), randomTestName()))
 	else
 		finishCast(castbar)
 	end
@@ -658,16 +498,6 @@ function UF.SetCastbarShown(castbar, shown)
 	end
 end
 
-local silencedAt, silenceTexts = {}, {}
-
-local function recentSilence(guid)
-	local at = guid and silencedAt[guid]
-	if at and GetTime() - at < LATE_INTERRUPT then
-		return silenceTexts[guid]
-	end
-end
-UF.RecentSilence = recentSilence
-
 local function onCastFailed(frame, _, _, castId)
 	local castbar = frame.castbar
 	if castbar.casting and not castbar.isChannel and castId and castId == castbar.castId then
@@ -679,7 +509,7 @@ end
 local function onCastInterrupted(frame, _, _, castId)
 	local castbar = frame.castbar
 	if castbar.casting and (castbar.isChannel or castId == castbar.castId) then
-		local text = recentSilence(castbar.guid)
+		local text = ns.Cast.RecentSilence(castbar.guid)
 		if text then
 			showInterrupted(castbar, text)
 		else
@@ -794,25 +624,6 @@ local function onSilenced(frame, guid, text)
 	end
 end
 
-local interruptWatcher = ns.Mixin({}, ns.EventMixin)
-interruptWatcher:RegisterEvent(
-	"COMBAT_LOG_EVENT_UNFILTERED",
-	function(_, _, event, sourceGUID, sourceName, sourceFlags, destGUID, _, _, spellId)
-		if event == "SPELL_INTERRUPT" then
-			ns:Fire(UF.CAST_INTERRUPTED, destGUID, interrupterText(sourceGUID, sourceName, sourceFlags))
-		elseif event == "SPELL_AURA_APPLIED" and DR_SPELLS[spellId] == "silence" then
-			local text = interrupterText(sourceGUID, sourceName, sourceFlags)
-			silencedAt[destGUID] = GetTime()
-			silenceTexts[destGUID] = text
-			ns:Fire(UF.CAST_SILENCED, destGUID, text)
-		end
-	end
-)
-interruptWatcher:RegisterEvent("PLAYER_ENTERING_WORLD", function()
-	wipe(silencedAt)
-	wipe(silenceTexts)
-end)
-
 local function createText(bar)
 	local text = bar:CreateFontString(nil, "OVERLAY")
 	ns.SetFont(text, config.castbarFont.size, config.castbarFont.outline)
@@ -823,8 +634,7 @@ local function create(frame, iconSide)
 	local castbar = CreateFrame("Frame", nil, frame)
 	castbar:Hide()
 	castbar:SetFrameLevel(frame:GetFrameLevel())
-	castbar:SetBackdrop(UF.backdrop)
-	UF.SetBackdropColors(castbar)
+	UF.SetBorder(castbar)
 	castbar.unit = frame.unit
 	castbar.targetUnit = frame.unit .. "target"
 	castbar.isPlayer = frame.unit == "player"
@@ -867,7 +677,7 @@ local function create(frame, iconSide)
 		castbar.latency = latency
 	end
 
-	castbar.glow = UF.CreateCastGlow(castbar, castbar, GLOW_SIZE)
+	castbar.glow = ns.Cast.CreateGlow(castbar, castbar, GLOW_SIZE)
 
 	castbar.icon = castbar:CreateTexture(nil, "BORDER")
 	castbar.icon:SetNonBlocking(true)
@@ -907,8 +717,8 @@ local function create(frame, iconSide)
 		frame:RegisterUnitEvent("UNIT_SPELLCAST_NOT_INTERRUPTIBLE", onNotInterruptible)
 	end
 	frame:RegisterUnitEvent("UNIT_TARGET", onUnitTarget)
-	frame:RegisterEvent(UF.CAST_INTERRUPTED, onInterrupter)
-	frame:RegisterEvent(UF.CAST_SILENCED, onSilenced)
+	frame:RegisterEvent(ns.E.CAST_INTERRUPTED, onInterrupter)
+	frame:RegisterEvent(ns.E.CAST_SILENCED, onSilenced)
 	if castbar.isPlayer then
 		frame:RegisterEvent("UNIT_SPELLCAST_SENT", onCastSent)
 	else
@@ -918,4 +728,4 @@ local function create(frame, iconSide)
 	return castbar
 end
 
-UF:RegisterElement("castbar", create, update, test, poll)
+UF:RegisterElement({ name = "castbar", Create = create, Update = update, Test = test, Poll = poll })

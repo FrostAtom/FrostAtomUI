@@ -66,6 +66,21 @@ local TotemData = {
 }
 ns.TotemData = TotemData
 
+local IMPORTANT = {
+	[2484] = true, -- Earthbind Totem
+	[8143] = true, -- Tremor Totem
+	[8177] = true, -- Grounding Totem
+	[8170] = true, -- Cleansing Totem
+	[16190] = true, -- Mana Tide Totem
+	[2062] = true, -- Earth Elemental Totem
+	[2894] = true, -- Fire Elemental Totem
+}
+
+function TotemData.IsImportant(spellId)
+	local spell = TotemData.spells[spellId]
+	return spell ~= nil and IMPORTANT[spell.base] == true
+end
+
 local spells, byEntry, byName, tickSpells = TotemData.spells, TotemData.byEntry, TotemData.byName, TotemData.tickSpells
 
 for i = 1, #TOTEMS do
@@ -83,7 +98,7 @@ for i = 1, #TOTEMS do
 		local spellId, entry = row[j], row[j + 1]
 		local name, rank, icon = GetSpellInfo(spellId)
 		if name then
-			spells[spellId] = { slot = row[1], duration = row[2], icon = icon, pulse = pulse }
+			spells[spellId] = { slot = row[1], duration = row[2], icon = icon, pulse = pulse, base = row[3] }
 			byEntry[entry] = spellId
 			local digits = rank and match(rank, "%d+")
 			byName[name .. (digits and RANK_SUFFIXES[tonumber(digits)] or "")] = spellId
