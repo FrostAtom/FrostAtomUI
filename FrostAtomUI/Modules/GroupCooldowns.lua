@@ -147,11 +147,11 @@ local function setMaybe(icon, maybe)
 	icon.maybe = maybe or nil
 	if maybe and not icon.maybeMark then
 		local mark = icon:CreateFontString(nil, "OVERLAY")
+		ns.SetFont(mark, icon:GetWidth() * MAYBE_SCALE, "OUTLINE")
 		mark:SetPoint("BOTTOMRIGHT", 1, -1)
 		mark:SetTextColor(unpack(MAYBE_COLOR))
 		mark:SetText("?")
 		icon.maybeMark = mark
-		ns.SetFont(mark, icon:GetWidth() * MAYBE_SCALE, "OUTLINE")
 	end
 	if icon.maybeMark then
 		ns.SetShown(icon.maybeMark, maybe)

@@ -28,9 +28,11 @@ jobs:
         run: python3 tools/check_versions.py --release --tag "$GITHUB_REF_NAME"
 
       - name: Build zip
-        run: git archive --format=zip -o "FrostAtomUI-${GITHUB_REF_NAME#v}.zip" HEAD FrostAtomUI FrostAtomUI_Config
+        run: |
+          git archive --format=zip -o "FrostAtomUI-${GITHUB_REF_NAME#v}.zip" HEAD FrostAtomUI FrostAtomUI_Config
+          cp "FrostAtomUI-${GITHUB_REF_NAME#v}.zip" FrostAtomUI.zip
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "FrostAtomUI-${GITHUB_REF_NAME#v}.zip" --title "FrostAtom UI ${GITHUB_REF_NAME#v}" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" "FrostAtomUI-${GITHUB_REF_NAME#v}.zip" FrostAtomUI.zip --title "FrostAtom UI ${GITHUB_REF_NAME#v}" --generate-notes
