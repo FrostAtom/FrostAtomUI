@@ -55,7 +55,7 @@ NamePlates.PlaceHealerCross = placeCross
 
 local function updateCross(plate, name)
 	local cross = plateCrosses[plate]
-	if config.showHealers and name and (healers[name] or arenaHealers[name]) then
+	if config.showHealers and name and (healers[name] or config.healersInArena and arenaHealers[name]) then
 		if not cross then
 			cross = createCross(plate)
 			plateCrosses[plate] = cross

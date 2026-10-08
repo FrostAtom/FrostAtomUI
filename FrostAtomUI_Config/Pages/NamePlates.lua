@@ -603,7 +603,15 @@ local auraEntries = {
 		path = "namePlates.showHealers",
 		label = L["Enable"],
 		type = "toggle",
-		desc = L["Large healer role icon above the nameplate of enemy healers: in battlegrounds by the scoreboard, in arenas once a spell proves the healing spec."],
+		desc = L["Large healer role icon above the nameplate of enemy healers: in battlegrounds by the scoreboard."],
+	},
+	{
+		path = "namePlates.healersInArena",
+		label = L["Also in arenas"],
+		type = "toggle",
+		desc = L["Show the healer icon in arenas too, once a spell proves the healing spec."],
+		enabledBy = "namePlates.showHealers",
+		indent = false,
 	},
 	{
 		path = "namePlates.healerCrossSize",

@@ -96,6 +96,7 @@ ns:RegisterDefaults("namePlates", {
 	spreadPlates = false,
 	hoverHighlight = true,
 	showHealers = true,
+	healersInArena = false,
 	healerCrossSize = 28,
 	healerThreshold = 2,
 	comboPoints = true,
