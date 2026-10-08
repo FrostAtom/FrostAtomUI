@@ -1,6 +1,6 @@
 local _, ns = ...
 
-ns.OnRealm("wowcircle", function()
+ns.OnRealm({ "wowcircle", "warmane" }, function()
 	local UnitName = UnitName
 	local ipairs, pairs, wipe = ipairs, pairs, wipe
 	local tinsert, tsort = table.insert, table.sort
@@ -13,6 +13,11 @@ ns.OnRealm("wowcircle", function()
 	local PANEL_GAP = 8
 	local TITLE_SIZE = 17
 	local TITLE_GAP = 10
+	local TITLE_NOTE_SIZE = 12
+	local TITLE_NOTE_X = 8
+	local SECTION_SIZE = 12
+	local SECTION_TOP = 8
+	local SECTION_GAP = 5
 	local NAV_WIDTH = 78
 	local NAV_HEIGHT = 22
 	local NAV_LEFT = 21
@@ -192,10 +197,45 @@ ns.OnRealm("wowcircle", function()
 	title:SetPoint("TOPLEFT", CARD_LEFT, -LIST_TOP)
 	title:SetPoint("TOPRIGHT", GossipGreetingScrollChildFrame, "TOPRIGHT", CARD_RIGHT, -LIST_TOP)
 	title:Hide()
+	local titleNote = GossipCards.CreateText(GossipGreetingScrollChildFrame, TITLE_NOTE_SIZE, GossipCards.DIM_ALPHA)
+	titleNote:SetPoint("RIGHT", title, "RIGHT", -TITLE_NOTE_X, 0)
+	titleNote:Hide()
 
-	function GossipCards.SetTitle(text)
+	function GossipCards.SetTitle(text, note)
 		title:SetText(text)
 		title:Show()
+		titleNote:SetText(note or "")
+		ns.SetShown(titleNote, note)
+	end
+
+	local sections = {}
+	local sectionTexts = {}
+	local spans = {}
+
+	function GossipCards.SetSection(button, text)
+		sections[button] = text
+	end
+
+	function GossipCards.SetColumns(button, columns)
+		spans[button] = columns
+	end
+
+	local function getSectionText(index)
+		local text = sectionTexts[index]
+		if not text then
+			text = GossipCards.CreateText(GossipGreetingScrollChildFrame, SECTION_SIZE, GossipCards.DIM_ALPHA)
+			text:SetJustifyH("LEFT")
+			sectionTexts[index] = text
+		end
+		return text
+	end
+
+	local function hideSections()
+		for _, text in ipairs(sectionTexts) do
+			text:Hide()
+		end
+		wipe(sections)
+		wipe(spans)
 	end
 
 	function GossipCards.CreatePanel()
@@ -217,10 +257,16 @@ ns.OnRealm("wowcircle", function()
 		end
 	end
 
+	local function hideTitle()
+		title:Hide()
+		titleNote:Hide()
+	end
+
 	local function restore()
 		applied = false
 		GossipGreetingText:Show()
-		title:Hide()
+		hideTitle()
+		hideSections()
 		hideFooter()
 		hideNavs()
 		for i = 1, NUMGOSSIPBUTTONS do
@@ -235,26 +281,46 @@ ns.OnRealm("wowcircle", function()
 		end
 	end
 
+	local function anchorRow(region, rowStart, x, gap)
+		if rowStart then
+			region:SetPoint("TOPLEFT", rowStart, "BOTTOMLEFT", x, -gap)
+		elseif title:IsShown() then
+			region:SetPoint("TOPLEFT", title, "BOTTOMLEFT", x - CARD_LEFT, -TITLE_GAP)
+		else
+			region:SetPoint("TOPLEFT", GossipGreetingScrollChildFrame, "TOPLEFT", x, -LIST_TOP)
+		end
+	end
+
 	local function layout(rows, columns, panel, panelHeight)
 		columns = columns or 1
-		local rowStart
-		for i, button in ipairs(rows) do
+		local rowStart, previous
+		local column, rowColumns, sectionCount = 0, 0, 0
+		for _, button in ipairs(rows) do
+			local span = spans[button] or columns
+			local section = sections[button]
 			button:ClearAllPoints()
-			if columns > 1 then
-				button:SetWidth(BUTTON_WIDTH / columns)
+			if span > 1 then
+				button:SetWidth(BUTTON_WIDTH / span)
 			end
-			if (i - 1) % columns > 0 then
-				button:SetPoint("TOPLEFT", rows[i - 1], "TOPRIGHT")
+			if column > 0 and column < rowColumns and span == rowColumns and not section then
+				button:SetPoint("TOPLEFT", previous, "TOPRIGHT")
+				column = column + 1
 			else
-				if rowStart then
-					button:SetPoint("TOPLEFT", rowStart, "BOTTOMLEFT", 0, -ROW_GAP)
-				elseif title:IsShown() then
-					button:SetPoint("TOPLEFT", title, "BOTTOMLEFT", -CARD_LEFT, -TITLE_GAP)
+				if section then
+					sectionCount = sectionCount + 1
+					local text = getSectionText(sectionCount)
+					text:SetText(section)
+					text:ClearAllPoints()
+					anchorRow(text, rowStart, CARD_LEFT, rowStart and ROW_GAP + SECTION_TOP or ROW_GAP)
+					text:Show()
+					button:SetPoint("TOPLEFT", text, "BOTTOMLEFT", -CARD_LEFT, -SECTION_GAP)
 				else
-					button:SetPoint("TOPLEFT", GossipGreetingScrollChildFrame, "TOPLEFT", 0, -LIST_TOP)
+					anchorRow(button, rowStart, 0, ROW_GAP)
 				end
 				rowStart = button
+				column, rowColumns = 1, span
 			end
+			previous = button
 		end
 		if panel and rowStart then
 			panel:ClearAllPoints()
@@ -283,7 +349,8 @@ ns.OnRealm("wowcircle", function()
 		end
 		applied = true
 		GossipGreetingText:Hide()
-		title:Hide()
+		hideTitle()
+		hideSections()
 		hideFooter()
 		hideNavs()
 		wipe(visible)

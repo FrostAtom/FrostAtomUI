@@ -40,7 +40,7 @@ local schema = {
 			ui.SetRealmOverride(value)
 			ns.ShowReloadButton(L["Server"])
 		end,
-		desc = L["Features made for one server: WoW Circle solo queue, gossip windows, top killers and the combat log fix. Auto checks the realmlist."],
+		desc = L["Features made for one server: WoW Circle solo queue, gossip windows, top killers and the combat log fix; the Warmane arena spectator window. Auto checks the realmlist."],
 	},
 	{ header = L["Appearance"], glyph = "palette" },
 	{

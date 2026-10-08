@@ -224,14 +224,19 @@ Modules\Inspect\TalentStats.lua
 Data\TransferData.lua
 Modules\Transfer\Transfer.lua
 
+# Server: gossip window skins (WoW Circle and Warmane)
+Realm\GossipCards.lua
+
 # Server: WoW Circle (runs when the server is WoW Circle)
 Realm\WoWCircle\CombatLogFix.lua
-Realm\WoWCircle\GossipCards.lua
 Realm\WoWCircle\ArenaSpectator.lua
 Realm\WoWCircle\SoloBattlemaster.lua
 Realm\WoWCircle\SoloCheckman.lua
 Realm\WoWCircle\SoloQueue.lua
 Realm\WoWCircle\TopKillers.lua
+
+# Server: Warmane (runs when the server is Warmane)
+Realm\Warmane\ArenaSpectator.lua
 
 # Must stay last: runs every module's Initialize
 Core\Bootstrap.lua

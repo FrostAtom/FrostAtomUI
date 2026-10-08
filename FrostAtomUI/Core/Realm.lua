@@ -4,9 +4,19 @@ local L = ns.L
 local Realm = {}
 ns.Realm = Realm
 
-local NAMES = { wowcircle = "WoW Circle", other = "Other server" }
+local NAMES = { wowcircle = "WoW Circle", warmane = "Warmane", other = "Other server" }
 
-local detected = (GetCVar("realmlist") or ""):lower():find("wowcircle") and "wowcircle" or "other"
+local function detect()
+	local realmlist = (GetCVar("realmlist") or ""):lower()
+	if realmlist:find("wowcircle") then
+		return "wowcircle"
+	elseif realmlist:find("warmane") then
+		return "warmane"
+	end
+	return "other"
+end
+
+local detected = detect()
 local slot = ns.Storage.Claim("realm", "Realm", "settings")
 local waiting = {}
 
@@ -16,8 +26,11 @@ function Realm.Active()
 	return slot:Get() or detected
 end
 
-function ns.OnRealm(realm, callback)
-	waiting[#waiting + 1] = { realm, callback }
+function ns.OnRealm(realms, callback)
+	if type(realms) == "string" then
+		realms = { realms }
+	end
+	waiting[#waiting + 1] = { realms, callback }
 end
 
 function ns.GetRealmOverride()
@@ -32,6 +45,7 @@ function ns.GetRealmOptions()
 	return {
 		{ "", L["Auto (%s)"]:format(L[NAMES[detected]]) },
 		{ "wowcircle", L[NAMES.wowcircle] },
+		{ "warmane", L[NAMES.warmane] },
 		{ "other", L[NAMES.other] },
 	}
 end
@@ -41,8 +55,11 @@ watcher:RegisterEvent(ns.E.DB_LOADED, function()
 	local active = Realm.Active()
 	ns.IS_WOWCIRCLE = active == "wowcircle"
 	for i = 1, #waiting do
-		if waiting[i][1] == active then
-			ns.SafeCall(waiting[i][2])
+		for _, realm in ipairs(waiting[i][1]) do
+			if realm == active then
+				ns.SafeCall(waiting[i][2])
+				break
+			end
 		end
 	end
 	wipe(waiting)
