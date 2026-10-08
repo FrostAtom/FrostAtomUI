@@ -204,6 +204,7 @@ Modules\Alerts\SoundAlerts.lua
 Modules\Alerts\SpellAlerts.lua
 Modules\Arena\Battleground.lua
 Modules\Merchant.lua
+Modules\Mail.lua
 Modules\Inspect\Equipment.lua
 Modules\Interface\ModelControls.lua
 Modules\Alerts\CombatAlert.lua

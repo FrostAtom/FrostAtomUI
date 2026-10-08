@@ -224,6 +224,14 @@ for _, entry in ipairs({
 	windows[#windows + 1] = entry
 end
 
+windows[#windows + 1] = { header = L["Mailbox"], glyph = "box-open" }
+windows[#windows + 1] = {
+	path = "mail.collectAll",
+	label = L["Collect all button"],
+	type = "toggle",
+	desc = L["Button at the bottom of the inbox: takes gold and items from every letter and marks all letters read. Letters with cash on delivery are left for you."],
+}
+
 Section(windows, L["Equipment"], "equipment", {
 	{
 		path = "enabled",

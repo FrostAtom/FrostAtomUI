@@ -156,6 +156,10 @@ ns:RegisterDefaults("merchant", {
 	wideFrame = true,
 })
 
+ns:RegisterDefaults("mail", {
+	collectAll = true,
+})
+
 ns:RegisterDefaults("wheelPaging", {
 	enabled = true,
 })
