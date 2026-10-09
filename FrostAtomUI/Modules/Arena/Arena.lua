@@ -14,6 +14,7 @@ end
 
 local ARENA_PREPARATION = GetSpellInfo(32727) -- Arena Preparation
 local TICK_INTERVAL = 0.05
+local WARNING_TIME = 5
 
 local pillars = CreateFrame("StatusBar", nil, UIParent)
 pillars:Hide()
@@ -30,15 +31,32 @@ Arena:AnchorToConfig(pillars, "arena.pillarsPoint", "Ring of Valor pillars", {
 })
 
 local icon = pillars:CreateTexture(nil, "BORDER")
-icon:SetTexture("Interface\\Icons\\Ability_Smash")
+icon:SetTexture(ns.Media.pillars)
 icon:SetAllPoints()
 
-local pillarsText = pillars:CreateFontString(nil, "ARTWORK", "NumberFontNormal")
+local warning = pillars:CreateTexture(nil, "OVERLAY")
+warning:SetTexture(ns.Media.blank)
+warning:SetAllPoints()
+warning:SetVertexColor(1, 0.1, 0.1)
+warning:SetAlpha(0)
+
+local pillarsText = pillars:CreateFontString(nil, "OVERLAY", "NumberFontNormalLarge")
 pillarsText:SetPoint("CENTER")
+pillarsText:SetShadowOffset(1, -1)
 
 pillars:SetScript("OnValueChanged", function(self, value)
 	local _, max = self:GetMinMaxValues()
-	pillarsText:SetText(ceil(max - value))
+	local left = max - value
+	pillarsText:SetText(ceil(left))
+	if left <= WARNING_TIME then
+		-- the closer to the switch, the faster the pulse
+		local pulse = (math.sin(GetTime() * (6 + (WARNING_TIME - left) * 3)) + 1) / 2
+		warning:SetAlpha(0.15 + 0.4 * pulse)
+		pillarsText:SetTextColor(1, 0.2 + 0.4 * (1 - pulse), 0.2)
+	else
+		warning:SetAlpha(0)
+		pillarsText:SetTextColor(1, 1, 1)
+	end
 end)
 
 local function onUpdateToggling(self, elapsed)

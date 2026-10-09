@@ -318,9 +318,9 @@ ns:RegisterDefaults("arena", {
 	countdownColor = { 1, 0.82, 0 },
 	countdownUrgentColor = { 1, 0, 0 },
 	pillars = true,
-	pillarsSize = 36,
+	pillarsSize = 45,
 	pillarsPoint = { "BOTTOMRIGHT", 2, 10, "chat.point", "TOPRIGHT" },
-	pillarsFirstToggle = 45,
+	pillarsFirstToggle = 45.133,
 	pillarsPeriod = 25,
 })
 
