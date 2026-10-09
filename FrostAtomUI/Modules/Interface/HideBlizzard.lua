@@ -251,9 +251,13 @@ local function hideUnitFrames()
 
 	for i = 1, MAX_PARTY_MEMBERS do
 		local frame = _G["PartyMemberFrame" .. i]
+		local petFrame = _G["PartyMemberFrame" .. i .. "PetFrame"]
+		-- unit watch re-shows the protected frame whenever the unit exists, bypassing OnShow
+		UnregisterUnitWatch(frame)
+		UnregisterUnitWatch(petFrame)
 		DestroyFrame(frame, true)
 		hooksecurefunc(frame, "Show", frame.Hide)
-		DestroyFrame(_G["PartyMemberFrame" .. i .. "PetFrame"], true)
+		DestroyFrame(petFrame, true)
 	end
 
 	ns:GetModule("CVars"):Pin("hidePartyInRaid", "1")
