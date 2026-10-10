@@ -20,6 +20,7 @@ local WARNING_TIME = 31
 local FLASH_PERIOD = 0.75
 local FLASH_MIN_ALPHA = 0.3
 local KNOWN_DURATIONS = { 600, 1800, 3600 }
+local RECHECK_DELAYS = { 1, 3, 6 }
 
 local holder, ticker
 local icons = {}
@@ -206,6 +207,14 @@ function TemporaryEnchant:OnPlayerUnitEvent(unit)
 	end
 end
 
+-- leaving an arena: the server restores weapon enchants after the loading screen and sends no event for it
+function TemporaryEnchant:OnEnteringWorld()
+	self:Update()
+	for i = 1, #RECHECK_DELAYS do
+		ns.After(RECHECK_DELAYS[i], function() TemporaryEnchant:Update() end)
+	end
+end
+
 local function applyConfig()
 	local config = ns.Config.temporaryEnchant
 	local size, gap, font = config.size, config.gap, config.timerFont
@@ -241,5 +250,5 @@ function TemporaryEnchant:Initialize()
 	self:RegisterEvent("UNIT_INVENTORY_CHANGED", "OnPlayerUnitEvent")
 	self:RegisterEvent("UNIT_ENTERED_VEHICLE", "OnPlayerUnitEvent")
 	self:RegisterEvent("UNIT_EXITED_VEHICLE", "OnPlayerUnitEvent")
-	self:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
+	self:RegisterEvent("PLAYER_ENTERING_WORLD", "OnEnteringWorld")
 end
