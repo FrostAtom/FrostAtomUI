@@ -7,6 +7,8 @@ local concat = table.concat
 local BagItems = {}
 ns.BagItems = BagItems
 
+local GLYPH_ICON_PATH = "Interface\\Icons\\"
+
 local NON_GEAR_SLOTS = {
 	[""] = true,
 	INVTYPE_NON_EQUIP = true,
@@ -186,6 +188,19 @@ end
 function ns.LinkQuality(link)
 	local color = link:match("|c(%x%x%x%x%x%x%x%x)")
 	return color and LINK_QUALITY[color:lower()]
+end
+
+function ns.GlyphSpellIcon(glyphSpell)
+	local icon = ns.GlyphSpellIcons[glyphSpell]
+	return icon and GLYPH_ICON_PATH .. icon
+end
+
+function ns.GlyphItemIcon(item)
+	if type(item) == "string" then
+		item = tonumber(item:match("item:(%d+)"))
+	end
+	local glyphSpell = item and ns.GlyphItems[item]
+	return glyphSpell and ns.GlyphSpellIcon(glyphSpell)
 end
 
 function ns.ItemButtonLevel(link)

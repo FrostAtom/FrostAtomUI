@@ -193,6 +193,9 @@ function ItemMixin:Update()
 		link = texture and GetContainerItemLink(bag, slot)
 		itemId = link and GetContainerItemID(bag, slot)
 	end
+	if itemId then
+		texture = ns.GlyphItemIcon(itemId) or texture
+	end
 
 	self.link = link
 	self.itemId = itemId

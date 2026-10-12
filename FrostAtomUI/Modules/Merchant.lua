@@ -478,8 +478,9 @@ local function renderItem(i, index)
 	nameText:SetText(name)
 	SetItemButtonCount(itemButton, quantity)
 	SetItemButtonStock(itemButton, numAvailable)
-	SetItemButtonTexture(itemButton, texture)
 	itemButton.link = GetMerchantItemLink(index)
+	texture = itemButton.link and ns.GlyphItemIcon(itemButton.link) or texture
+	SetItemButtonTexture(itemButton, texture)
 	itemButton.texture = texture
 	if extendedCost then
 		itemButton.extendedCost = true
@@ -957,6 +958,13 @@ local function createSearchBox()
 	end)
 end
 
+local function setGlyphIcon(button, link)
+	local icon = link and ns.GlyphItemIcon(link)
+	if icon then
+		SetItemButtonTexture(button, icon)
+	end
+end
+
 local function onMerchantInfo()
 	if not searchBox and config().searchBox then
 		createSearchBox()
@@ -966,12 +974,16 @@ local function onMerchantInfo()
 	end
 	applyLayout()
 	renderMerchant()
+	setGlyphIcon(MerchantBuyBackItemItemButton, GetBuybackItemLink(GetNumBuybackItems()))
 	updateSearchBox(false)
 	updateLevels()
 end
 
 local function onBuybackInfo()
 	applyLayout()
+	for i = 1, BUYBACK_ITEMS_PER_PAGE do
+		setGlyphIcon(_G["MerchantItem" .. i .. "ItemButton"], GetBuybackItemLink(i))
+	end
 	updateSearchBox(true)
 	updateLevels()
 end

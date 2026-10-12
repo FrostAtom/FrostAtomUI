@@ -74,6 +74,7 @@ Core\Diagnostics.lua
 # Spell data
 Data\Effects.lua
 Data\Abilities.lua
+Data\GlyphIcons.lua
 Core\SpellDB.lua
 
 # Services: cooldowns, DR, casts, player control, data used by several features

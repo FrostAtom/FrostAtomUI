@@ -208,7 +208,7 @@ local function onTooltipSetItem(tooltip)
 	end
 	itemDone[tooltip] = true
 
-	local texture = GetItemIcon(link)
+	local texture = ns.GlyphItemIcon(link) or GetItemIcon(link)
 	local sideIcon = Skin.ShowIcon(tooltip, texture)
 	for i = 1, 2 do
 		local title = leftLine(tooltip, i)

@@ -54,8 +54,8 @@ local BORDERS = "Interface\\Buttons\\UI-Button-Borders2"
 local INPUT_BORDER = "Interface\\Common\\Common-Input-Border"
 local BRANCH_TEXTURE = "Interface\\TalentFrame\\UI-TalentBranches"
 local ARROW_TEXTURE = "Interface\\TalentFrame\\UI-TalentArrows"
-local GLYPH_TEXTURE = "Interface\\Spellbook\\UI-GlyphFrame"
-local LOCKED_TEXTURE = "Interface\\Spellbook\\UI-GlyphFrame-Locked"
+local GLYPH_RUNE_TEXTURE = "Interface\\Spellbook\\UI-Glyph-Rune1"
+local GLYPH_LOCK_TEXTURE = "Interface\\LFGFrame\\UI-LFG-ICON-LOCK"
 local PARCHMENT_TEXTURE = "Interface\\AchievementFrame\\UI-Achievement-Parchment"
 
 local SLOT_AVAILABLE = { 0.1, 1, 0.1 }
@@ -79,44 +79,15 @@ local ARROW_COORDS = {
 	left = { [true] = { 0.5, 1, 0, 0.5 }, [false] = { 0.5, 1, 0.5, 1 } },
 }
 
-local GLYPH_CROP_LEFT, GLYPH_CROP_RIGHT, GLYPH_CROP_TOP, GLYPH_CROP_BOTTOM = 18, 330, 42, 420
-local GLYPH_SCALE = (GLYPH_WIDTH - PANE_BORDER * 2) / (GLYPH_CROP_RIGHT - GLYPH_CROP_LEFT)
-local GLYPH_ART_HEIGHT = (GLYPH_CROP_BOTTOM - GLYPH_CROP_TOP) * GLYPH_SCALE
-local GLYPH_NAME_HEIGHT = 16
 local GLYPH_TYPES = { 1, 2, 2, 1, 2, 1 }
 local GLYPH_LABELS = { "MAJOR_GLYPH", "MINOR_GLYPH" }
 local GLYPH_COLORS = { { 1, 0.25, 0 }, { 0, 0.25, 1 } }
-local GLYPH_SOCKETS = { { 177, 116 }, { 178, 359 }, { 73, 178 }, { 283, 299 }, { 283, 178 }, { 71, 299 } }
-local GLYPH_SLOTS = {
-	[0] = { 0.78125, 0.91015625, 0.69921875, 0.828125 },
-	{ 0, 0.12890625, 0.87109375, 1 },
-	{ 0.130859375, 0.259765625, 0.87109375, 1 },
-	{ 0.392578125, 0.521484375, 0.87109375, 1 },
-	{ 0.5234375, 0.65234375, 0.87109375, 1 },
-	{ 0.26171875, 0.390625, 0.87109375, 1 },
-	{ 0.654296875, 0.783203125, 0.87109375, 1 },
-}
-local GLYPH_STYLES = {
-	{
-		setting = 108,
-		settingCoords = { 0.740234375, 0.953125, 0.484375, 0.697265625 },
-		ring = 82,
-		ringY = -1,
-		ringCoords = { 0.767578125, 0.92578125, 0.32421875, 0.482421875 },
-		shineCoords = { 0.9609375, 1, 0.9609375, 1 },
-		background = 70,
-	},
-	{
-		setting = 86,
-		settingCoords = { 0.765625, 0.927734375, 0.15625, 0.31640625 },
-		ring = 62,
-		ringY = 1,
-		ringCoords = { 0.787109375, 0.908203125, 0.033203125, 0.154296875 },
-		shineCoords = { 0.9609375, 1, 0.921875, 0.9609375 },
-		background = 64,
-	},
-}
-local GLYPH_HIGHLIGHT_ALPHA = 0.4
+local GLYPH_ICON_SIZES = { 32, 26 }
+local GLYPH_NAME_FONTS = { "QuestFont", "QuestFontNormalSmall" }
+local GLYPH_PADDING = 8
+local GLYPH_INDENT = 18
+local GLYPH_ROW_GAP = 8
+local GLYPH_PULSE = 1.6
 
 local SPECS = {
 	{ group = 1, pet = false, unit = "player", name = "TALENT_SPEC_PRIMARY", glyphName = "TALENT_SPEC_PRIMARY_GLYPH" },
@@ -578,16 +549,16 @@ local function glyphEditable()
 end
 
 local function showGlyphTooltip(self)
-	if self.background:IsShown() then
-		self.highlight:Show()
-	end
+	self.slot:LockHighlight()
 	GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
 	GameTooltip:SetGlyph(self.socket, view.group)
 	GameTooltip:Show()
 end
 
 local function hideGlyphTooltip(self)
-	self.highlight:Hide()
+	if not self.pulsing then
+		self.slot:UnlockHighlight()
+	end
 	GameTooltip:Hide()
 end
 
@@ -622,95 +593,49 @@ local function onGlyphClick(self, mouseButton)
 end
 
 local function onGlyphUpdate(self, elapsed)
-	local hasGlyph = self.glyph:IsShown()
-	if hasGlyph or self.elapsed > 0 then
-		self.elapsed = self.elapsed + elapsed
+	local highlight = self.slot:GetHighlightTexture()
+	if self.empty and self.editable and GlyphMatchesSocket(self.socket) then
+		self.elapsed = (self.elapsed + elapsed) % GLYPH_PULSE
+		local half = GLYPH_PULSE / 2
 		local t = self.elapsed
-		if t >= 6 then
-			self.setting:SetAlpha(0.6)
-			self.elapsed = 0
-		elseif t <= 2 then
-			self.setting:SetAlpha(0.6 + 0.4 * t / 2)
-		elseif t >= 4 then
-			self.setting:SetAlpha(1 - 0.4 * (t - 4) / 2)
-		end
-	else
-		self.setting:SetAlpha(0.6)
-	end
-
-	if not hasGlyph and self.editable and self.background:IsShown() and GlyphMatchesSocket(self.socket) then
-		self.tintElapsed = self.tintElapsed + elapsed
-		self.background:SetTexCoord(unpack(GLYPH_SLOTS[self.socket]))
-		local hovered = self:IsMouseOver()
-		if not hovered then
-			self.highlight:Show()
-		end
-		local t, alpha = self.tintElapsed
-		if t >= 1.6 then
-			alpha = 1
-			self.tintElapsed = 0
-		elseif t <= 0.6 then
-			alpha = 1 - 0.6 * t / 0.6
-		elseif t >= 0.8 then
-			alpha = 0.4 + 0.6 * (t - 0.8) / 0.8
-		end
-		if alpha then
-			self.background:SetAlpha(alpha)
-			self.highlight:SetAlpha(hovered and GLYPH_HIGHLIGHT_ALPHA or GLYPH_HIGHLIGHT_ALPHA * alpha)
-		end
-	elseif not hasGlyph then
-		self.background:SetTexCoord(unpack(GLYPH_SLOTS[0]))
-		self.background:SetAlpha(1)
-		if self.tintElapsed > 0 then
-			self.tintElapsed = 0
-			self.highlight:SetAlpha(GLYPH_HIGHLIGHT_ALPHA)
-			if not self:IsMouseOver() then
-				self.highlight:Hide()
-			end
+		self.pulsing = true
+		self.slot:LockHighlight()
+		highlight:SetAlpha(t < half and t / half or (GLYPH_PULSE - t) / half)
+	elseif self.pulsing then
+		self.pulsing, self.elapsed = nil, 0
+		highlight:SetAlpha(1)
+		if not self:IsMouseOver() then
+			self.slot:UnlockHighlight()
 		end
 	end
 end
 
-local function createGlyphTexture(button, layer, size)
-	local texture = button:CreateTexture(nil, layer)
-	texture:SetTexture(GLYPH_TEXTURE)
-	if size then
-		texture:SetSize(size * GLYPH_SCALE, size * GLYPH_SCALE)
-	end
-	texture:SetPoint("CENTER")
-	return texture
-end
-
-local function createGlyphSocket(panel, socket)
-	local center = GLYPH_SOCKETS[socket]
-	local button = CreateFrame("Button", nil, panel.art)
-	button:SetFrameLevel(panel.art:GetFrameLevel() + 1)
-	button:SetSize(90 * GLYPH_SCALE, 90 * GLYPH_SCALE)
-	button:SetPoint(
-		"CENTER",
-		panel.art,
-		"TOPLEFT",
-		(center[1] - GLYPH_CROP_LEFT) * GLYPH_SCALE,
-		-(center[2] - GLYPH_CROP_TOP) * GLYPH_SCALE
-	)
+local function createGlyphRow(panel, socket, glyphType)
+	local size = GLYPH_ICON_SIZES[glyphType]
+	local button = CreateFrame("Button", nil, panel)
+	button:SetHeight(size)
 	button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	button.socket = socket
-	button.elapsed, button.tintElapsed = 0, 0
+	button.elapsed = 0
 
-	button.setting = createGlyphTexture(button, "BACKGROUND")
-	local highlight = createGlyphTexture(button, "BORDER")
-	highlight:SetBlendMode("ADD")
-	highlight:SetVertexColor(1, 1, 1, 0.25)
-	highlight:SetAlpha(GLYPH_HIGHLIGHT_ALPHA)
-	highlight:Hide()
-	button.highlight = highlight
-	button.background = createGlyphTexture(button, "BORDER")
-	button.glyph = createGlyphTexture(button, "ARTWORK", 53)
-	button.ring = createGlyphTexture(button, "OVERLAY")
-	local shine = createGlyphTexture(button, "OVERLAY", 16)
-	shine:ClearAllPoints()
-	shine:SetPoint("CENTER", -9 * GLYPH_SCALE, 12 * GLYPH_SCALE)
-	button.shine = shine
+	local slot = CreateFrame("Button", nil, button)
+	slot:SetSize(size, size)
+	slot:SetPoint("LEFT")
+	slot:EnableMouse(false)
+	ns.SkinIconButton(slot, "empty")
+	button.slot = slot
+
+	local lock = slot:CreateTexture(nil, "OVERLAY")
+	lock:SetTexture(GLYPH_LOCK_TEXTURE)
+	lock:SetSize(size * 0.6, size * 0.6)
+	lock:SetPoint("CENTER")
+	button.lock = lock
+
+	local name = button:CreateFontString(nil, "ARTWORK", GLYPH_NAME_FONTS[glyphType])
+	name:SetPoint("LEFT", slot, "RIGHT", 8, 0)
+	name:SetPoint("RIGHT")
+	name:SetJustifyH("LEFT")
+	button.nameText = name
 
 	button:SetScript("OnClick", onGlyphClick)
 	button:SetScript("OnEnter", showGlyphTooltip)
@@ -720,71 +645,31 @@ local function createGlyphSocket(panel, socket)
 	return button
 end
 
-local function setGlyphType(button, glyphType)
-	local style = GLYPH_STYLES[glyphType]
-	local settingSize = style.setting * GLYPH_SCALE
-	button.setting:SetTexture(GLYPH_TEXTURE)
-	button.setting:SetSize(settingSize, settingSize)
-	button.setting:SetTexCoord(unpack(style.settingCoords))
-	button.highlight:SetSize(settingSize, settingSize)
-	button.highlight:SetTexCoord(unpack(style.settingCoords))
-	button.ring:SetSize(style.ring * GLYPH_SCALE, style.ring * GLYPH_SCALE)
-	button.ring:SetPoint("CENTER", 0, style.ringY * GLYPH_SCALE)
-	button.ring:SetTexCoord(unpack(style.ringCoords))
-	button.shine:SetTexCoord(unpack(style.shineCoords))
-	button.background:SetSize(style.background * GLYPH_SCALE, style.background * GLYPH_SCALE)
-	setColor(button.glyph, GLYPH_COLORS[glyphType])
-end
-
-local function updateGlyphSocket(button, editable)
-	local socket = button.socket
-	local enabled, glyphType, glyphSpell, iconFile = GetGlyphSocketInfo(socket, view.group)
-	setGlyphType(button, glyphType == 2 and 2 or 1)
+local function updateGlyphRow(button, glyphType, editable)
+	local enabled, _, glyphSpell, iconFile = GetGlyphSocketInfo(button.socket, view.group)
 	button.editable = editable
-	button.elapsed, button.tintElapsed = 0, 0
-	if not button:IsMouseOver() then
-		button.highlight:Hide()
-	end
-	button.highlight:SetAlpha(GLYPH_HIGHLIGHT_ALPHA)
+	button.empty = enabled and not glyphSpell
+	ns.SetShown(button.lock, not enabled)
 
-	if not enabled then
-		button.shine:Hide()
-		button.background:Hide()
-		button.glyph:Hide()
-		button.ring:Hide()
-		button.setting:SetTexture(LOCKED_TEXTURE)
-		button.setting:SetTexCoord(0.1, 0.9, 0.1, 0.9)
+	local icon, name = button.slot.icon, button.nameText
+	if not glyphSpell then
+		icon:SetTexture(nil)
+		name:SetText(enabled and GLYPH_EMPTY or GLYPH_LOCKED)
+		name:SetTextColor(unpack(PARCHMENT_DISABLED_COLOR))
 	else
-		button.shine:Show()
-		button.background:Show()
-		button.background:SetAlpha(1)
-		button.ring:Show()
-		if glyphSpell then
-			button.background:SetTexCoord(unpack(GLYPH_SLOTS[socket]))
-			button.glyph:SetTexture(iconFile or "Interface\\Spellbook\\UI-Glyph-Rune1")
-			button.glyph:Show()
+		local spellIcon = ns.GlyphSpellIcon(glyphSpell)
+		if spellIcon then
+			icon:SetTexture(spellIcon)
+			icon:SetVertexColor(1, 1, 1)
 		else
-			button.background:SetTexCoord(unpack(GLYPH_SLOTS[0]))
-			button.glyph:Hide()
+			icon:SetTexture(iconFile or GLYPH_RUNE_TEXTURE)
+			setColor(icon, GLYPH_COLORS[glyphType])
 		end
-	end
-	local desaturated = not editable
-	button.setting:SetDesaturated(desaturated)
-	button.background:SetDesaturated(desaturated)
-	button.glyph:SetDesaturated(desaturated)
-	button.ring:SetDesaturated(desaturated)
-
-	local name = button.nameText
-	if not enabled then
-		name:SetText(GLYPH_LOCKED)
-		name:SetTextColor(unpack(PARCHMENT_DISABLED_COLOR))
-	elseif not glyphSpell then
-		name:SetText(GLYPH_EMPTY)
-		name:SetTextColor(unpack(PARCHMENT_DISABLED_COLOR))
-	else
 		name:SetText((GetSpellInfo(glyphSpell)))
 		name:SetTextColor(unpack(PARCHMENT_TEXT_COLOR))
 	end
+	icon:SetDesaturated(not editable)
+	button.lock:SetDesaturated(not editable)
 end
 
 local function updateGlyphs(height, numGroups)
@@ -793,31 +678,27 @@ local function updateGlyphs(height, numGroups)
 	panel.title:SetText(numGroups > 1 and spec and spec.glyphName and _G[spec.glyphName] or GLYPHS)
 	local editable = glyphEditable()
 	panel.background:SetDesaturated(not editable)
-	local y = PANE_BORDER + PANE_HEADER + GLYPH_ART_HEIGHT + 8
+	local left = PANE_BORDER + GLYPH_INDENT
+	local right = PANE_BORDER + GLYPH_PADDING
+	local y = PANE_BORDER + PANE_HEADER + GLYPH_PADDING
 	for glyphType = 1, 2 do
-		local header = panel.headers[glyphType]
-		header:SetPoint("TOPLEFT", 12, -y)
+		panel.headers[glyphType]:SetPoint("TOPLEFT", left, -y)
 		y = y + 22
 		for socket = 1, GetNumGlyphSockets() do
 			local _, socketType = GetGlyphSocketInfo(socket, view.group)
 			if (socketType or GLYPH_TYPES[socket]) == glyphType then
-				local button = panel.sockets[socket] or createGlyphSocket(panel, socket)
-				if not button.nameText then
-					local name = panel:CreateFontString(nil, "ARTWORK", "QuestFontNormalSmall")
-					name:SetJustifyH("LEFT")
-					button.nameText = name
-				end
-				button.nameText:SetPoint("TOPLEFT", 20, -y)
-				button.nameText:SetPoint("RIGHT", -12, 0)
-				updateGlyphSocket(button, editable)
-				y = y + GLYPH_NAME_HEIGHT
+				local button = panel.sockets[socket] or createGlyphRow(panel, socket, glyphType)
+				button:SetPoint("TOPLEFT", left, -y)
+				button:SetPoint("RIGHT", -right, 0)
+				updateGlyphRow(button, glyphType, editable)
+				y = y + GLYPH_ICON_SIZES[glyphType] + GLYPH_ROW_GAP
 			end
 		end
-		y = y + 6
+		y = y + GLYPH_PADDING
 	end
 	panel:SetHeight(height)
 	local owner = GameTooltip:GetOwner()
-	if owner and owner.socket and owner:GetParent() == panel.art and owner:IsMouseOver() then
+	if owner and owner.socket and owner:GetParent() == panel and owner:IsMouseOver() then
 		showGlyphTooltip(owner)
 	end
 end
@@ -839,11 +720,6 @@ local function createGlyphPanel()
 	local title = header:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 	title:SetPoint("CENTER", 0, 1)
 	panel.title = title
-
-	local art = CreateFrame("Frame", nil, panel)
-	art:SetPoint("TOPLEFT", PANE_BORDER, -(PANE_BORDER + PANE_HEADER))
-	art:SetSize(GLYPH_WIDTH - PANE_BORDER * 2, GLYPH_ART_HEIGHT)
-	panel.art = art
 
 	panel.headers = {}
 	for glyphType, label in ipairs(GLYPH_LABELS) do
