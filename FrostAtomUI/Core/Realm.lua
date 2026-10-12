@@ -8,7 +8,7 @@ local NAMES = { wowcircle = "WoW Circle", warmane = "Warmane", other = "Other se
 
 local function detect()
 	local realmlist = (GetCVar("realmlist") or ""):lower()
-	if realmlist:find("wowcircle") then
+	if realmlist:find("wowcircle", 1, true) or realmlist:find("circle-servers", 1, true) then
 		return "wowcircle"
 	elseif realmlist:find("warmane") then
 		return "warmane"
