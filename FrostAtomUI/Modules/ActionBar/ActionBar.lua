@@ -177,15 +177,30 @@ local CLASS_PAGE_CONDITIONS = {
 	PRIEST = "[bonusbar:1] 7;",
 }
 
-local classPageCondition = CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
+local STEALTH_FREE_PAGE_CONDITIONS = {
+	DRUID = "[bonusbar:1] 7; [bonusbar:3] 9; [bonusbar:4] 10;",
+	ROGUE = "[bonusbar:2] 8;",
+}
+
+ActionBar.HAS_STEALTH_PAGE = STEALTH_FREE_PAGE_CONDITIONS[ns.PLAYER_CLASS] ~= nil
+
 -- 3.3.5 has no [possessbar] (unknown macro option error); possess is [bonusbar:5]
 local PAGE_DRIVER_CONDITION = "[vehicleui] 11; [bonusbar:5] 11; [bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; "
-	.. (classPageCondition and classPageCondition .. " " or "")
-	.. "1"
+
+function ActionBar.DefaultPageCondition()
+	local class = config.bar1.keepPageInStealth and STEALTH_FREE_PAGE_CONDITIONS[ns.PLAYER_CLASS]
+		or CLASS_PAGE_CONDITIONS[ns.PLAYER_CLASS]
+	return PAGE_DRIVER_CONDITION .. (class and class .. " " or "") .. "1"
+end
 
 local function pageCondition()
 	local custom = config.bar1.paging and strtrim(config.bar1.paging) or ""
-	return custom ~= "" and custom or PAGE_DRIVER_CONDITION
+	return custom ~= "" and custom or ActionBar.DefaultPageCondition()
+end
+
+function ActionBar:GetPageCondition()
+	local bar = self.bars[1]
+	return bar and bar.pageCondition or pageCondition()
 end
 
 local PAGE_CHANGED_SNIPPET = [[

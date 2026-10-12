@@ -173,6 +173,18 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 	end
 	if prefix == "actionBar.bar1" then
 		schema[#schema + 1] = {
+			path = "actionBar.bar1.keepPageInStealth",
+			new = "1.5.0",
+			hidden = not ui.ActionBar.HAS_STEALTH_PAGE,
+			label = L["Keep the page in stealth"],
+			type = "toggle",
+			disabled = function()
+				return strtrim(ui:GetConfig("actionBar.bar1.paging") or "") ~= ""
+			end,
+			disabledDesc = L["Not used with a page condition."],
+			desc = L["Bar 1 stays on its page while stealthed instead of switching to the stealth page."],
+		}
+		schema[#schema + 1] = {
 			path = "actionBar.bar1.paging",
 			advanced = true,
 			label = L["Page condition"],
@@ -180,6 +192,10 @@ local function barSchema(prefix, hasToggle, hasCount, extra)
 			width = 240,
 			maxLetters = 300,
 			validate = validatePaging,
+			placeholder = ui.ActionBar.DefaultPageCondition,
+			note = function()
+				return L["Applied: %s"]:format(ui.ActionBar:GetPageCondition())
+			end,
 			desc = L['A macro condition that picks the page of bar 1, e.g. "[mod:shift] 2; [form:1] 7; 1". Empty: the game paging with stances, forms, vehicles and the bar switch keys.'],
 		}
 	end
@@ -315,7 +331,15 @@ local function extraBarName(page)
 	return L["Bar %d"]:format(page)
 end
 
+local STEALTH_PAGES = {
+	DRUID = 8,
+	ROGUE = 7,
+}
+
 local function pageOwner(page)
+	if page == STEALTH_PAGES[ui.PLAYER_CLASS] and ui:GetConfig("actionBar.bar1.keepPageInStealth") then
+		return
+	end
 	local spells = CLASS_PAGE_SPELLS[ui.PLAYER_CLASS]
 	local spell = spells and spells[page]
 	return spell and GetSpellInfo(spell)

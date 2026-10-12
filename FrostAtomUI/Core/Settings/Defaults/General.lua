@@ -37,7 +37,7 @@ ns:RegisterDefaults("cooldownTimer", {
 
 ns:RegisterDefaults("actionBar", {
 	enabled = true,
-	bar1 = ns.Mixin(actionBarDefaults(nil, { "BOTTOM", 0, 2 }, 12, 12, 36), { visibility = "", paging = "" }),
+	bar1 = ns.Mixin(actionBarDefaults(nil, { "BOTTOM", 0, 2 }, 12, 12, 36), { visibility = "", paging = "", keepPageInStealth = false }),
 	bar2 = ns.Mixin(actionBarDefaults(true, { "BOTTOM", 0, 40 }, 12, 12, 36), { visibility = "" }),
 	bar3 = ns.Mixin(actionBarDefaults(true, { "BOTTOM", 0, 78 }, 12, 12, 36), { visibility = "" }),
 	bar4 = ns.Mixin(actionBarDefaults(true, { "BOTTOM", -316, 2 }, 12, 4, 36), { visibility = "" }),

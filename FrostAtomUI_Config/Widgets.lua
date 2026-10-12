@@ -394,8 +394,10 @@ local function rowEnter(row)
 	local wheel = range or entry.type == "font" or entry.type == "offset" or entry.type == "point"
 	local added = row.newBadge and entry.new
 	local alias = entry.aliasPlace
+	local note = entry.note and entry.note()
 	if
 		not entry.desc
+		and not note
 		and not alias
 		and not wheel
 		and not ns.NeedsReload(entry)
@@ -411,6 +413,9 @@ local function rowEnter(row)
 	GameTooltip:SetText(entry.label, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 	if entry.desc then
 		addTooltipLine(entry.desc, NORMAL_FONT_COLOR, true)
+	end
+	if note then
+		addTooltipLine(note, HIGHLIGHT_FONT_COLOR, true)
 	end
 	if problem then
 		addTooltipLine(problem.text, problem.color, true)

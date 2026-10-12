@@ -154,6 +154,22 @@ function creators.string(parent, entry)
 	box:SetPoint("LEFT", CONTROL_X + 6, 0)
 	box:SetMaxLetters(entry.maxLetters or 24)
 	row.box = box
+	local placeholder
+	if entry.placeholder then
+		placeholder = box:CreateFontString(nil, "ARTWORK")
+		placeholder:SetFontObject(box:GetFontObject())
+		placeholder:SetTextColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+		placeholder:SetPoint("LEFT")
+		placeholder:SetPoint("RIGHT")
+		placeholder:SetHeight(box:GetHeight())
+		placeholder:SetJustifyH("LEFT")
+		local function updatePlaceholder()
+			ui.SetShown(placeholder, not box.editing and box:GetText() == "")
+		end
+		box:HookScript("OnEditFocusGained", updatePlaceholder)
+		box:HookScript("OnEditFocusLost", updatePlaceholder)
+		box:HookScript("OnTextChanged", updatePlaceholder)
+	end
 	box.OnCommit = function(self)
 		local text = self:GetText()
 		if changes.Validate(row, self, text, true) then
@@ -168,6 +184,9 @@ function creators.string(parent, entry)
 	row.Refresh = function()
 		if box.editing or (row.problem and row.problem.rejected) then
 			return
+		end
+		if placeholder then
+			placeholder:SetText(type(entry.placeholder) == "function" and entry.placeholder() or entry.placeholder)
 		end
 		local text = get(entry) or ""
 		box:SetText(text)
