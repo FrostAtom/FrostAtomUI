@@ -928,23 +928,32 @@ function Parser.OptionsValid(text)
 	return not strfind((strgsub(text, "%[([^%]]*)%]", markUnknownGroup)), "[", 1, true)
 end
 
-function Parser.FirstAction(text)
-	local position, length = 1, #text
-	while position <= length do
-		local stop = strfind(text, "[\r\n]", position) or length + 1
-		local line = strsub(text, position, stop - 1)
-		local show = strmatch(line, "^#showtooltip%s+(.+)$") or strmatch(line, "^#show%s+(.+)$")
-		if show then
-			return "action", show
+local ICON_KINDS = { action = true, actions = true, sequence = true, item = true, slotitem = true }
+
+function Parser.IconActions(text)
+	local actions, tooltip = {}, false
+	for line in gmatch(text, "[^\r\n]+") do
+		local word, args = strmatch(line, "^(%S+)%s*(.-)%s*$")
+		local kind
+		if word and strfind(word, "^#show") then
+			kind = "show"
+			tooltip = tooltip or strfind(word, "^#showtooltip") ~= nil
+		elseif word and strbyte(word) == BYTE_SLASH then
+			local entry = lookupCommand(word)
+			kind = entry and entry.kind == "secure" and SECURE_COMMANDS[entry.key]
+			kind = ICON_KINDS[kind] and kind
 		end
-		local command, args = strmatch(line, "^(/[^%s]+)%s+(.+)$")
-		if command then
-			local entry = lookupCommand(command)
-			local kind = entry and entry.kind == "secure" and SECURE_COMMANDS[entry.key]
-			if kind == "action" or kind == "sequence" or kind == "actions" then
-				return kind, args
+		if kind and args ~= "" then
+			if strlower(args) == "none" then
+				break
+			end
+			local slot = kind == "slotitem" and strmatch(args, "^%d*%s*(.*)$") or args
+			local dynamic = kind == "sequence" or strbyte(args) == BYTE_OPEN or strfind(slot, "^%d") ~= nil
+			actions[#actions + 1] = { kind = kind == "show" and "action" or kind, args = args }
+			if kind == "show" or not dynamic and #actions == 1 then
+				break
 			end
 		end
-		position = stop + 1
 	end
+	return actions, tooltip
 end

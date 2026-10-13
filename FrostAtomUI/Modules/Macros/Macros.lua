@@ -9,6 +9,10 @@ local GetBindingKey, SetBinding, SetBindingClick, SaveBindings, GetCurrentBindin
 local GetMacroInfo, GetNumMacros, CreateMacro, EditMacro, DeleteMacro, PickupMacro =
 	GetMacroInfo, GetNumMacros, CreateMacro, EditMacro, DeleteMacro, PickupMacro
 local GetNumMacroIcons, GetMacroIconInfo = GetNumMacroIcons, GetMacroIconInfo
+local GetItemInfo, GetSpellTexture, GetContainerItemInfo, GetInventoryItemTexture =
+	GetItemInfo, GetSpellTexture, GetContainerItemInfo, GetInventoryItemTexture
+local SecureCmdOptionParse, SecureCmdItemParse, QueryCastSequence =
+	SecureCmdOptionParse, SecureCmdItemParse, QueryCastSequence
 
 local Parser = ns.MacroParser
 
@@ -19,7 +23,7 @@ local BUTTON_PREFIX = "FAMacro"
 local CHAIN_RESERVE = 40
 local STUB_LIMIT = 255
 local STUB_NAME_LIMIT = 16
-local BYTE_HASH, BYTE_DASH = strbyte("#"), strbyte("-")
+local BYTE_HASH, BYTE_DASH, BYTE_OPEN = strbyte("#"), strbyte("-"), strbyte("[")
 local MAX_ACCOUNT = MAX_ACCOUNT_MACROS or 36
 local MAX_CHARACTER = MAX_CHARACTER_MACROS or 18
 
@@ -178,29 +182,109 @@ function Macros.GameIndices(scope, out)
 	return out, hidden
 end
 
-local function stubHeader(macro)
-	local body = macro.body
-	for line in gmatch(body, "[^\r\n]+") do
-		if strmatch(line, "^#show") then
-			if not Parser.OptionsValid(line) then
-				return
-			end
-			return Macros.Encode(line)
+local function clauseAction(kind, action)
+	if kind == "actions" then
+		return strtrim(strmatch(action, "^[^,]*"))
+	elseif kind == "slotitem" then
+		return (strmatch(action, "^%d*%s*(.-)%s*$"))
+	end
+	return action
+end
+
+local function showArgs(kind, args)
+	args = strgsub(args, "[;%s]+$", "")
+	if kind == "action" or kind == "item" then
+		return args
+	end
+	local clauses = {}
+	for clause in gmatch(args .. ";", "([^;]*);") do
+		local conditions, action = strmatch(clause, "^(%s*%[.*%]%s*)(.*)$")
+		if not conditions then
+			conditions, action = "", clause
 		end
+		clauses[#clauses + 1] = conditions .. clauseAction(kind, action)
 	end
-	local kind, args = Parser.FirstAction(body)
-	if kind == "action" and Parser.OptionsValid(args) then
-		return "#showtooltip " .. Macros.Encode(args)
+	return tconcat(clauses, ";")
+end
+
+local function stubHeader(macro, room)
+	local actions, tooltip = Parser.IconActions(macro.body)
+	local header
+	for i = 1, #actions do
+		local kind, args = actions[i].kind, actions[i].args
+		if kind == "sequence" or not Parser.OptionsValid(args) then
+			break
+		end
+		args = Macros.Encode(showArgs(kind, args))
+		local candidate = header and header .. ";" .. args or (tooltip and "#showtooltip " or "#show ") .. args
+		if #candidate > room then
+			break
+		end
+		header = candidate
 	end
+	return header
 end
 
 local function stubBody(macro)
 	local line = stubLine(macro)
-	local header = stubHeader(macro)
-	if header and #header + 1 + #line <= STUB_LIMIT then
+	local header = stubHeader(macro, STUB_LIMIT - 1 - #line)
+	if header then
 		return header .. "\n" .. line
 	end
 	return line
+end
+
+local function itemTexture(action)
+	local name, bag, slot = SecureCmdItemParse(action)
+	if bag then
+		return (GetContainerItemInfo(tonumber(bag), tonumber(slot)))
+	elseif slot then
+		return GetInventoryItemTexture("player", tonumber(slot))
+	end
+	return name and select(10, GetItemInfo(name))
+end
+
+local function actionTexture(kind, action)
+	if kind == "sequence" then
+		local _, item, spell = QueryCastSequence(action)
+		action = item or spell
+	else
+		action = clauseAction(kind, action)
+	end
+	if not action or action == "" then
+		return
+	end
+	return itemTexture(action) or GetSpellTexture((strgsub(action, "^!+", "")))
+end
+
+function Macros.AutoIcon(body)
+	local actions = Parser.IconActions(body)
+	for i = 1, #actions do
+		local kind, args = actions[i].kind, actions[i].args
+		if not Parser.OptionsValid(args) then
+			break
+		end
+		local action = args
+		if strbyte(args) == BYTE_OPEN then
+			action = SecureCmdOptionParse(args)
+		end
+		if action and action ~= "" then
+			return actionTexture(kind, action)
+		end
+	end
+end
+
+-- GetMacroInfo returns the spell or item icon of a question mark macro, not the question mark
+function Macros.GameIcon(index)
+	local _, texture, body = GetMacroInfo(index)
+	if not texture or texture == ns.Media.questionMark then
+		return nil
+	end
+	local auto = Macros.AutoIcon(Parser.Decode(body or ""))
+	if auto and strlower(auto) == strlower(texture) then
+		return nil
+	end
+	return texture
 end
 
 local function stubName(macro)
@@ -363,14 +447,13 @@ function Macros.ConvertGameMacro(index)
 		ns.Print(L["cannot change macros in combat"])
 		return
 	end
-	local name, texture, body = GetMacroInfo(index)
+	local name, _, body = GetMacroInfo(index)
 	if not name then
 		return
 	end
-	local icon = texture ~= ns.Media.questionMark and texture or nil
 	local raw = Parser.Decode(body or "")
 	local scope = index > MAX_ACCOUNT and "char" or "account"
-	local macro = Macros.Create(scope, name, icon, raw)
+	local macro = Macros.Create(scope, name, Macros.GameIcon(index), raw)
 
 	local command = "MACRO " .. name
 	local key = GetBindingKey(command)
@@ -404,11 +487,11 @@ function Macros.ExportItem(scope, entry)
 	if type(entry) == "table" then
 		return { scope = scope, name = entry.name, icon = entry.icon, body = entry.body }
 	end
-	local name, texture, body = GetMacroInfo(entry)
+	local name, _, body = GetMacroInfo(entry)
 	return {
 		scope = scope,
 		name = name,
-		icon = texture ~= ns.Media.questionMark and texture or nil,
+		icon = Macros.GameIcon(entry),
 		body = (Parser.Decode(body or "")),
 	}
 end

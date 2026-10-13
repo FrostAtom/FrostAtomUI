@@ -330,15 +330,37 @@ return function(ns, env, R)
 		end
 	end)
 
-	test("Macro parser: FirstAction", function()
-		expect.deepEq({ Parser.FirstAction("#showtooltip Fireball\n/cast Frostbolt") }, { "action", "Fireball" })
-		expect.deepEq({ Parser.FirstAction("#showtooltip\n/say hi\n/cast [combat] Frostbolt") }, {
-			"action",
-			"[combat] Frostbolt",
+	test("Macro parser: IconActions", function()
+		local function action(kind, args)
+			return { kind = kind, args = args }
+		end
+		expect.deepEq({ Parser.IconActions("#showtooltip Fireball\n/cast Frostbolt") }, {
+			{ action("action", "Fireball") },
+			true,
 		})
-		expect.deepEq({ Parser.FirstAction("/castsequence reset=5 A, B") }, { "sequence", "reset=5 A, B" })
-		expect.deepEq({ Parser.FirstAction("/castrandom A, B") }, { "actions", "A, B" })
-		expect.eq(Parser.FirstAction("/target focus\n/stopcasting\n/s hi"), nil)
+		expect.deepEq({ Parser.IconActions("#showtooltip\n/say hi\n/cast [combat] Frostbolt\n/cast Fireball") }, {
+			{ action("action", "[combat] Frostbolt"), action("action", "Fireball") },
+			true,
+		})
+		expect.deepEq({ Parser.IconActions("/cast Frostbolt\n/cast [combat] Fireball") }, {
+			{ action("action", "Frostbolt") },
+			false,
+		})
+		expect.deepEq({ Parser.IconActions("/cast [mod] A\n#show B\n/cast C") }, {
+			{ action("action", "[mod] A"), action("action", "B") },
+			false,
+		})
+		expect.deepEq({ Parser.IconActions("/use 13\n/cast A") }, {
+			{ action("action", "13"), action("action", "A") },
+			false,
+		})
+		expect.deepEq({ Parser.IconActions("/castsequence reset=5 A, B") }, {
+			{ action("sequence", "reset=5 A, B") },
+			false,
+		})
+		expect.deepEq({ Parser.IconActions("/castrandom A, B") }, { { action("actions", "A, B") }, false })
+		expect.deepEq({ Parser.IconActions("#show none\n/cast A") }, { {}, false })
+		expect.deepEq({ Parser.IconActions("/target focus\n/stopcasting\n/s hi") }, { {}, false })
 	end)
 
 	test("Macro parser: InvalidateSpells picks up newly learned spells", function()

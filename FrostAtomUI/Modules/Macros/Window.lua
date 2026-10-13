@@ -1,8 +1,8 @@
 local _, ns = ...
 local L = ns.L
 
-local strbyte, strsub, strfind, strmatch, strlower, strtrim, strsplit =
-	string.byte, string.sub, string.find, string.match, string.lower, strtrim, strsplit
+local strbyte, strsub, strfind, strmatch, strlower, strtrim =
+	string.byte, string.sub, string.find, string.match, string.lower, strtrim
 local floor, min, max, ceil = math.floor, math.min, math.max, math.ceil
 local tconcat = table.concat
 local InCombatLockdown, GetCursorInfo, ClearCursor = InCombatLockdown, GetCursorInfo, ClearCursor
@@ -14,10 +14,9 @@ local GetBindingKey, GetBindingAction, GetBindingText, SetBinding, SetBindingCli
 local SaveBindings, GetCurrentBindingSet = SaveBindings, GetCurrentBindingSet
 local IsShiftKeyDown, IsControlKeyDown, IsAltKeyDown, IsMouseButtonDown =
 	IsShiftKeyDown, IsControlKeyDown, IsAltKeyDown, IsMouseButtonDown
-local GetSpellInfo, GetSpellName, GetItemInfo, GetItemSpell, GetSpellTexture =
-	GetSpellInfo, GetSpellName, GetItemInfo, GetItemSpell, GetSpellTexture
-local GetContainerItemInfo, GetInventoryItemTexture = GetContainerItemInfo, GetInventoryItemTexture
-local SecureCmdOptionParse, GameTooltip = SecureCmdOptionParse, GameTooltip
+local GetSpellInfo, GetSpellName, GetItemInfo, GetItemSpell =
+	GetSpellInfo, GetSpellName, GetItemInfo, GetItemSpell
+local GameTooltip = GameTooltip
 
 local Macros = ns:GetModule("Macros")
 local Parser = ns.MacroParser
@@ -197,42 +196,8 @@ local function entryKeys(entry)
 	return { GetBindingKey(entryCommand(entry)) }
 end
 
-local function itemTexture(action)
-	local name, bag, slot = SecureCmdItemParse(action)
-	if bag then
-		return (GetContainerItemInfo(tonumber(bag), tonumber(slot)))
-	elseif slot then
-		return GetInventoryItemTexture("player", tonumber(slot))
-	end
-	return name and select(10, GetItemInfo(name))
-end
-
-local function actionTexture(kind, args)
-	if not Parser.OptionsValid(args) then
-		return
-	end
-	local action = SecureCmdOptionParse(args)
-	if not action or action == "" then
-		return
-	end
-	if kind == "sequence" then
-		local _, item, spell = QueryCastSequence(action)
-		action = item or spell
-	elseif kind == "actions" then
-		action = strtrim((strsplit(",", action)))
-	end
-	if not action or action == "" then
-		return
-	end
-	return itemTexture(action) or GetSpellTexture((action:gsub("^!+", "")))
-end
-
 local function virtualIcon(macro)
-	if macro.icon then
-		return macro.icon
-	end
-	local kind, args = Parser.FirstAction(macro.body)
-	return kind and actionTexture(kind, args) or ns.Media.questionMark
+	return macro.icon or Macros.AutoIcon(macro.body) or ns.Media.questionMark
 end
 
 local function entryIcon(entry)
@@ -1390,7 +1355,7 @@ local function createPicker()
 		if virtual then
 			self.icon = entry.icon
 		else
-			self.icon = select(2, GetMacroInfo(entry))
+			self.icon = Macros.GameIcon(entry)
 		end
 		self.name:SetMaxLetters(virtual and 64 or 16)
 		self.nameLabel:SetText(virtual and L["Enter Macro Name (Max 64 Characters):"] or MACRO_POPUP_TEXT)

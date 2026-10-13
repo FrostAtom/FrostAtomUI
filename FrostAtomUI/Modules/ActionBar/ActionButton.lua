@@ -562,8 +562,9 @@ function ActionButtonMixin:Update()
 	local action = self.action
 
 	if HasAction(action) then
+		self.isMacro = GetActionInfo(action) == "macro"
 		self.usable, self.notEnoughMana = IsUsableAction(action)
-		self.outOfRange = hasTarget and IsActionInRange(action) == 0
+		self.outOfRange = (hasTarget or self.isMacro) and IsActionInRange(action) == 0
 		self.hasAction = true
 	elseif self.hasAction then
 		self.usable = true
@@ -583,7 +584,7 @@ function ActionButtonMixin:Update()
 end
 
 function ActionButtonMixin:UpdateRange()
-	local outOfRange = hasTarget and IsActionInRange(self.action) == 0
+	local outOfRange = (hasTarget or self.isMacro) and IsActionInRange(self.action) == 0
 	if outOfRange ~= self.outOfRange then
 		self.outOfRange = outOfRange
 		self:UpdateColors()
@@ -608,7 +609,7 @@ rangeTicker:SetScript("OnUpdate", function()
 			if expiry and now >= expiry then
 				button:UpdateCooldown()
 			end
-			if hasTarget and button:IsVisible() then
+			if (hasTarget or button.isMacro) and button:IsVisible() then
 				button:UpdateRange()
 			end
 		end
