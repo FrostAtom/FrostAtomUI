@@ -81,8 +81,6 @@ local function fillDeleteConfirmation(which)
 	end
 end
 
-local AUTO_RELEASE_DELAY = 1.5
-
 local function autoRelease()
 	local _, instanceType = IsInInstance()
 	if
@@ -102,9 +100,8 @@ hooksecurefunc("StaticPopup_Show", function(which)
 		return
 	end
 	if which == "DEATH" then
-		local _, instanceType = IsInInstance()
-		if config.autoRelease and instanceType == "pvp" and not HasSoulstone() then
-			ns.Scheduler.After(AUTO_RELEASE_DELAY, autoRelease)
+		if config.autoRelease then
+			autoRelease()
 		end
 	elseif which == "TRADE" then
 		if config.declineTradeInCombat and InCombatLockdown() then

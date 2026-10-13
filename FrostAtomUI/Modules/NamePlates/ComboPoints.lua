@@ -14,7 +14,6 @@ local config = ns.Config.namePlates
 local themeConfig = ns.Config.theme
 local plates = NamePlates.plates
 local guidPlates = NamePlates.guidPlates
-local WorldChildren = ns.WorldChildren
 
 local MAX_POINTS = 5
 local POINT_GAP = 2
@@ -125,7 +124,7 @@ end
 
 local function layoutRow(row, anchor)
 	local size = floor(config.comboPointSize + 0.5)
-	local pixel = WorldChildren.Pixel()
+	local pixel = NamePlates.Pixel()
 	row:SetSize(MAX_POINTS * size + (MAX_POINTS - 1) * POINT_GAP, size)
 	row:ClearAllPoints()
 	row:SetPoint("TOP", anchor, "BOTTOM", 0, -config.castbarGap)

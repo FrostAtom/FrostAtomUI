@@ -288,7 +288,7 @@ function Macros.GameIcon(index)
 end
 
 local function stubName(macro)
-	return ns.TruncateUTF8(macro.name ~= "" and macro.name or "?", STUB_NAME_LIMIT)
+	return ns.TruncateUTF8(macro.name ~= "" and macro.name or " ", STUB_NAME_LIMIT)
 end
 
 local function syncStub(macro)
@@ -363,7 +363,7 @@ end
 function Macros.Create(scope, name, icon, body)
 	local macro = {
 		id = store.nextId,
-		name = name or L["Macro %d"]:format(store.nextId),
+		name = name or "",
 		icon = icon,
 		body = body or "",
 	}

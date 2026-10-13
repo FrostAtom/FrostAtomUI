@@ -279,6 +279,32 @@ end
 local generalEntries = {
 	{ header = L["General"], glyph = "gear" },
 	{
+		path = "namePlates.scaleMode",
+		new = NEW,
+		label = L["Nameplate scale"],
+		type = "select",
+		values = {
+			{ "inherit", L["Follow UI scale"], L["Nameplates grow and shrink together with the UI scale."] },
+			{ "own", L["Own scale"], L["The scale from the slider below, whatever the UI scale is."] },
+			{ "none", L["Do not scale"], L["Sizes from the settings as is, at UI scale 100%."] },
+		},
+	},
+	{
+		path = "namePlates.scale",
+		new = NEW,
+		label = L["Own nameplate scale"],
+		type = "number",
+		percent = true,
+		min = 0.4,
+		max = 2,
+		step = 0.01,
+		applyOnRelease = true,
+		disabled = function()
+			return ui:GetConfig("namePlates.scaleMode") ~= "own"
+		end,
+		disabledDesc = L['Pick "Own scale" in nameplate scale.'],
+	},
+	{
 		path = "namePlates.spreadPlates",
 		new = NEW,
 		label = L["Spread overlapping nameplates"],

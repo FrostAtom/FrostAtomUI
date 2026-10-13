@@ -874,7 +874,7 @@ local function createNew()
 			ns.Print(L["cannot change macros in combat"])
 			return
 		end
-		local index = CreateMacro(L["New"], 1, "", tab == "gameChar")
+		local index = CreateMacro(" ", 1, "", tab == "gameChar")
 		if index then
 			selection[tab] = index
 		end

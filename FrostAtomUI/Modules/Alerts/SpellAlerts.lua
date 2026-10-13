@@ -9,7 +9,7 @@ local VOICE_PATH, LENGTHS, DEFAULT_LENGTH = Data.VOICE_PATH, Data.LENGTHS, Data.
 local bit_band = bit.band
 local tinsert, tremove, wipe = table.insert, table.remove, wipe
 local GetTime, PlaySoundFile, GetPlayerInfoByGUID = GetTime, PlaySoundFile, GetPlayerInfoByGUID
-local UnitGUID, UnitIsUnit, UnitIsPlayer, UnitIsEnemy = UnitGUID, UnitIsUnit, UnitIsPlayer, UnitIsEnemy
+local UnitGUID, UnitIsUnit, UnitIsPlayer, UnitIsEnemy, UnitClass = UnitGUID, UnitIsUnit, UnitIsPlayer, UnitIsEnemy, UnitClass
 local IsInInstance = IsInInstance
 local COMBATLOG_OBJECT_CONTROL_PLAYER = 0x100
 local COMBATLOG_OBJECT_REACTION_HOSTILE = COMBATLOG_OBJECT_REACTION_HOSTILE
@@ -107,24 +107,40 @@ local function isHostile(flags)
 		and bit_band(flags, COMBATLOG_OBJECT_REACTION_HOSTILE) ~= 0
 end
 
-local function isCastBy(spell, guid)
-	if not spell.casterClass then
-		return true
-	end
-	local _, class = GetPlayerInfoByGUID(guid)
-	return not class or class == spell.casterClass
-end
-
-local function isWatched(guid)
-	return zone == "arena" or not config.targetOnly or guid == UnitGUID("target") or guid == UnitGUID("focus")
-end
-
 local function findUnit(units, guid)
 	for i = 1, #units do
 		if UnitGUID(units[i]) == guid then
 			return i
 		end
 	end
+end
+
+local function isPlayerGUID(guid)
+	local kind = guid and tonumber(guid:sub(5, 5), 16)
+	return kind ~= nil and kind % 8 == 0
+end
+
+local function classOf(guid)
+	local _, class = GetPlayerInfoByGUID(guid)
+	if class then
+		return class
+	end
+	local index = findUnit(CASTERS, guid)
+	if index then
+		local _, unitClass = UnitClass(CASTERS[index])
+		return unitClass
+	end
+end
+
+local function isCastBy(spell, guid)
+	if not spell.casterClass or not isPlayerGUID(guid) then
+		return true
+	end
+	return classOf(guid) == spell.casterClass
+end
+
+local function isWatched(guid)
+	return zone == "arena" or not config.targetOnly or guid == UnitGUID("target") or guid == UnitGUID("focus")
 end
 
 local function alert(sound, priority, guid)

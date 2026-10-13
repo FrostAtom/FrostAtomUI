@@ -216,7 +216,46 @@ local function isFilteredTotem(spellId)
 end
 
 local WorldChildren = ns.WorldChildren
-local snap, snapX, snapY = WorldChildren.Snap, WorldChildren.SnapX, WorldChildren.SnapY
+local snapX, snapY = WorldChildren.SnapX, WorldChildren.SnapY
+local plateScale = 1
+
+local function updatePlateScale()
+	local mode = config.scaleMode
+	if mode == "own" then
+		plateScale = config.scale
+	elseif mode == "none" then
+		plateScale = 1
+	else
+		plateScale = UIParent:GetEffectiveScale() / WorldFrame:GetEffectiveScale()
+	end
+end
+
+function NamePlates.Scale()
+	return plateScale
+end
+
+function NamePlates.Pixel()
+	return WorldChildren.Pixel() / plateScale
+end
+
+local function snap(value)
+	return WorldChildren.Snap(value * plateScale) / plateScale
+end
+NamePlates.Snap = snap
+
+function PlateMixin:ApplyScale()
+	local castbar = self.castbar
+	self.holder:SetScale(plateScale)
+	self.healthbar:SetScale(plateScale)
+	castbar:SetScale(plateScale)
+	castbar.result:SetScale(plateScale)
+	self.overlay:SetScale(plateScale)
+	if self.vcast then
+		self.vcast:SetScale(plateScale)
+	end
+	local totem = self.totem
+	totem:SetScale(totem.detached and plateScale or 1)
+end
 
 function PlateMixin:HitPadding()
 	return WorldChildren.Pixel() * HIT_PADDING
@@ -228,11 +267,11 @@ function PlateMixin:SnapHolder()
 	if not left then
 		return
 	end
-	local x = snapX(left + (self:GetWidth() - holder:GetWidth()) / 2) - left
+	local x = snapX(left + (self:GetWidth() - holder:GetWidth() * plateScale) / 2) - left
 	local y = snapY(top - self:HitPadding()) - top
 	if x ~= self.snapX or y ~= self.snapY then
 		self.snapX, self.snapY = x, y
-		holder:SetPoint("TOPLEFT", self, "TOPLEFT", x, y)
+		holder:SetPoint("TOPLEFT", self, "TOPLEFT", x / plateScale, y / plateScale)
 	end
 end
 
@@ -276,7 +315,12 @@ end
 function PlateMixin:UpdateHitRect()
 	local visible = self.totem:IsShown() and self.totem or self.holder
 	local padding = 2 * self:HitPadding()
-	NamePlates.HitRect.Update(self, visible:GetWidth() + padding, visible:GetHeight() + padding, self.hiddenByName)
+	NamePlates.HitRect.Update(
+		self,
+		visible:GetWidth() * plateScale + padding,
+		visible:GetHeight() * plateScale + padding,
+		self.hiddenByName
+	)
 end
 
 function PlateMixin:SetStackLevel(level)
@@ -1123,6 +1167,7 @@ local function setupNamePlate(plate, info)
 
 	styleArenaLabel(plate)
 	applyHighlight(plate)
+	plate:ApplyScale()
 
 	if castbar:IsShown() then
 		castbar:OnShow()
@@ -1216,13 +1261,13 @@ local function spreadPlates(elapsed)
 		local plate = spread[i]
 		local x, y, pos = plate.spreadX, plate.spreadY, plate.spreadPos
 		local settings = plate.settings
-		local halfWidth = settings.width / 2 + BORDER_INSET
-		local ySpace = settings.height + BORDER_INSET * 2 + SPREAD_GAP
+		local halfWidth = (settings.width / 2 + BORDER_INSET) * plateScale
+		local ySpace = (settings.height + BORDER_INSET * 2 + SPREAD_GAP) * plateScale
 		local minDist, reset = huge, true
 		for j = 1, count do
 			if i ~= j then
 				local other = spread[j]
-				if abs(x - other.spreadX) < halfWidth + other.settings.width / 2 + BORDER_INSET then
+				if abs(x - other.spreadX) < halfWidth + (other.settings.width / 2 + BORDER_INSET) * plateScale then
 					local otherTop = other.spreadY + other.spreadPos
 					local diff = y + pos - otherTop
 					if diff >= 0 and diff < minDist then
@@ -1275,8 +1320,10 @@ local layerHandlers = {
 
 local function applyStyle()
 	updateHiddenNames()
+	updatePlateScale()
 	for i = 1, #plates do
 		local plate = plates[i]
+		plate:ApplyScale()
 		styleText(plate.name, config.nameFont)
 		styleText(plate.healthbar.percent, config.percentFont)
 		styleHolder(plate.holder)
@@ -1319,6 +1366,7 @@ end
 function NamePlates:Initialize()
 	WorldChildren.UpdatePixel()
 	updateHiddenNames()
+	updatePlateScale()
 	NamePlates.RegisterPlugin({
 		name = "style",
 		Identity = onIdentity,

@@ -172,6 +172,7 @@ local function createBar(plate)
 	local level = plate:GetFrameLevel()
 	local bar = CreateFrame("StatusBar", nil, plate)
 	bar:Hide()
+	bar:SetScale(NamePlates.Scale())
 	bar:SetFrameLevel(level + 1)
 	ns.SkinStatusBar(bar)
 

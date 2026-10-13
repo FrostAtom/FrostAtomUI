@@ -6,7 +6,7 @@ local band = bit.band
 local sub = string.sub
 local max, tonumber = math.max, tonumber
 
-local snap, snapX, snapY = ns.WorldChildren.Snap, ns.WorldChildren.SnapX, ns.WorldChildren.SnapY
+local snap, snapX, snapY = NamePlates.Snap, ns.WorldChildren.SnapX, ns.WorldChildren.SnapY
 local SetTimerText = ns:GetModule("CooldownTimer").SetTimerText
 
 local config = ns.Config.namePlates
@@ -423,6 +423,7 @@ local function setDetached(plate, detached)
 	end
 	totem.detached = detached
 	totem:SetParent(detached and WorldFrame or plate.overlay)
+	totem:SetScale(detached and NamePlates.Scale() or 1)
 	if plate.stackLevel then
 		plate:ApplyStackLevel()
 	else
@@ -470,11 +471,12 @@ local function snapTotem(plate, totem)
 	if not left then
 		return
 	end
-	local x = snapX(left + (plate:GetWidth() - totem:GetWidth()) / 2) - left
-	local y = snapY(top - plate:HitPadding() + (totem:GetHeight() - totem.baseSize) / 2) - top
+	local scale = NamePlates.Scale()
+	local x = snapX(left + (plate:GetWidth() - totem:GetWidth() * scale) / 2) - left
+	local y = snapY(top - plate:HitPadding() + (totem:GetHeight() - totem.baseSize) * scale / 2) - top
 	if x ~= totem.snapX or y ~= totem.snapY then
 		totem.snapX, totem.snapY = x, y
-		totem:SetPoint("TOPLEFT", plate, "TOPLEFT", x, y)
+		totem:SetPoint("TOPLEFT", plate, "TOPLEFT", x / scale, y / scale)
 	end
 end
 

@@ -48,7 +48,9 @@ local HIDDEN_NAMES = {
 
 ns:RegisterDefaults("namePlates", {
 	enabled = true,
-	enemyPlayer = namePlateDefaults("class", { 0.69, 0.31, 0.31 }, "class", 28),
+	scaleMode = "inherit",
+	scale = 1,
+	enemyPlayer =namePlateDefaults("class", { 0.69, 0.31, 0.31 }, "class", 28),
 	friendlyPlayer = namePlateDefaults("reaction", { 0.31, 0.45, 0.63 }, "reaction", 28),
 	enemyNpc = namePlateDefaults("reaction", { 0.69, 0.31, 0.31 }, "white", 22),
 	friendlyNpc = namePlateDefaults("reaction", { 0.33, 0.59, 0.33 }, "white", 22),
