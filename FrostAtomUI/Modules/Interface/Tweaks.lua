@@ -356,7 +356,7 @@ end
 
 local function onPopupClick(self)
 	if self.value == "SPECTATE" then
-		SendChatMessage(".spec pla " .. UIDROPDOWNMENU_INIT_MENU.name)
+		SendChatMessage((".spectate player %s"):format(UIDROPDOWNMENU_INIT_MENU.name))
 	end
 end
 
