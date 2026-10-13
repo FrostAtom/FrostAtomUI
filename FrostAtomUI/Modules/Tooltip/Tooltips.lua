@@ -646,6 +646,7 @@ local function unitItemLevel(tooltip, unit, guid)
 end
 
 local TEAMS_CACHE_TIME = 600
+local TEAMS_RETRY_TIME = 15
 
 local arenaTeams = {}
 
@@ -678,7 +679,7 @@ local function addArenaTeams(tooltip, unit, guid)
 	if not cached then
 		arenaTeams[guid] = { time = GetTime() }
 		Inspect:Request(unit, nil, true)
-	elseif GetTime() - cached.time > TEAMS_CACHE_TIME then
+	elseif GetTime() - cached.time > (cached.teams and TEAMS_CACHE_TIME or TEAMS_RETRY_TIME) then
 		cached.time = GetTime()
 		Inspect:Request(unit, nil, true)
 	end

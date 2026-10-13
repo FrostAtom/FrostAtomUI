@@ -16,11 +16,13 @@ local GetInventoryItemID = GetInventoryItemID
 local GetInventoryItemLink = GetInventoryItemLink
 local GetInspectArenaTeamData = GetInspectArenaTeamData
 local RequestInspectHonorData = RequestInspectHonorData
+local HasInspectHonorData = HasInspectHonorData
 local GetSpellInfo = GetSpellInfo
 local GetTalentInfo = GetTalentInfo
 local GetNumTalents = GetNumTalents
 local IsInInstance = IsInInstance
 local GetTime = GetTime
+local min = math.min
 
 local TICK = 0.1
 local SEND_INTERVAL = 1.5
@@ -35,7 +37,8 @@ local MIN_LEVEL = 10
 local CACHE_TIME = 900
 local ARENA_REFRESH_INTERVAL = 12
 local ARENA_REFRESH_COUNT = 6
-local HONOR_WAIT = 1
+local HONOR_WAIT = 3
+local TEAMS_SETTLE = 0.3
 local MAX_ARENA_TEAMS = 3
 local PARTY_UNITS = { "party1", "party2", "party3", "party4" }
 local WATCHED_UNITS = { "party1", "party2", "party3", "party4", "target", "focus", "mouseover" }
@@ -67,7 +70,7 @@ local request = {}
 local urgentGuid, urgentTime
 local gearGuid, gearUnit, gearTries, gearAt
 local loadedGuid
-local teamsWanted, teamsGuid, teamsAt, teamsReplied
+local teamsWanted, teamsGuid, teamsAt, teamsKey
 local lastSend, manualTime = -SEND_INTERVAL, -MANUAL_BACKOFF
 local arenaRefreshes, nextArenaRefresh = 0, 0
 local held = false
@@ -199,19 +202,19 @@ local function checkGear(now)
 end
 
 local function readTeams()
-	local guid = teamsGuid
-	teamsGuid = nil
-	if not teamsReplied then
-		return
-	end
 	local teams = {}
+	local key = ""
 	for i = 1, MAX_ARENA_TEAMS do
 		local name, size, rating, _, _, _, personal = GetInspectArenaTeamData(i)
 		if name then
 			teams[#teams + 1] = { name = name, size = size, rating = rating, personal = personal }
+			key = key .. name .. "\001" .. size .. "\001" .. rating .. "\001" .. personal .. "\002"
 		end
 	end
-	ns:Fire(ns.E.INSPECT_TEAMS_READY, guid, teams)
+	if key ~= teamsKey then
+		teamsKey = key
+		ns:Fire(ns.E.INSPECT_TEAMS_READY, teamsGuid, teams)
+	end
 end
 
 local function send(now)
@@ -268,19 +271,22 @@ queue:SetScript("OnUpdate", function(self, elapsed)
 		checkGear(now)
 	end
 
-	if teamsGuid and now >= teamsAt then
-		readTeams()
+	if teamsAt and now >= teamsAt then
+		teamsAt = nil
+		if HasInspectHonorData() then
+			readTeams()
+		end
 	end
 
 	-- 3.3.5: the client drops inspect replies for any unit but the last one sent, so one request at a time
-	if not request.guid and not gearGuid and not teamsGuid then
+	if not request.guid and not gearGuid and not teamsAt then
 		send(now)
 	end
 
 	if
 		not request.guid
 		and not gearGuid
-		and not teamsGuid
+		and not teamsAt
 		and not urgentGuid
 		and not next(pending)
 		and arenaRefreshes == 0
@@ -291,6 +297,9 @@ end)
 
 hooksecurefunc("NotifyInspect", function(unit)
 	local guid = UnitGUID(unit)
+	if guid ~= teamsGuid then
+		teamsGuid, teamsAt = nil, nil
+	end
 	if not guid or not UnitIsPlayer(unit) or UnitCanAttack("player", unit) then
 		return
 	end
@@ -300,9 +309,6 @@ hooksecurefunc("NotifyInspect", function(unit)
 	end
 	if guid ~= gearGuid then
 		gearGuid = nil
-	end
-	if guid ~= teamsGuid then
-		teamsGuid = nil
 	end
 	local _, class = UnitClass(unit)
 	request.guid, request.unit, request.class, request.time = guid, unit, class, lastSend
@@ -316,7 +322,7 @@ end)
 hooksecurefunc("ClearInspectPlayer", function()
 	request.guid = nil
 	gearGuid = nil
-	teamsGuid = nil
+	teamsGuid, teamsAt = nil, nil
 	loadedGuid = nil
 end)
 
@@ -345,15 +351,27 @@ function Inspect:INSPECT_TALENT_READY()
 		queue:Show()
 	end
 	if teamsWanted then
-		teamsGuid, teamsAt, teamsReplied = guid, now + HONOR_WAIT, false
-		RequestInspectHonorData()
+		teamsGuid, teamsKey = guid, nil
+		-- 3.3.5: RequestInspectHonorData sends nothing while the inspect unit keeps its GUID and its honor data
+		if HasInspectHonorData() then
+			teamsAt = now
+		else
+			teamsAt = now + HONOR_WAIT
+			RequestInspectHonorData()
+		end
 		queue:Show()
 	end
 end
 
 function Inspect:INSPECT_HONOR_UPDATE()
-	if teamsGuid then
-		teamsReplied = true
+	if not teamsGuid then
+		return
+	end
+	if teamsAt then
+		teamsAt = min(teamsAt, GetTime() + TEAMS_SETTLE)
+	elseif HasInspectHonorData() then
+		-- 3.3.5: a team name missing from the arena team cache comes later with one more INSPECT_HONOR_UPDATE
+		readTeams()
 	end
 end
 
@@ -379,7 +397,7 @@ function Inspect:PLAYER_ENTERING_WORLD()
 	request.guid = nil
 	urgentGuid = nil
 	gearGuid = nil
-	teamsGuid = nil
+	teamsGuid, teamsAt = nil, nil
 	loadedGuid = nil
 	requestUnits(WATCHED_UNITS, CACHE_TIME)
 	if select(2, IsInInstance()) == "arena" then
