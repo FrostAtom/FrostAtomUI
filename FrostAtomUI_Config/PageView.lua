@@ -325,8 +325,12 @@ end
 local measureHost
 
 -- Text measured under a hidden parent ignores the UI scale, so rows are built on a visible, transparent host
-local function moveToMeasureHost(content)
-	local parent = content:GetParent()
+local function hostOf(page)
+	return page.parent or page.scroll or P.frame.scroll
+end
+
+-- SetScrollChild drops the previous scroll child's parent to nil, so the host is never read back from the frame
+local function moveToMeasureHost(content, parent)
 	if not measureHost then
 		measureHost = CreateFrame("Frame", nil, UIParent)
 		measureHost:SetSize(1, 1)
@@ -336,17 +340,17 @@ local function moveToMeasureHost(content)
 	measureHost:SetScale(parent:GetEffectiveScale() / UIParent:GetEffectiveScale())
 	content:SetParent(measureHost)
 	content:Show()
-	return parent
 end
 
 local function buildPage(page)
+	local parent = hostOf(page)
 	local content = page.container
 	if not content then
-		content = CreateFrame("Frame", nil, page.parent or page.scroll or P.frame.scroll)
+		content = CreateFrame("Frame", nil, parent)
 		content:SetWidth(page.width or CONTENT_WIDTH)
 		page.container = content
 	end
-	local parent = moveToMeasureHost(content)
+	moveToMeasureHost(content, parent)
 	page.content = content
 	page.rows = {}
 	page.items = {}
@@ -462,7 +466,7 @@ local function refreshView(page)
 	if not page or not page.rows then
 		return
 	end
-	local scaled = abs(page.content:GetParent():GetEffectiveScale() - page.builtScale) > 0.001
+	local scaled = abs(hostOf(page):GetEffectiveScale() - page.builtScale) > 0.001
 	if scaled or page.signature and page.signature() ~= page.lastSignature then
 		rebuildPage(page)
 	end

@@ -433,10 +433,14 @@ do
 			P.scrollMemory[view.key] = P.frame.scroll:GetVerticalScroll()
 		end
 		if not page.tabs then
-			page.content:Hide()
+			if page.content then
+				page.content:Hide()
+			end
 			return
 		end
-		page.head.content:Hide()
+		if page.head and page.head.content then
+			page.head.content:Hide()
+		end
 		page.tabBar:Hide()
 		if view ~= page and view.content then
 			view.content:Hide()
