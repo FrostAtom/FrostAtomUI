@@ -151,6 +151,7 @@ ns:RegisterDefaults("merchant", {
 	hideSoldOut = false,
 	hideUnaffordable = false,
 	hideKnown = false,
+	boeOnly = false,
 	sort = "default",
 	sortReverse = false,
 	wideFrame = true,
@@ -176,6 +177,7 @@ ns:RegisterDefaults("spellBook", {
 	enabled = true,
 	hidePassive = false,
 	hideAuras = false,
+	hideTotems = false,
 })
 
 ns:RegisterDefaults("talentFrame", {

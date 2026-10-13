@@ -14,12 +14,21 @@ local MAX_RECENT_ERRORS = 20
 local recentErrors = {}
 ns.recentErrors = recentErrors
 
+local handling = false
+
 local function errorHandler(err)
+	if handling then
+		return err
+	end
 	if #recentErrors == MAX_RECENT_ERRORS then
 		table.remove(recentErrors, 1)
 	end
 	recentErrors[#recentErrors + 1] = { time = time(), message = tostring(err), stack = debugstack(2, 12, 0) }
-	return geterrorhandler()(err)
+	-- Blizzard_DebugTools on 3.3.5 can error inside its own handler (ScrollingEdit cursorOffset nil) and recurse
+	handling = true
+	pcall(geterrorhandler(), err)
+	handling = false
+	return err
 end
 
 local DISPATCHER = [[

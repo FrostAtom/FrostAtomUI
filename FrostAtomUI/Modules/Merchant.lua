@@ -183,6 +183,7 @@ local TOGGLES = {
 	{ "hideSoldOut", "Hide sold out" },
 	{ "hideUnaffordable", "Affordable only" },
 	{ "hideKnown", "Hide known" },
+	{ "boeOnly", "Bind on equip only" },
 }
 local CHOICES = {
 	{ "quality", "Quality" },
@@ -210,7 +211,7 @@ local filterButton, filterMenu, scanTip
 local filtered = {}
 local entries = {}
 local choices = {}
-local knownCache = {}
+local scanCache = {}
 local sortFields, sortDescending
 local listUncertain = false
 local stretches
@@ -589,14 +590,14 @@ local function affordable(entry)
 	return true
 end
 
-local function isKnown(entry)
+local function scanItem(entry)
 	local id = entry.id
 	if not id then
-		return false
+		return nil
 	end
-	local known = knownCache[id]
-	if known ~= nil then
-		return known
+	local scan = scanCache[id]
+	if scan then
+		return scan
 	end
 	if not scanTip then
 		scanTip = CreateFrame("GameTooltip", SCAN_TOOLTIP, nil, "GameTooltipTemplate")
@@ -607,18 +608,30 @@ local function isKnown(entry)
 	if lines < 2 then
 		scanTip:Hide()
 		listUncertain = true
-		return false
+		return nil
 	end
-	known = false
+	scan = {}
 	for i = 2, lines do
-		if _G[SCAN_TOOLTIP .. "TextLeft" .. i]:GetText() == ITEM_SPELL_KNOWN then
-			known = true
-			break
+		local text = _G[SCAN_TOOLTIP .. "TextLeft" .. i]:GetText()
+		if text == ITEM_SPELL_KNOWN then
+			scan.known = true
+		elseif text == ITEM_BIND_ON_EQUIP then
+			scan.boe = true
 		end
 	end
 	scanTip:Hide()
-	knownCache[id] = known
-	return known
+	scanCache[id] = scan
+	return scan
+end
+
+local function isKnown(entry)
+	local scan = scanItem(entry)
+	return scan and scan.known or false
+end
+
+local function isBindOnEquip(entry)
+	local scan = scanItem(entry)
+	return scan and scan.boe or false
 end
 
 local function passesFilters(entry)
@@ -634,6 +647,9 @@ local function passesFilters(entry)
 		return false
 	end
 	if c.hideUnaffordable and not affordable(entry) then
+		return false
+	end
+	if c.boeOnly and not isBindOnEquip(entry) then
 		return false
 	end
 	return not (c.hideKnown and isKnown(entry))
@@ -1043,7 +1059,7 @@ local function scheduleRefresh()
 end
 
 local function onBagUpdate()
-	wipe(knownCache)
+	wipe(scanCache)
 	local c = config()
 	if (c.hideKnown or c.hideUnaffordable) and filtersActive() then
 		scheduleRefresh()
@@ -1076,7 +1092,7 @@ end)
 
 Merchant:RegisterEvent("MERCHANT_SHOW", function()
 	levelRetries = 0
-	wipe(knownCache)
+	wipe(scanCache)
 	local c = config()
 	if not c.enabled or IsShiftKeyDown() then
 		return

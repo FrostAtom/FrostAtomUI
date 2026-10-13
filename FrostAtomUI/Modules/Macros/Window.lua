@@ -932,26 +932,30 @@ local function copySelected()
 	refresh(true)
 end
 
+local function deleteEntry(entry)
+	if InCombatLockdown() then
+		ns.Print(L["cannot change macros in combat"])
+		return
+	end
+	if isVirtual(entry) then
+		Macros.Delete(entry)
+	else
+		DeleteMacro(entry)
+	end
+	if editorEntry == entry then
+		gameDirty = false
+		editorEntry = nil
+	end
+	selection[tab] = nil
+	refresh(true)
+end
+
 StaticPopupDialogs.FROSTATOMUI_MACRO_DELETE = {
 	text = "Delete macro %s?",
 	button1 = YES,
 	button2 = NO,
 	OnAccept = function(_, entry)
-		if InCombatLockdown() then
-			ns.Print(L["cannot change macros in combat"])
-			return
-		end
-		if isVirtual(entry) then
-			Macros.Delete(entry)
-		else
-			DeleteMacro(entry)
-		end
-		if editorEntry == entry then
-			gameDirty = false
-			editorEntry = nil
-		end
-		selection[tab] = nil
-		refresh(true)
+		deleteEntry(entry)
 	end,
 	timeout = 0,
 	whileDead = 1,
@@ -966,6 +970,10 @@ end)
 local function deleteSelected()
 	local entry = selected()
 	if not entry then
+		return
+	end
+	if IsAltKeyDown() then
+		deleteEntry(entry)
 		return
 	end
 	local popup = StaticPopup_Show("FROSTATOMUI_MACRO_DELETE", (displayName(entry)))
@@ -1890,6 +1898,7 @@ local function createButtonBar()
 	local delete = ns.CreateButton(frame, DELETE, 80, BUTTON_HEIGHT, FRAME_NAME .. "DeleteButton", true)
 	delete:SetPoint("BOTTOMLEFT", 16, 14)
 	delete:SetScript("OnClick", deleteSelected)
+	tooltip(delete, DELETE, L["Delete the selected macro."], L["Hold Alt to delete without confirmation."])
 
 	frame.copy = ns.CreateButton(frame, L["Copy"], 80, BUTTON_HEIGHT, FRAME_NAME .. "CopyButton")
 	frame.copy:SetPoint("LEFT", delete, "RIGHT", 1, 0)

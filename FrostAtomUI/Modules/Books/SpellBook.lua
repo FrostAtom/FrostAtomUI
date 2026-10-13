@@ -63,14 +63,14 @@ local SETUP_SNIPPET = [[
 
 local FILTER_SNIPPET = [[
 	local hidePassive = self:GetAttribute("hidepassive")
-	local hideAuras = self:GetAttribute("hideauras")
+	local hideClass = self:GetAttribute("hideauras") or self:GetAttribute("hidetotems")
 	wipe(LINE_HEIGHT)
 	wipe(LINE_SECTION)
 	wipe(LINE_ENTRIES)
 	local lines, section, column = 0, nil, %d
 	for i = 1, self:GetAttribute("entries") or 0 do
-		local entrySection, passive, aura = strsplit("\t", self:GetAttribute("entry" .. i))
-		if (not hidePassive or passive ~= "1") and (not hideAuras or aura ~= "1") then
+		local entrySection, passive, classSpell = strsplit("\t", self:GetAttribute("entry" .. i))
+		if (not hidePassive or passive ~= "1") and (not hideClass or classSpell ~= "1") then
 			if entrySection ~= section then
 				if lines > 0 then
 					LINE_HEIGHT[lines] = LINE_HEIGHT[lines] + %d
@@ -199,9 +199,39 @@ local PALADIN_AURAS = {
 	32223, -- Crusader Aura
 }
 
+local SHAMAN_TOTEMS = {
+	2062, -- Earth Elemental Totem
+	2484, -- Earthbind Totem
+	2894, -- Fire Elemental Totem
+	3599, -- Searing Totem
+	3738, -- Wrath of Air Totem
+	5394, -- Healing Stream Totem
+	5675, -- Mana Spring Totem
+	5730, -- Stoneclaw Totem
+	6495, -- Sentry Totem
+	8071, -- Stoneskin Totem
+	8075, -- Strength of Earth Totem
+	8143, -- Tremor Totem
+	8170, -- Cleansing Totem
+	8177, -- Grounding Totem
+	8181, -- Frost Resistance Totem
+	8184, -- Fire Resistance Totem
+	8190, -- Magma Totem
+	8227, -- Flametongue Totem
+	8512, -- Windfury Totem
+	10595, -- Nature Resistance Totem
+	16190, -- Mana Tide Totem
+	30706, -- Totem of Wrath
+	36936, -- Totemic Recall
+	66842, -- Call of the Elements
+	66843, -- Call of the Ancestors
+	66844, -- Call of the Spirits
+}
+
 local FILTERS = {
 	{ attribute = "hidepassive", key = "hidePassive", label = "Hide passive abilities" },
-	{ attribute = "hideauras", key = "hideAuras", label = "Hide auras", class = "PALADIN" },
+	{ attribute = "hideauras", key = "hideAuras", label = "Hide auras", class = "PALADIN", spells = PALADIN_AURAS },
+	{ attribute = "hidetotems", key = "hideTotems", label = "Hide totems", class = "SHAMAN", spells = SHAMAN_TOTEMS },
 }
 
 local frame, list, toggleButton, panel
@@ -218,22 +248,27 @@ local boundKeys = ""
 local displaced = false
 local muted = false
 local filterChecks = {}
-local auraNames
+local classSpellNames
 
-local function isAura(name, book)
+local function isClassSpell(name, book)
 	if book ~= BOOKTYPE_SPELL then
 		return false
 	end
-	if not auraNames then
-		auraNames = {}
-		for _, id in ipairs(PALADIN_AURAS) do
-			local auraName = GetSpellInfo(id)
-			if auraName then
-				auraNames[auraName] = true
+	if not classSpellNames then
+		classSpellNames = {}
+		local _, class = UnitClass("player")
+		for _, filter in ipairs(FILTERS) do
+			if filter.spells and filter.class == class then
+				for _, id in ipairs(filter.spells) do
+					local spellName = GetSpellInfo(id)
+					if spellName then
+						classSpellNames[spellName] = true
+					end
+				end
 			end
 		end
 	end
-	return auraNames[name] == true
+	return classSpellNames[name] == true
 end
 
 local function collectSection(name, texture, book, first, last, highestRank)
@@ -251,7 +286,7 @@ local function collectSection(name, texture, book, first, last, highestRank)
 				name = spellName,
 				rank = rank or "",
 				passive = IsPassiveSpell(slot, book) and true or false,
-				aura = isAura(spellName, book),
+				classSpell = isClassSpell(spellName, book),
 				search = ns.Lower(spellName),
 			}
 		end
@@ -598,7 +633,7 @@ local function layout()
 					"\t",
 					entry.section.index,
 					entry.passive and 1 or 0,
-					entry.aura and 1 or 0,
+					entry.classSpell and 1 or 0,
 					type1,
 					spell,
 					type2,
