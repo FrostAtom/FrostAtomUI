@@ -7,7 +7,7 @@ local GetItemStats = GetItemStats
 local GetItemGem = GetItemGem
 local GetItemIcon = GetItemIcon
 local tonumber, pairs, ipairs, wipe, sort = tonumber, pairs, ipairs, wipe, table.sort
-local floor, min, max = math.floor, math.min, math.max
+local floor, min, max, sqrt = math.floor, math.min, math.max, math.sqrt
 local tconcat = table.concat
 
 local InspectGear = {}
@@ -96,7 +96,9 @@ local STATS = {
 	{ key = "ITEM_MOD_ARMOR_PENETRATION_RATING_SHORT", rating = RATING.arp },
 	{ key = "ITEM_MOD_EXPERTISE_RATING_SHORT", rating = RATING.expertise, points = true },
 	{ key = "ITEM_MOD_SPELL_PENETRATION_SHORT" },
-	{ key = "ITEM_MOD_POWER_REGEN0_SHORT" },
+	{ key = "ITEM_MOD_POWER_REGEN0_SHORT", regen = true },
+	{ key = "MANA_REGEN_CASTING", regen = true, derived = true },
+	{ key = "MANA_REGEN", regen = true, derived = true },
 	{ key = "ITEM_MOD_DEFENSE_SKILL_RATING_SHORT", rating = RATING.defense, points = true },
 	{ key = "ITEM_MOD_DODGE_RATING_SHORT", rating = RATING.dodge },
 	{ key = "ITEM_MOD_PARRY_RATING_SHORT", rating = RATING.parry },
@@ -155,7 +157,9 @@ local function buildAliases()
 		end
 	end
 	for _, stat in ipairs(STATS) do
-		add(_G[stat.key], stat.key)
+		if not stat.derived then
+			add(_G[stat.key], stat.key)
+		end
 	end
 	add(SPELL_STATALL, "ALL")
 	add(ITEM_MOD_SPELL_DAMAGE_DONE_SHORT, "ITEM_MOD_SPELL_POWER_SHORT")
@@ -757,6 +761,7 @@ local FORCEFUL_DEFLECTION = 49410 -- Forceful Deflection
 local FORCEFUL_DEFLECTION_SHARE = 0.25
 local NO_MANA = { WARRIOR = true, ROGUE = true, DEATHKNIGHT = true }
 local MP5_KEY = "ITEM_MOD_POWER_REGEN0_SHORT"
+local REGEN_KEY, CASTING_REGEN_KEY = "MANA_REGEN", "MANA_REGEN_CASTING"
 local STAT_NAMES =
 	{ [0] = "SPELL_STAT1_NAME", "SPELL_STAT2_NAME", "SPELL_STAT3_NAME", "SPELL_STAT4_NAME", "SPELL_STAT5_NAME" }
 local STAT_ICONS = {
@@ -957,6 +962,9 @@ local function newModifiers()
 		schoolCrit = {},
 		hasteMult = 1,
 		spellHasteMult = 1,
+		mp5FromStat = {},
+		castingRegen = 0,
+		castingSources = {},
 	}
 end
 
@@ -1015,6 +1023,11 @@ local function applyEffect(ctx, mods, effect)
 		applyHasteEffect(ctx, mods, kind, value, name, icon)
 	elseif PERCENT_KEYS[kind] then
 		applyPercentEffect(ctx, mods, kind, misc, value, name, icon)
+	elseif kind == "mp5FromStat" then
+		mods.mp5FromStat[#mods.mp5FromStat + 1] = { stat = misc, value = value, name = name, icon = icon }
+	elseif kind == "castingRegen" then
+		mods.castingRegen = mods.castingRegen + value
+		mods.castingSources[#mods.castingSources + 1] = { value = value, name = name, icon = icon }
 	elseif not (ctx.hunter and kind == "apFromStat" or not ctx.hunter and kind == "rapFromStat") then
 		mods.conversions[#mods.conversions + 1] = { kind = kind, stat = misc, value = value, name = name, icon = icon }
 	end
@@ -1295,6 +1308,54 @@ local function computeDefense(ctx, mods, str, agi, shield)
 	end
 end
 
+local function computeManaRegen(ctx, mods, stat)
+	if NO_MANA[ctx.class] then
+		return
+	end
+	local totals = ctx.totals
+	local fromGear = gearValue(ctx, MP5_KEY)
+	local mp5 = fromGear
+	if fromGear > 0 then
+		prependSource(totals, MP5_KEY, ctx.L["Gear"], ("+%d"):format(fromGear), GEAR_ICON)
+	end
+	for _, entry in ipairs(mods.mp5FromStat) do
+		local amount = (stat[entry.stat] or 0) * entry.value / 100
+		mp5 = mp5 + amount
+		addSource(totals, MP5_KEY, entry.name, ("+%d"):format(floor(amount + 0.5)), entry.icon)
+	end
+	local fromSpirit = 0
+	if ctx.full then
+		fromSpirit = 5 * ns.InspectStatData.REGEN_PER_SPIRIT * stat[4] * sqrt(stat[3])
+		addSource(
+			totals,
+			MP5_KEY,
+			ctx.L["Spirit, not casting"],
+			("+%d"):format(floor(fromSpirit + 0.5)),
+			STAT_ICONS[4]
+		)
+		local left = 100
+		for _, entry in ipairs(mods.castingSources) do
+			local share = min(entry.value, left)
+			left = left - share
+			local amount = fromSpirit * share / 100
+			addSource(
+				totals,
+				MP5_KEY,
+				ctx.L["%s, while casting"]:format(entry.name or ""),
+				("+%d"):format(floor(amount + 0.5)),
+				entry.icon
+			)
+		end
+	end
+	local values = totals.values
+	values[REGEN_KEY] = mp5 + fromSpirit
+	values[CASTING_REGEN_KEY] = mp5 + fromSpirit * min(mods.castingRegen, 100) / 100
+	if values[REGEN_KEY] >= 0.5 then
+		values[MP5_KEY] = values[CASTING_REGEN_KEY]
+		totals.visible[MP5_KEY] = true
+	end
+end
+
 local function finalizeVisibility(ctx, shield)
 	local values, visible = ctx.totals.values, ctx.totals.visible
 	for key, value in pairs(ctx.gearStats) do
@@ -1351,6 +1412,7 @@ function InspectGear.Compute(gear, talents, info)
 	computeCrit(ctx, mods, int, agi)
 	computeOffenseRatings(ctx, mods)
 	computeDefense(ctx, mods, str, agi, shield)
+	computeManaRegen(ctx, mods, stat)
 	finalizeVisibility(ctx, shield)
 	return totals
 end

@@ -140,6 +140,16 @@ local function showStatTooltip(self)
 			end
 		end
 	end
+	local idle = totals and self.stat.regen and totals.values.MANA_REGEN
+	if idle then
+		local color = NORMAL_FONT_COLOR
+		for _, line in ipairs({
+			{ L["While casting"], totals.values.MANA_REGEN_CASTING },
+			{ L["Not casting"], idle },
+		}) do
+			GameTooltip:AddDoubleLine(line[1], P.formatNumber(line[2]), color.r, color.g, color.b, 1, 1, 1)
+		end
+	end
 	local schoolCrit = totals and self.stat.key == "ITEM_MOD_CRIT_RATING_SHORT" and totals.schoolCrit
 	if schoolCrit then
 		local color = NORMAL_FONT_COLOR
@@ -329,7 +339,12 @@ local function updateStats()
 					local row = rows[shown]
 					row.stat, row.value = stat, value
 					row.label:SetText(L[STAT_LABELS[key] or key])
-					row.valueText:SetText(statValue(stat, value, totals.percent[key]))
+					local text = statValue(stat, value, totals.percent[key])
+					local idle = stat.regen and totals.values.MANA_REGEN
+					if idle and P.formatNumber(idle) ~= P.formatNumber(value) then
+						text = ("%s %s%s|r"):format(text, P.GREY, P.formatNumber(idle))
+					end
+					row.valueText:SetText(text)
 					row:Show()
 				end
 			end

@@ -62,6 +62,7 @@ ns.InspectTalentData = {
 	[402] = { { "spFromStat", 4, { 5, 10, 15, 20, 25 } }, { "healFromStat", 4, { 5, 10, 15, 20, 25 } } }, -- Spiritual Guidance
 	[1201] = { { "stat", 3, { 3, 6, 9, 12, 15 } } }, -- Mental Strength
 	[1561] = { { "stat", 4, { 5 } } }, -- Spirit of Redemption
+	[347] = { { "castingRegen", 0, { 17, 33, 50 } } }, -- Meditation
 	[1772] = { { "stat", 4, { 2, 4, 6 } }, { "spellHaste", 0, { 2, 4, 6 } } }, -- Enlightenment
 	[1858] = { { "spellCrit", 0, { 1, 2, 3 } } }, -- Focused Will
 	[1907] = { { "spFromStat", 4, { 4, 8, 12, 16, 20 } }, { "healFromStat", 4, { 4, 8, 12, 16, 20 } } }, -- Twisted Faith
@@ -91,6 +92,7 @@ ns.InspectTalentData = {
 	[1691] = { { "spFromAp", 0, { 10, 20, 30 } }, { "healFromAp", 0, { 10, 20, 30 } } }, -- Mental Quickness
 	[1692] = { { "hit", 0, { 2, 4, 6 }, dual = true } }, -- Dual Wield Specialization
 	[1696] = { { "healFromStat", 3, { 5, 10, 15 } } }, -- Nature's Blessing
+	[1682] = { { "mp5FromStat", 3, { 4, 8, 12 } } }, -- Unrelenting Storm
 	[2060] = { { "spellCrit", 0, { 2, 4 } } }, -- Blessing of the Eternals
 	[2083] = { { "apFromStat", 3, { 33, 66, 100 } } }, -- Mental Dexterity
 	[33] = { { "spellCrit", 4, { 2, 4, 6 } } }, -- Critical Mass
@@ -98,7 +100,8 @@ ns.InspectTalentData = {
 	[421] = { { "spellCrit", 0, { 1, 2, 3 } } }, -- Arcane Instability
 	[1649] = { { "spellHit", 0, { 1, 2, 3 } } }, -- Precision
 	[1728] = { { "spFromStat", 3, { 3, 6, 9, 12, 15 } } }, -- Mind Mastery
-	[1733] = { { "spellCrit", 0, { 1, 2, 3 } } }, -- Pyromaniac
+	[1733] = { { "spellCrit", 0, { 1, 2, 3 } }, { "castingRegen", 0, { 17, 33, 50 } } }, -- Pyromaniac
+	[1142] = { { "castingRegen", 0, { 17, 33, 50 } } }, -- Arcane Meditation
 	[1845] = { { "stat", 4, { 4, 7, 10 } } }, -- Student of the Mind
 	[1846] = { { "spellHaste", 0, { 2, 4, 6 } } }, -- Netherwind Presence
 	[1005] = { { "spellHit", 0, { 1, 2, 3 } } }, -- Suppression
@@ -135,4 +138,6 @@ ns.InspectTalentData = {
 	[2241] = { { "ap", 0, { 2, 4, 6 }, stances = 144 } }, -- Protector of the Pack
 	[2242] = { { "dodge", 0, { 2, 4, 6 }, stances = 144 } }, -- Natural Reaction
 	[1916] = { { "spellHaste", 0, { 2, 4, 6, 8, 10 } } }, -- Gift of the Earthmother
+	[829] = { { "castingRegen", 0, { 17, 33, 50 } } }, -- Intensity
+	[1784] = { { "mp5FromStat", 3, { 4, 7, 10 } } }, -- Dreamstate
 }

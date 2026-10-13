@@ -4,6 +4,8 @@ local Data = {}
 ns.InspectStatData = Data
 
 Data.LEVEL = 80
+-- gtRegenMPPerSpt at level 80, the same for every mana class
+Data.REGEN_PER_SPIRIT = 0.003345
 
 Data.BASE_STATS = {
 	WARRIOR = {

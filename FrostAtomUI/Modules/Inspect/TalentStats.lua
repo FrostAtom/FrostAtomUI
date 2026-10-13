@@ -122,11 +122,39 @@ local function signed(value, format)
 	return (value > 0 and "+" or "") .. format:format(value)
 end
 
+local function regenChange(before, after, key)
+	local change = (after.values[key] or 0) - (before.values[key] or 0)
+	return abs(change) >= 0.5 and floor(change + 0.5) or 0
+end
+
+local function addRegenLines(lines, before, after)
+	local casting = regenChange(before, after, "MANA_REGEN_CASTING")
+	local total = regenChange(before, after, "MANA_REGEN")
+	if casting == total then
+		if total ~= 0 then
+			lines[#lines + 1] = { L["Mana per 5 sec"], signed(total, "%d") }
+		end
+		return
+	end
+	if casting ~= 0 then
+		lines[#lines + 1] = { L["Mana per 5 sec while casting"], signed(casting, "%d") }
+	end
+	if total ~= 0 then
+		lines[#lines + 1] = { L["Mana per 5 sec not casting"], signed(total, "%d") }
+	end
+end
+
 local function difference(before, after)
 	local lines = {}
+	local regenAdded = false
 	for _, stat in ipairs(Gear.STATS) do
 		local key, text = stat.key, nil
-		if stat.rating and not stat.resilience then
+		if stat.regen then
+			if not regenAdded then
+				regenAdded = true
+				addRegenLines(lines, before, after)
+			end
+		elseif stat.rating and not stat.resilience then
 			local change = (after.percent[key] or 0) - (before.percent[key] or 0)
 			if stat.points and abs(change) >= 0.5 then
 				text = signed(floor(change + 0.5), "%d")
