@@ -131,6 +131,10 @@ local function hex(r, g, b, text)
 	return ("|cff%02x%02x%02x%s|r"):format(r * 255, g * 255, b * 255, text)
 end
 
+local function addId(tooltip, label, id, left)
+	tooltip:AddDoubleLine(left or " ", labeled(label, id))
+end
+
 local function lineCache(side)
 	return setmetatable({}, {
 		__index = function(cache, tooltip)
@@ -190,7 +194,7 @@ local function onTooltipSetSpell(tooltip)
 	end
 
 	if config.showIds then
-		tooltip:AddLine(labeled(L["ID"], spellId))
+		addId(tooltip, L["ID"], spellId)
 	end
 	tooltip:Show()
 end
@@ -233,18 +237,21 @@ local function onTooltipSetItem(tooltip)
 		end
 	end
 
+	local count
 	if config.showItemCount and equipLoc == "" then
 		local inBags = GetItemCount(link)
 		local inBank = GetItemCount(link, true) - inBags
 		if inBank > 0 then
-			tooltip:AddLine(labeled(L["Bags"], inBags) .. "  " .. labeled(L["Bank"], inBank))
+			count = labeled(L["Bags"], inBags) .. "  " .. labeled(L["Bank"], inBank)
 		elseif inBags > 0 then
-			tooltip:AddLine(labeled(L["Bags"], inBags))
+			count = labeled(L["Bags"], inBags)
 		end
 	end
 
 	if config.showIds then
-		tooltip:AddLine(labeled(L["ID"], link:match("|Hitem:(%d+):")))
+		addId(tooltip, L["ID"], link:match("|Hitem:(%d+):"), count)
+	elseif count then
+		tooltip:AddLine(count)
 	end
 
 	tooltip:Show()
@@ -255,15 +262,16 @@ local function onSetHyperlink(tooltip, link)
 		return
 	end
 	local kind, id, level = link:match("(%a+):(%d+):?(%-?%d*)")
+	local left
 	if kind == "quest" then
 		level = tonumber(level)
 		if level and level > 0 then
-			tooltip:AddLine(labeled(L["Level"], level))
+			left = labeled(L["Level"], level)
 		end
 	elseif kind ~= "achievement" then
 		return
 	end
-	tooltip:AddLine(labeled(L["ID"], id))
+	addId(tooltip, L["ID"], id, left)
 	tooltip:Show()
 end
 
@@ -959,7 +967,7 @@ local function onTooltipSetUnit(tooltip)
 	if not isPlayer and config.showIds then
 		local npcId = guid and tonumber(guid:sub(7, 12), 16)
 		if npcId and npcId > 0 then
-			tooltip:AddLine(labeled(L["NPC ID"], npcId))
+			addId(tooltip, L["NPC ID"], npcId)
 		end
 	end
 
@@ -1048,7 +1056,7 @@ local function onSetUnitAura(tooltip, unit, index, filter)
 		return
 	end
 
-	local idText = config.showIds and labeled(L["ID"], spellId) or LABEL_HEX .. L["Cast by"] .. "|r"
+	local casterText
 	if showCaster then
 		local r, g, b = 1, 0.9, 0.8
 		if UnitIsPlayer(caster) then
@@ -1058,9 +1066,12 @@ local function onSetUnitAura(tooltip, unit, index, filter)
 				r, g, b = color[1], color[2], color[3]
 			end
 		end
-		tooltip:AddDoubleLine(idText, UnitName(caster), nil, nil, nil, r, g, b)
+		casterText = hex(r, g, b, UnitName(caster))
+	end
+	if not config.showIds then
+		tooltip:AddDoubleLine(LABEL_HEX .. L["Cast by"] .. "|r", casterText)
 	else
-		tooltip:AddLine(idText)
+		addId(tooltip, L["ID"], spellId, casterText and LABEL_HEX .. L["Cast by"] .. "|r: " .. casterText)
 	end
 
 	tooltip:Show()

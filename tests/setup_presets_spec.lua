@@ -189,7 +189,7 @@ return function(ns, env, R)
 	end)
 
 	test("What's new: old comfort values are recommended and go to the new defaults in one step", function()
-		login({ profiles = { Default = { tooltip = { showIds = false } } }, schemaVersion = 1 })
+		login({ profiles = { Default = { popups = { fillDeleteConfirm = false } } }, schemaVersion = 1 })
 		local list = ns:GetLegacyRecommendations()
 		local paths = {}
 		for _, item in ipairs(list) do
@@ -197,7 +197,7 @@ return function(ns, env, R)
 			expect.truthy(Presets.LABELS[item.path] or item.point, item.path .. " has a label")
 		end
 		expect.truthy(paths["tweaks.hideGroundClutter"], "grass is recommended")
-		expect.eq(paths["tooltip.showIds"], nil, "an own value is not recommended")
+		expect.eq(paths["popups.fillDeleteConfirm"], nil, "an own value is not recommended")
 		expect.truthy(paths["lossOfControl.point"] and paths["lossOfControl.point"].point, "a point is recommended")
 		ns.ApplyRecommendations(list)
 		settle()
@@ -216,10 +216,14 @@ return function(ns, env, R)
 
 	test("What's new: an experience value equal to an old default is not recommended back", function()
 		login()
+		local expert = Presets.GetExperience("expert")
+		expert.values["tweaks.hideGroundClutter"] = true
 		Presets.Apply(Presets.Plan("arena", "expert"))
 		ns.Storage.Slot("setup"):Table().experience = "expert"
-		expect.eq(ns:GetBaselineConfig("tooltip.showIds"), true)
-		expect.eq(#ns:GetLegacyRecommendations(), 0)
+		local count = #ns:GetLegacyRecommendations()
+		expert.values["tweaks.hideGroundClutter"] = nil
+		expect.eq(ns:GetBaselineConfig("tweaks.hideGroundClutter"), true)
+		expect.eq(count, 0)
 	end)
 
 	test("Spec icons: every specialization has its own icon", function()

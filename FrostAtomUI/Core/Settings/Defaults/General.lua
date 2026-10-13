@@ -47,7 +47,7 @@ ns:RegisterDefaults("actionBar", {
 	stance = actionBarDefaults(nil, { "BOTTOMLEFT", 22, 2, "actionBar.bar3.point", "TOPLEFT" }, nil, 10, 30),
 	pet = actionBarDefaults(nil, { "BOTTOM", 68, 116 }, nil, 10, 30),
 	vehicleExit = { point = { "BOTTOM", 250, 116 }, buttonSize = 36 },
-	totemBar = ns.Mixin(actionBarDefaults(true, { "BOTTOM", -150, 154 }, nil, 6, 30), {
+	totemBar = ns.Mixin(actionBarDefaults(true, { "BOTTOMLEFT", 0, 2, "actionBar.stance.point", "BOTTOMLEFT" }, nil, 6, 30), {
 		flyoutButtonSize = 24,
 		flyoutSpacing = 2,
 		flyoutRows = 10,
@@ -310,7 +310,7 @@ ns:RegisterDefaults("tooltip", {
 	scale = 1,
 	hideInCombat = true,
 	hideInCombatWorld = false,
-	showIds = false,
+	showIds = true,
 	showAuraCaster = true,
 	showItemLevel = true,
 	showItemCount = true,

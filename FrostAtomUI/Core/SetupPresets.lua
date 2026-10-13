@@ -127,7 +127,7 @@ Presets.STYLES = {
 Presets.EXPERIENCE = {
 	{ key = "new", values = {} },
 	{ key = "returning", values = {} },
-	{ key = "expert", values = { ["tooltip.showIds"] = true, ["general.snapGap"] = 1 } },
+	{ key = "expert", values = { ["general.snapGap"] = 1 } },
 }
 
 Presets.ROLES = {

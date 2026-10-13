@@ -12,14 +12,12 @@ local LEGACY_DEFAULTS = {
 	["spellAlerts.zones.battleground"] = true,
 	["announce.interrupts"] = true,
 	["announce.auraMastery"] = true,
-	["announce.arenaResultToParty"] = true,
 	["tweaks.scriptErrors"] = true,
 	["tweaks.hideGroundClutter"] = true,
 	["tweaks.disableTutorials"] = true,
 	["popups.fillDeleteConfirm"] = true,
 	["popups.autoAcceptInvites"] = true,
 	["combatAlert.enabled"] = true,
-	["tooltip.showIds"] = true,
 	["minimap.showZoneText"] = false,
 	["groupCooldowns.zones.world"] = true,
 	["dispelHighlightAlpha"] = 0,
@@ -186,6 +184,40 @@ local function shiftTrackerRows(profile)
 	end
 end
 
+local OLD_TOTEM_BAR_POINTS = {
+	{ "BOTTOM", -150, 154 },
+	{ "BOTTOMLEFT", 0, 4, "actionBar.bar3.point", "TOPLEFT" },
+	{ "BOTTOMLEFT", 0, 4, "actionBar.bar2.point", "TOPLEFT" },
+}
+
+local function barPoint(profile, key)
+	local actionBar = type(profile) == "table" and profile.actionBar
+	local bar = type(actionBar) == "table" and actionBar[key]
+	return type(bar) == "table" and bar.point or nil, bar
+end
+
+local function dropOldTotemBarPoint(profile)
+	local point, totemBar = barPoint(profile, "totemBar")
+	for _, old in ipairs(OLD_TOTEM_BAR_POINTS) do
+		if sameLegacyValue(point, old) then
+			totemBar.point = nil
+			return
+		end
+	end
+end
+
+local function anchorTotemBarToStance(profile)
+	local stance = barPoint(profile, "stance") or barPoint(profile.baseline, "stance")
+	if type(stance) == "table" and stance[4] == "actionBar.totemBar.point" then
+		if not barPoint(profile, "totemBar") and not barPoint(profile.baseline, "totemBar") then
+			preserveDefaults(profile, { ["actionBar.totemBar.point"] = OLD_TOTEM_BAR_POINTS[1] })
+		end
+		return
+	end
+	dropOldTotemBarPoint(profile)
+	dropOldTotemBarPoint(profile.baseline)
+end
+
 ns.LegacyDefaults = { LEGACY_DEFAULTS, LEGACY_POINTS }
 ns.SameLegacyValue = sameLegacyValue
 
@@ -233,6 +265,7 @@ local MIGRATIONS = {
 		migrateDiminishSides(profile.baseline)
 	end,
 	shiftTrackerRows,
+	anchorTotemBarToStance,
 }
 local SCHEMA_VERSION = #MIGRATIONS
 

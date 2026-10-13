@@ -141,7 +141,6 @@ local function merge(...)
 end
 
 local castbarDefensives = { "BOTTOM", 0, 8, "unitFrames.playerCastbar", "TOP" }
-local totemBarOverBars = { "BOTTOMLEFT", 0, 4, "actionBar.bar3.point", "TOPLEFT" }
 
 local function plateRunes(points)
 	points["runes.point"] = { "TOP", 0, -6, "playerPlate.point", "BOTTOM" }
@@ -164,7 +163,6 @@ local function centerStack(points)
 end
 
 local function flankCenter(points)
-	points["actionBar.totemBar.point"] = totemBarOverBars
 	points["unitFrames.player"] = { "BOTTOM", -250, 246 }
 	points["unitFrames.target"] = { "BOTTOM", 250, 246 }
 	return centerStack(points)
@@ -186,7 +184,6 @@ local fullHD = edgeBars(runesAbovePlate({
 
 local fullHDCompact = castbarsOnTop(
 	centerStack({
-		["actionBar.totemBar.point"] = totemBarOverBars,
 		["unitFrames.player"] = { "TOPLEFT", 150, -50 },
 		["unitFrames.target"] = { "LEFT", 2, 0, "unitFrames.player", "RIGHT" },
 		["unitFrames.focus"] = { "LEFT", 47, 0, "unitFrames.target", "RIGHT" },
@@ -199,7 +196,6 @@ group(fullHDCompact, "party", 4, { "TOPLEFT", 130, -195 }, { "LEFT", 0, -110, "L
 
 local modern = sideBars(plateRunes({
 	["actionBar.stance.point"] = { "BOTTOMLEFT", 22, 4, "actionBar.bar3.point", "TOPLEFT" },
-	["actionBar.totemBar.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar3.point", "TOPLEFT" },
 	["actionBar.pet.point"] = { "BOTTOMRIGHT", 0, 4, "actionBar.bar3.point", "TOPRIGHT" },
 	["actionBar.vehicleExit.point"] = { "BOTTOMLEFT", 4, 0, "actionBar.bar3.point", "BOTTOMRIGHT" },
 	["unitFrames.player"] = { "BOTTOM", -300, 350 },
@@ -231,7 +227,6 @@ local classic = plateRunes({
 	["bags.inventory"] = { "BOTTOMRIGHT", -44, 42 },
 	["tooltip.point"] = { "BOTTOMRIGHT", -51, 64 },
 	["actionBar.stance.point"] = { "BOTTOMLEFT", 22, 4, "actionBar.bar2.point", "TOPLEFT" },
-	["actionBar.totemBar.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar2.point", "TOPLEFT" },
 	["actionBar.pet.point"] = { "BOTTOMLEFT", 0, 4, "actionBar.bar3.point", "TOPLEFT" },
 	["actionBar.vehicleExit.point"] = { "BOTTOMRIGHT", 0, 4, "actionBar.bar3.point", "TOPRIGHT" },
 	["unitFrames.player"] = { "TOPLEFT", 100, -40 },
@@ -324,7 +319,6 @@ local GLADIUS_SETTINGS = {
 
 local healer = castbarsOnTop({
 	["actionBar.vehicleExit.point"] = vehicleExitLeft,
-	["actionBar.totemBar.point"] = totemBarOverBars,
 	["unitFrames.player"] = { "BOTTOM", -280, 510 },
 	["unitFrames.target"] = { "BOTTOM", 280, 510 },
 	["unitFrames.focus"] = { "TOP", -200, -60 },

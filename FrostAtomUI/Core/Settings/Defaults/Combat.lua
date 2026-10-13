@@ -165,7 +165,7 @@ ns:RegisterDefaults("announce", {
 	interruptMessage = "Interrupted %s's %s",
 	auraMastery = false,
 	auraMasteryMessage = "<<< AURA MASTERY >>>",
-	arenaResultToParty = false,
+	arenaResultToParty = true,
 })
 
 ns:RegisterDefaults("arenaTrinket", { size = 30 })
