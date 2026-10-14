@@ -806,9 +806,26 @@ function Chat.GetLine(chatFrame, index)
 	return lines[(lines.head + index - 2) % maxLines + 1]
 end
 
+local function dimColor(alpha, red, green, blue, dim)
+	return format(
+		"|c%s%02x%02x%02x",
+		alpha,
+		tonumber(red, 16) * dim,
+		tonumber(green, 16) * dim,
+		tonumber(blue, 16) * dim
+	)
+end
+
 function Chat.AddStoredLine(chatFrame, text, r, g, b, dim)
-	if dim and r and g and b then
-		rawAddMessage[chatFrame](chatFrame, text, r * dim, g * dim, b * dim)
+	if dim then
+		local shown = gsub(text, "|c(%x%x)(%x%x)(%x%x)(%x%x)", function(alpha, red, green, blue)
+			return dimColor(alpha, red, green, blue, dim)
+		end)
+		if r and g and b then
+			rawAddMessage[chatFrame](chatFrame, shown, r * dim, g * dim, b * dim)
+		else
+			rawAddMessage[chatFrame](chatFrame, shown, r, g, b)
+		end
 	else
 		rawAddMessage[chatFrame](chatFrame, text, r, g, b)
 	end
