@@ -874,7 +874,7 @@ local function createNew()
 			ns.Print(L["cannot change macros in combat"])
 			return
 		end
-		local index = CreateMacro(" ", 1, "", tab == "gameChar")
+		local index = CreateMacro(Macros.BlankName(), 1, "", tab == "gameChar")
 		if index then
 			selection[tab] = index
 		end
@@ -953,6 +953,9 @@ local function commitName(box)
 		return
 	end
 	local name = box:GetText()
+	if name ~= "" and strtrim(name) == "" and not isVirtual(entry) then
+		name = Macros.BlankName(entry)
+	end
 	if name == "" or name == entryName(entry) then
 		box:SetText(entryName(entry))
 		return
@@ -1359,7 +1362,8 @@ local function createPicker()
 		end
 		self.name:SetMaxLetters(virtual and 64 or 16)
 		self.nameLabel:SetText(virtual and L["Enter Macro Name (Max 64 Characters):"] or MACRO_POPUP_TEXT)
-		self.name:SetText(entryName(entry))
+		local name, unnamed = displayName(entry)
+		self.name:SetText(unnamed and "" or name)
 		pickerFilter(self)
 		refreshPicker()
 	end)
@@ -1960,6 +1964,9 @@ local function createFrame()
 
 	frame:SetScript("OnShow", function()
 		PlaySound("igCharacterInfoOpen")
+		if Macros.SeparateBlankNames() then
+			selection.gameAccount, selection.gameChar = nil, nil
+		end
 		refresh(true)
 		updateRunButton()
 	end)

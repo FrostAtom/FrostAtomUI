@@ -1,11 +1,12 @@
 local _, ns = ...
 local L = ns.L
 
-local strbyte, strgsub, strmatch, strlower, gmatch = string.byte, string.gsub, string.match, string.lower, string.gmatch
+local strbyte, strgsub, strmatch, strlower, strrep, gmatch =
+	string.byte, string.gsub, string.match, string.lower, string.rep, string.gmatch
 local tconcat, tremove, max = table.concat, table.remove, math.max
 local InCombatLockdown = InCombatLockdown
-local GetBindingKey, SetBinding, SetBindingClick, SaveBindings, GetCurrentBindingSet =
-	GetBindingKey, SetBinding, SetBindingClick, SaveBindings, GetCurrentBindingSet
+local GetBindingKey, SetBinding, SetBindingClick, SetBindingMacro, SaveBindings, GetCurrentBindingSet =
+	GetBindingKey, SetBinding, SetBindingClick, SetBindingMacro, SaveBindings, GetCurrentBindingSet
 local GetMacroInfo, GetNumMacros, CreateMacro, EditMacro, DeleteMacro, PickupMacro =
 	GetMacroInfo, GetNumMacros, CreateMacro, EditMacro, DeleteMacro, PickupMacro
 local GetNumMacroIcons, GetMacroIconInfo = GetNumMacroIcons, GetMacroIconInfo
@@ -182,6 +183,73 @@ function Macros.GameIndices(scope, out)
 	return out, hidden
 end
 
+local function gameNames(skip)
+	local names = {}
+	local numAccount, numCharacter = GetNumMacros()
+	for index = 1, MAX_ACCOUNT + numCharacter do
+		if index ~= skip and (index <= numAccount or index > MAX_ACCOUNT) then
+			local name = GetMacroInfo(index)
+			if name then
+				names[name] = true
+			end
+		end
+	end
+	return names
+end
+
+-- MACRO bindings resolve by name: unnamed game macros get distinct runs of spaces, " " is left to the stubs
+function Macros.BlankName(skip)
+	local taken = gameNames(skip)
+	for length = 2, STUB_NAME_LIMIT do
+		local name = strrep(" ", length)
+		if not taken[name] then
+			return name
+		end
+	end
+	return " "
+end
+
+local function sharedBlankIndex()
+	local seen = {}
+	local numAccount, numCharacter = GetNumMacros()
+	for index = 1, MAX_ACCOUNT + numCharacter do
+		if index <= numAccount or index > MAX_ACCOUNT then
+			local name = GetMacroInfo(index)
+			if name and strtrim(name) == "" and not Macros.IsLinkedStub(index) then
+				if name == " " or seen[name] then
+					return index
+				end
+				seen[name] = true
+			end
+		end
+	end
+end
+
+function Macros.SeparateBlankNames()
+	if InCombatLockdown() then
+		return
+	end
+	local keys = { GetBindingKey("MACRO  ") }
+	local first
+	local index = sharedBlankIndex()
+	while index do
+		local name = Macros.BlankName(index)
+		if name == " " then
+			break
+		end
+		EditMacro(index, name)
+		first = first or name
+		index = sharedBlankIndex()
+	end
+	if first and #keys > 0 then
+		for i = 1, #keys do
+			SetBindingMacro(keys[i], first)
+		end
+		SaveBindings(GetCurrentBindingSet())
+	end
+	return first ~= nil
+end
+
 local function clauseAction(kind, action)
 	if kind == "actions" then
 		return strtrim(strmatch(action, "^[^,]*"))
@@ -288,7 +356,7 @@ function Macros.GameIcon(index)
 end
 
 local function stubName(macro)
-	return ns.TruncateUTF8(macro.name ~= "" and macro.name or " ", STUB_NAME_LIMIT)
+	return ns.TruncateUTF8(strtrim(macro.name) ~= "" and macro.name or " ", STUB_NAME_LIMIT)
 end
 
 local function syncStub(macro)
@@ -453,7 +521,7 @@ function Macros.ConvertGameMacro(index)
 	end
 	local raw = Parser.Decode(body or "")
 	local scope = index > MAX_ACCOUNT and "char" or "account"
-	local macro = Macros.Create(scope, name, Macros.GameIcon(index), raw)
+	local macro = Macros.Create(scope, strtrim(name) ~= "" and name or "", Macros.GameIcon(index), raw)
 
 	local command = "MACRO " .. name
 	local key = GetBindingKey(command)
@@ -622,8 +690,10 @@ function Macros.Import(items, entries)
 			if gameBody or lists then
 				taken[scope] = taken[scope] or takenNames(scope)
 				if gameBody then
-					if entries then
-						lastGameName = item.name ~= "" and ns.TruncateUTF8(item.name, STUB_NAME_LIMIT) or " "
+					if item.name == "" then
+						lastGameName = Macros.BlankName()
+					elseif entries then
+						lastGameName = ns.TruncateUTF8(item.name, STUB_NAME_LIMIT)
 					else
 						lastGameName = uniqueName(item.name, taken[scope], STUB_NAME_LIMIT)
 					end
