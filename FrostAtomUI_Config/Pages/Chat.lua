@@ -75,7 +75,7 @@ local schema = {
 		path = "chat.shortChannelNames",
 		label = L["Short channel names"],
 		type = "toggle",
-		desc = L["%s, %s, %s instead of full channel names; a numbered channel keeps the first word of its name: [2 Trade]."]:format(
+		desc = L["%s, %s, %s instead of full channel names; a numbered channel shows only its number: [2]."]:format(
 			L["[P]"],
 			L["[R]"],
 			L["[G]"]

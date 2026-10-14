@@ -2522,7 +2522,7 @@ ns.SetLocale("ruRU", {
 	["[W to]"] = "[Ш для]",
 	["[BN from]"] = "[BN от]",
 	["[BN to]"] = "[BN для]",
-	["%s, %s, %s instead of full channel names; a numbered channel keeps the first word of its name: [2 Trade]."] = "%s, %s, %s вместо полных названий каналов; у номерного канала остаётся первое слово названия: [2 Торговля].",
+	["%s, %s, %s instead of full channel names; a numbered channel shows only its number: [2]."] = "%s, %s, %s вместо полных названий каналов; у номерного канала остаётся только номер: [2].",
 	["Tabs cannot be dragged and windows stay in place; the main window uses the position and size from its frame settings, and its corner still resizes it. Off leaves positions to Blizzard's chat settings."] = "Вкладки не перетаскиваются, окна стоят на месте; главное окно берёт место и размер из настроек рамки, а его угол по-прежнему меняет размер. Выключено — положение задают настройки чата Blizzard.",
 	["Party member %d"] = "Союзник %d",
 	["Party member %d pet"] = "Питомец союзника %d",

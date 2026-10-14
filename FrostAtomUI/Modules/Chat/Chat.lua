@@ -246,6 +246,7 @@ function Chat:Initialize()
 	if config.skin then
 		ns.CreateFader({ GeneralDockManager }, hover, isChatActive):Configure(true, 0)
 	end
+	UIPARENT_MANAGED_FRAME_POSITIONS.ChatFrame1 = nil
 	applyFrameConfig()
 	captureBlizzardSticky()
 	applySticky()
@@ -652,7 +653,7 @@ local function shortenChannelName(text)
 	if not config.shortChannelNames then
 		return text
 	end
-	return (gsub(text, "%[(%d+)%. ([^%]%s]+)[^%]]*%]", "[%1 %2]", 1))
+	return (gsub(text, "%[(%d+)%. [^%]]*%]", "[%1]", 1))
 end
 
 local URL_LINK = "|cff3399ff|Hurl:%s|h[%s]|h|r"
