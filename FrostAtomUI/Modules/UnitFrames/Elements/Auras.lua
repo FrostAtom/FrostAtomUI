@@ -628,12 +628,6 @@ local function showEnchant(icon, enchant)
 	setEnchant(icon, enchant)
 	if enchant then
 		setIcon(icon, enchant.icon, nil, nil, enchant.duration, enchant.expires)
-		local color = enchant.quality and ITEM_QUALITY_COLORS[enchant.quality]
-		if color then
-			local overlay = icon.overlay or createOverlay(icon)
-			overlay:SetVertexColor(color.r, color.g, color.b)
-			overlay:Show()
-		end
 	else
 		if icon.start then
 			clearCooldown(icon)

@@ -2,7 +2,8 @@ local _, ns = ...
 
 local GetWeaponEnchantInfo = GetWeaponEnchantInfo
 local GetInventoryItemTexture = GetInventoryItemTexture
-local GetInventoryItemQuality = GetInventoryItemQuality
+local GetInventoryItemID = GetInventoryItemID
+local GetSpellInfo = GetSpellInfo
 local CancelItemTempEnchantment = CancelItemTempEnchantment
 local UnitHasVehicleUI = UnitHasVehicleUI
 local GameTooltip = GameTooltip
@@ -28,6 +29,8 @@ local enchants = {}
 local enchantCount = 0
 local knownDurations = {}
 local nextExpiry
+local scanTip, scanLeft
+local spellByName
 
 local function inAuras()
 	return ns.Config.temporaryEnchant.showInAuras and ns.FrameBridge.HasWeaponEnchantAuras()
@@ -51,6 +54,80 @@ local function estimateDuration(slot, remain)
 	end
 	knownDurations[slot] = known
 	return known
+end
+
+local function scanLines(setter, a, b, into)
+	scanTip:SetOwner(UIParent, "ANCHOR_NONE")
+	setter(scanTip, a, b)
+	local count = 0
+	for i = 1, scanTip:NumLines() do
+		local text = _G[scanLeft .. i]:GetText()
+		if text then
+			count = count + 1
+			into[count] = text
+		end
+	end
+	scanTip:Hide()
+	for i = count + 1, #into do
+		into[i] = nil
+	end
+	return into
+end
+
+-- the client has no API for the temporary enchant id; an "item:<id>:<enchant>" link shows the enchant name the same way the weapon tooltip does
+local function buildSpellNames(itemId)
+	scanTip = scanTip or CreateFrame("GameTooltip", "FrostAtomUITempEnchantScanTooltip", nil, "GameTooltipTemplate")
+	scanLeft = scanTip:GetName() .. "TextLeft"
+	local base = {}
+	for _, text in ipairs(scanLines(scanTip.SetHyperlink, "item:" .. itemId, nil, {})) do
+		base[text] = true
+	end
+	if not next(base) then
+		return
+	end
+	spellByName = {}
+	local lines = {}
+	for enchantId, spellId in pairs(ns.TempEnchantSpells) do
+		scanLines(scanTip.SetHyperlink, "item:" .. itemId .. ":" .. enchantId, nil, lines)
+		for i = 1, #lines do
+			if not base[lines[i]] then
+				spellByName[lines[i]] = spellId
+				break
+			end
+		end
+	end
+end
+
+local slotLines = {}
+
+local function enchantSpellIcon(slot)
+	if not spellByName then
+		local itemId = GetInventoryItemID("player", slot)
+		if not itemId then
+			return nil
+		end
+		buildSpellNames(itemId)
+		if not spellByName then
+			return nil
+		end
+	end
+	scanLines(scanTip.SetInventoryItem, "player", slot, slotLines)
+	for i = 1, #slotLines do
+		local text = slotLines[i]
+		local spellId = spellByName[text]
+		local from = 1
+		while not spellId do
+			local cut = text:find(" (", from, true)
+			if not cut then
+				break
+			end
+			spellId = spellByName[text:sub(1, cut - 1)]
+			from = cut + 1
+		end
+		if spellId then
+			return (select(3, GetSpellInfo(spellId)))
+		end
+	end
 end
 
 local function onClick(icon)
@@ -83,7 +160,15 @@ local function createIcon()
 	icon.texture = icon:CreateTexture(nil, "BORDER")
 	icon.texture:SetAllPoints()
 
-	icon.timer = icon:CreateFontString(nil, "OVERLAY")
+	icon.cooldown = CreateFrame("Cooldown", nil, icon)
+	icon.cooldown:SetAllPoints()
+	icon.cooldown:SetReverse(true)
+	icon.cooldown:SetDrawEdge(true)
+
+	local text = CreateFrame("Frame", nil, icon)
+	text:SetAllPoints()
+	text:SetFrameLevel(icon.cooldown:GetFrameLevel() + 1)
+	icon.timer = text:CreateFontString(nil, "OVERLAY")
 	icon.timer:SetPoint("CENTER")
 
 	return icon
@@ -136,6 +221,13 @@ local function showStandalone()
 		icon.weaponIndex = enchant.weaponIndex
 		icon.slot = enchant.slot
 		icon.texture:SetTexture(enchant.icon)
+		local duration = enchant.duration
+		if enchant.expires and duration > 0 then
+			icon.cooldown:SetCooldown(enchant.expires - duration, duration)
+			icon.cooldown:Show()
+		else
+			icon.cooldown:Hide()
+		end
 		icon:Show()
 		if GameTooltip:IsOwned(icon) then
 			refreshTooltip(icon)
@@ -167,8 +259,7 @@ local function readEnchants(...)
 			end
 			enchant.weaponIndex = weaponIndex
 			enchant.slot = slot
-			enchant.icon = GetInventoryItemTexture("player", slot)
-			enchant.quality = GetInventoryItemQuality("player", slot)
+			enchant.icon = enchantSpellIcon(slot) or GetInventoryItemTexture("player", slot)
 			if remainMs then
 				local remain = remainMs / 1000
 				enchant.expires = now + remain
