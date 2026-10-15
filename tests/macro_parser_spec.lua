@@ -344,7 +344,7 @@ return function(ns, env, R)
 		})
 		expect.deepEq({ Parser.IconActions("/cast Frostbolt\n/cast [combat] Fireball") }, {
 			{ action("action", "Frostbolt") },
-			false,
+			true,
 		})
 		expect.deepEq({ Parser.IconActions("/cast [mod] A\n#show B\n/cast C") }, {
 			{ action("action", "[mod] A"), action("action", "B") },
@@ -352,15 +352,15 @@ return function(ns, env, R)
 		})
 		expect.deepEq({ Parser.IconActions("/use 13\n/cast A") }, {
 			{ action("action", "13"), action("action", "A") },
-			false,
+			true,
 		})
 		expect.deepEq({ Parser.IconActions("/castsequence reset=5 A, B") }, {
 			{ action("sequence", "reset=5 A, B") },
-			false,
+			true,
 		})
-		expect.deepEq({ Parser.IconActions("/castrandom A, B") }, { { action("actions", "A, B") }, false })
+		expect.deepEq({ Parser.IconActions("/castrandom A, B") }, { { action("actions", "A, B") }, true })
 		expect.deepEq({ Parser.IconActions("#show none\n/cast A") }, { {}, false })
-		expect.deepEq({ Parser.IconActions("/target focus\n/stopcasting\n/s hi") }, { {}, false })
+		expect.deepEq({ Parser.IconActions("/target focus\n/stopcasting\n/s hi") }, { {}, true })
 	end)
 
 	test("Macro parser: InvalidateSpells picks up newly learned spells", function()

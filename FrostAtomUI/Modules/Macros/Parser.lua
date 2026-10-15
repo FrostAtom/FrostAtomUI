@@ -931,12 +931,13 @@ end
 local ICON_KINDS = { action = true, actions = true, sequence = true, item = true, slotitem = true }
 
 function Parser.IconActions(text)
-	local actions, tooltip = {}, false
+	local actions, tooltip, shown = {}, false, false
 	for line in gmatch(text, "[^\r\n]+") do
 		local word, args = strmatch(line, "^(%S+)%s*(.-)%s*$")
 		local kind
 		if word and strfind(word, "^#show") then
 			kind = "show"
+			shown = true
 			tooltip = tooltip or strfind(word, "^#showtooltip") ~= nil
 		elseif word and strbyte(word) == BYTE_SLASH then
 			local entry = lookupCommand(word)
@@ -955,5 +956,5 @@ function Parser.IconActions(text)
 			end
 		end
 	end
-	return actions, tooltip
+	return actions, tooltip or not shown
 end
