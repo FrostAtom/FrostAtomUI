@@ -743,6 +743,7 @@ local MOD_TALENTS = {
 	{ 3, 0, 31670, 31672, 55094 }, -- Ice Floes
 	{ 3, 25, 55091, 55092 }, -- Cold as Ice
 	{ 1, 10, 20234, 20235 }, -- Improved Lay on Hands
+	{ 1, 20, 20254, 20255, 20256 }, -- Improved Concentration Aura
 	{ 1, 25, 31825, 31826 }, -- Purifying Power
 	{ 2, 5, 20174, 20175 }, -- Guardian's Favor
 	{ 2, 15, 20487, 20488 }, -- Improved Hammer of Justice
@@ -758,6 +759,7 @@ local MOD_TALENTS = {
 	{ 1, 10, 16040, 16113, 16114, 16115, 16116 }, -- Reverberation
 	{ 2, 0, 16043, 16130 }, -- Earth's Grasp
 	{ 2, 5, 16258, 16293 }, -- Guardian Totems
+	{ 3, 25, 30864, 30865, 30866 }, -- Focused Mind
 	{ 2, 40, 63117, 63121, 63123 }, -- Nemesis
 	{ 1, 35, 64976 }, -- Juggernaut
 	{ 2, 20, 29888, 29889 }, -- Improved Intercept
@@ -908,8 +910,25 @@ local INTERRUPT_EFFECTS = {
 	[26090] = 2, -- Pummel
 }
 
+local LOCKOUT_MULT = {
+	SHAMAN = { 30864, 0.9, 30865, 0.8, 30866, 0.7 }, -- Focused Mind
+}
+local AURA_LOCKOUT_MULT = { 20254, 0.9, 20255, 0.8, 20256, 0.7 } -- Improved Concentration Aura
+local PALADIN_AURAS = {
+	465, -- Devotion Aura
+	7294, -- Retribution Aura
+	19746, -- Concentration Aura
+	19876, -- Shadow Resistance Aura
+	19888, -- Frost Resistance Aura
+	19891, -- Fire Resistance Aura
+	32223, -- Crusader Aura
+}
+
 ns.CooldownData = {
 	INTERRUPT_EFFECTS = INTERRUPT_EFFECTS,
+	LOCKOUT_MULT = LOCKOUT_MULT,
+	AURA_LOCKOUT_MULT = AURA_LOCKOUT_MULT,
+	PALADIN_AURAS = PALADIN_AURAS,
 	SPELLS = SPELLS,
 	CATEGORIES = CATEGORIES,
 	SPEC_HINTS = specHints,

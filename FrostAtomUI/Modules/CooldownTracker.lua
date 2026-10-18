@@ -7,7 +7,7 @@ local RESETS = Data.RESETS
 local CDMOD, CDMOD_MULT = Data.CDMOD, Data.CDMOD_MULT
 local FORBEARANCE, FORBEARANCE_SPELLS = Data.FORBEARANCE, Data.FORBEARANCE_SPELLS
 local TALENT_SWAP = Data.TALENT_SWAP
-local SPEC_HINTS, MOD_TALENTS = Data.SPEC_HINTS, Data.MOD_TALENTS
+local SPEC_HINTS = Data.SPEC_HINTS
 local RACIALS, PVP_TRINKET = Data.RACIALS, Data.PVP_TRINKET
 
 local DUPLICATE_WINDOW = 2
@@ -88,7 +88,7 @@ local function endsBefore(entry, endTime)
 	return not entry or not entry.start or entry.start + entry.duration < endTime
 end
 
-local function hasTalent(guid, id, info, talents, entries, strict)
+local function hasTalent(guid, id, info, talents)
 	if not info.talent then
 		return true
 	elseif talents then
@@ -97,14 +97,12 @@ local function hasTalent(guid, id, info, talents, entries, strict)
 	local hint = SPEC_HINTS[id]
 	if not hint then
 		return true
-	elseif strict then
-		return (entries and entries[id]) ~= nil or Talents:GetProven(guid, hint.tree) > hint.points
 	end
 	return not Talents:IsExcluded(guid, hint)
 end
 
 local trackedList = {}
-function CooldownTracker:GetTrackedFor(guid, class, race, strict, out)
+function CooldownTracker:GetTrackedFor(guid, class, race, out)
 	local spells = class and SPELLS[class]
 	if not spells then
 		return
@@ -117,7 +115,7 @@ function CooldownTracker:GetTrackedFor(guid, class, race, strict, out)
 	wipe(list)
 	for i = 1, #spells do
 		local id = spells[i][1]
-		if hasTalent(guid, id, spellInfo[id], talents, entries, strict) then
+		if hasTalent(guid, id, spellInfo[id], talents) then
 			list[#list + 1] = id
 		end
 	end
@@ -167,27 +165,14 @@ function CooldownTracker:IsHighlighted(guid, id)
 	return entry ~= nil and (entry.active or entry.pending) == true
 end
 
-local function hasModifier(guid, talents, id)
-	if talents then
-		return talents[id]
-	end
-	local talent = MOD_TALENTS[id]
-	if not talent then
-		return true, true
-	end
-	local reachable = Talents:GetReachableRanks(guid, talent.tree, talent.points)
-	return talent.rank <= reachable and (talent.rank == talent.maxRank or talent.rank + 1 > reachable)
-end
-
 function CooldownTracker:GetDuration(guid, id)
 	local duration = spellInfo[id].cooldown
 	local longest = duration
-	local talents = Talents:Get(guid)
 	local assumed = false
 	local mod = CDMOD[id]
 	if mod then
 		for i = 1, #mod, 2 do
-			local has, guessed = hasModifier(guid, talents, mod[i])
+			local has, guessed = Talents:HasModifier(guid, mod[i])
 			if has and (not guessed or mod[i + 1] > 0) then
 				duration = duration - mod[i + 1]
 				assumed = assumed or guessed or false
@@ -200,7 +185,7 @@ function CooldownTracker:GetDuration(guid, id)
 	local mult = CDMOD_MULT[id]
 	if mult then
 		for i = 1, #mult, 2 do
-			local has, guessed = hasModifier(guid, talents, mult[i])
+			local has, guessed = Talents:HasModifier(guid, mult[i])
 			if has and (not guessed or mult[i + 1] < 1) then
 				duration = duration * mult[i + 1]
 				assumed = assumed or guessed or false

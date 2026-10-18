@@ -16,6 +16,7 @@ local GetPlayerInfoByGUID = GetPlayerInfoByGUID
 local Data = ns.CooldownData
 local MAX_TALENT_POINTS = Data.MAX_TALENT_POINTS
 local SPEC_HINTS = Data.SPEC_HINTS
+local MOD_TALENTS = Data.MOD_TALENTS
 
 local max, min, floor, huge = math.max, math.min, math.floor, math.huge
 
@@ -81,6 +82,10 @@ for _, modifiers in ipairs({ Data.CDMOD, Data.CDMOD_MULT }) do
 		registerRow(row)
 	end
 end
+for _, row in pairs(Data.LOCKOUT_MULT) do
+	registerRow(row)
+end
+registerRow(Data.AURA_LOCKOUT_MULT)
 
 local data = {}
 local observed = {}
@@ -247,12 +252,7 @@ function Talents:Observe(guid, hint)
 	ns:Fire(ns.E.TALENTS_UPDATED, guid)
 end
 
-function Talents:GetProven(guid, tree)
-	local guess = observed[guid]
-	return guess and guess.proven[tree] or 0
-end
-
-function Talents:GetReachableRanks(guid, tree, points)
+local function reachableRanks(guid, tree, points)
 	local guess = observed[guid] or UNSEEN
 	local proven = guess.proven[tree]
 	if points < proven then
@@ -261,12 +261,25 @@ function Talents:GetReachableRanks(guid, tree, points)
 	return guess.cap[tree] - points
 end
 
+function Talents:HasModifier(guid, id)
+	local talents = data[guid]
+	if talents then
+		return talents[id]
+	end
+	local talent = MOD_TALENTS[id]
+	if not talent then
+		return true, true
+	end
+	local reachable = reachableRanks(guid, talent.tree, talent.points)
+	return talent.rank <= reachable and (talent.rank == talent.maxRank or talent.rank + 1 > reachable)
+end
+
 function Talents:IsExcluded(guid, hint)
 	local guess = observed[guid]
 	if guess and guess.seen[hint] then
 		return false
 	end
-	return self:GetReachableRanks(guid, hint.tree, hint.points) < 1
+	return reachableRanks(guid, hint.tree, hint.points) < 1
 end
 
 function Talents:Invalidate(guid)

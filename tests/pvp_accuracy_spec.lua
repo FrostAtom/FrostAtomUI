@@ -289,14 +289,14 @@ return function(_, env, R)
 		function Talents.Has() end
 		function Talents.Observe() end
 		function Talents.Invalidate() end
-		function Talents.GetProven()
-			return 0
-		end
 		function Talents.IsExcluded()
 			return false
 		end
-		function Talents.GetReachableRanks()
-			return 0
+		function Talents.HasModifier(_, _, id)
+			if not ns.CooldownData.MOD_TALENTS[id] then
+				return true, true
+			end
+			return false
 		end
 		env.loadFile("Modules/CooldownTracker.lua", ns, box)
 		local Tracker = ns.modules.CooldownTracker

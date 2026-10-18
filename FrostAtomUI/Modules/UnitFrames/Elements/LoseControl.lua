@@ -4,13 +4,17 @@ local UF = ns:GetModule("UnitFrames")
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
 local UnitGUID = UnitGUID
+local GetPlayerInfoByGUID = GetPlayerInfoByGUID
 local band = bit.band
-local random, huge = math.random, math.huge
+local random, huge, min = math.random, math.huge, math.min
 
 local Auras = ns.Auras
 local Data = ns.LoseControlData
 local CooldownTimer = ns:GetModule("CooldownTimer")
+local Talents = ns:GetModule("Talents")
 local config = ns.Config.loseControl
+local LOCKOUT_MULT = ns.CooldownData.LOCKOUT_MULT
+local AURA_LOCKOUT_MULT = ns.CooldownData.AURA_LOCKOUT_MULT
 
 local BY_ID = Data.BY_ID
 local PRIORITY = Data.PRIORITY
@@ -25,6 +29,11 @@ UF.ccSpellNames = Data.CONTROL_NAMES
 
 local widgets = {}
 local lockouts = {}
+
+local PALADIN_AURA_NAMES = {}
+for _, id in ipairs(ns.CooldownData.PALADIN_AURAS) do
+	PALADIN_AURA_NAMES[GetSpellInfo(id)] = true
+end
 
 local function isShown(spell)
 	return config.spells[spell[1]] ~= false
@@ -159,6 +168,34 @@ local function refreshGUID(guid)
 	end
 end
 
+local function talentMultiplier(guid, row)
+	for i = 1, #row, 2 do
+		if Talents:HasModifier(guid, row[i]) then
+			return row[i + 1]
+		end
+	end
+	return 1
+end
+
+local function lockoutMultiplier(guid)
+	local _, class = GetPlayerInfoByGUID(guid)
+	local own = LOCKOUT_MULT[class]
+	local multiplier = own and talentMultiplier(guid, own) or 1
+	local unit = ns.UnitByGUID(guid)
+	if not unit then
+		return multiplier
+	end
+	local auras, count = Auras.Get(unit, "HELPFUL")
+	for i = 1, count do
+		local aura = auras[i]
+		local casterGUID = PALADIN_AURA_NAMES[aura.name] and aura.caster and UnitGUID(aura.caster)
+		if casterGUID then
+			multiplier = min(multiplier, talentMultiplier(casterGUID, AURA_LOCKOUT_MULT))
+		end
+	end
+	return multiplier
+end
+
 local function onInterrupt(_, _, _, _, _, _, destGUID, _, destFlags, spellId, _, _, interruptedId)
 	if not config.lockouts or band(destFlags, HOSTILE_PLAYER) == 0 or band(destFlags, REACTION_HOSTILE) == 0 then
 		return
@@ -167,6 +204,7 @@ local function onInterrupt(_, _, _, _, _, _, destGUID, _, destFlags, spellId, _,
 	if not duration then
 		return
 	end
+	duration = duration * lockoutMultiplier(destGUID)
 	local _, _, icon = GetSpellInfo(interruptedId or spellId)
 	local now = GetTime()
 	lockouts[destGUID] =

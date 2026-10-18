@@ -245,7 +245,7 @@ local function collectSpells(owner, panel, config)
 	end
 	owner.trackedBuffer = owner.trackedBuffer or {}
 	local tracked = owner.spells
-		or CooldownTracker:GetTrackedFor(owner.guid, owner.class, owner.race, true, owner.trackedBuffer)
+		or CooldownTracker:GetTrackedFor(owner.guid, owner.class, owner.race, owner.trackedBuffer)
 	for i = 1, tracked and #tracked or 0 do
 		local id = tracked[i]
 		local category = categoryOf(id)
