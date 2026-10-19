@@ -498,8 +498,8 @@ function Macros.PlaceOnBar(macro)
 	if index then
 		EditMacro(index, stubName(macro), iconIndexOf(macro.icon), body)
 	else
-		local perCharacter = Macros.ScopeOf(macro) == "char"
-		if not gameSlotFree(perCharacter and "gameChar" or "gameAccount") then
+		local perCharacter = Macros.ScopeOf(macro) == "char" and gameSlotFree("gameChar")
+		if not perCharacter and not gameSlotFree("gameAccount") then
 			ns.Print(L["no free game macro slot to put %s on an action bar; key bindings work without one"], macro.name)
 			return
 		end
