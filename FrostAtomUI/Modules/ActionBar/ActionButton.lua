@@ -15,7 +15,6 @@ local IsAutoRepeatAction = IsAutoRepeatAction
 local IsConsumableAction = IsConsumableAction
 local IsStackableAction = IsStackableAction
 local InCombatLockdown = InCombatLockdown
-local PickupAction = PickupAction
 local GetActionInfo = GetActionInfo
 local GetMacroSpell = GetMacroSpell
 local GetSpellInfo = GetSpellInfo
@@ -42,12 +41,6 @@ local RANGE_CHECK_INTERVAL = 0.1
 local GCD_DURATION = 1.5
 local MAX_INTERRUPT_LOCKOUT = 8
 local INTERRUPT_TOLERANCE = 0.5
-local RECEIVE_DRAG_SNIPPET = [[
-	if not kind then
-		return false
-	end
-	return "action", self:GetAttribute("action")
-]]
 local SLOT_VISIBILITY_SNIPPET = [[
 	local button = self:GetFrameRef("button")
 	if self:IsShown() and button:GetAttribute("slotactive") then
@@ -639,12 +632,6 @@ function ActionButtonMixin:OnAttributeChanged(attribute, value)
 	end
 end
 
-function ActionButtonMixin:OnDragStart()
-	if ActionBar.CanDrag() then
-		PickupAction(self.action)
-	end
-end
-
 local buttonEvents = ns.Mixin({ name = "ActionButton" }, ns.EventMixin)
 
 local function forEachAction(method, ...)
@@ -689,10 +676,8 @@ end
 function ActionButtonMixin:SetTooltip()
 	if HasAction(self.action) then
 		GameTooltip:SetAction(self.action)
-		if not InCombatLockdown() then
-			GameTooltip:AddLine(ActionBar.DragHint(), 0.5, 0.5, 0.5)
-			GameTooltip:Show()
-		end
+		GameTooltip:AddLine(ActionBar.DragHint(), 0.5, 0.5, 0.5)
+		GameTooltip:Show()
 	else
 		GameTooltip:Hide()
 	end
@@ -709,6 +694,7 @@ function ActionBar:CreateActionButton(action, parent)
 	button.action = action
 	button.bindingName = BINDING_NAME:format(action)
 
+	self.EnableDrag(button, parent, "action")
 	self:StyleButton(button)
 
 	button.cooldown = CreateFrame("Cooldown", nil, button)
@@ -733,10 +719,7 @@ function ActionBar:CreateActionButton(action, parent)
 	ns.SetFont(button.count, config.countFont.size, config.countFont.outline)
 
 	button:RegisterForClicks("LeftButtonDown")
-	button:RegisterForDrag(config.dragButton)
-	button:SetScript("OnDragStart", button.OnDragStart)
 	button:SetScript("OnAttributeChanged", button.OnAttributeChanged)
-	parent:WrapScript(button, "OnReceiveDrag", RECEIVE_DRAG_SNIPPET)
 	button:RegisterEvent("PLAYER_ENTERING_WORLD", "Update")
 	button:RegisterEvent("UPDATE_BINDINGS", "UpdateBindings")
 	self:AttachTooltip(button, button.SetTooltip)

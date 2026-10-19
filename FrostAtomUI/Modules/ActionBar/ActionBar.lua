@@ -76,18 +76,46 @@ function ActionBar:SetButtonEquipped(button, equipped)
 	ns.SetShown(button.equippedTexture, equipped)
 end
 
-local DRAG_MODIFIERS = {
-	shift = IsShiftKeyDown,
-	ctrl = IsControlKeyDown,
-	alt = IsAltKeyDown,
-}
-
 local DRAG_MODIFIER_NAMES = { shift = "Shift", ctrl = "Ctrl", alt = "Alt" }
 local DRAG_BUTTON_NAMES = { LeftButton = "Left button", RightButton = "Right button", MiddleButton = "Middle button" }
 
-function ActionBar.CanDrag()
-	local modifier = DRAG_MODIFIERS[config.dragModifier]
-	return (not modifier or modifier()) and not InCombatLockdown()
+local DRAG_MODIFIER_HELD = [[
+	local modifier = self:GetAttribute("dragmodifier")
+	local held = modifier == "shift" and IsShiftKeyDown() or modifier == "ctrl" and IsControlKeyDown()
+		or modifier == "alt" and IsAltKeyDown()
+]]
+local DRAG_START_SNIPPET = DRAG_MODIFIER_HELD
+	.. [[
+	if modifier and not held then
+		return false
+	end
+	return self:GetAttribute("dragkind"), self:GetAttribute("action")
+]]
+local RECEIVE_DRAG_SNIPPET = [[
+	if not kind then
+		return false
+	end
+	return self:GetAttribute("dragkind"), self:GetAttribute("action")
+]]
+local DRAG_CLICK_SNIPPET = DRAG_MODIFIER_HELD
+	.. [[
+	if held and button == self:GetAttribute("dragbutton") and self:IsUnderMouse() then
+		return false
+	end
+]]
+
+function ActionBar.SetDragButton(button)
+	button:RegisterForDrag(config.dragButton)
+	button:SetAttribute("dragbutton", config.dragButton)
+	button:SetAttribute("dragmodifier", DRAG_MODIFIER_NAMES[config.dragModifier] and config.dragModifier or nil)
+end
+
+function ActionBar.EnableDrag(button, header, kind)
+	button:SetAttribute("dragkind", kind)
+	header:WrapScript(button, "OnDragStart", DRAG_START_SNIPPET)
+	header:WrapScript(button, "OnReceiveDrag", RECEIVE_DRAG_SNIPPET)
+	header:WrapScript(button, "OnClick", DRAG_CLICK_SNIPPET)
+	ActionBar.SetDragButton(button)
 end
 
 function ActionBar.DragHint()
@@ -309,7 +337,7 @@ end
 function ActionBar:StyleBarButtons(bar)
 	for _, button in ipairs(bar.buttons) do
 		self:StyleHotkey(button.hotkey)
-		button:RegisterForDrag(config.dragButton)
+		self.SetDragButton(button)
 		button:UpdateGrid()
 		button:UpdateColors()
 		ns.SetFont(button.name, config.nameFont.size, config.nameFont.outline)

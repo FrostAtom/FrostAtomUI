@@ -4,8 +4,6 @@ local CooldownFrame_SetTimer = CooldownFrame_SetTimer
 local GetPetActionCooldown = GetPetActionCooldown
 local GetPetActionInfo = GetPetActionInfo
 local GetPetActionSlotUsable = GetPetActionSlotUsable
-local PickupPetAction = PickupPetAction
-local InCombatLockdown = InCombatLockdown
 local RegisterStateDriver = RegisterStateDriver
 local AutoCastShine_AutoCastStart = AutoCastShine_AutoCastStart
 local AutoCastShine_AutoCastStop = AutoCastShine_AutoCastStop
@@ -16,7 +14,6 @@ local Media = ns.Media
 local ActionBar = ns:GetModule("ActionBar")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
-local config = ns.Config.actionBar
 local BUTTON_NAME = ADDON_NAME .. "PetButton%d"
 local AUTOCAST_TEXTURE = "Interface\\Buttons\\UI-AutoCastableOverlay"
 local buttons = ActionBar.petButtons
@@ -32,22 +29,17 @@ local tokenTextures = setmetatable({}, {
 
 local function setTooltip(button)
 	local id = button:GetID()
-	if GetPetActionInfo(id) then
-		GameTooltip:SetPetAction(id)
-	else
+	local name, subtext, _, isToken = GetPetActionInfo(id)
+	if not name then
 		GameTooltip:Hide()
-	end
-end
-
-local function onDragStart(button)
-	if ActionBar.CanDrag() then
-		PickupPetAction(button:GetID())
-	end
-end
-
-local function onReceiveDrag(button)
-	if not InCombatLockdown() then
-		PickupPetAction(button:GetID())
+	elseif isToken then
+		GameTooltip:SetText(_G[name] or name, 1, 1, 1)
+		if subtext then
+			GameTooltip:AddLine(subtext, 0.5, 0.5, 0.5)
+		end
+		GameTooltip:Show()
+	else
+		GameTooltip:SetPetAction(id)
 	end
 end
 
@@ -118,6 +110,7 @@ function ActionBar:CreatePetButton(index, parent)
 	button.bindingName = "CLICK " .. name .. ":LeftButton"
 	button.blizzardBinding = "BONUSACTIONBUTTON" .. index
 
+	self.EnableDrag(button, parent, "petaction")
 	self:StyleButton(button)
 
 	button.cooldown = CreateFrame("Cooldown", nil, button)
@@ -143,9 +136,6 @@ function ActionBar:CreatePetButton(index, parent)
 	self:StyleHotkey(button.hotkey)
 
 	button:RegisterForClicks("LeftButtonDown", "RightButtonUp")
-	button:RegisterForDrag(config.dragButton)
-	button:SetScript("OnDragStart", onDragStart)
-	button:SetScript("OnReceiveDrag", onReceiveDrag)
 	self:AttachTooltip(button, setTooltip)
 	updateHotkey(button)
 
@@ -169,7 +159,7 @@ function ActionBar:StylePetButtons()
 	for i = 1, #buttons do
 		local button = buttons[i]
 		self:StyleHotkey(button.hotkey)
-		button:RegisterForDrag(config.dragButton)
+		self.SetDragButton(button)
 	end
 end
 
