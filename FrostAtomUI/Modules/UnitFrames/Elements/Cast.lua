@@ -159,16 +159,16 @@ local function setTimes(castbar, startTime, endTime)
 	castbar.endTime = endTime
 	castbar.duration = endTime - startTime
 	castbar.remain = endTime - GetTime()
-	castbar.bar:SetMinMaxValues(startTime, endTime)
+	castbar.bar:SetMinMaxValues(0, castbar.duration)
 end
 
 local function setProgress(castbar, remain)
 	local bar, duration = castbar.bar, castbar.duration
 	local elapsed = duration - remain
 	if castbar.isChannel then
-		bar:SetValue(castbar.startTime + remain)
+		bar:SetValue(remain)
 	else
-		bar:SetValue(castbar.endTime - remain)
+		bar:SetValue(elapsed)
 	end
 	local spark = castbar.spark
 	if duration > 0 and remain > 0 and elapsed > 0 then
@@ -264,7 +264,7 @@ local function stopCast(castbar, hold, fadeSpeed)
 	castbar.stoppedAt = GetTime()
 	castbar.hold = hold or 0
 	castbar.fadeSpeed = fadeSpeed or FADE_SPEED
-	castbar.bar:SetValue(castbar.isChannel and castbar.startTime or castbar.endTime)
+	castbar.bar:SetValue(castbar.isChannel and 0 or castbar.duration)
 	castbar.timer:SetText("")
 	castbar.target:SetText("")
 	castbar.glow:Hide()

@@ -153,9 +153,9 @@ local function onBarUpdate(bar, elapsed)
 		return
 	end
 	if entry.isChannel then
-		bar:SetValue(entry.startTime + entry.endTime - now)
+		bar:SetValue(entry.endTime - now)
 	else
-		bar:SetValue(now)
+		bar:SetValue(now - entry.startTime)
 	end
 	if bar.important then
 		ns.Cast.PulseGlow(bar.glow, elapsed)
@@ -238,7 +238,7 @@ function updatePlate(plate)
 		plate.castbar.result:Hide()
 	end
 	bar.entry = entry
-	bar:SetMinMaxValues(entry.startTime, entry.endTime)
+	bar:SetMinMaxValues(0, entry.endTime - entry.startTime)
 	applyLock(bar, entry.locked)
 	updateBarTarget(bar, NamePlates.GetPlateUnit(plate))
 	bar:Show()
