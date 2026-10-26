@@ -182,6 +182,7 @@ local teamNames = {}
 local soloQueueSearchSeen = false
 local queuedAlone = false
 local isSoloMatch = false
+local partyConfirmed = false
 local preparing = false
 local startTime
 local ended = false
@@ -230,12 +231,30 @@ local function collectUnit(unit, side)
 	entry.guid = guid
 	entry.class = select(2, UnitClass(unit)) or entry.class
 	entry.race = UnitRace(unit) or entry.race
+	return entry
+end
+
+local function collectPartyUnit(unit)
+	local entry = collectUnit(unit, 1)
+	if entry and not partyConfirmed then
+		entry.pending = true
+	end
 end
 
 local function collectParty()
 	collectUnit("player", 1)
 	for i = 1, GetNumPartyMembers() do
-		collectUnit("party" .. i, 1)
+		collectPartyUnit("party" .. i)
+	end
+end
+
+local function dropPendingParty()
+	for i = #sightings, 1, -1 do
+		local entry = sightings[i]
+		if entry.pending then
+			seen[entry.name] = nil
+			tremove(sightings, i)
+		end
 	end
 end
 
@@ -427,7 +446,6 @@ local function snapshot()
 	end
 	currentTeam = playerTeam
 
-	collectParty()
 	collectArena()
 	wipe(unknowns)
 	for i = 1, #sightings do
@@ -554,6 +572,7 @@ ArenaHistoryModule:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 	wipe(seen)
 	wipe(sightings)
 	wipe(teamNames)
+	partyConfirmed = false
 	if inArena then
 		isSoloMatch = soloQueueSearchSeen or queuedAlone or saved and saved.solo or false
 		soloQueueSearchSeen, queuedAlone = false, false
@@ -577,9 +596,14 @@ ArenaHistoryModule:RegisterEvent(ns.E.SOLOQ_SEARCHING, function()
 end)
 
 ArenaHistoryModule:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
-	if inArena then
-		collectParty()
+	if not inArena or GetBattlefieldWinner() then
+		return
 	end
+	if not partyConfirmed then
+		partyConfirmed = true
+		dropPendingParty()
+	end
+	collectParty()
 end)
 
 ArenaHistoryModule:RegisterEvent("ARENA_OPPONENT_UPDATE", function(_, unit)
@@ -594,8 +618,10 @@ ArenaHistoryModule:RegisterEvent("UNIT_NAME_UPDATE", function(_, unit)
 	end
 	if unit:find("^arena%d$") then
 		collectUnit(unit, 2)
-	elseif unit == "player" or unit:find("^party%d$") then
+	elseif unit == "player" then
 		collectUnit(unit, 1)
+	elseif unit:find("^party%d$") and not GetBattlefieldWinner() then
+		collectPartyUnit(unit)
 	end
 end)
 

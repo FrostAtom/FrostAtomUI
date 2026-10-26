@@ -62,6 +62,8 @@ local MAX_ARENA_OPPONENTS = 5
 
 local ourNames, enemyNames = {}, {}
 local ourSeen, enemySeen = {}, {}
+local pendingNames, pendingSeen = {}, {}
+local partyConfirmed = false
 local inArena = false
 
 local function addName(list, seen, name)
@@ -74,8 +76,12 @@ end
 
 local function collectParty()
 	addName(ourNames, ourSeen, UnitName("player"))
+	local names, seen = ourNames, ourSeen
+	if not partyConfirmed then
+		names, seen = pendingNames, pendingSeen
+	end
 	for i = 1, GetNumPartyMembers() do
-		addName(ourNames, ourSeen, UnitName("party" .. i))
+		addName(names, seen, UnitName("party" .. i))
 	end
 end
 
@@ -110,6 +116,9 @@ local function collectScores()
 			end
 		end
 	end
+	for i = 1, #pendingNames do
+		addName(ourNames, ourSeen, pendingNames[i])
+	end
 	for i = 1, numScores do
 		local name, teamIndex = scoreEntry(i)
 		if teamIndex == playerTeam then
@@ -143,6 +152,9 @@ Announcers:RegisterEvent("PLAYER_ENTERING_WORLD", function()
 		wipe(enemyNames)
 		wipe(ourSeen)
 		wipe(enemySeen)
+		wipe(pendingNames)
+		wipe(pendingSeen)
+		partyConfirmed = false
 		collectParty()
 		collectArenaUnits()
 	end
@@ -150,6 +162,9 @@ end)
 
 Announcers:RegisterEvent("PARTY_MEMBERS_CHANGED", function()
 	if inArena then
+		partyConfirmed = true
+		wipe(pendingNames)
+		wipe(pendingSeen)
 		collectParty()
 	end
 end)
