@@ -324,9 +324,15 @@ local function clearPanel(panel)
 	panel:SetScript("OnUpdate", nil)
 end
 
+local function setPanelSize(panel, config, rows)
+	local size, spacing, perRow, rowSpacing = layoutOf(panel, config)
+	panel:SetSize(perRow * (size + spacing) - spacing, max(rows, 1) * (size + rowSpacing) - rowSpacing)
+end
+
 function refresh(panel)
 	if not panel.active then
 		clearPanel(panel)
+		setPanelSize(panel, ns.Config.groupCooldowns, 0)
 		return
 	end
 	local config = ns.Config.groupCooldowns
@@ -388,7 +394,7 @@ function refresh(panel)
 		icon.owner = nil
 	end
 
-	panel:SetSize(perRow * step - spacing, max(rows, 1) * rowStep - rowSpacing)
+	setPanelSize(panel, config, rows)
 	ns.SetShown(panel, panel.active and used > 0 and isPlaced(panel))
 
 	panel.nextExpiry = nextExpiry
