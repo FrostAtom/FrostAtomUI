@@ -60,6 +60,13 @@ local UNIT_ICON_DEFAULT = "Interface\\WorldMap\\WorldMapPartyIcon"
 local COORD_FORMAT = "%s: %.1f, %.1f"
 local FADE_INTERVAL = 0.1
 
+local FULL_SCROLL_ANCHORS = {
+	[WORLDMAP_QUESTLIST_SIZE] = { WorldMapPositioningGuide, "TOP", -726, -99 },
+	[WORLDMAP_FULLMAP_SIZE] = { WorldMapPositioningGuide, "TOP", -502, -69 },
+}
+local MINI_SCROLL_ANCHOR = { WorldMapFrame, "TOPLEFT", 37, -66 }
+local MINI_ADVANCED_SCROLL_ANCHOR = { WorldMapFrame, "TOPLEFT", 19, -42 }
+
 local LAYOUT_HOOKS = {
 	"WorldMapFrame_SetFullMapView",
 	"WorldMapFrame_SetQuestMapView",
@@ -259,16 +266,20 @@ local function applyConfig()
 	end
 end
 
-local function captureDetailAnchor()
-	local point, relativeTo, relativePoint, x, y = WorldMapDetailFrame:GetPoint()
-	if not point or (relativeTo == scroll and x == 0 and y == 0) then
-		return
+local function scrollAnchor(size)
+	if size ~= WORLDMAP_WINDOWED_SIZE then
+		return FULL_SCROLL_ANCHORS[size]
 	end
-	if relativeTo == scroll then
-		relativeTo = WorldMapFrame
+	if WORLDMAP_SETTINGS.advanced then
+		return MINI_ADVANCED_SCROLL_ANCHOR
 	end
+	return MINI_SCROLL_ANCHOR
+end
+
+local function anchorScroll(size)
+	local anchor = scrollAnchor(size)
 	scroll:ClearAllPoints()
-	scroll:SetPoint(point, relativeTo, relativePoint, x, y)
+	scroll:SetPoint("TOPLEFT", anchor[1], anchor[2], anchor[3], anchor[4])
 	WorldMapDetailFrame:ClearAllPoints()
 	WorldMapDetailFrame:SetPoint("TOPLEFT", scroll, "TOPLEFT", 0, 0)
 end
@@ -276,7 +287,7 @@ end
 local function applyLayout()
 	local size = WORLDMAP_SETTINGS.size
 
-	captureDetailAnchor()
+	anchorScroll(size)
 	cursorText:ClearAllPoints()
 	playerText:ClearAllPoints()
 	if size == WORLDMAP_WINDOWED_SIZE then
