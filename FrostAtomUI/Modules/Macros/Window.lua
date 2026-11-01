@@ -1596,7 +1596,7 @@ local function createBindButton(detail, place)
 	catcher:EnableKeyboard(true)
 	catcher:EnableMouseWheel(true)
 	catcher:RegisterForClicks("AnyUp")
-	catcher:SetScript("OnKeyDown", function(_, key)
+	catcher:SetScript("OnKeyUp", function(_, key)
 		if key == "ESCAPE" then
 			stopCapture(bind)
 		elseif not IGNORED_KEYS[key] then
