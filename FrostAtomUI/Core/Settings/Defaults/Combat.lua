@@ -79,6 +79,16 @@ ns:RegisterDefaults("trackers", {
 		trackerGroup("Grounding Totem", "SHAMAN", { "CENTER", -108, 36 }, 36, 2, {
 			auraIcon("8178", true), -- Grounding Totem Effect
 		}),
+		trackerGroup("Feral timers", "DRUID", { "CENTER", 0, -32 }, 30, 2, {
+			auraIcon("48566;48564;46857;57386", false, "target"), -- Mangle (Cat), Mangle (Bear), Trauma, Stampede
+			auraIcon("48574", true, "target"), -- Rake
+			auraIcon("49800", true, "target"), -- Rip
+			auraIcon("52610", true), -- Savage Roar
+		}),
+		trackerGroup("Druid procs", "DRUID", { "CENTER", 0, -62 }, 36, 2, {
+			auraIcon("69369"), -- Predator's Swiftness
+			auraIcon("16870"), -- Clearcasting
+		}),
 	},
 })
 

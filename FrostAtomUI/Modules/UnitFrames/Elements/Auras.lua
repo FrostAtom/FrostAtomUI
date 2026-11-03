@@ -3,11 +3,9 @@ local UF = ns:GetModule("UnitFrames")
 
 local CancelUnitBuff = CancelUnitBuff
 local CancelItemTempEnchantment = CancelItemTempEnchantment
-local InCombatLockdown = InCombatLockdown
 local GameTooltip = GameTooltip
 local GetSpellInfo = GetSpellInfo
 local GetTime = GetTime
-local UIParent = UIParent
 local min, max, floor, ceil, huge, random = math.min, math.max, math.floor, math.ceil, math.huge, math.random
 local sort = table.sort
 
@@ -21,10 +19,6 @@ local config = ns.Config.unitFrames
 local MAX_AURAS = 40
 local COUNT_FONT_SCALE = 0.45
 local TIMER_FONT_SCALE = 0.38
-local SPARE_CANCEL_SLOTS = 4
-local CATCHER_LEVEL = 3
-local ENCHANT_BUTTON_LEVEL = CATCHER_LEVEL + 1
-local NO_AURA_INDEX = MAX_AURAS + 1
 local EXPIRE_CHECK_DELAY = 0.1
 local OWN_CASTERS = { player = true, pet = true, vehicle = true }
 local CLICK_THROUGH_UNITS = { targettarget = "targetOfTarget", focustarget = "focusTarget" }
@@ -134,7 +128,7 @@ local function accepts(container, aura)
 	end
 	return true
 end
-local cancelContainers = {}
+
 local hoveredIcon
 
 local function timerLimit()
@@ -180,14 +174,9 @@ local function onIconLeave(icon)
 end
 
 local function onIconClick(icon)
-	if UF.testing then
-		return
+	if not UF.testing then
+		CancelUnitBuff("player", icon.index, icon.filter)
 	end
-	if InCombatLockdown() then
-		UIErrorsFrame:AddMessage(_G.ERR_NOT_IN_COMBAT, 1, 0.1, 0.1)
-		return
-	end
-	CancelUnitBuff("player", icon.index, icon.filter)
 end
 
 local function refreshEnchantTooltip(button)
@@ -229,7 +218,6 @@ local function setEnchant(icon, enchant)
 		button:EnableMouse(icon:GetParent().mouseEnabled)
 		icon.enchantButton = button
 	end
-	button:SetFrameLevel(icon:GetParent():GetFrameLevel() + ENCHANT_BUTTON_LEVEL)
 	icon.enchantSlot = enchant.slot
 	icon.weaponIndex = enchant.weaponIndex
 	button:Show()
@@ -428,112 +416,6 @@ local function resetGrid(container)
 	container.rows = -1
 end
 
-local function onCatcherEnter(catcher)
-	local icon = catcher.container[catcher:GetID()]
-	if icon and icon:IsShown() then
-		onIconEnter(icon)
-	end
-end
-
-local function onCatcherLeave()
-	hoveredIcon = nil
-	GameTooltip:Hide()
-end
-
-local function createCatcher(container, index)
-	local catcher = CreateFrame("Button", nil, UIParent, "SecureActionButtonTemplate")
-	catcher:SetID(index)
-	catcher:RegisterForClicks("RightButtonUp")
-	catcher:SetAttribute("unit", "player")
-	catcher:SetAttribute("*type2", "cancelaura")
-	catcher:SetScript("OnEnter", onCatcherEnter)
-	catcher:SetScript("OnLeave", onCatcherLeave)
-	catcher.container = container
-	container.catchers[index] = catcher
-	return catcher
-end
-
-local function setCatcherAura(catcher, index, spell)
-	if catcher.auraIndex ~= index then
-		catcher.auraIndex = index
-		catcher:SetAttribute("index", index)
-	end
-	if catcher.auraSpell ~= spell then
-		catcher.auraSpell = spell
-		catcher:SetAttribute("spell", spell)
-	end
-end
-
-local sorters = {}
-
-local function syncCatchers(container)
-	if InCombatLockdown() then
-		container.catchersPending = true
-		return
-	end
-	container.catchersPending = nil
-
-	local catchers = container.catchers
-	local byName = sorters[config.playerBuffSort] ~= nil
-	local lead = container.enchantLead or 0
-	local active = 0
-	if not UF.testing and container.mouseEnabled and container:IsVisible() and container:GetLeft() then
-		active = min(container.limit, container.shown + (byName and 0 or SPARE_CANCEL_SLOTS))
-	end
-
-	if active > 0 then
-		local anchor = container.anchor
-		local scale = container:GetEffectiveScale() / UIParent:GetEffectiveScale()
-		local originX = anchor:find("RIGHT") and container:GetRight() or container:GetLeft()
-		local originY = anchor:find("BOTTOM") and container:GetBottom() or container:GetTop()
-		local size = container.size * scale
-		local strata, level = container:GetFrameStrata(), container:GetFrameLevel() + CATCHER_LEVEL
-		for i = 1, active do
-			local catcher = catchers[i] or createCatcher(container, i)
-			local point, x, y = UF.GridIconPoint(container, i)
-			if catcher.point ~= point then
-				catcher.point = point
-				catcher:ClearAllPoints()
-			end
-			catcher:SetPoint(point, UIParent, "BOTTOMLEFT", (originX + x) * scale, (originY + y) * scale)
-			if catcher.size ~= size then
-				catcher.size = size
-				catcher:SetSize(size, size)
-			end
-			if catcher.strata ~= strata or catcher.level ~= level then
-				catcher.strata, catcher.level = strata, level
-				catcher:SetFrameStrata(strata)
-				catcher:SetFrameLevel(level)
-			end
-			if byName then
-				local spell = container[i].spellName
-				if spell then
-					setCatcherAura(catcher, nil, spell)
-				else
-					setCatcherAura(catcher, NO_AURA_INDEX, nil)
-				end
-			elseif i > lead then
-				setCatcherAura(catcher, i - lead, nil)
-			else
-				setCatcherAura(catcher, NO_AURA_INDEX, nil)
-			end
-			catcher:Show()
-		end
-	end
-
-	for i = active + 1, #catchers do
-		catchers[i]:Hide()
-	end
-end
-
-local function queueCatchers(container)
-	if InCombatLockdown() then
-		container.catchersPending = true
-	else
-		ns.Defer(container, syncCatchers)
-	end
-end
-
 local function layoutContainer(container, shown)
 	container.shown = shown
 	local scale = ownScale(container)
@@ -546,11 +428,9 @@ local function layoutContainer(container, shown)
 		container:Layout(shown)
 	end
 	clearHidden(container, shown)
-	if container.cancellable then
-		queueCatchers(container)
-	end
 end
 
+local sorters = {}
 local sortSet
 
 function sorters.own(a, b)
@@ -614,29 +494,11 @@ end
 local enchantContainer
 local weaponEnchants, weaponEnchantCount = nil, 0
 
-local function enchantLead(container, enchantCount)
-	if not InCombatLockdown() or not container.enchantLead then
-		container.enchantLead = enchantCount
-	end
-	return container.enchantLead
-end
-
 local function showEnchant(icon, enchant)
 	icon.index = nil
-	icon.spellName = nil
 	icon.big = false
 	setEnchant(icon, enchant)
-	if enchant then
-		setIcon(icon, enchant.icon, nil, nil, enchant.duration, enchant.expires)
-	else
-		if icon.start then
-			clearCooldown(icon)
-		end
-		if icon == hoveredIcon then
-			onIconLeave(icon)
-		end
-		icon:Hide()
-	end
+	setIcon(icon, enchant.icon, nil, nil, enchant.duration, enchant.expires)
 end
 
 local updateContainer
@@ -669,24 +531,17 @@ function updateContainer(container)
 		return
 	end
 	local auras, count = Auras.Get(container.unit, container.filter)
-	local enchants, enchantCount, lead = nil, 0, 0
-	if container == enchantContainer then
-		if weaponEnchants then
-			enchants, enchantCount = weaponEnchants, weaponEnchantCount
-		end
-		lead = enchantLead(container, enchantCount)
-	end
+	local enchantCount = container == enchantContainer and weaponEnchantCount or 0
 	local order = sortedOrder(container, auras, count)
 	local enlarge = ownScale(container) ~= nil
 	local limit = container.limit
 
-	local shown = min(lead, limit)
+	local shown = min(enchantCount, limit)
 	for i = 1, shown do
-		showEnchant(acquireIcon(container, i), i <= enchantCount and enchants[i] or nil)
+		showEnchant(acquireIcon(container, i), weaponEnchants[i])
 	end
 
 	local now = GetTime()
-	local keepExpired = container.cancellable
 	local expireAt
 	for i = 1, count do
 		if shown == limit then
@@ -696,28 +551,19 @@ function updateContainer(container)
 		local aura = auras[index]
 		local duration, expires = aura.duration, aura.expires
 		local timed = duration and duration > 0
-		if (not timed or expires > now or keepExpired) and accepts(container, aura) then
+		if (not timed or expires > now) and accepts(container, aura) then
 			if timed and expires > now and not (expireAt and expireAt <= expires) then
 				expireAt = expires
 			end
 			shown = shown + 1
 			local icon = acquireIcon(container, shown)
 			icon.index = index
-			icon.spellName = aura.name
 			icon.big = enlarge and OWN_CASTERS[aura.caster] or false
 			setEnchant(icon, nil)
 			setIcon(icon, aura.icon, aura.count, aura.debuffType, duration, expires, aura.stealable)
 		end
 	end
 	scheduleExpireCheck(container, expireAt)
-
-	for i = lead + 1, enchantCount do
-		if shown == limit then
-			break
-		end
-		shown = shown + 1
-		showEnchant(acquireIcon(container, shown), enchants[i])
-	end
 
 	layoutContainer(container, shown)
 end
@@ -746,7 +592,6 @@ local function testContainer(container, spells)
 	for i = 1, shown do
 		local icon = acquireIcon(container, i)
 		icon.index = i
-		icon.spellName = nil
 		icon.big = enlarge and random(3) == 1
 		setEnchant(icon, nil)
 		local _, _, texture = GetSpellInfo(spells[random(#spells)])
@@ -768,9 +613,6 @@ local function setLimit(container, limit)
 		layoutContainer(container, 0)
 	elseif not UF.testing and container:IsVisible() then
 		updateContainer(container)
-	end
-	if container.cancellable then
-		queueCatchers(container)
 	end
 end
 
@@ -828,8 +670,6 @@ local function createContainer(frame, options, filter, isDebuff)
 	if unit == "player" and not isDebuff then
 		container.sortable = true
 		container.cancellable = true
-		container.catchers = {}
-		cancelContainers[#cancelContainers + 1] = container
 		enchantContainer = container
 	end
 	containers[#containers + 1] = container
@@ -869,12 +709,6 @@ end
 registerAuraElement("buffs", "HELPFUL", false, TEST_BUFFS)
 registerAuraElement("debuffs", "HARMFUL", true, TEST_DEBUFFS, pollAuras)
 
-local function queueAllCatchers()
-	for i = 1, #cancelContainers do
-		queueCatchers(cancelContainers[i])
-	end
-end
-
 parseSpellList(config.auraHidden, hiddenAuras)
 parseSpellList(config.auraImportant, importantAuras)
 
@@ -894,24 +728,4 @@ UF:WatchConfig("unitFrames", function()
 			updateContainer(container)
 		end
 	end
-	queueAllCatchers()
 end)
-
-UF:WatchConfig("general", queueAllCatchers)
-
-local combatEvents = ns.Mixin({}, ns.EventMixin)
-
-combatEvents:RegisterEvent("PLAYER_REGEN_ENABLED", function()
-	local container = enchantContainer
-	if container and container.enchantLead ~= weaponEnchantCount and not UF.testing and container:IsVisible() then
-		updateContainer(container)
-	end
-	for i = 1, #cancelContainers do
-		local container = cancelContainers[i]
-		if container.catchersPending then
-			syncCatchers(container)
-		end
-	end
-end)
-
-combatEvents:RegisterEvent("UI_SCALE_CHANGED", queueAllCatchers)
