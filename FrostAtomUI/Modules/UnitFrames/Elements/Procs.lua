@@ -10,6 +10,7 @@ local GetTime = GetTime
 local min, huge, random = math.min, math.huge, math.random
 local unpack, wipe = unpack, wipe
 
+local SpellTexture = ns.SpellTexture
 local ICD = ns:GetModule("InternalCooldowns")
 local CooldownTimer = ns:GetModule("CooldownTimer")
 
@@ -88,11 +89,12 @@ local function createIcon(container, index)
 	return icon
 end
 
-local function setIcon(container, index, key)
+local function setIcon(container, index, key, texture)
 	local icon = container[index] or createIcon(container, index)
-	if icon.key ~= key then
-		icon.key = key
-		icon.texture:SetTexture(ICD:GetTexture(key))
+	icon.key = key
+	if texture ~= icon.textureFile then
+		icon.textureFile = texture
+		icon.texture:SetTexture(texture)
 	end
 	icon:Show()
 	return icon
@@ -170,18 +172,18 @@ function refresh(container)
 		local keys = ICD:Collect(guid, container.keys, unknown)
 		for i = 1, #keys do
 			local key = keys[i]
-			local start, duration, auraStart, auraDuration
+			local start, duration, aura
 			if key ~= UNKNOWN then
 				start, duration = ICD:GetCooldown(guid, key)
-				auraStart, auraDuration = ICD:GetAura(guid, key)
+				aura = ICD:GetAura(guid, key)
 			end
 			if (start or not hideReady) and slotShown(guid, key) then
 				shown = shown + 1
-				local icon = setIcon(container, shown, key)
-				if auraStart then
-					if auraDuration then
-						setIconCooldown(icon, auraStart, auraDuration, true)
-						nextExpiry = min(nextExpiry, auraStart + auraDuration)
+				local icon = setIcon(container, shown, key, aura and SpellTexture(aura.spell) or ICD:GetTexture(key))
+				if aura then
+					if aura.duration then
+						setIconCooldown(icon, aura.start, aura.duration, true)
+						nextExpiry = min(nextExpiry, aura.start + aura.duration)
 					else
 						setIconCooldown(icon, start, duration, true)
 					end
@@ -229,13 +231,15 @@ local function fillTest(container)
 		local count = min(random(container.centered and 1 or 0, TEST_MAX_ICONS), #keys)
 		for _ = 1, count do
 			shown = shown + 1
-			local icon = setIcon(container, shown, keys[random(#keys)])
+			local key = keys[random(#keys)]
+			local source = ICD:GetSource(key)
 			local roll = random(3)
+			local texture = roll == 1 and SpellTexture(source.spell) or ICD:GetTexture(key)
+			local icon = setIcon(container, shown, key, texture)
 			if roll == 1 then
 				setIconCooldown(icon, now - random(0, TEST_AURA_DURATION - 5), TEST_AURA_DURATION, true)
 			elseif roll == 2 then
-				local duration = ICD:GetSource(icon.key).cd
-				setIconCooldown(icon, now - random(0, duration - 5), duration)
+				setIconCooldown(icon, now - random(0, source.cd - 5), source.cd)
 			else
 				setIconCooldown(icon, nil)
 			end
@@ -243,7 +247,7 @@ local function fillTest(container)
 		if container.kind == "arena" and config.unknownTrinkets and config.slots.trinket then
 			for _ = count + 1, MAX_UNKNOWN do
 				shown = shown + 1
-				setIconCooldown(setIcon(container, shown, UNKNOWN), nil)
+				setIconCooldown(setIcon(container, shown, UNKNOWN, ICD:GetTexture(UNKNOWN)), nil)
 			end
 		end
 	end
