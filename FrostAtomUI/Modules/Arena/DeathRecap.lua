@@ -16,6 +16,7 @@ local FauxScrollFrame_OnVerticalScroll = FauxScrollFrame_OnVerticalScroll
 local FauxScrollFrame_GetOffset = FauxScrollFrame_GetOffset
 local FauxScrollFrame_SetOffset = FauxScrollFrame_SetOffset
 local COMBATLOG_OBJECT_TYPE_PLAYER = COMBATLOG_OBJECT_TYPE_PLAYER
+local COMBATLOG_OBJECT_AFFILIATION_OUTSIDER = COMBATLOG_OBJECT_AFFILIATION_OUTSIDER
 local floor = math.floor
 local min = math.min
 local max = math.max
@@ -47,8 +48,6 @@ local TOMBSTONE_SIZE = 16
 local TOMBSTONE_ICON = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull"
 local ENVIRONMENT_ICON = "Interface\\Icons\\Ability_Creature_Cursed_05"
 local MELEE_SPELL = 6603 -- Auto Attack
-local FEIGN_DEATH = 5384 -- Feign Death
-local FEIGN_WINDOW = 1
 local NO_ENTRIES = {}
 
 local FIXED_ICONS = {
@@ -126,7 +125,6 @@ local ENTRY_FIELDS = {
 local playerGUID
 local buffers = {}
 local units = {}
-local feignedAt = {}
 local trackArena = false
 
 local recaps = {}
@@ -201,11 +199,17 @@ end
 
 local onUnitDied
 
+-- 3.3.5: Feign Death also logs UNIT_DIED and looks dead outside the group, only PARTY_KILL proves an enemy hunter died
+local function isEnemyHunter(guid, flags)
+	local _, class = GetPlayerInfoByGUID(guid)
+	return class == "HUNTER" and band(flags, COMBATLOG_OBJECT_AFFILIATION_OUTSIDER) ~= 0
+end
+
 local function onCombatLogEvent(
 	_,
 	_,
 	event,
-	sourceGUID,
+	_,
 	sourceName,
 	_,
 	destGUID,
@@ -222,30 +226,21 @@ local function onCombatLogEvent(
 	a9,
 	a10
 )
-	if event == "SPELL_CAST_SUCCESS" or event == "SPELL_AURA_APPLIED" then
-		if a1 == FEIGN_DEATH and trackArena then
-			feignedAt[event == "SPELL_CAST_SUCCESS" and sourceGUID or destGUID] = GetTime()
-		end
-		if
-			event == "SPELL_CAST_SUCCESS"
-			or a4 ~= "DEBUFF"
-			or not ns.Config.deathRecap.control
-			or not SpellDB.Control(a1)
-		then
-			return
-		end
-	end
 	if destGUID ~= playerGUID then
 		if not trackArena or band(destFlags, COMBATLOG_OBJECT_TYPE_PLAYER) == 0 then
 			return
 		end
-		if event == "UNIT_DIED" then
-			onUnitDied(destGUID, destName)
+		if event == "UNIT_DIED" or event == "PARTY_KILL" then
+			if (event == "PARTY_KILL") == isEnemyHunter(destGUID, destFlags) then
+				onUnitDied(destGUID, destName)
+			end
 			return
 		end
 	end
 	if event == "SPELL_AURA_APPLIED" then
-		recordOther(destGUID, "control", sourceName, a1, a2, 0)
+		if a4 == "DEBUFF" and ns.Config.deathRecap.control and SpellDB.Control(a1) then
+			recordOther(destGUID, "control", sourceName, a1, a2, 0)
+		end
 		return
 	end
 	if HEAL_EVENTS[event] then
@@ -672,17 +667,9 @@ local function onPlayerDead()
 	end
 end
 
-local function isFeigning(guid)
-	local unit = unitFor(guid)
-	if unit and (UnitIsFeignDeath(unit) or UnitHealth(unit) > 0) then
-		return true
-	end
-	local feigned = feignedAt[guid]
-	return feigned and GetTime() - feigned < FEIGN_WINDOW
-end
-
 function onUnitDied(guid, name)
-	if isFeigning(guid) then
+	local unit = unitFor(guid)
+	if unit and UnitIsFeignDeath(unit) then
 		return
 	end
 	name = name or UNKNOWN
@@ -710,7 +697,6 @@ local function updateZone()
 			end
 		end
 		wipe(units)
-		wipe(feignedAt)
 	end
 end
 
