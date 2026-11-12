@@ -178,10 +178,16 @@ local EQUIVALENCIES = {
 		-58180, -- Infected Wounds
 	},
 	healingreduced = {
-		-12294, -- Mortal Strike
-		-13219, -- Wound Poison
-		-19434, -- Aimed Shot
-		-46910, -- Furious Attacks
+		12294, -- Mortal Strike
+		19434, -- Aimed Shot
+		56112, -- Furious Attacks
+		13218, -- Wound Poison
+		13222, -- Wound Poison II
+		13223, -- Wound Poison III
+		13224, -- Wound Poison IV
+		27189, -- Wound Poison V
+		57974, -- Wound Poison VI
+		57975, -- Wound Poison VII
 	},
 	immune = {
 		-642, -- Divine Shield

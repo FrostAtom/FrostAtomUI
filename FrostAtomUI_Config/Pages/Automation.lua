@@ -89,12 +89,7 @@ Section(schema, L["Group and invites"], "popups", {
 }, nil, nil, "user-plus")
 
 Section(schema, L["Death"], "popups", {
-	{
-		path = "autoRelease",
-		label = L["Auto release in battlegrounds"],
-		type = "toggle",
-		desc = L["Release spirit 1.5 s after death in a battleground. Hold Shift to stay dead, e.g. for a battle resurrection."],
-	},
+	{ path = "autoRelease", label = L["Auto release in battlegrounds"], type = "toggle" },
 }, nil, nil, "skull")
 
 Section(schema, L["Trades and duels"], "popups", {

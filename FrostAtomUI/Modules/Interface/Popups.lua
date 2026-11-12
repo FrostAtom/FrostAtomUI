@@ -83,13 +83,7 @@ end
 
 local function autoRelease()
 	local _, instanceType = IsInInstance()
-	if
-		instanceType == "pvp"
-		and UnitIsDead("player")
-		and StaticPopup_Visible("DEATH")
-		and not HasSoulstone()
-		and not IsShiftKeyDown()
-	then
+	if instanceType == "pvp" and UnitIsDead("player") and StaticPopup_Visible("DEATH") and not HasSoulstone() then
 		StaticPopupDialogs.DEATH.OnAccept()
 	end
 end

@@ -343,7 +343,6 @@ ns.SetLocale("ruRU", {
 	["PvP flag icon"] = "Иконка режима PvP",
 	["Raid target icon size"] = "Размер метки рейда",
 	["Raid target icon"] = "Метка рейда",
-	["Release spirit 1.5 s after death in a battleground. Hold Shift to stay dead, e.g. for a battle resurrection."] = "Освобождать дух через 1,5 с после смерти на поле боя. Зажмите Shift, чтобы остаться, например для боевого воскрешения.",
 	["Repair all gear when you can afford it."] = "Чинить всё снаряжение, если хватает денег.",
 	["FrostAtom UI action bars instead of Blizzard's. Turning them off or on asks what to do with the Blizzard bars."] = "Панели команд FrostAtom UI вместо стандартных. При выключении и включении спросит, что делать с панелями Blizzard.",
 	["Turn off FrostAtom UI action bars?\n\nBlizzard's action bars are hidden right now."] = "Выключить панели команд FrostAtom UI?\n\nСтандартные панели Blizzard сейчас скрыты.",

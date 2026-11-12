@@ -45,6 +45,10 @@ ns:RegisterDefaults("trackers", {
 			auraIcon("52437"), -- Sudden Death
 			auraIcon("60503"), -- Taste for Blood
 		}),
+		trackerGroup("Warrior timers", "WARRIOR", { "CENTER", 0, -32 }, 30, 2, {
+			auraIcon("47465", true, "target"), -- Rend
+			auraIcon("#healingreduced", false, "target"),
+		}),
 		trackerGroup("Infusion of Light", "PALADIN", { "CENTER", 0, -62 }, 36, 2, {
 			auraIcon("54149"), -- Infusion of Light
 		}),
