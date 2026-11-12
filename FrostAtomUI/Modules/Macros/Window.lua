@@ -29,6 +29,7 @@ local LIST_ROWS = 3
 local COLUMN_WIDTH = 51
 local ROW_HEIGHT = 46
 local BUTTON_HEIGHT = 22
+local STUB_ALPHA = 0.45
 local EDITOR = {
 	WIDTH = 500,
 	HEIGHT = 225,
@@ -133,7 +134,7 @@ local frame
 local tab = "account"
 local selection = {}
 local entries = {}
-local hiddenStubs = 0
+local stubEntries = {}
 local editorEntry, editorRaw, analysis
 local gameDirty = false
 local rendering = false
@@ -225,10 +226,9 @@ end
 
 local function collectEntries()
 	wipe(entries)
-	hiddenStubs = 0
+	wipe(stubEntries)
 	if isGame() then
-		local _, hidden = Macros.GameIndices(tab, entries)
-		hiddenStubs = hidden
+		Macros.GameIndices(tab, entries, stubEntries)
 	else
 		local list = Macros.GetList(tab)
 		for i = 1, #list do
@@ -788,7 +788,7 @@ end
 local function slotCount()
 	local limit = GAME_LIMITS[tab]
 	if limit then
-		return max(#entries, limit - hiddenStubs)
+		return max(#entries, limit)
 	end
 	return max(LIST_ROWS, ceil(#entries / COLUMNS)) * COLUMNS
 end
@@ -815,11 +815,14 @@ function refreshList()
 			cell.key:SetText(key and keyLabel(key, true) or "")
 			cell:SetChecked(entry == current)
 		else
-			cell.icon:SetTexture(nil)
+			local stub = stubEntries[index - #entries]
+			cell.icon:SetTexture(stub and entryIcon(stub) or nil)
 			cell.name:SetText("")
 			cell.key:SetText("")
 			cell:SetChecked(nil)
 		end
+		cell.icon:SetDesaturated(not entry)
+		cell.icon:SetAlpha(entry and 1 or STUB_ALPHA)
 	end
 	FauxScrollFrame_Update(
 		frame.listScroll,

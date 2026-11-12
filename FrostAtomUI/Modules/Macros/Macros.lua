@@ -3,7 +3,7 @@ local L = ns.L
 
 local strbyte, strgsub, strmatch, strlower, strrep, gmatch =
 	string.byte, string.gsub, string.match, string.lower, string.rep, string.gmatch
-local tconcat, tremove, max = table.concat, table.remove, math.max
+local tconcat, tremove, sort, max = table.concat, table.remove, table.sort, math.max
 local InCombatLockdown = InCombatLockdown
 local GetBindingKey, SetBinding, SetBindingClick, SetBindingMacro, SaveBindings, GetCurrentBindingSet =
 	GetBindingKey, SetBinding, SetBindingClick, SetBindingMacro, SaveBindings, GetCurrentBindingSet
@@ -38,7 +38,7 @@ local stubHeaders = {}
 local iconIndex
 
 local function charKey()
-	return UnitName("player") .. " - " .. GetRealmName()
+	return UnitName("player") .. " - " .. UnitGUID("player")
 end
 
 function Macros.Encode(text)
@@ -166,21 +166,17 @@ function Macros.IsLinkedStub(index)
 	return id ~= nil and Macros.FindById(id) ~= nil
 end
 
-function Macros.GameIndices(scope, out)
+function Macros.GameIndices(scope, macros, stubs)
 	local numAccount, numCharacter = GetNumMacros()
 	local first, last = 1, numAccount
 	if scope == "gameChar" then
 		first, last = MAX_ACCOUNT + 1, MAX_ACCOUNT + numCharacter
 	end
-	local hidden = 0
 	for index = first, last do
-		if Macros.IsLinkedStub(index) then
-			hidden = hidden + 1
-		else
-			out[#out + 1] = index
-		end
+		local out = Macros.IsLinkedStub(index) and stubs or macros
+		out[#out + 1] = index
 	end
-	return out, hidden
+	return macros, stubs
 end
 
 local function gameNames(skip)
@@ -496,7 +492,7 @@ function Macros.PlaceOnBar(macro)
 	stubHeaders[macro.id] = body
 	local index = Macros.FindStub(macro)
 	if index then
-		EditMacro(index, stubName(macro), iconIndexOf(macro.icon), body)
+		index = EditMacro(index, stubName(macro), iconIndexOf(macro.icon), body)
 	else
 		local perCharacter = Macros.ScopeOf(macro) == "char" and gameSlotFree("gameChar")
 		if not perCharacter and not gameSlotFree("gameAccount") then
@@ -566,7 +562,7 @@ end
 
 function Macros.ScopeItems(scope, items)
 	if GAME_SCOPES[scope] then
-		local indices = Macros.GameIndices(scope, {})
+		local indices = Macros.GameIndices(scope, {}, {})
 		for i = 1, #indices do
 			items[#items + 1] = Macros.ExportItem(scope, indices[i])
 		end
@@ -586,7 +582,7 @@ end
 function Macros.Match(item)
 	local scope = item.scope
 	if GAME_SCOPES[scope] then
-		local indices = Macros.GameIndices(scope, {})
+		local indices = Macros.GameIndices(scope, {}, {})
 		for i = 1, #indices do
 			local name, _, body = GetMacroInfo(indices[i])
 			if strtrim(name) == item.name and Parser.Decode(body or "") == item.body then
@@ -730,19 +726,41 @@ end
 
 local macrosSlot = ns.Storage.Claim("macros", "Macros", "settings")
 
-Macros:OnInitialize(function(self)
+local function byId(a, b)
+	return a.id < b.id
+end
+
+local function adoptRealmLists(list)
+	local prefix = UnitName("player") .. " - "
+	for key, old in pairs(store.chars) do
+		if key:sub(1, #prefix) == prefix and not strmatch(key, "^0x%x+$", #prefix + 1) then
+			for i = 1, #old do
+				list[#list + 1] = old[i]
+			end
+			store.chars[key] = nil
+		end
+	end
+	sort(list, byId)
+end
+
+local function loadLists()
 	store = migrate(macrosSlot:Get() or {})
 	macrosSlot:Set(store)
 	local key = charKey()
-	store.chars[key] = store.chars[key] or {}
-	lists = { account = store.account, char = store.chars[key] }
+	local charList = store.chars[key] or {}
+	adoptRealmLists(charList)
+	store.chars[key] = charList
+	lists = { account = store.account, char = charList }
 
 	for _, list in pairs(lists) do
 		for i = 1, #list do
-			self.Apply(list[i])
+			Macros.Apply(list[i])
 		end
 	end
+end
 
+Macros:OnInitialize(function(self)
+	self:RegisterEvent("PLAYER_LOGIN", loadLists)
 	self:RegisterEvent("SPELLS_CHANGED", onSpellsChanged)
 	self:RegisterEvent("COMPANION_LEARNED", onSpellsChanged)
 	self:RegisterEvent("BAG_UPDATE", function()

@@ -181,7 +181,7 @@ local exporters = {}
 function exporters.macros(data)
 	local refs = {}
 	for _, scope in ipairs(MACRO_SCOPES) do
-		local entries = scope:find("^game") and Macros.GameIndices(scope, {}) or Macros.GetList(scope) or {}
+		local entries = scope:find("^game") and Macros.GameIndices(scope, {}, {}) or Macros.GetList(scope) or {}
 		for i = 1, #entries do
 			refs[#refs + 1] = macroRef(data.macroDefs, scope, entries[i])
 		end

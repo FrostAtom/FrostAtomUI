@@ -96,7 +96,7 @@ local TOGGLE_SNIPPET = [[
 ]]
 
 local window, exitButton
-local gameIndices = {}
+local gameIndices, gameStubs = {}, {}
 local GAME_LIMITS = { gameAccount = Macros.MAX_ACCOUNT, gameChar = Macros.MAX_CHARACTER }
 
 local function setData(name, value)
@@ -143,6 +143,9 @@ function SecureList.AddCells(cells, columns, rows)
 		window:SetFrameRef("cell" .. i, cell)
 	end
 	window:SetAttribute("render", RENDER_SNIPPET:format(rows, columns, columns, columns, rows, #cells, columns))
+	for key, limit in pairs(GAME_LIMITS) do
+		window:SetAttribute("min-" .. key, limit)
+	end
 	window:Execute(SETUP_SNIPPET:format(#cells))
 end
 
@@ -199,11 +202,11 @@ function SecureList.Push(tab, offset)
 	if window.syncing or InCombatLockdown() then
 		return
 	end
-	for key, limit in pairs(GAME_LIMITS) do
+	for key in pairs(GAME_LIMITS) do
 		wipe(gameIndices)
-		local indices, hidden = Macros.GameIndices(key, gameIndices)
+		wipe(gameStubs)
+		local indices = Macros.GameIndices(key, gameIndices, gameStubs)
 		setData("count-" .. key, #indices)
-		setData("min-" .. key, limit - hidden)
 		for i = 1, #indices do
 			setData(("stub-%s-%d"):format(key, i), indices[i])
 		end
