@@ -84,6 +84,12 @@ UnitName = function(unit)
 		return "Tester"
 	end
 end
+M.playerGUID = "0x0000000000000001"
+UnitGUID = function(unit)
+	if unit == "player" then
+		return M.playerGUID
+	end
+end
 UnitClass = function()
 	return "Mage", "MAGE"
 end

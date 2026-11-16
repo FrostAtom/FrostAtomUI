@@ -50,7 +50,7 @@ local searchResults = {}
 local frames = {}
 local slotLocks = {}
 local savedLocks
-local charKey, moneyKey
+local moneyKey
 local retryScheduled = false
 
 P.bagFrames = bagFrames
@@ -161,6 +161,7 @@ local function saveMoney()
 	gold[moneyKey] = entry
 	entry.money = GetMoney()
 	entry.class = ns.PLAYER_CLASS
+	entry.name, entry.realm = UnitName("player"), GetRealmName()
 end
 
 local lastCounts, currentCounts = {}, {}
@@ -431,15 +432,24 @@ local function closeAllBags()
 	return wasShown
 end
 
+local function adoptGold()
+	local gold = ns.Storage.Slot("gold"):Table()
+	gold[GetRealmName() .. "|" .. UnitName("player")] = nil
+	for key, entry in pairs(gold) do
+		if entry.realm == nil then
+			entry.realm, entry.name = key:match("^(.-)|(.+)$")
+		end
+	end
+end
+
 local function loadSaved()
-	local playerRealm = GetRealmName()
-	P.playerRealm = playerRealm
-	local name = UnitName("player")
-	charKey = name .. " - " .. playerRealm
-	moneyKey = playerRealm .. "|" .. name
+	P.playerRealm = GetRealmName()
+	local charKey = ns.Character.Key()
+	moneyKey = charKey
+	adoptGold()
 
 	local locks = ns.Storage.Slot("bagLocks"):Table()
-	savedLocks = locks[charKey] or {}
+	savedLocks = ns.Character.Adopt(locks) or {}
 	locks[charKey] = savedLocks
 	for key in pairs(savedLocks) do
 		local bag, slot = key:match("^(-?%d+):(%d+)$")
@@ -451,7 +461,7 @@ local function loadSaved()
 	end
 
 	local caches = ns.Storage.Slot("bankCache"):Table()
-	local bankCache = caches[charKey] or {}
+	local bankCache = ns.Character.Adopt(caches) or {}
 	P.bankCache = bankCache
 	caches[charKey] = bankCache
 end

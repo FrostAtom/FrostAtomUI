@@ -453,9 +453,8 @@ function ns.ExplainOnce(key)
 		store = explainedSlot:Table()
 	else
 		local chars = explainedCharsSlot:Table()
-		local char = UnitName("player") .. " - " .. GetRealmName()
-		store = chars[char] or {}
-		chars[char] = store
+		store = ns.Character.Adopt(chars) or {}
+		chars[ns.Character.Key()] = store
 	end
 	if not store[key] then
 		store[key] = true

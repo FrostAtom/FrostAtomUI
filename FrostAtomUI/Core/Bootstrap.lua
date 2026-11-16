@@ -56,6 +56,11 @@ loader:RegisterEvent("ADDON_LOADED", function(self, addonName)
 	self:UnregisterEvent("ADDON_LOADED")
 	ns.Storage.Load()
 	ns.ApplyLocale(ns.Storage.Slot("locale"):Get(), ns.Media.font)
+end)
+
+-- Per-character data is keyed by the GUID; on the first login UnitGUID("player") is nil until PLAYER_LOGIN.
+loader:RegisterEvent("PLAYER_LOGIN", function(self)
+	self:UnregisterEvent("PLAYER_LOGIN")
 	ns:Fire(ns.E.DB_LOADED)
 	ns.InitializeModules()
 end)

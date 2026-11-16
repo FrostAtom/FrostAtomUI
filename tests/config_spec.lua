@@ -618,4 +618,24 @@ return function(ns, env, R)
 		expect.eq(db.profiles.Main.minimap.size, 207, "still the active profile")
 		expect.eq(ns:RenameProfile("Main", "Main"), false)
 	end)
+
+	test("Characters are keyed by the GUID: a rename keeps the profile, old name keys are adopted", function()
+		local guid = env.playerGUID
+		local db = freshLogin({
+			profiles = { Default = {}, Main = {}, Arena = {} },
+			charProfile = { ["Tester - TestRealm"] = "Main" },
+			specProfiles = { ["Tester - TestRealm"] = { [2] = "Main" } },
+		})
+		expect.eq(ns:GetActiveProfile(), "Main", "adopted from the name key")
+		expect.eq(db.charProfile[guid], "Main")
+		expect.eq(db.charProfile["Tester - TestRealm"], nil)
+		expect.eq(ns:GetSpecProfile(2), "Main")
+
+		db = freshLogin({
+			profiles = { Default = {}, Main = {}, Arena = {} },
+			charProfile = { [guid] = "Arena", ["Tester - TestRealm"] = "Main" },
+		})
+		expect.eq(ns:GetActiveProfile(), "Arena", "the GUID entry wins, the name does not matter")
+		expect.eq(db.charProfile["Tester - TestRealm"], nil)
+	end)
 end

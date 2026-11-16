@@ -37,10 +37,6 @@ local pending = {}
 local stubHeaders = {}
 local iconIndex
 
-local function charKey()
-	return UnitName("player") .. " - " .. UnitGUID("player")
-end
-
 function Macros.Encode(text)
 	return (strgsub(text, "|", "||"))
 end
@@ -730,14 +726,17 @@ local function byId(a, b)
 	return a.id < b.id
 end
 
-local function adoptRealmLists(list)
-	local prefix = UnitName("player") .. " - "
-	for key, old in pairs(store.chars) do
-		if key:sub(1, #prefix) == prefix and not strmatch(key, "^0x%x+$", #prefix + 1) then
+local function adoptLegacyLists(chars, list, key)
+	local guidSuffix = " - " .. key
+	local realmPrefix = UnitName("player") .. " - "
+	for oldKey, old in pairs(chars) do
+		local byGuid = oldKey:sub(-#guidSuffix) == guidSuffix
+		local byRealm = oldKey:sub(1, #realmPrefix) == realmPrefix and not strmatch(oldKey, "^0x%x+$", #realmPrefix + 1)
+		if byGuid or byRealm then
 			for i = 1, #old do
 				list[#list + 1] = old[i]
 			end
-			store.chars[key] = nil
+			chars[oldKey] = nil
 		end
 	end
 	sort(list, byId)
@@ -746,9 +745,9 @@ end
 local function loadLists()
 	store = migrate(macrosSlot:Get() or {})
 	macrosSlot:Set(store)
-	local key = charKey()
+	local key = ns.Character.Key()
 	local charList = store.chars[key] or {}
-	adoptRealmLists(charList)
+	adoptLegacyLists(store.chars, charList, key)
 	store.chars[key] = charList
 	lists = { account = store.account, char = charList }
 
@@ -760,7 +759,7 @@ local function loadLists()
 end
 
 Macros:OnInitialize(function(self)
-	self:RegisterEvent("PLAYER_LOGIN", loadLists)
+	loadLists()
 	self:RegisterEvent("SPELLS_CHANGED", onSpellsChanged)
 	self:RegisterEvent("COMPANION_LEARNED", onSpellsChanged)
 	self:RegisterEvent("BAG_UPDATE", function()

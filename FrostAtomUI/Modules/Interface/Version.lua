@@ -10,7 +10,6 @@ local IsInInstance = IsInInstance
 local IsInGuild = IsInGuild
 local UnitName = UnitName
 local UnitLevel = UnitLevel
-local GetRealmName = GetRealmName
 local UnitIsPlayer = UnitIsPlayer
 local UnitIsUnit = UnitIsUnit
 local UnitFactionGroup = UnitFactionGroup
@@ -223,13 +222,14 @@ local lastSlot = ns.Storage.Claim("lastVersion", "Version", "state")
 local seenSlot = ns.Storage.Claim("seenRelease", "Version", "ui")
 
 local function newPlayerLogin()
-	local key = UnitName("player") .. " - " .. GetRealmName()
+	local key = ns.Character.Key()
 	local logins = loginsSlot:Table()
+	local count = ns.Character.Adopt(logins)
 	if UnitLevel("player") >= NEW_PLAYER_LEVEL then
 		logins[key] = nil
 		return false
 	end
-	local count = (logins[key] or 0) + 1
+	count = (count or 0) + 1
 	logins[key] = count
 	return count <= NEW_PLAYER_LOGINS
 end

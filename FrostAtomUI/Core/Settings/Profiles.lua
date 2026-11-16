@@ -13,11 +13,8 @@ local charSlot = ns.Storage.Claim("charProfile", "Settings", "settings")
 local defaultSlot = ns.Storage.Claim("defaultProfile", "Settings", "settings")
 local freshSlot = ns.Storage.Claim("freshInstall", "Settings", "state")
 local legacySlot = ns.Storage.Claim("config", "Settings", "migrations")
+local specSlot = ns.Storage.Claim("specProfiles", "Settings", "settings")
 local LEGACY_EXPORT_PREFIX = "FAUI1:"
-
-local function charKey()
-	return UnitName("player") .. " - " .. GetRealmName()
-end
 
 local function activate(name)
 	local profiles = profilesSlot:Get()
@@ -25,7 +22,7 @@ local function activate(name)
 		profiles[name] = {}
 	end
 	Store.Bind(name, profiles[name])
-	charSlot:Get()[charKey()] = name
+	charSlot:Get()[ns.Character.Key()] = name
 	rebuildFromSaved()
 end
 
@@ -232,25 +229,25 @@ Store.module:RegisterEvent(ns.E.DB_LOADED, function()
 	elseif version < Store.SCHEMA_VERSION then
 		Store.UpgradeSaved(version)
 	end
-	activate(charSlot:Get()[charKey()] or ns:GetDefaultProfile())
+	ns.Character.Adopt(specSlot:Table())
+	activate(ns.Character.Adopt(charSlot:Get()) or ns:GetDefaultProfile())
 	ns.ApplyGeneralConfig()
 	ns:Fire(ns.E.CONFIG_CHANGED)
 end)
 
-local specSlot = ns.Storage.Claim("specProfiles", "Settings", "settings")
 local SPEC_LINK = "faprofile"
 local pendingSpec = false
 
 function ns:GetSpecProfile(group)
-	local map = specSlot:Table()[charKey()]
+	local map = specSlot:Table()[ns.Character.Key()]
 	return map and map[group]
 end
 
 function ns:SetSpecProfile(group, name)
 	local all = specSlot:Table()
-	local map = all[charKey()] or {}
+	local map = all[ns.Character.Key()] or {}
 	map[group] = name ~= "" and name or nil
-	all[charKey()] = next(map) and map or nil
+	all[ns.Character.Key()] = next(map) and map or nil
 	ns:Fire(ns.E.PROFILES_CHANGED)
 end
 

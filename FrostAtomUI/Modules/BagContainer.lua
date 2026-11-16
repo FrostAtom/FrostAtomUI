@@ -392,10 +392,9 @@ local function onMoneyEnter(self)
 	local gold = ns.Storage.Slot("gold"):Get()
 	if config.altGold and gold then
 		local playerRealm = P.playerRealm
-		for key, entry in pairs(gold) do
-			local realm, name = key:match("^(.-)|(.+)$")
-			if realm == playerRealm and entry.money then
-				moneyEntries[#moneyEntries + 1] = { name = name, money = entry.money, class = entry.class }
+		for _, entry in pairs(gold) do
+			if entry.realm == playerRealm and entry.money then
+				moneyEntries[#moneyEntries + 1] = entry
 			end
 		end
 		tsort(moneyEntries, sortByMoney)
